@@ -105,8 +105,11 @@ made with that deletion risk in view, not skipped.
 
 ## Clean-baseline validation run
 
-Run the ticket's approved focused validation, at minimum, against the freshly
-created worktree at the verified base, before making any implementation edit.
+Run the ticket's approved focused validation, at minimum, at the verified base,
+before making any implementation edit — against the freshly created worktree
+when one exists, or against the current checkout when the sandbox fallback
+applies. The isolation path taken does not change this requirement; nothing
+about branch-only isolation makes the base any more likely to already be broken.
 
 *Prevents:* the change-demonstrating-test evidence and the acceptance ledger
 both depend on a base-failing/head-passing or red-at-base/green-at-head
@@ -114,7 +117,10 @@ comparison. A base that is already broken invalidates that comparison silently �
 a failure discovered mid-implementation cannot be attributed to the base or to
 the change without a validation run recorded against the base first, and
 re-establishing that baseline after edits have already started is no longer a
-clean before/after comparison.
+clean before/after comparison. Scoping this only to "the freshly created
+worktree" would leave the sandbox-fallback path — already carrying a weaker
+isolation guarantee — with no textual instruction to validate the base at all,
+silently dropping the same protection where it is needed at least as much.
 
 ## Provenance-scoped cleanup
 

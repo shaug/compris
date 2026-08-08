@@ -520,9 +520,8 @@ class ImplementTicketContractTests(unittest.TestCase):
             "does not match an existing convention is a novel placement",
             "`git rev-parse --show-superproject-working-tree`",
             "`git check-ignore -v <intended-worktree-path>`",
-            "Run the ticket's approved focused validation, at minimum, "
-            "against the freshly created worktree at the verified base, "
-            "before making any implementation edit",
+            "Run the ticket's approved focused validation, at minimum, at "
+            "the verified base, before making any implementation edit",
             "remove only the worktree this run itself created, at the exact "
             "path recorded during this step",
             "Never enumerate a convention directory and remove every entry "
@@ -557,6 +556,27 @@ class ImplementTicketContractTests(unittest.TestCase):
         self.assertIn(
             "only standalone execution, which that same rule already "
             "permits to mutate the primary context, may fall back in place",
+            surface,
+        )
+
+    def test_clean_baseline_run_covers_the_sandbox_fallback_path_too(self):
+        """A second fresh review-code-change pass (after the delegated-
+        exclusivity fix) raised one `strong_recommendation` correctness
+        finding: the clean-baseline mechanic was scoped only to "the freshly
+        created worktree", so an agent following the sandbox-fallback path
+        had no textual instruction to validate the base before implementing —
+        the same silent-corruption risk the mechanic exists to prevent, left
+        unaddressed in the one path with an already-weaker isolation
+        guarantee. Fixed by extending the requirement to the current
+        checkout when the fallback applies."""
+        surface = self.worktree_isolation_compact
+        self.assertIn(
+            "against the freshly created worktree when one exists, or "
+            "against the current checkout when the sandbox fallback applies",
+            surface,
+        )
+        self.assertIn(
+            "The isolation path taken does not change this requirement",
             surface,
         )
 
