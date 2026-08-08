@@ -21,7 +21,10 @@ returning a terminal handoff.
     branch. When a remote branch is gone, compare it with the recorded PR head.
 07. If a pushed branch exists, confirm it did not advance beyond the recorded PR
     head and that the recorded result is represented on the base.
-08. Remove only a clean disposable worktree. Never force removal.
+08. Remove only a clean disposable worktree, scoped to
+    [provenance-scoped cleanup](worktree-isolation.md#provenance-scoped-cleanup):
+    the exact worktree this run created, at its recorded path. Never force
+    removal and never sweep a convention directory by naming pattern.
 09. Delete only verified merged local feature branches, then their remote
     branches when policy and authority permit.
 10. Prune worktree metadata and verify the intended path and branches are gone.

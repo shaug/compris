@@ -47,10 +47,14 @@ class ImplementTicketContractTests(unittest.TestCase):
             SKILL_ROOT / "references" / "review-fix-loop-handoff.md"
         )
         cls.result = read(SKILL_ROOT / "references" / "cleanup-and-result.md")
+        cls.worktree_isolation = read(
+            SKILL_ROOT / "references" / "worktree-isolation.md"
+        )
         cls.skill_compact = compact(cls.skill)
         cls.handoff_compact = compact(cls.handoff)
         cls.review_fix_loop_handoff_compact = compact(cls.review_fix_loop_handoff)
         cls.result_compact = compact(cls.result)
+        cls.worktree_isolation_compact = compact(cls.worktree_isolation)
         cls.eval_contract = compact(
             read(SKILL_ROOT / "evals" / "cases.json")
             + read(SKILL_ROOT / "evals" / "expectations.json")
@@ -64,6 +68,7 @@ class ImplementTicketContractTests(unittest.TestCase):
             + cls.carve_handoff
             + cls.review_fix_loop_handoff
             + cls.result
+            + cls.worktree_isolation
         )
         cls.cases = {
             item["id"]: item
@@ -480,6 +485,61 @@ class ImplementTicketContractTests(unittest.TestCase):
         self.assertIn("final changeset PR", contract)
         self.assertIn("The operator decides", contract)
         self.assertNotIn("few hundred", contract)
+
+    def test_worktree_isolation_reference_is_always_loaded(self):
+        """Step 1 is unconditional, so its reference must be an "Always read"
+        entry, matching the other always-loaded handoffs in this list."""
+        self.assertIn(
+            "Always read [worktree isolation mechanics]"
+            "(references/worktree-isolation.md) before creating exclusive "
+            "implementation state",
+            self.skill_compact,
+        )
+        self.assertIn(
+            "following [worktree isolation mechanics]"
+            "(references/worktree-isolation.md)",
+            self.skill_compact,
+        )
+
+    def test_worktree_isolation_covers_every_required_mechanic(self):
+        """Ticket #134's acceptance criterion: native-tool preference, the
+        sandbox fallback, placement precedence, the two guards, the
+        clean-baseline run, and provenance-scoped cleanup, each with its
+        failure mode."""
+        surface = self.worktree_isolation_compact
+        for required in (
+            "Check the available tool listing for a harness-provided worktree "
+            "or isolation tool before reaching for raw `git worktree` commands",
+            "Fall back to working in place: isolate the candidate by branch "
+            "alone inside the current checkout",
+            "record the degraded isolation explicitly in the run's evidence",
+            "an explicit location named in caller or coordinator instructions",
+            "an existing convention directory the repository or host "
+            "environment already uses for worktrees",
+            "Creating a worktree at a location that was not requested and "
+            "does not match an existing convention is a novel placement",
+            "`git rev-parse --show-superproject-working-tree`",
+            "`git check-ignore -v <intended-worktree-path>`",
+            "Run the ticket's approved focused validation, at minimum, "
+            "against the freshly created worktree at the verified base, "
+            "before making any implementation edit",
+            "remove only the worktree this run itself created, at the exact "
+            "path recorded during this step",
+            "Never enumerate a convention directory and remove every entry "
+            "matching a naming pattern",
+        ):
+            self.assertIn(required, surface)
+        # Each of the six mechanics states its own failure mode.
+        self.assertGreaterEqual(surface.count("*Prevents:*"), 6)
+
+    def test_cleanup_defers_to_the_provenance_rule_instead_of_restating_it(self):
+        """One owner per rule: cleanup-and-result.md points at the isolation
+        reference rather than duplicating the provenance-scoped rationale."""
+        self.assertIn(
+            "worktree-isolation.md#provenance-scoped-cleanup", self.result_compact
+        )
+        self.assertIn("Never force removal", self.result_compact)
+        self.assertNotIn("naming-pattern sweep", self.result_compact)
 
     def test_instruction_file_naming_is_host_neutral(self):
         self.assertIn("CLAUDE.md", self.skill_compact)

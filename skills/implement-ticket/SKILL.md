@@ -20,6 +20,10 @@ create a third shared workflow abstraction.
 
 ## Load the applicable references
 
+- Always read [worktree isolation mechanics](references/worktree-isolation.md)
+  before creating exclusive implementation state: native-tool preference, the
+  sandbox fallback, placement precedence, the two path guards, the
+  clean-baseline run, and provenance-scoped cleanup, each with its failure mode.
 - Read [the GitHub adapter](references/github.md) whenever GitHub owns issue
   state or hosts the repository and pull request.
 - Read [the Linear adapter](references/linear.md) whenever Linear owns ticket,
@@ -417,7 +421,10 @@ cannot repair any of those.
 - Fetch current remote state.
 - Create one feature branch and clean isolated worktree from the verified base,
   unless the current clean worktree is already the user's explicit ticket
-  workspace.
+  workspace, following
+  [worktree isolation mechanics](references/worktree-isolation.md) for
+  native-tool preference, the sandbox fallback, placement precedence, the two
+  path guards, and the clean-baseline run.
 - Use one ticket per candidate branch and worktree. Publication is either one PR
   or one carved stack; never combine another ticket into either form.
 - Install documented dependencies and start required local services before
