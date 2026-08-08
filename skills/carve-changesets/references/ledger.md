@@ -20,12 +20,12 @@ guessing a path, and two distinct branches can never collide on one:
 ```text
 .carve-changesets/
   plan.json                                        # unchanged: the ephemeral proposal
-  feature-cloud-host-migration-a1b2c3d4/
+  feature-cloud-host-migration-700dac82/
     ledger.jsonl
     .gitignore                                      # written by ensure_workspace(); contains "*"
 ```
 
-(`a1b2c3d4` above is `sha256("feature/cloud-host-migration")`'s first 8 hex
+(`700dac82` above is `sha256("feature/cloud-host-migration")`'s first 8 hex
 digits — deterministic for that exact branch name, so the same branch always
 produces the same workspace path.)
 

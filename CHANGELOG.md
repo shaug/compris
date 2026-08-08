@@ -132,6 +132,16 @@ summary: Chronological history of repository and skill changes.
   own regression test and matching `references/ledger.md` example updates, so
   all three skills now share one collision-safety story.
 
+  A sixth fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding, this one documentation-only:
+  `carve-changesets`'s worked example printed a fabricated digest (`a1b2c3d4`)
+  for `sha256("feature/cloud-host-migration")` rather than the actual value the
+  shipped code produces (`700dac82`), while asserting the printed value was
+  "deterministic for that exact branch name" — true of the real digest, false of
+  the invented one. `babysit-pr`'s and `implement-epic`'s parallel examples were
+  both independently confirmed correct. Fixed by substituting the actual
+  computed digest.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,
