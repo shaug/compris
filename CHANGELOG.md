@@ -39,9 +39,9 @@ summary: Chronological history of repository and skill changes.
   `references/cleanup-and-result.md`'s worktree-removal step now points at the
   new file's provenance-scoped-cleanup section instead of restating it (one
   owner per rule). `scripts/tests/test_implement_ticket_contract.py` is
-  extended, not replaced, with three new tests pinning the reference wiring,
+  extended, not replaced, with five new tests pinning the reference wiring,
   every required mechanic/failure-mode phrase, and the cleanup cross-reference —
-  full contract suite 109/109 passing. Ported with attribution from superpowers'
+  full contract suite 111/111 passing. Ported with attribution from superpowers'
   `using-git-worktrees` per the named-peer registry's existing entry for this
   seam.
 
