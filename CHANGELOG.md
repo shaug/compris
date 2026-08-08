@@ -83,6 +83,18 @@ summary: Chronological history of repository and skill changes.
   the "Workspace layout" section's own example (`example-project-482/`, no
   literal `-pr`) — fixed to match.
 
+  A third fresh `review-code-change` pass raised one `blocking` correctness
+  finding: `babysit-pr/SKILL.md`'s retry-recording instruction told the agent to
+  record `action: retry` with `item_id` set to the head SHA, but never said to
+  also populate the separate `head_sha` field the way the parallel `fix_pushed`
+  instruction already did — since `reconcile_with_watcher_state` keys strictly
+  off `head_sha` with no fallback to `item_id`, an entry recorded per the
+  unfixed instruction was invisible to the retry-mismatch check, so a resumed
+  session could get a false-clean reconciliation report even with actual
+  retry-budget drift. Fixed by adding "`head_sha` the same value" to the
+  instruction and a matching clarification to `references/ledger.md`'s ledger
+  format table.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

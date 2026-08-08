@@ -81,6 +81,13 @@ rewritten or truncated. Two kinds of line:
   against live state — the reply URL, the diagnosed run id, the commit — never a
   substitute for that verification.
 
+  A `retry` entry's separate `head_sha` field must also be populated with that
+  same SHA, not left `null`. `reconcile_with_watcher_state` keys strictly off
+  `head_sha` when comparing against the watcher's own `retries_by_sha` — an
+  entry carrying the head SHA only in `item_id` is invisible to that check,
+  silently defeating the retry-mismatch guard [Recovery rule](#recovery-rule)
+  step 4 depends on.
+
 Record one `session` line per session, then one `entry` line per completed
 action — append after the disposition is posted, the retry is spent, or the fix
 is pushed, not before, so an interrupted action never leaves a false completion
