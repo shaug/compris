@@ -339,6 +339,33 @@ class ReconcileTests(TempRootTestCase):
         report = LEDGER.reconcile_with_watcher_state(result.entries, {})
         self.assertEqual(report["dispositioned_feedback_ids"], ["a"])
 
+    def test_reconcile_uses_latest_disposition_not_history_existence(self) -> None:
+        # An item fixed, then later reopened (a regression) and deferred,
+        # must report as still-open — an existential OR across the item's
+        # full history would incorrectly report it as closed because a
+        # *prior* entry was once "fixed".
+        LEDGER.record_entry(
+            self.root,
+            "example/project",
+            482,
+            item_id="c",
+            action="feedback_disposition",
+            terminal_result="fixed",
+        )
+        LEDGER.record_entry(
+            self.root,
+            "example/project",
+            482,
+            item_id="c",
+            action="feedback_disposition",
+            terminal_result="deferred",
+        )
+        result = LEDGER.read_ledger(self.root, "example/project", 482)
+        report = LEDGER.reconcile_with_watcher_state(result.entries, {})
+        self.assertNotIn("c", report["dispositioned_feedback_ids"])
+        # Sanity: reconcile's set matches already_dispositioned's own verdict.
+        self.assertIsNone(LEDGER.already_dispositioned(result.entries, "c"))
+
     def test_load_watcher_state_uses_gh_pr_watch_default_path(self) -> None:
         fake_watcher = mock.Mock()
         fake_watcher.default_state_file_for.return_value = Path(

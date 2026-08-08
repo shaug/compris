@@ -272,14 +272,20 @@ def reconcile_with_watcher_state(
                 "ledger_recorded": ledger_count,
                 "watcher_recorded": watcher_count,
             }
+    # Latest-entry-per-item semantics, matching `already_dispositioned`: an
+    # item re-dispositioned more than once (e.g. `fixed` then later
+    # `deferred`, after a regression) must report its *current* state, not
+    # "closed at some point in its history" — an existential OR across the
+    # full history would report a genuinely reopened item as still closed.
+    candidate_ids = {
+        entry.get("item_id")
+        for entry in entries
+        if entry.get("action") == "feedback_disposition" and entry.get("item_id")
+    }
     dispositioned = sorted(
-        {
-            entry.get("item_id")
-            for entry in entries
-            if entry.get("action") == "feedback_disposition"
-            and entry.get("terminal_result") in DEFAULT_COMPLETED_FEEDBACK_DISPOSITIONS
-            and entry.get("item_id")
-        }
+        item_id
+        for item_id in candidate_ids
+        if already_dispositioned(entries, item_id) is not None
     )
     return {"retry_mismatches": mismatches, "dispositioned_feedback_ids": dispositioned}
 

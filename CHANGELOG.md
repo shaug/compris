@@ -160,6 +160,19 @@ summary: Chronological history of repository and skill changes.
   `blocked` from `blocked`/`closed`), mirroring how `merge` already translates
   `babysit-pr`'s `merged` result to the same literal.
 
+  An eighth fresh `review-code-change` pass raised one more `blocking`
+  correctness finding: `babysit-pr`'s `reconcile_with_watcher_state` computed
+  `dispositioned_feedback_ids` as an existential OR across an item's *entire*
+  entry history, rather than checking only its *latest* `feedback_disposition`
+  entry the way `already_dispositioned` correctly does — an item fixed and later
+  reopened (e.g. a regression) and deferred would still report as closed,
+  because a prior entry was once `fixed`, contradicting `references/ledger.md`'s
+  own claim that the two sets agree. Fixed by deriving
+  `dispositioned_feedback_ids` through `already_dispositioned` itself (one
+  latest-entry check per candidate item id) instead of a separate history-wide
+  set comprehension, with a new regression test proving a fixed-then-deferred
+  item now correctly reports as open.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,
