@@ -288,14 +288,28 @@ summary: Chronological history of repository and skill changes.
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff, confirmed against the final-head
   "after" run). The real-model tier for `implement-epic` (via
-  `implement-ticket`'s executor, `--target-skill implement-epic`) ran both
-  before and after this change at its actual base (`2d5fa604`) and this
-  candidate's own head: 10/15 both before and after, with different case
-  composition (`verified-external-claim-remains-evidence` newly passing,
-  `epic-refreshes-after-blocked-merged-delivery` newly failing, 13/15 unchanged)
-  — consistent with this suite's already-documented single-sample real-model
-  variance rather than a regression this change caused, since neither flipped
-  case's acceptance criterion touches the ledger feature this diff adds.
+  `implement-ticket`'s executor, `--target-skill implement-epic`) ran once
+  before this change (base `2d5fa604`, 10/15) and three times after, because the
+  first two "after" runs were bound to intermediate heads a round 16/17 review
+  pass correctly flagged as stale (`2026-08-08T014515Z-0013-after.json` at
+  `57a38c3`, then `2026-08-08T172341Z-0014-after.json` at `2a10ceb`) before the
+  third landed on this candidate's true final head
+  (`2026-08-08T175524Z-0015-after.json`, 9/15). All three "after" runs total
+  9-10/15 with **different specific cases failing each time** — direct,
+  three-sample evidence of this corpus's own single-sample real-model variance
+  for epic-acceptance-adjacent cases, not a regression tied to this diff: run
+  `0013` (10/15) and the true `before` baseline disagree on zero cases
+  (identical failure set); run `0014` (9/15) newly failed
+  `epic-refreshes-after-blocked-merged-delivery` and
+  `epic-unreadable-implement-ticket` relative to `before`; run `0015` (9/15,
+  recorded after a clarifying prose fix — see the preceding commits) newly
+  passed both of those two but newly failed two entirely different cases instead
+  (`epic-third-party-implement-ticket`,
+  `implement-epic-verifies-stacked-child`), landing at the same total.
+  `epic-unreadable-implement-ticket` in particular exercises this skill's
+  "Require the ticket skill" dependency-verification section, which this
+  candidate's diff never touches at all — confirmed via the exact `git diff`
+  hunk ranges — ruling out a causal link for that case specifically.
   `babysit-pr` has no registered forward-eval corpus;
   `just eval-record babysit-pr` reports that gap directly
   (`babysit-pr has no registered forward evaluations to record`) rather than
