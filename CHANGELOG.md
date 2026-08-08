@@ -4,7 +4,62 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-07 — Migrated carve-changesets' per-changeset review/fix loop and babysit-pr's post-publication review/fix loop to delegate to review-fix-loop, completing the design's caller-migration sequence, then added rationalization tables to babysit-pr, implement-ticket, and carve-changesets
+## 2026-08-07 — Migrated carve-changesets' per-changeset review/fix loop and babysit-pr's post-publication review/fix loop to delegate to review-fix-loop, completing the design's caller-migration sequence, then added rationalization tables to babysit-pr, implement-ticket, and carve-changesets, then added a compaction-resilient ledger and workspace-per-run to implement-epic, carve-changesets, and babysit-pr
+
+- feat(skills): add compaction ledger and workspace-per-run to implement-epic,
+  carve-changesets, and babysit-pr (issue #133, epic #119) — give each of the
+  three skills a skill-local, append-only ledger keyed by its own target unit
+  (epic id, source branch, or PR number), so a session resumed after a
+  compaction finds the prior workspace deterministically instead of
+  reconstructing it from recollection:
+  `.implement-epic/<epic-key>/ledger.jsonl`,
+  `.carve-changesets/<source-branch-slug>/ledger.jsonl`, and
+  `.babysit-pr/<repo-pr-key>/ledger.jsonl`. Each ledger records one `session`
+  line per session start and one `entry` line per verified per-unit outcome
+  (child dispatch, changeset action, or feedback disposition/retry/fix), and
+  each workspace self-excludes from git via its own internal `.gitignore` (`*`)
+  written the first time anything is recorded, so exclusion never depends on the
+  consuming repository's own ignore rules. A new `scripts/ledger.py` in each
+  skill (unittest-covered: 22 new tests for `implement-epic`, 14 for
+  `carve-changesets`, 23 for `babysit-pr`) provides
+  `session-start`/`record`/`read`/`find` — `find` is the recovery-path dedup
+  guard, returning the ledger's own latest claim for a unit filtered to that
+  skill's completed terminal results, explicitly excluding `blocked` (and, for
+  `babysit-pr`, `deferred`) so an unfinished unit is never suppressed from a
+  fresh attempt. `babysit-pr`'s ledger additionally adds `reconcile`, comparing
+  its ledger against `gh_pr_watch.py`'s own watcher state file (loaded via its
+  existing `default_state_file_for`/`load_state`, never duplicated) to surface
+  retry-count drift without either store overriding the other — the watcher
+  state file remains the authoritative retry-budget enforcement, unchanged. Each
+  skill's `SKILL.md` documents the workspace layout, ledger format, and recovery
+  rule via a new `references/ledger.md` and is wired into its existing workflow:
+  `implement-epic`'s graph loop checks the dedup guard before selecting a child
+  and records an entry after verifying a terminal result; `carve-changesets`'s
+  phase workflow checks per changeset before delegating to `review-fix-loop` and
+  records an entry after each phase's own terminal result; `babysit-pr` records
+  a disposition after each reply/resolution, a retry after each accepted retry,
+  and a fix after each `review-fix-loop` publish, reconciling both stores at
+  session start. The recovery rule is explicit in all three that the ledger is a
+  dedup guard only, never proof: a claimed-complete unit is still verified
+  against live tracker/git/PR state before a resumed session skips
+  re-dispatching it. `implement-ticket` is explicitly out of scope (its own
+  worktree hardening is sibling issue #134, not yet started).
+
+  Eval evidence: the deterministic tier for `carve-changesets` is unchanged
+  before and after (12/12, empty per-case diff). The real-model tier for
+  `implement-epic` (via `implement-ticket`'s executor,
+  `--target-skill implement-epic`) ran both before and after this change at its
+  actual base (`2d5fa604`) and this candidate's own head: 10/15 both before and
+  after, with different case composition
+  (`verified-external-claim-remains-evidence` newly passing,
+  `epic-refreshes-after-blocked-merged-delivery` newly failing, 13/15 unchanged)
+  — consistent with this suite's already-documented single-sample real-model
+  variance rather than a regression this change caused, since neither flipped
+  case's acceptance criterion touches the ledger feature this diff adds.
+  `babysit-pr` has no registered forward-eval corpus;
+  `just eval-record babysit-pr` reports that gap directly
+  (`babysit-pr has no registered forward evaluations to record`) rather than
+  recording something in its place, exactly as `AGENTS.md`'s norm anticipates.
 
 - feat(skills): add rationalization tables to babysit-pr, implement-ticket, and
   carve-changesets (issue #129, epic #119) — a bare prohibition leaves an agent
@@ -53,7 +108,7 @@ summary: Chronological history of repository and skill changes.
   is `implement-epic` — a skill this diff does not touch at all, and which #129
   explicitly excludes — so the flip is this suite's already-documented
   single-sample real-model variance, not a regression this change caused); the
-  other 53 of 58 cases are unchanged.
+  other 53 of 58 cases are unchanged. (2d5fa6041825cc5161d4300f9b3056b948bd8029)
 
 - feat(carve-changesets): delegate the per-changeset review and fix loop to
   review-fix-loop (issue #105) — replace phase 2's inlined "construct and run
