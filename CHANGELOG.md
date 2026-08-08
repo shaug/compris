@@ -45,6 +45,25 @@ summary: Chronological history of repository and skill changes.
   re-dispatching it. `implement-ticket` is explicitly out of scope (its own
   worktree hardening is sibling issue #134, not yet started).
 
+  A fresh `review-code-change` pass raised one `strong_recommendation`
+  solution-simplicity finding: the three skills' `ledger.py` modules were ~90%
+  structurally identical with no automated signal against drift, despite this
+  repository already having a working precedent for exactly this situation
+  (`review-suite/` → bundled per-skill copies via `just sync-contracts`). Fixed
+  by extracting the shared mechanics — workspace derivation and self-exclusion,
+  append-only I/O, and the recovery-path dedup guard — into a new canonical
+  `ledger/core.py`, bundled byte-identically into each skill as
+  `scripts/ledger_core.py` by an extended `sync-contracts` recipe; each skill's
+  own `ledger.py` is now a thin wrapper fixing the core's generic parameters to
+  that skill's vocabulary and keeping only what is genuinely skill-specific (CLI
+  flag names, each skill's completed- terminal-results set, and `babysit-pr`'s
+  watcher-state reconciliation, which has no analog in the other two). A second
+  `strong_recommendation` finding — dropping the `session` ledger-record kind
+  because no recovery function consumes it — was independently verified against
+  the live issue #133 body, which explicitly requires "a session identity line
+  appended at each session start" as part of the ledger format, and was rejected
+  as out of the ticket's scope rather than implemented.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

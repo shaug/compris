@@ -13,6 +13,15 @@ answering "does the ledger already claim this child is done", not verifying
 that claim against live state; the caller still owes that verification before
 trusting it.
 
+The shared mechanics (workspace derivation and self-exclusion, append-only
+JSON Lines I/O, the recovery-path dedup guard) live in `ledger_core.py`, a
+byte-identical bundled copy of this repository's `ledger/core.py`, refreshed
+by `just sync-contracts` — mirroring the same canonical-source-plus-bundled-
+copy convention already used for the review lenses' shared contract. This
+module fixes that shared core's generic parameters to this skill's own
+vocabulary (`.implement-epic/`, `child_id`, `ready_pr`/`ready_prs`/`merged`)
+and adds the CLI.
+
 Usable as a library (`import ledger`) or as a CLI:
 
     python3 scripts/ledger.py session-start --epic github-119
@@ -30,18 +39,14 @@ the workspace lives in the coordinator's working root, not inside the skill.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
-import re
 import sys
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-SCHEMA_VERSION = 1
 WORKSPACE_DIRNAME = ".implement-epic"
-LEDGER_FILENAME = "ledger.jsonl"
+ID_FIELD = "child_id"
 
 # Terminal results implement-epic's own child-verification step (SKILL.md,
 # "Verify the terminal result") treats as forward progress rather than a stop.
@@ -50,72 +55,45 @@ LEDGER_FILENAME = "ledger.jsonl"
 DEFAULT_COMPLETED_TERMINAL_RESULTS = frozenset({"ready_pr", "ready_prs", "merged"})
 
 
-def slugify(value: str) -> str:
-    """Derive a filesystem-safe, case-insensitive workspace key.
+def _load_core():
+    """Load the bundled `ledger_core.py` by path, matching this repository's
+    own test-loader convention rather than assuming package-relative import
+    resolution regardless of how this script is invoked."""
+    core_path = Path(__file__).resolve().parent / "ledger_core.py"
+    spec = importlib.util.spec_from_file_location("ledger_core", core_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
-    Keeps the slug readable (unlike a bare hash) so a resumed session or a
-    human inspecting the worktree can tell which epic a workspace belongs to
-    without decoding it.
-    """
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
-    if not slug:
-        raise ValueError(f"cannot derive a workspace slug from {value!r}")
-    return slug.lower()
+
+core = _load_core()
+
+# Re-exported for callers/tests that reach for the shared primitives directly.
+slugify = core.slugify
+LedgerReadResult = core.LedgerReadResult
 
 
 def workspace_dir(root: Path, epic_key: str) -> Path:
-    """Return the epic-keyed workspace directory under `root`."""
-    return Path(root) / WORKSPACE_DIRNAME / slugify(epic_key)
+    return core.workspace_dir(root, WORKSPACE_DIRNAME, epic_key)
 
 
 def ledger_path(root: Path, epic_key: str) -> Path:
-    return workspace_dir(root, epic_key) / LEDGER_FILENAME
+    return core.ledger_path(root, WORKSPACE_DIRNAME, epic_key)
 
 
 def ensure_workspace(root: Path, epic_key: str) -> Path:
-    """Create the workspace directory and self-exclude it from git.
-
-    Writes a `.gitignore` containing `*` directly inside the workspace so it
-    stays out of history regardless of where the coordinator's working root
-    happens to sit relative to any repository-level `.gitignore` — the
-    workspace excludes itself rather than depending on external
-    configuration.
-    """
-    directory = workspace_dir(root, epic_key)
-    directory.mkdir(parents=True, exist_ok=True)
-    gitignore = directory / ".gitignore"
-    if not gitignore.exists():
-        gitignore.write_text("*\n", encoding="utf-8")
-    return directory
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _append_line(path: Path, record: dict[str, Any]) -> dict[str, Any]:
-    line = json.dumps(record, sort_keys=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(line + "\n")
-    return record
+    return core.ensure_workspace(root, WORKSPACE_DIRNAME, epic_key)
 
 
 def record_session_start(
-    root: Path,
-    epic_key: str,
-    *,
-    session_id: str | None = None,
-    now: str | None = None,
+    root: Path, epic_key: str, *, session_id: str | None = None, now: str | None = None
 ) -> dict[str, Any]:
     """Append one session-identity line at the start of a session."""
-    ensure_workspace(root, epic_key)
-    record = {
-        "kind": "session",
-        "schema_version": SCHEMA_VERSION,
-        "session_id": session_id or uuid.uuid4().hex,
-        "started_at": now or _now_iso(),
-    }
-    return _append_line(ledger_path(root, epic_key), record)
+    return core.record_session_start(
+        root, WORKSPACE_DIRNAME, epic_key, session_id=session_id, now=now
+    )
 
 
 def record_entry(
@@ -135,71 +113,32 @@ def record_entry(
     issue number or Linear identifier), not the epic's — the workspace is
     already keyed by the epic, so entries only need to disambiguate within it.
     """
-    ensure_workspace(root, epic_key)
-    record = {
-        "kind": "entry",
-        "schema_version": SCHEMA_VERSION,
-        "child_id": str(child_id),
-        "action": action,
-        "terminal_result": terminal_result,
-        "head_sha": head_sha,
-        "evidence": evidence or {},
-        "recorded_at": now or _now_iso(),
-    }
-    return _append_line(ledger_path(root, epic_key), record)
+    return core.record_entry(
+        root,
+        WORKSPACE_DIRNAME,
+        epic_key,
+        id_field=ID_FIELD,
+        id_value=child_id,
+        action=action,
+        terminal_result=terminal_result,
+        head_sha=head_sha,
+        evidence=evidence,
+        now=now,
+    )
 
 
-@dataclass
-class LedgerReadResult:
-    sessions: list[dict[str, Any]] = field(default_factory=list)
-    entries: list[dict[str, Any]] = field(default_factory=list)
-    skipped_lines: list[int] = field(default_factory=list)
+def read_ledger(root: Path, epic_key: str):
+    """Parse the ledger, tolerating a malformed or partially written line."""
+    return core.read_ledger(root, WORKSPACE_DIRNAME, epic_key)
 
 
-def read_ledger(root: Path, epic_key: str) -> LedgerReadResult:
-    """Parse the ledger, tolerating a malformed or partially written line.
-
-    An append-only log can be interrupted mid-write (a crash, a killed
-    process, a compaction boundary landing mid-flush); a partial trailing line
-    must not make the rest of the ledger unreadable. Skipped line numbers are
-    reported so a caller can decide whether to investigate, not silently lose
-    them.
-    """
-    path = ledger_path(root, epic_key)
-    result = LedgerReadResult()
-    if not path.exists():
-        return result
-    for lineno, raw in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), start=1
-    ):
-        raw = raw.strip()
-        if not raw:
-            continue
-        try:
-            record = json.loads(raw)
-        except json.JSONDecodeError:
-            result.skipped_lines.append(lineno)
-            continue
-        kind = record.get("kind")
-        if kind == "session":
-            result.sessions.append(record)
-        elif kind == "entry":
-            result.entries.append(record)
-        else:
-            result.skipped_lines.append(lineno)
-    return result
-
-
-def latest_entry(
-    entries: Iterable[dict[str, Any]], child_id: str
-) -> dict[str, Any] | None:
+def latest_entry(entries, child_id: str) -> dict[str, Any] | None:
     """Return the most recent entry recorded for `child_id`, or None."""
-    matches = [entry for entry in entries if entry.get("child_id") == str(child_id)]
-    return matches[-1] if matches else None
+    return core.latest_entry(entries, ID_FIELD, child_id)
 
 
 def already_recorded_complete(
-    entries: Iterable[dict[str, Any]],
+    entries,
     child_id: str,
     completed_terminal_results: frozenset[str] = DEFAULT_COMPLETED_TERMINAL_RESULTS,
 ) -> dict[str, Any] | None:
@@ -211,10 +150,9 @@ def already_recorded_complete(
     that claim against live tracker/git/PR state before skipping a
     re-dispatch — a ledger entry alone is never sufficient.
     """
-    entry = latest_entry(entries, child_id)
-    if entry is not None and entry.get("terminal_result") in completed_terminal_results:
-        return entry
-    return None
+    return core.already_recorded_complete(
+        entries, ID_FIELD, child_id, completed_terminal_results
+    )
 
 
 # --- CLI -------------------------------------------------------------------

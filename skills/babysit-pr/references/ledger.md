@@ -136,7 +136,15 @@ and review evidence. It is never itself a substitute for the final gate in
 ## Helper reference
 
 `scripts/ledger.py` (unittest-covered in `scripts/tests/test_ledger.py`)
-provides both a library API and a CLI:
+provides both a library API and a CLI. Its shared mechanics — workspace
+derivation and self-exclusion, append-only JSON Lines I/O, and the recovery-path
+dedup guard — live in `scripts/ledger_core.py`, a bundled, byte-identical copy
+of this repository's own `ledger/core.py` kept in sync by `just sync-contracts`,
+the same canonical-source-plus-bundled-copy convention already used for the
+review lenses' shared contract. `ledger.py` itself is a thin wrapper fixing that
+core to this skill's own vocabulary (`.babysit-pr/`, `item_id`,
+`fixed`/`rejected`/`not_applicable` dispositions) and adds this skill's own
+watcher-state reconciliation, which has no analog in the other two skills:
 
 ```bash
 python3 scripts/ledger.py session-start --repo example/project --pr 482
