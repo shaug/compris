@@ -173,6 +173,21 @@ summary: Chronological history of repository and skill changes.
   set comprehension, with a new regression test proving a fixed-then-deferred
   item now correctly reports as open.
 
+  A ninth fresh `review-code-change` pass (solution simplicity and correctness
+  both clean) raised one `strong_recommendation` code-simplicity finding:
+  `carve-changesets`'s `DEFAULT_COMPLETED_TERMINAL_RESULTS` included
+  `chain_ready` and `all_merged`, but `references/ledger.md`'s own per-action
+  vocabulary table documents only `converged`/`prs_open`/`merged` (or `blocked`)
+  as values any recorded action actually writes — `chain_ready`/`all_merged` are
+  this skill's own whole-chain *return* values, never a per-entry
+  `terminal_result`. Not a live bug (the guard simply never matched on them),
+  but a latent trap: a future entry recorded under a mismatched action would
+  have silently passed this completeness check instead of failing loudly. Fixed
+  by shrinking the frozenset to `{"converged", "prs_open", "merged"}` and
+  dropping the two values from every prose restatement (`ledger.py`'s module
+  docstring and inline comment, `ledger.md`'s vocabulary summary and
+  recovery-rule step 2).
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

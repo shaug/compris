@@ -84,10 +84,12 @@ rewritten or truncated. Two kinds of line:
   | `merge`           | `merged` (translated from a `babysit-pr` `merged` result) or `blocked`                                                                                                                                                  |
 
   Every value is this skill's own phase-workflow vocabulary
-  (`converged`/`prs_open`/`chain_ready`/`all_merged`/`merged`/`blocked`), not a
-  delegate's terminal-state name copied verbatim — `publish` and `merge` entries
-  translate `babysit-pr`'s own returned state into that vocabulary at the moment
-  of recording, exactly as [Publish](../SKILL.md#3-publish) and
+  (`converged`/`prs_open`/`merged`/`blocked`), not a delegate's terminal-state
+  name copied verbatim, and never this skill's own whole-chain *return* values
+  (`chain_ready`, `all_merged`) — no recorded action ever writes either of those
+  as a `terminal_result`. `publish` and `merge` entries translate `babysit-pr`'s
+  own returned state into that vocabulary at the moment of recording, exactly as
+  [Publish](../SKILL.md#3-publish) and
   [Merge and propagate](../SKILL.md#4-merge-and-propagate) specify. `evidence`
   carries whatever identifiers let a later reader verify the claim against live
   state — the comparison base, the PR number, the merge SHA — never a substitute
@@ -111,12 +113,12 @@ which changesets already converged, published, or merged:
    to the phase being checked (`"review_fix_loop"`, `"publish"`, or `"merge"`).
    This is a **dedup guard, not proof**: it returns the ledger's own latest
    claim *for that phase*, filtered to the terminal results this skill's phase
-   workflow treats as forward progress (`converged`, `chain_ready`, `prs_open`,
-   `all_merged`, `merged`) — `blocked` never counts as complete, so a blocked
-   changeset is never suppressed from a fresh attempt by this guard alone. The
-   `action` scope matters because one changeset accumulates one entry per phase
-   as it progresses: an unscoped lookup would let a later `publish` entry mask
-   an earlier `converged` `review_fix_loop` entry (or vice versa), so every call
+   workflow treats as forward progress (`converged`, `prs_open`, `merged`) —
+   `blocked` never counts as complete, so a blocked changeset is never
+   suppressed from a fresh attempt by this guard alone. The `action` scope
+   matters because one changeset accumulates one entry per phase as it
+   progresses: an unscoped lookup would let a later `publish` entry mask an
+   earlier `converged` `review_fix_loop` entry (or vice versa), so every call
    site names the phase it is actually asking about — mirroring `babysit-pr`'s
    own `already_dispositioned`, which always scopes to
    `action == "feedback_disposition"` for the same reason.
@@ -153,7 +155,7 @@ of this repository's own `ledger/core.py` kept in sync by `just sync-contracts`,
 the same canonical-source-plus-bundled-copy convention already used for the
 review lenses' shared contract. `ledger.py` itself is a thin wrapper fixing that
 core to this skill's own vocabulary (`.carve-changesets/`, `changeset_slug`,
-`converged`/`prs_open`/`chain_ready`/`all_merged`/`merged`):
+`converged`/`prs_open`/`merged`):
 
 ```bash
 python3 scripts/ledger.py session-start --source feature/cloud-host-migration

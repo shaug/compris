@@ -21,7 +21,7 @@ by `just sync-contracts` — mirroring the same canonical-source-plus-bundled-
 copy convention already used for the review lenses' shared contract. This
 module fixes that shared core's generic parameters to this skill's own
 vocabulary (`.carve-changesets/`, `changeset_slug`,
-`converged`/`prs_open`/`chain_ready`/`all_merged`/`merged`) and adds the CLI.
+`converged`/`prs_open`/`merged`) and adds the CLI.
 
 Usable as a library (`import ledger`) or as a CLI:
 
@@ -55,10 +55,14 @@ ID_FIELD = "changeset_slug"
 # Terminal results this skill's own phase workflow (SKILL.md) treats as
 # forward progress for one changeset. `blocked` is deliberately excluded: a
 # blocked changeset is not done, and the recovery rule only guards against
-# redoing work the ledger shows is already finished.
-DEFAULT_COMPLETED_TERMINAL_RESULTS = frozenset(
-    {"converged", "prs_open", "chain_ready", "all_merged", "merged"}
-)
+# redoing work the ledger shows is already finished. `chain_ready` and
+# `all_merged` are deliberately absent too: those are this skill's own
+# whole-chain *return* values, never a per-entry `terminal_result` any
+# recorded action actually writes (see `references/ledger.md`'s per-action
+# vocabulary table) — including them here would let a future entry recorded
+# under a mismatched action silently pass this completeness check instead of
+# failing loudly.
+DEFAULT_COMPLETED_TERMINAL_RESULTS = frozenset({"converged", "prs_open", "merged"})
 
 
 def _load_core():
