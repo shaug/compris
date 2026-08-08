@@ -199,6 +199,22 @@ summary: Chronological history of repository and skill changes.
   `_load_watcher_module`'s intentional call-time (not import-time) loading
   preserved unchanged.
 
+  An eleventh fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding: `references/ledger.md`'s
+  vocabulary table documented specific `terminal_result` values for the `retry`
+  (`rerun`) and `fix_pushed` (`pushed`) actions, but the `SKILL.md` prose
+  instructing the agent to record those two entry kinds never told it to pass
+  `--terminal-result` — unlike `feedback_disposition`, which `SKILL.md` already
+  pins explicitly. Since the CLI's `--terminal-result` defaults to `None`, an
+  agent following `SKILL.md` literally would record both kinds with
+  `terminal_result: null`, contradicting the reference doc. Currently inert (no
+  shipped dedup check reads `terminal_result` for either action), but a doc that
+  doesn't describe what the workflow it documents actually produces. Fixed by
+  pinning `terminal_result: rerun` and `terminal_result: pushed` in the two
+  `SKILL.md` instructions, and tightening `ledger.md`'s `retry` row from a vague
+  "`rerun`, or the diagnosed classification" to the one literal value actually
+  written.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

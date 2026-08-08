@@ -85,7 +85,7 @@ rewritten or truncated. Two kinds of line:
   | `action`               | `item_id` names                                                                             | `terminal_result` vocabulary                      |
   | ---------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------- |
   | `feedback_disposition` | the review comment/thread id being dispositioned                                            | `fixed`, `rejected`, `not_applicable`, `deferred` |
-  | `retry`                | the exact head SHA the retry ran against (matches `gh_pr_watch`'s own `retries_by_sha` key) | `rerun`, or the diagnosed classification          |
+  | `retry`                | the exact head SHA the retry ran against (matches `gh_pr_watch`'s own `retries_by_sha` key) | `rerun`                                           |
   | `fix_pushed`           | the new commit SHA                                                                          | `pushed`                                          |
 
   `evidence` carries whatever identifiers let a later reader verify the claim
