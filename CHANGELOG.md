@@ -70,18 +70,18 @@ summary: Chronological history of repository and skill changes.
   `merge` entry for a changeset could mask an earlier `converged`
   `review_fix_loop` entry and trigger needless re-delegation on resume — fixed
   by adding an `action` parameter (mirroring `babysit-pr`'s existing
-  `already_dispositioned` pattern) and, while implementing it, catching a
-  deeper instance of the same bug in the shared `ledger_core.already_recorded_complete`
+  `already_dispositioned` pattern) and, while implementing it, catching a deeper
+  instance of the same bug in the shared `ledger_core.already_recorded_complete`
   itself: it filtered only the already-selected globally-latest entry rather
-  than searching for the latest entry actually matching the requested action,
-  so an unrelated later entry could still mask a real completion even with the
-  filter supplied — fixed in `ledger/core.py` (and therefore in all three
-  skills at once), with a new regression test in each of `carve-changesets`
-  and `babysit-pr` proving the earlier, correct entry is now found past a
-  later, different-action one. (2) `babysit-pr/references/ledger.md`'s
-  "Recovery rule" step 1 named a path (`.babysit-pr/<repo-slug>-pr<number>/`)
-  that didn't match the "Workspace layout" section's own example
-  (`example-project-482/`, no literal `-pr`) — fixed to match.
+  than searching for the latest entry actually matching the requested action, so
+  an unrelated later entry could still mask a real completion even with the
+  filter supplied — fixed in `ledger/core.py` (and therefore in all three skills
+  at once), with a new regression test in each of `carve-changesets` and
+  `babysit-pr` proving the earlier, correct entry is now found past a later,
+  different-action one. (2) `babysit-pr/references/ledger.md`'s "Recovery rule"
+  step 1 named a path (`.babysit-pr/<repo-slug>-pr<number>/`) that didn't match
+  the "Workspace layout" section's own example (`example-project-482/`, no
+  literal `-pr`) — fixed to match.
 
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
