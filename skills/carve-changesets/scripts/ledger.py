@@ -81,7 +81,6 @@ core = _load_core()
 
 # Re-exported for callers/tests that reach for the shared primitives directly.
 slugify = core.slugify
-LedgerReadResult = core.LedgerReadResult
 
 
 def unit_key_for(source_branch: str) -> str:

@@ -95,9 +95,6 @@ def _load_core():
 
 core = _load_core()
 
-# Re-exported for callers/tests that reach for the shared primitives directly.
-LedgerReadResult = core.LedgerReadResult
-
 
 def unit_key_for(repo: str, pr_number: int | str) -> str:
     """Compose the workspace key from repo + PR number.

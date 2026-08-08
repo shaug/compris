@@ -267,6 +267,14 @@ summary: Chronological history of repository and skill changes.
   internally. Fixed by removing it from `ledger/core.py` and all three wrappers,
   along with the tests that existed only to cover it.
 
+  A fifteenth fresh `review-code-change` pass (solution simplicity and
+  correctness both clean) raised one more `strong_recommendation`
+  code-simplicity finding, the same "zero callers outside its own declaration"
+  condition as the already-removed `latest_entry`: all three skills' `ledger.py`
+  re-exported `LedgerReadResult = core.LedgerReadResult`, but nothing outside
+  that declaration line referenced it anywhere in the repository. Fixed by
+  deleting the three re-export lines.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff, confirmed against the final-head
   "after" run). The real-model tier for `implement-epic` (via
