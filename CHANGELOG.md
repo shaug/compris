@@ -244,6 +244,29 @@ summary: Chronological history of repository and skill changes.
   candidate's true final head, still 12/12 with an empty per-case diff against
   the stale run.
 
+  A fourteenth fresh `review-code-change` pass (solution simplicity and
+  correctness both clean) raised two more `strong_recommendation`
+  code-simplicity findings, both fixed: (1) the generic core mechanics
+  (workspace self-exclusion, append-only write/read, malformed-line/unknown-
+  kind tolerance, latest-wins and action-scoped dedup) were independently
+  re-verified in all three skills' `test_ledger.py` suites with only
+  field-name/value substitutions, despite this repository's own precedent for
+  avoiding exactly that in the identical bundling pattern
+  (`review-suite/scripts/tests/test_contracts.py` holds the full behavioral
+  suite once centrally; each consuming skill carries only a thin adherence
+  test). Fixed by adding `ledger/scripts/tests/test_core.py` (28 tests against
+  `ledger/core.py` directly, using arbitrary parameters rather than any one
+  skill's vocabulary) and trimming each skill's own `test_ledger.py` to only
+  what is genuinely skill-specific: `unit_key_for` composition and collision
+  disambiguation, that skill's own completed-results/disposition vocabulary, CLI
+  wiring, and (`babysit-pr` only) watcher-state reconciliation. (2)
+  `ledger/core.py`'s `latest_entry` was wrapped identically in all three skills'
+  `ledger.py` but had zero callers outside those wrappers and their own tests —
+  no CLI subcommand, no `SKILL.md`/ `references` mention, and
+  `already_recorded_complete` (the actual dedup mechanism) never called it
+  internally. Fixed by removing it from `ledger/core.py` and all three wrappers,
+  along with the tests that existed only to cover it.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff, confirmed against the final-head
   "after" run). The real-model tier for `implement-epic` (via

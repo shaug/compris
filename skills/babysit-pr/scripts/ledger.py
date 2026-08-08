@@ -205,13 +205,6 @@ def read_ledger(root: Path, repo: str, pr_number: int | str):
     return core.read_ledger(root, WORKSPACE_DIRNAME, unit_key_for(repo, pr_number))
 
 
-def latest_entry(
-    entries: Iterable[dict[str, Any]], item_id: str
-) -> dict[str, Any] | None:
-    """Return the most recent entry recorded for `item_id`, or None."""
-    return core.latest_entry(entries, ID_FIELD, item_id)
-
-
 def already_dispositioned(
     entries: Iterable[dict[str, Any]],
     item_id: str,

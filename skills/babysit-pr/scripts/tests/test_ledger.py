@@ -1,8 +1,21 @@
+"""Skill-specific tests for babysit-pr's ledger wrapper.
+
+Generic ledger mechanics (workspace derivation/self-exclusion, append-only
+I/O, malformed-line tolerance, the action-scoped dedup guard) are exercised
+once against arbitrary parameters in `ledger/scripts/tests/test_core.py` —
+see that file's own module docstring for why. This file covers only what is
+genuinely specific to this skill: `unit_key_for`'s repo+PR composition and
+collision disambiguation, this skill's own `deferred`-excluded disposition
+vocabulary and its actual `action_filter` predicate, the retry-count and
+watcher-state-reconciliation helpers that have no core equivalent, and the
+CLI wiring that proves the wrapper actually delegates to the bundled core
+under this skill's real flag names.
+"""
+
 from __future__ import annotations
 
 import hashlib
 import importlib.util
-import json
 import sys
 import tempfile
 import unittest
@@ -52,107 +65,16 @@ class UnitKeyTests(unittest.TestCase):
         second = LEDGER.slugify(LEDGER.unit_key_for("octocat-hello/world", 482))
         self.assertNotEqual(first, second)
 
-
-class WorkspaceTests(TempRootTestCase):
-    def test_ensure_workspace_creates_self_excluding_gitignore(self) -> None:
-        directory = LEDGER.ensure_workspace(self.root, "example/project", 482)
-        self.assertTrue(directory.is_dir())
-        self.assertEqual((directory / ".gitignore").read_text(encoding="utf-8"), "*\n")
-
-    def test_distinct_prs_get_distinct_workspaces(self) -> None:
-        first = LEDGER.workspace_dir(self.root, "example/project", 482)
-        second = LEDGER.workspace_dir(self.root, "example/project", 483)
-        self.assertNotEqual(first, second)
-
-    def test_distinct_repos_same_pr_number_get_distinct_workspaces(self) -> None:
-        first = LEDGER.workspace_dir(self.root, "example/project", 482)
-        second = LEDGER.workspace_dir(self.root, "other/project", 482)
-        self.assertNotEqual(first, second)
+    def test_workspace_lives_under_the_skills_own_dirname(self) -> None:
+        directory = LEDGER.workspace_dir(Path("/tmp/root"), "example/project", 482)
+        self.assertEqual(directory.parent.name, ".babysit-pr")
 
 
-class WriteTests(TempRootTestCase):
-    def test_record_session_start_writes_one_line(self) -> None:
-        record = LEDGER.record_session_start(
-            self.root, "example/project", 482, session_id="s1"
-        )
-        lines = (
-            LEDGER.ledger_path(self.root, "example/project", 482)
-            .read_text(encoding="utf-8")
-            .splitlines()
-        )
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(json.loads(lines[0]), record)
-
-    def test_record_entry_for_feedback_disposition(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "example/project",
-            482,
-            item_id="review-comment-9001",
-            action="feedback_disposition",
-            terminal_result="fixed",
-            head_sha="head-1",
-            evidence={"disposition": "fixed"},
-        )
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        self.assertEqual(len(result.entries), 1)
-        self.assertEqual(result.entries[0]["item_id"], "review-comment-9001")
-
-    def test_record_entry_for_retry_keyed_by_head_sha(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "example/project",
-            482,
-            item_id="head-1",
-            action="retry",
-            terminal_result="rerun",
-            head_sha="head-1",
-        )
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        self.assertEqual(result.entries[0]["action"], "retry")
-        self.assertEqual(result.entries[0]["head_sha"], "head-1")
-
-
-class ReadTests(TempRootTestCase):
-    def test_read_empty_ledger(self) -> None:
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        self.assertEqual(result.sessions, [])
-        self.assertEqual(result.entries, [])
-
-    def test_read_skips_malformed_line(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "example/project",
-            482,
-            item_id="a",
-            action="feedback_disposition",
-        )
-        path = LEDGER.ledger_path(self.root, "example/project", 482)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write("{broken\n")
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        self.assertEqual(len(result.entries), 1)
-        self.assertEqual(result.skipped_lines, [2])
-
-
-class RecoveryTests(TempRootTestCase):
-    def test_already_dispositioned_true_for_fixed(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "example/project",
-            482,
-            item_id="review-comment-9001",
-            action="feedback_disposition",
-            terminal_result="fixed",
-        )
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        self.assertIsNotNone(
-            LEDGER.already_dispositioned(result.entries, "review-comment-9001")
-        )
-
+class DispositionVocabularyTests(TempRootTestCase):
     def test_already_dispositioned_false_for_deferred(self) -> None:
         # A deferred finding is preserved, not resolved: recovery must never
-        # treat it as done and must still surface it as outstanding.
+        # treat it as done and must still surface it as outstanding. This is
+        # this skill's own disposition vocabulary, not a generic core concept.
         LEDGER.record_entry(
             self.root,
             "example/project",
@@ -167,7 +89,9 @@ class RecoveryTests(TempRootTestCase):
         )
 
     def test_already_dispositioned_ignores_non_disposition_actions(self) -> None:
-        # A retry entry happens to share an item_id space in principle; only
+        # Proves the wrapper's actual action_filter predicate
+        # (`action == "feedback_disposition"`) is wired correctly: a `retry`
+        # entry happens to share an item_id space in principle, but only
         # feedback_disposition entries may satisfy the disposition guard.
         LEDGER.record_entry(
             self.root,
@@ -181,38 +105,6 @@ class RecoveryTests(TempRootTestCase):
         self.assertIsNone(
             LEDGER.already_dispositioned(result.entries, "review-comment-9001")
         )
-
-    def test_already_dispositioned_none_when_never_recorded(self) -> None:
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        self.assertIsNone(LEDGER.already_dispositioned(result.entries, "unknown"))
-
-    def test_already_dispositioned_finds_earlier_disposition_past_later_other_action(
-        self,
-    ) -> None:
-        # A later retry entry (a different action, coincidentally sharing the
-        # same item_id space as a head SHA) must never mask an earlier
-        # feedback_disposition entry for the actual comment id.
-        LEDGER.record_entry(
-            self.root,
-            "example/project",
-            482,
-            item_id="review-comment-9001",
-            action="feedback_disposition",
-            terminal_result="fixed",
-            head_sha="head-1",
-        )
-        LEDGER.record_entry(
-            self.root,
-            "example/project",
-            482,
-            item_id="review-comment-9001",
-            action="retry",
-            terminal_result="rerun",
-        )
-        result = LEDGER.read_ledger(self.root, "example/project", 482)
-        entry = LEDGER.already_dispositioned(result.entries, "review-comment-9001")
-        self.assertIsNotNone(entry)
-        self.assertEqual(entry["head_sha"], "head-1")
 
 
 class RetryCountTests(TempRootTestCase):

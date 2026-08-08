@@ -165,11 +165,6 @@ def read_ledger(root: Path, source_branch: str):
     return core.read_ledger(root, WORKSPACE_DIRNAME, unit_key_for(source_branch))
 
 
-def latest_entry(entries, changeset_slug: str) -> dict[str, Any] | None:
-    """Return the most recent entry recorded for `changeset_slug`, or None."""
-    return core.latest_entry(entries, ID_FIELD, changeset_slug)
-
-
 def already_recorded_complete(
     entries,
     changeset_slug: str,

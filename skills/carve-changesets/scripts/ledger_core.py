@@ -216,14 +216,6 @@ def read_ledger(root: Path, workspace_dirname: str, unit_key: str) -> LedgerRead
     return result
 
 
-def latest_entry(
-    entries: Iterable[dict[str, Any]], id_field: str, id_value: str
-) -> dict[str, Any] | None:
-    """Return the most recent entry recorded for `id_value`, or None."""
-    matches = [entry for entry in entries if entry.get(id_field) == str(id_value)]
-    return matches[-1] if matches else None
-
-
 def already_recorded_complete(
     entries: Iterable[dict[str, Any]],
     id_field: str,

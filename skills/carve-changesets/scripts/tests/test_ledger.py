@@ -1,7 +1,21 @@
+"""Skill-specific tests for carve-changesets' ledger wrapper.
+
+Generic ledger mechanics (workspace derivation/self-exclusion, append-only
+I/O, malformed-line tolerance, the action-scoped dedup guard — including the
+"a later entry from a different phase must not mask an earlier completed
+one" behavior this skill's `review_fix_loop`/`publish`/`merge` phases depend
+on) are exercised once against arbitrary parameters in
+`ledger/scripts/tests/test_core.py` — see that file's own module docstring
+for why. This file covers only what is genuinely specific to this skill:
+`unit_key_for`'s source-branch composition and collision disambiguation, and
+the CLI wiring that proves the wrapper actually delegates to the bundled
+core under this skill's real flag names, field names, and phase vocabulary
+(`review_fix_loop`/`publish`/`merge`).
+"""
+
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 import tempfile
 import unittest
@@ -24,18 +38,6 @@ class TempRootTestCase(unittest.TestCase):
         self.root = Path(self._tmp.name)
 
 
-class SlugifyTests(unittest.TestCase):
-    def test_slugifies_branch_with_slash(self) -> None:
-        self.assertEqual(
-            LEDGER.slugify("feature/cloud-host-migration"),
-            "feature-cloud-host-migration",
-        )
-
-    def test_rejects_empty_slug(self) -> None:
-        with self.assertRaises(ValueError):
-            LEDGER.slugify("///")
-
-
 class UnitKeyTests(unittest.TestCase):
     def test_unit_key_digest_disambiguates_slash_boundary_collision(self) -> None:
         # Without the digest, "feature/api-timeout" and "feature-api/timeout"
@@ -50,179 +52,9 @@ class UnitKeyTests(unittest.TestCase):
             LEDGER.unit_key_for("feature/x"), LEDGER.unit_key_for("feature/x")
         )
 
-
-class WorkspaceTests(TempRootTestCase):
-    def test_ensure_workspace_creates_self_excluding_gitignore(self) -> None:
-        directory = LEDGER.ensure_workspace(self.root, "feature/x")
-        self.assertTrue(directory.is_dir())
-        gitignore = directory / ".gitignore"
-        self.assertEqual(gitignore.read_text(encoding="utf-8"), "*\n")
-
-    def test_ensure_workspace_lives_under_carve_changesets_dirname(self) -> None:
-        directory = LEDGER.workspace_dir(self.root, "feature/x")
+    def test_workspace_lives_under_the_skills_own_dirname(self) -> None:
+        directory = LEDGER.workspace_dir(Path("/tmp/root"), "feature/x")
         self.assertEqual(directory.parent.name, ".carve-changesets")
-
-    def test_distinct_source_branches_get_distinct_workspaces(self) -> None:
-        first = LEDGER.workspace_dir(self.root, "feature/x")
-        second = LEDGER.workspace_dir(self.root, "feature/y")
-        self.assertNotEqual(first, second)
-
-
-class WriteTests(TempRootTestCase):
-    def test_record_session_start_writes_one_line(self) -> None:
-        record = LEDGER.record_session_start(self.root, "feature/x", session_id="s1")
-        lines = (
-            LEDGER.ledger_path(self.root, "feature/x")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        )
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(json.loads(lines[0]), record)
-
-    def test_record_entry_appends_per_changeset(self) -> None:
-        LEDGER.record_session_start(self.root, "feature/x", session_id="s1")
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="rename-config-types",
-            action="review_fix_loop",
-            terminal_result="converged",
-            head_sha="head-1",
-        )
-        lines = (
-            LEDGER.ledger_path(self.root, "feature/x")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        )
-        self.assertEqual(len(lines), 2)
-        entry = json.loads(lines[1])
-        self.assertEqual(entry["changeset_slug"], "rename-config-types")
-        self.assertEqual(entry["terminal_result"], "converged")
-
-
-class ReadTests(TempRootTestCase):
-    def test_read_empty_ledger(self) -> None:
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        self.assertEqual(result.sessions, [])
-        self.assertEqual(result.entries, [])
-
-    def test_read_skips_malformed_line(self) -> None:
-        LEDGER.record_entry(
-            self.root, "feature/x", changeset_slug="a", action="review_fix_loop"
-        )
-        path = LEDGER.ledger_path(self.root, "feature/x")
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write("{not json\n")
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        self.assertEqual(len(result.entries), 1)
-        self.assertEqual(result.skipped_lines, [2])
-
-
-class RecoveryTests(TempRootTestCase):
-    def test_already_recorded_complete_true_for_converged(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="rename-config-types",
-            action="review_fix_loop",
-            terminal_result="converged",
-        )
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        entry = LEDGER.already_recorded_complete(result.entries, "rename-config-types")
-        self.assertIsNotNone(entry)
-
-    def test_already_recorded_complete_false_for_blocked(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="rename-config-types",
-            action="review_fix_loop",
-            terminal_result="blocked",
-        )
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        self.assertIsNone(
-            LEDGER.already_recorded_complete(result.entries, "rename-config-types")
-        )
-
-    def test_already_recorded_complete_scoped_per_changeset(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="a",
-            action="review_fix_loop",
-            terminal_result="converged",
-        )
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        self.assertIsNone(LEDGER.already_recorded_complete(result.entries, "b"))
-
-    def test_already_recorded_complete_action_scope_ignores_later_other_phase(
-        self,
-    ) -> None:
-        # A later `publish` entry must never mask an earlier `converged`
-        # `review_fix_loop` entry when the caller is specifically asking
-        # about the review_fix_loop phase.
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="a",
-            action="review_fix_loop",
-            terminal_result="converged",
-            head_sha="head-1",
-        )
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="a",
-            action="publish",
-            terminal_result="blocked",
-        )
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        # Unscoped: the latest entry (publish/blocked) is not "complete".
-        self.assertIsNone(LEDGER.already_recorded_complete(result.entries, "a"))
-        # Scoped to review_fix_loop: the earlier converged entry is found.
-        entry = LEDGER.already_recorded_complete(
-            result.entries, "a", action="review_fix_loop"
-        )
-        self.assertIsNotNone(entry)
-        self.assertEqual(entry["head_sha"], "head-1")
-
-    def test_already_recorded_complete_action_scope_excludes_other_phase(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="a",
-            action="publish",
-            terminal_result="prs_open",
-        )
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        self.assertIsNone(
-            LEDGER.already_recorded_complete(
-                result.entries, "a", action="review_fix_loop"
-            )
-        )
-        self.assertIsNotNone(
-            LEDGER.already_recorded_complete(result.entries, "a", action="publish")
-        )
-
-    def test_latest_entry_prefers_most_recent(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="a",
-            action="review_fix_loop",
-            terminal_result="blocked",
-        )
-        LEDGER.record_entry(
-            self.root,
-            "feature/x",
-            changeset_slug="a",
-            action="review_fix_loop",
-            terminal_result="converged",
-            head_sha="head-2",
-        )
-        result = LEDGER.read_ledger(self.root, "feature/x")
-        entry = LEDGER.already_recorded_complete(result.entries, "a")
-        self.assertEqual(entry["head_sha"], "head-2")
 
 
 class CliTests(TempRootTestCase):
@@ -263,6 +95,10 @@ class CliTests(TempRootTestCase):
         )
 
     def test_cli_find_supports_action_scope(self) -> None:
+        # Proves the wrapper's `action` parameter reaches the shared core's
+        # action-scoped dedup guard under this skill's own real phase
+        # vocabulary: a `publish` entry must not satisfy a `review_fix_loop`
+        # lookup for the same changeset.
         root = str(self.root)
         LEDGER.main(
             [

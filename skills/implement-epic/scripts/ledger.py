@@ -146,11 +146,6 @@ def read_ledger(root: Path, epic_key: str):
     return core.read_ledger(root, WORKSPACE_DIRNAME, unit_key_for(epic_key))
 
 
-def latest_entry(entries, child_id: str) -> dict[str, Any] | None:
-    """Return the most recent entry recorded for `child_id`, or None."""
-    return core.latest_entry(entries, ID_FIELD, child_id)
-
-
 def already_recorded_complete(
     entries,
     child_id: str,

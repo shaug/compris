@@ -1,7 +1,19 @@
+"""Skill-specific tests for implement-epic's ledger wrapper.
+
+Generic ledger mechanics (workspace derivation/self-exclusion, append-only
+I/O, malformed-line tolerance, the action-scoped dedup guard) are exercised
+once against arbitrary parameters in `ledger/scripts/tests/test_core.py` —
+see that file's own module docstring for why. This file covers only what is
+genuinely specific to this skill: `unit_key_for`'s epic-key composition and
+collision disambiguation, this skill's own completed-terminal-results
+vocabulary (`ready_pr`/`ready_prs`/`merged`, excluding `blocked`), and the
+CLI wiring that proves the wrapper actually delegates to the bundled core
+under this skill's real flag names and field names.
+"""
+
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 import tempfile
 import unittest
@@ -27,18 +39,6 @@ class TempRootTestCase(unittest.TestCase):
         self.root = Path(self._tmp.name)
 
 
-class SlugifyTests(unittest.TestCase):
-    def test_slugifies_mixed_case_and_punctuation(self) -> None:
-        self.assertEqual(LEDGER.slugify("GitHub-119"), "github-119")
-
-    def test_slugifies_tracker_prefixed_identity(self) -> None:
-        self.assertEqual(LEDGER.slugify("Linear ENG-119"), "linear-eng-119")
-
-    def test_rejects_empty_slug(self) -> None:
-        with self.assertRaises(ValueError):
-            LEDGER.slugify("   ")
-
-
 class UnitKeyTests(unittest.TestCase):
     def test_unit_key_digest_disambiguates_collision(self) -> None:
         # Without the digest, two epic keys differing only in where a `/`
@@ -53,153 +53,24 @@ class UnitKeyTests(unittest.TestCase):
             LEDGER.unit_key_for("github-119"), LEDGER.unit_key_for("github-119")
         )
 
-
-class WorkspaceTests(TempRootTestCase):
-    def test_ensure_workspace_creates_self_excluding_gitignore(self) -> None:
-        directory = LEDGER.ensure_workspace(self.root, "github-119")
-        self.assertTrue(directory.is_dir())
-        gitignore = directory / ".gitignore"
-        self.assertTrue(gitignore.exists())
-        self.assertEqual(gitignore.read_text(encoding="utf-8"), "*\n")
-
-    def test_ensure_workspace_is_idempotent(self) -> None:
-        LEDGER.ensure_workspace(self.root, "github-119")
-        (LEDGER.workspace_dir(self.root, "github-119") / ".gitignore").write_text(
-            "custom\n", encoding="utf-8"
-        )
-        LEDGER.ensure_workspace(self.root, "github-119")
-        gitignore = LEDGER.workspace_dir(self.root, "github-119") / ".gitignore"
-        # A pre-existing .gitignore is never clobbered by a second ensure call.
-        self.assertEqual(gitignore.read_text(encoding="utf-8"), "custom\n")
-
-    def test_distinct_epics_get_distinct_workspaces(self) -> None:
-        first = LEDGER.workspace_dir(self.root, "github-119")
-        second = LEDGER.workspace_dir(self.root, "github-120")
-        self.assertNotEqual(first, second)
+    def test_workspace_lives_under_the_skills_own_dirname(self) -> None:
+        directory = LEDGER.workspace_dir(Path("/tmp/root"), "github-119")
+        self.assertEqual(directory.parent.name, ".implement-epic")
 
 
-class WriteTests(TempRootTestCase):
-    def test_record_session_start_writes_one_line(self) -> None:
-        record = LEDGER.record_session_start(self.root, "github-119", session_id="s1")
-        path = LEDGER.ledger_path(self.root, "github-119")
-        lines = path.read_text(encoding="utf-8").splitlines()
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(json.loads(lines[0]), record)
-        self.assertEqual(record["kind"], "session")
-        self.assertEqual(record["session_id"], "s1")
-
-    def test_record_entry_appends_without_truncating(self) -> None:
-        LEDGER.record_session_start(self.root, "github-119", session_id="s1")
+class VocabularyTests(TempRootTestCase):
+    def test_ready_pr_counts_as_complete(self) -> None:
         LEDGER.record_entry(
             self.root,
             "github-119",
             child_id="133",
             action="child_dispatch",
             terminal_result="ready_pr",
-            head_sha="abc123",
-            evidence={"pr": 181},
-        )
-        path = LEDGER.ledger_path(self.root, "github-119")
-        lines = path.read_text(encoding="utf-8").splitlines()
-        self.assertEqual(len(lines), 2)
-        second = json.loads(lines[1])
-        self.assertEqual(second["kind"], "entry")
-        self.assertEqual(second["child_id"], "133")
-        self.assertEqual(second["terminal_result"], "ready_pr")
-        self.assertEqual(second["evidence"], {"pr": 181})
-
-    def test_record_entry_coerces_child_id_to_string(self) -> None:
-        record = LEDGER.record_entry(
-            self.root, "github-119", child_id=133, action="child_dispatch"
-        )
-        self.assertEqual(record["child_id"], "133")
-        self.assertIsInstance(record["child_id"], str)
-
-
-class ReadTests(TempRootTestCase):
-    def test_read_empty_ledger_returns_empty_result(self) -> None:
-        result = LEDGER.read_ledger(self.root, "github-119")
-        self.assertEqual(result.sessions, [])
-        self.assertEqual(result.entries, [])
-        self.assertEqual(result.skipped_lines, [])
-
-    def test_read_round_trips_sessions_and_entries(self) -> None:
-        LEDGER.record_session_start(self.root, "github-119", session_id="s1")
-        LEDGER.record_entry(
-            self.root, "github-119", child_id="133", action="child_dispatch"
-        )
-        LEDGER.record_entry(
-            self.root, "github-119", child_id="134", action="child_dispatch"
         )
         result = LEDGER.read_ledger(self.root, "github-119")
-        self.assertEqual(len(result.sessions), 1)
-        self.assertEqual(len(result.entries), 2)
-        self.assertEqual(result.skipped_lines, [])
+        self.assertIsNotNone(LEDGER.already_recorded_complete(result.entries, "133"))
 
-    def test_read_skips_malformed_trailing_line_without_losing_prior_lines(
-        self,
-    ) -> None:
-        LEDGER.record_session_start(self.root, "github-119", session_id="s1")
-        LEDGER.record_entry(
-            self.root, "github-119", child_id="133", action="child_dispatch"
-        )
-        path = LEDGER.ledger_path(self.root, "github-119")
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write('{"kind": "entry", "child_id": "134"' + "\n")  # truncated JSON
-        result = LEDGER.read_ledger(self.root, "github-119")
-        self.assertEqual(len(result.sessions), 1)
-        self.assertEqual(len(result.entries), 1)
-        self.assertEqual(result.skipped_lines, [3])
-
-    def test_read_skips_unknown_kind(self) -> None:
-        path = LEDGER.ledger_path(self.root, "github-119")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('{"kind": "mystery"}\n', encoding="utf-8")
-        result = LEDGER.read_ledger(self.root, "github-119")
-        self.assertEqual(result.entries, [])
-        self.assertEqual(result.skipped_lines, [1])
-
-
-class RecoveryTests(TempRootTestCase):
-    def test_latest_entry_returns_most_recent_for_child(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "github-119",
-            child_id="133",
-            action="child_dispatch",
-            terminal_result=None,
-        )
-        LEDGER.record_entry(
-            self.root,
-            "github-119",
-            child_id="133",
-            action="child_dispatch",
-            terminal_result="ready_pr",
-            head_sha="head-2",
-        )
-        result = LEDGER.read_ledger(self.root, "github-119")
-        latest = LEDGER.latest_entry(result.entries, "133")
-        self.assertEqual(latest["terminal_result"], "ready_pr")
-        self.assertEqual(latest["head_sha"], "head-2")
-
-    def test_latest_entry_returns_none_for_unknown_child(self) -> None:
-        result = LEDGER.read_ledger(self.root, "github-119")
-        self.assertIsNone(LEDGER.latest_entry(result.entries, "999"))
-
-    def test_already_recorded_complete_true_for_merged(self) -> None:
-        LEDGER.record_entry(
-            self.root,
-            "github-119",
-            child_id="133",
-            action="child_dispatch",
-            terminal_result="merged",
-        )
-        result = LEDGER.read_ledger(self.root, "github-119")
-        entry = LEDGER.already_recorded_complete(result.entries, "133")
-        self.assertIsNotNone(entry)
-        self.assertEqual(entry["terminal_result"], "merged")
-
-    def test_already_recorded_complete_false_for_blocked(self) -> None:
+    def test_blocked_never_counts_as_complete(self) -> None:
         # A blocked child is not done; the dedup guard must never suppress a
         # re-dispatch of a child the ledger itself shows is unfinished.
         LEDGER.record_entry(
@@ -211,33 +82,6 @@ class RecoveryTests(TempRootTestCase):
         )
         result = LEDGER.read_ledger(self.root, "github-119")
         self.assertIsNone(LEDGER.already_recorded_complete(result.entries, "133"))
-
-    def test_already_recorded_complete_none_when_never_recorded(self) -> None:
-        result = LEDGER.read_ledger(self.root, "github-119")
-        self.assertIsNone(LEDGER.already_recorded_complete(result.entries, "133"))
-
-    def test_already_recorded_complete_uses_latest_not_first(self) -> None:
-        # A first blocked attempt followed by a later completed retry must
-        # report the current (completed) state, not the stale blocked one.
-        LEDGER.record_entry(
-            self.root,
-            "github-119",
-            child_id="133",
-            action="child_dispatch",
-            terminal_result="blocked",
-        )
-        LEDGER.record_entry(
-            self.root,
-            "github-119",
-            child_id="133",
-            action="child_dispatch",
-            terminal_result="ready_pr",
-            head_sha="head-3",
-        )
-        result = LEDGER.read_ledger(self.root, "github-119")
-        entry = LEDGER.already_recorded_complete(result.entries, "133")
-        self.assertIsNotNone(entry)
-        self.assertEqual(entry["head_sha"], "head-3")
 
 
 class CliTests(TempRootTestCase):
@@ -282,6 +126,7 @@ class CliTests(TempRootTestCase):
         result = LEDGER.read_ledger(self.root, "github-119")
         self.assertEqual(len(result.sessions), 1)
         self.assertEqual(len(result.entries), 1)
+        self.assertEqual(result.entries[0]["child_id"], "133")
         self.assertEqual(result.entries[0]["evidence"], {"pr": 181})
 
     def test_cli_find_exit_code_reflects_completion(self) -> None:
