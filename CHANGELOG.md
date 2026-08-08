@@ -232,13 +232,25 @@ summary: Chronological history of repository and skill changes.
   call through the shared core instead of reimplementing either; the existing
   `test_bundled_copies.py` drift test now also covers both.
 
+  A thirteenth fresh `review-code-change` pass returned `clean` (no blocking or
+  `strong_recommendation` finding across all three lenses), with one non-gating
+  `defer` finding: the committed `carve-changesets` "after" eval run was bound
+  to `57a38c3` (the first ledger commit), which predates two later SKILL.md
+  obligations this candidate went on to add (`b01f88b`'s action-scoped dedup
+  lookup, `9f12fed`'s pinned publish-action vocabulary) — so it never actually
+  exercised the prose those two commits changed, even though the deterministic
+  corpus doesn't read `SKILL.md` prose at all regardless. Addressed by
+  re-recording `just eval-record carve-changesets --stage after` at this
+  candidate's true final head, still 12/12 with an empty per-case diff against
+  the stale run.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
-  before and after (12/12, empty per-case diff). The real-model tier for
-  `implement-epic` (via `implement-ticket`'s executor,
-  `--target-skill implement-epic`) ran both before and after this change at its
-  actual base (`2d5fa604`) and this candidate's own head: 10/15 both before and
-  after, with different case composition
-  (`verified-external-claim-remains-evidence` newly passing,
+  before and after (12/12, empty per-case diff, confirmed against the final-head
+  "after" run). The real-model tier for `implement-epic` (via
+  `implement-ticket`'s executor, `--target-skill implement-epic`) ran both
+  before and after this change at its actual base (`2d5fa604`) and this
+  candidate's own head: 10/15 both before and after, with different case
+  composition (`verified-external-claim-remains-evidence` newly passing,
   `epic-refreshes-after-blocked-merged-delivery` newly failing, 13/15 unchanged)
   — consistent with this suite's already-documented single-sample real-model
   variance rather than a regression this change caused, since neither flipped
