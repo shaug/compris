@@ -32,13 +32,26 @@ inside the current checkout, and record the degraded isolation explicitly in the
 run's evidence (for example:
 `worktree: none, isolation: branch-only, reason: <the observed denial>`).
 
+This fallback presumes the current checkout is already this run's own to mutate.
+[Step 1's exclusivity rule](../SKILL.md#1-create-exclusive-implementation-state)
+still applies without exception: a delegated worker, subagent, or equivalent
+context whose current checkout is not already exclusively its own — for example,
+one sharing a coordinator's or a sibling child's checkout — must not apply this
+fallback silently. Treat the denial as a blocking condition instead and surface
+it to the coordinator or caller; only standalone execution, which that same rule
+already permits to mutate the primary context, may fall back in place.
+
 *Prevents:* two failures on either side of the right behavior. Treating denial
 as a blocker strands a ticket that a lesser isolation guarantee could still
 deliver safely. Continuing without recording the degradation produces
 "implementation state created" evidence that reads identically whether the run
 achieved full worktree isolation or none — a caller trusting that evidence
 assumes a guarantee (a second mutating context cannot collide with this one's
-working tree) that branch-only isolation does not actually provide.
+working tree) that branch-only isolation does not actually provide. Left
+unqualified, the same fallback would also let a delegated worker read its denial
+as license to mutate a checkout it does not exclusively own, defeating the
+adjacent "never allow two implementation contexts to mutate the same candidate"
+invariant instead of degrading gracefully around it.
 
 ## Placement precedence and consent
 

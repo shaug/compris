@@ -532,6 +532,34 @@ class ImplementTicketContractTests(unittest.TestCase):
         # Each of the six mechanics states its own failure mode.
         self.assertGreaterEqual(surface.count("*Prevents:*"), 6)
 
+    def test_sandbox_fallback_does_not_override_delegated_exclusivity(self):
+        """A fresh review-code-change pass on #134's candidate raised one
+        `strong_recommendation` correctness finding: the sandbox-fallback
+        mechanic and step 1's pre-existing 'a delegated worker... must own
+        exactly one verified worktree and feature branch exclusively' rule
+        were unreconciled, so a delegated/subagent context hitting a sandbox
+        denial while sharing a non-exclusive checkout could read the fallback
+        as license to mutate it. Fixed by qualifying the fallback so only
+        standalone execution may apply it in place; a delegated context must
+        surface the denial instead."""
+        surface = self.worktree_isolation_compact
+        self.assertIn(
+            "a delegated worker, subagent, or equivalent context whose "
+            "current checkout is not already exclusively its own",
+            surface,
+        )
+        self.assertIn(
+            "must not apply this fallback silently. Treat the denial as a "
+            "blocking condition instead and surface it to the coordinator "
+            "or caller",
+            surface,
+        )
+        self.assertIn(
+            "only standalone execution, which that same rule already "
+            "permits to mutate the primary context, may fall back in place",
+            surface,
+        )
+
     def test_cleanup_defers_to_the_provenance_rule_instead_of_restating_it(self):
         """One owner per rule: cleanup-and-result.md points at the isolation
         reference rather than duplicating the provenance-scoped rationale."""
