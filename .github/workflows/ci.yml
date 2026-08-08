@@ -58,7 +58,7 @@ jobs:
       - name: Run unit tests
         run: |
           found=0
-          for tests in scripts/tests skills/*/scripts/tests review-suite/scripts/tests triggering/tests; do
+          for tests in scripts/tests skills/*/scripts/tests ledger/scripts/tests review-suite/scripts/tests triggering/tests; do
             if [ -d "$tests" ]; then
               found=1
               echo "Running tests in $tests"
@@ -66,5 +66,5 @@ jobs:
             fi
           done
           if [ "$found" -eq 0 ]; then
-            echo "No tests found under scripts/tests, skills/*/scripts/tests, review-suite/scripts/tests, or triggering/tests"
+            echo "No tests found under scripts/tests, skills/*/scripts/tests, ledger/scripts/tests, review-suite/scripts/tests, or triggering/tests"
           fi

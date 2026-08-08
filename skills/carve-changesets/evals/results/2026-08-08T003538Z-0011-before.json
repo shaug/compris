@@ -1,0 +1,164 @@
+{
+  "candidate": {
+    "branch": "scott/133-compaction-ledger",
+    "sha": "2d5fa6041825cc5161d4300f9b3056b948bd8029",
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "decompose-independent-subsystems": {
+      "actions": [
+        "split_by_subsystem"
+      ],
+      "executor_pid": 53149,
+      "target_skill": "carve-changesets",
+      "terminal_state": "plan_ready"
+    },
+    "mechanical-guardrail-exception": {
+      "actions": [
+        "accept_mechanical_exception",
+        "document_exception_evidence"
+      ],
+      "executor_pid": 53152,
+      "target_skill": "carve-changesets",
+      "terminal_state": "plan_ready"
+    },
+    "oversized-guardrail-negotiation": {
+      "actions": [
+        "request_guardrail_decision",
+        "stop_for_oversized_changeset"
+      ],
+      "executor_pid": 53151,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "publish-with-merge-withheld": {
+      "actions": [
+        "publish_without_merge",
+        "withhold_merge"
+      ],
+      "executor_pid": 53156,
+      "target_skill": "carve-changesets",
+      "terminal_state": "prs_open"
+    },
+    "recover-successor-suffix": {
+      "actions": [
+        "create_successor_lineage",
+        "invalidate_candidate_evidence",
+        "recover_owned_suffix_with_exact_lease",
+        "rehandoff_babysit_pr",
+        "verify_merged_prefix",
+        "verify_successor_equivalence"
+      ],
+      "executor_pid": 53159,
+      "target_skill": "carve-changesets",
+      "terminal_state": "all_merged"
+    },
+    "refuse-dirty-source": {
+      "actions": [
+        "diagnose_dirty_tree",
+        "refuse_dirty_source"
+      ],
+      "executor_pid": 53157,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "refuse-source-behind-base": {
+      "actions": [
+        "diagnose_source_behind_base",
+        "refuse_source_behind_base"
+      ],
+      "executor_pid": 53158,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "refuse-validated-reorder": {
+      "actions": [
+        "preserve_validated_order",
+        "refuse_reorder_or_renumber"
+      ],
+      "executor_pid": 53154,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "reject-conflicting-successor-lineage": {
+      "actions": [
+        "preserve_partial_chain",
+        "reject_conflicting_lineage",
+        "reject_unexpected_suffix_head"
+      ],
+      "executor_pid": 53160,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "reject-original-source-mutation": {
+      "actions": [
+        "reject_original_source_mutation",
+        "require_distinct_successor_source"
+      ],
+      "executor_pid": 53161,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "separate-mechanical-rename": {
+      "actions": [
+        "separate_rename_from_behavior"
+      ],
+      "executor_pid": 53150,
+      "target_skill": "carve-changesets",
+      "terminal_state": "plan_ready"
+    },
+    "validated-plan-conflict": {
+      "actions": [
+        "escalate_material_decision",
+        "stop_on_plan_conflict"
+      ],
+      "executor_pid": 53155,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    }
+  },
+  "cases": {
+    "decompose-independent-subsystems": "pass",
+    "mechanical-guardrail-exception": "pass",
+    "oversized-guardrail-negotiation": "pass",
+    "publish-with-merge-withheld": "pass",
+    "recover-successor-suffix": "pass",
+    "refuse-dirty-source": "pass",
+    "refuse-source-behind-base": "pass",
+    "refuse-validated-reorder": "pass",
+    "reject-conflicting-successor-lineage": "pass",
+    "reject-original-source-mutation": "pass",
+    "separate-mechanical-rename": "pass",
+    "validated-plan-conflict": "pass"
+  },
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "skills/carve-changesets/scripts/evals/runner.py"
+  ],
+  "compared_to": "2026-08-07T232330Z-0010-after.json",
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 12
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": false,
+  "gap": "recorded tier is deterministic, so no model read the prose and the model-behavior evidence is absent No real-model executor is registered for this skill, so this tier is the only one available here.",
+  "limitation": null,
+  "note": null,
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"mode\": \"forward\",\n  \"passed\": 12,\n  \"total\": 12\n}",
+  "recorded_at": "2026-08-08T00:35:38Z",
+  "schema": "eval-run-summary/1",
+  "skill": "carve-changesets",
+  "stage": "before",
+  "status": "completed",
+  "suite": "forward",
+  "tier": "deterministic",
+  "totals": {
+    "failed": 0,
+    "passed": 12,
+    "total": 12
+  }
+}

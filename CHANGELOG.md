@@ -4,7 +4,316 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-07 — Migrated carve-changesets' per-changeset review/fix loop and babysit-pr's post-publication review/fix loop to delegate to review-fix-loop, completing the design's caller-migration sequence, then added rationalization tables to babysit-pr, implement-ticket, and carve-changesets
+## 2026-08-07 — Migrated carve-changesets' per-changeset review/fix loop and babysit-pr's post-publication review/fix loop to delegate to review-fix-loop, completing the design's caller-migration sequence, then added rationalization tables to babysit-pr, implement-ticket, and carve-changesets, then added a compaction-resilient ledger and workspace-per-run to implement-epic, carve-changesets, and babysit-pr
+
+- feat(skills): add compaction ledger and workspace-per-run to implement-epic,
+  carve-changesets, and babysit-pr (issue #133, epic #119) — give each of the
+  three skills a skill-local, append-only ledger keyed by its own target unit
+  (epic id, source branch, or PR number), so a session resumed after a
+  compaction finds the prior workspace deterministically instead of
+  reconstructing it from recollection:
+  `.implement-epic/<epic-key>/ledger.jsonl`,
+  `.carve-changesets/<source-branch-slug>/ledger.jsonl`, and
+  `.babysit-pr/<repo-pr-key>/ledger.jsonl`. Each ledger records one `session`
+  line per session start and one `entry` line per verified per-unit outcome
+  (child dispatch, changeset action, or feedback disposition/retry/fix), and
+  each workspace self-excludes from git via its own internal `.gitignore` (`*`)
+  written the first time anything is recorded, so exclusion never depends on the
+  consuming repository's own ignore rules. A new `scripts/ledger.py` in each
+  skill (unittest-covered: 22 new tests for `implement-epic`, 14 for
+  `carve-changesets`, 23 for `babysit-pr`) provides
+  `session-start`/`record`/`read`/`find` — `find` is the recovery-path dedup
+  guard, returning the ledger's own latest claim for a unit filtered to that
+  skill's completed terminal results, explicitly excluding `blocked` (and, for
+  `babysit-pr`, `deferred`) so an unfinished unit is never suppressed from a
+  fresh attempt. `babysit-pr`'s ledger additionally adds `reconcile`, comparing
+  its ledger against `gh_pr_watch.py`'s own watcher state file (loaded via its
+  existing `default_state_file_for`/`load_state`, never duplicated) to surface
+  retry-count drift without either store overriding the other — the watcher
+  state file remains the authoritative retry-budget enforcement, unchanged. Each
+  skill's `SKILL.md` documents the workspace layout, ledger format, and recovery
+  rule via a new `references/ledger.md` and is wired into its existing workflow:
+  `implement-epic`'s graph loop checks the dedup guard before selecting a child
+  and records an entry after verifying a terminal result; `carve-changesets`'s
+  phase workflow checks per changeset before delegating to `review-fix-loop` and
+  records an entry after each phase's own terminal result; `babysit-pr` records
+  a disposition after each reply/resolution, a retry after each accepted retry,
+  and a fix after each `review-fix-loop` publish, reconciling both stores at
+  session start. The recovery rule is explicit in all three that the ledger is a
+  dedup guard only, never proof: a claimed-complete unit is still verified
+  against live tracker/git/PR state before a resumed session skips
+  re-dispatching it. `implement-ticket` is explicitly out of scope (its own
+  worktree hardening is sibling issue #134, not yet started).
+
+  A fresh `review-code-change` pass raised one `strong_recommendation`
+  solution-simplicity finding: the three skills' `ledger.py` modules were ~90%
+  structurally identical with no automated signal against drift, despite this
+  repository already having a working precedent for exactly this situation
+  (`review-suite/` → bundled per-skill copies via `just sync-contracts`). Fixed
+  by extracting the shared mechanics — workspace derivation and self-exclusion,
+  append-only I/O, and the recovery-path dedup guard — into a new canonical
+  `ledger/core.py`, bundled byte-identically into each skill as
+  `scripts/ledger_core.py` by an extended `sync-contracts` recipe; each skill's
+  own `ledger.py` is now a thin wrapper fixing the core's generic parameters to
+  that skill's vocabulary and keeping only what is genuinely skill-specific (CLI
+  flag names, each skill's completed- terminal-results set, and `babysit-pr`'s
+  watcher-state reconciliation, which has no analog in the other two). A second
+  `strong_recommendation` finding — dropping the `session` ledger-record kind
+  because no recovery function consumes it — was independently verified against
+  the live issue #133 body, which explicitly requires "a session identity line
+  appended at each session start" as part of the ledger format, and was rejected
+  as out of the ticket's scope rather than implemented.
+
+  A second fresh `review-code-change` pass raised two `strong_recommendation`
+  correctness findings, both fixed: (1) `carve-changesets`'s
+  `already_recorded_complete` had no `action` scoping, so a later `publish` or
+  `merge` entry for a changeset could mask an earlier `converged`
+  `review_fix_loop` entry and trigger needless re-delegation on resume — fixed
+  by adding an `action` parameter (mirroring `babysit-pr`'s existing
+  `already_dispositioned` pattern) and, while implementing it, catching a deeper
+  instance of the same bug in the shared `ledger_core.already_recorded_complete`
+  itself: it filtered only the already-selected globally-latest entry rather
+  than searching for the latest entry actually matching the requested action, so
+  an unrelated later entry could still mask a real completion even with the
+  filter supplied — fixed in `ledger/core.py` (and therefore in all three skills
+  at once), with a new regression test in each of `carve-changesets` and
+  `babysit-pr` proving the earlier, correct entry is now found past a later,
+  different-action one. (2) `babysit-pr/references/ledger.md`'s "Recovery rule"
+  step 1 named a path (`.babysit-pr/<repo-slug>-pr<number>/`) that didn't match
+  the "Workspace layout" section's own example (`example-project-482/`, no
+  literal `-pr`) — fixed to match.
+
+  A third fresh `review-code-change` pass raised one `blocking` correctness
+  finding: `babysit-pr/SKILL.md`'s retry-recording instruction told the agent to
+  record `action: retry` with `item_id` set to the head SHA, but never said to
+  also populate the separate `head_sha` field the way the parallel `fix_pushed`
+  instruction already did — since `reconcile_with_watcher_state` keys strictly
+  off `head_sha` with no fallback to `item_id`, an entry recorded per the
+  unfixed instruction was invisible to the retry-mismatch check, so a resumed
+  session could get a false-clean reconciliation report even with actual
+  retry-budget drift. Fixed by adding "`head_sha` the same value" to the
+  instruction and a matching clarification to `references/ledger.md`'s ledger
+  format table.
+
+  A fourth fresh `review-code-change` pass raised one `strong_recommendation`
+  correctness finding: `babysit-pr`'s `unit_key_for(repo, pr_number)` composed
+  the workspace key as `f"{repo.lower()}#{pr_number}"`, and `slugify` collapses
+  both `/` (common inside `owner/repo`) and `#` to the same `-`, so
+  `octocat/hello-world#482` and `octocat-hello/world#482` both produced the
+  identical slug — silently merging two distinct repositories' ledgers onto one
+  workspace, exactly the collision class `gh_pr_watch.default_state_file_for`'s
+  own sibling keying function already guards against with an 8-hex-digit digest
+  of the exact repo string. Fixed by applying the identical digest fix to
+  `unit_key_for`, with a new regression test and updated `references/ledger.md`
+  examples. The same pass's non-gating `defer` finding — no committed test would
+  catch future drift between `ledger/core.py` and its three bundled
+  `ledger_core.py` copies, unlike the `review-suite/` precedent this candidate
+  cites — was also addressed: a new
+  `ledger/scripts/tests/test_bundled_copies.py` mirrors
+  `review-suite/scripts/tests/test_bundled_contracts.py`'s drift check, wired
+  into `just test` via `justfile`.
+
+  A fifth fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding, the same collision class already
+  fixed for `babysit-pr` in this candidate's own history, now found in
+  `carve-changesets`: `workspace_dir`/`ledger_path`/`ensure_workspace` passed
+  the bare `source_branch` straight into `slugify`, so `feature/api-timeout` and
+  `feature-api/timeout` both produced `feature-api-timeout` and would silently
+  share one workspace. Fixed by adding a `carve-changesets`-side `unit_key_for`
+  applying the identical digest fix, updating every call site
+  (`record_session_start`, `record_entry`, `read_ledger`, plus the three path
+  helpers) to compose through it, a new regression test, and matching
+  `references/ledger.md` example updates.
+
+  Having now found the identical collision class independently in two of the
+  three skills across two separate review passes, the same digest fix was
+  applied proactively to `implement-epic`'s `unit_key_for` too — ahead of a
+  further review pass rather than waiting for a sixth one to name it — with its
+  own regression test and matching `references/ledger.md` example updates, so
+  all three skills now share one collision-safety story.
+
+  A sixth fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding, this one documentation-only:
+  `carve-changesets`'s worked example printed a fabricated digest (`a1b2c3d4`)
+  for `sha256("feature/cloud-host-migration")` rather than the actual value the
+  shipped code produces (`700dac82`), while asserting the printed value was
+  "deterministic for that exact branch name" — true of the real digest, false of
+  the invented one. `babysit-pr`'s and `implement-epic`'s parallel examples were
+  both independently confirmed correct. Fixed by substituting the actual
+  computed digest.
+
+  A seventh fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding: `carve-changesets`'s "Publish"
+  step told the agent to record a `publish`-action ledger entry "once its
+  `babysit-pr` result is known" without pinning a literal `terminal_result`
+  string, unlike the `merge` action right after it (`terminal_result: merged` is
+  explicit there) — and `references/ledger.md`'s format section only gave an
+  undifferentiated example list conflating whole-skill aggregate vocabulary with
+  per-entry values. Since `DEFAULT_COMPLETED_TERMINAL_RESULTS` never includes
+  `babysit-pr`'s own terminal states (`ready_to_merge`/`closed`), an agent
+  following the doc literally could record a value the dedup guard never
+  matches, silently defeating recovery dedup for the publish phase (safe
+  direction: redundant re-delegation, not a false skip). Fixed by pinning
+  explicit literals in both `SKILL.md`'s Publish step and a new per-action
+  vocabulary table in `references/ledger.md`: `publish` translates a
+  `babysit-pr` `ready_to_merge` result to `terminal_result: prs_open` (or
+  `blocked` from `blocked`/`closed`), mirroring how `merge` already translates
+  `babysit-pr`'s `merged` result to the same literal.
+
+  An eighth fresh `review-code-change` pass raised one more `blocking`
+  correctness finding: `babysit-pr`'s `reconcile_with_watcher_state` computed
+  `dispositioned_feedback_ids` as an existential OR across an item's *entire*
+  entry history, rather than checking only its *latest* `feedback_disposition`
+  entry the way `already_dispositioned` correctly does — an item fixed and later
+  reopened (e.g. a regression) and deferred would still report as closed,
+  because a prior entry was once `fixed`, contradicting `references/ledger.md`'s
+  own claim that the two sets agree. Fixed by deriving
+  `dispositioned_feedback_ids` through `already_dispositioned` itself (one
+  latest-entry check per candidate item id) instead of a separate history-wide
+  set comprehension, with a new regression test proving a fixed-then-deferred
+  item now correctly reports as open.
+
+  A ninth fresh `review-code-change` pass (solution simplicity and correctness
+  both clean) raised one `strong_recommendation` code-simplicity finding:
+  `carve-changesets`'s `DEFAULT_COMPLETED_TERMINAL_RESULTS` included
+  `chain_ready` and `all_merged`, but `references/ledger.md`'s own per-action
+  vocabulary table documents only `converged`/`prs_open`/`merged` (or `blocked`)
+  as values any recorded action actually writes — `chain_ready`/`all_merged` are
+  this skill's own whole-chain *return* values, never a per-entry
+  `terminal_result`. Not a live bug (the guard simply never matched on them),
+  but a latent trap: a future entry recorded under a mismatched action would
+  have silently passed this completeness check instead of failing loudly. Fixed
+  by shrinking the frozenset to `{"converged", "prs_open", "merged"}` and
+  dropping the two values from every prose restatement (`ledger.py`'s module
+  docstring and inline comment, `ledger.md`'s vocabulary summary and
+  recovery-rule step 2).
+
+  A tenth fresh `review-code-change` pass (solution simplicity and correctness
+  both clean) raised one `strong_recommendation` code-simplicity finding:
+  `babysit-pr/scripts/ledger.py` hand-wrote the identical "load a sibling script
+  by path and register it in `sys.modules`" five- statement sequence twice —
+  once for the bundled `ledger_core.py` (`_load_core`), once for
+  `gh_pr_watch.py` (`_load_watcher_module`) — with only the module name and
+  filename differing. Fixed by extracting one shared
+  `_load_sibling_module(name, filename)` helper both now call, with
+  `_load_watcher_module`'s intentional call-time (not import-time) loading
+  preserved unchanged.
+
+  An eleventh fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding: `references/ledger.md`'s
+  vocabulary table documented specific `terminal_result` values for the `retry`
+  (`rerun`) and `fix_pushed` (`pushed`) actions, but the `SKILL.md` prose
+  instructing the agent to record those two entry kinds never told it to pass
+  `--terminal-result` — unlike `feedback_disposition`, which `SKILL.md` already
+  pins explicitly. Since the CLI's `--terminal-result` defaults to `None`, an
+  agent following `SKILL.md` literally would record both kinds with
+  `terminal_result: null`, contradicting the reference doc. Currently inert (no
+  shipped dedup check reads `terminal_result` for either action), but a doc that
+  doesn't describe what the workflow it documents actually produces. Fixed by
+  pinning `terminal_result: rerun` and `terminal_result: pushed` in the two
+  `SKILL.md` instructions, and tightening `ledger.md`'s `retry` row from a vague
+  "`rerun`, or the diagnosed classification" to the one literal value actually
+  written.
+
+  A twelfth fresh `review-code-change` pass (solution simplicity and correctness
+  both clean) raised two more `strong_recommendation` code-simplicity findings,
+  both fixed by extending the shared canonical core rather than the per-skill
+  wrappers: (1) each skill's `_parse_evidence` CLI helper (`--evidence-json`
+  decode-and-validate) was byte-for-byte identical across all three, unlike
+  every other genuinely skill-specific piece of wrapper code, and sat outside
+  the bundled-copy drift test's coverage; (2) each skill's `unit_key_for`
+  independently hand-wrote the identical `hashlib.sha256(...).hexdigest()[:8]`
+  collision-breaking formula (already used once more, pre-existing, in
+  `babysit-pr`'s own `gh_pr_watch.default_state_file_for`), so the
+  collision-avoidance guarantee depended on three independently maintained
+  copies staying in sync with no structural check forcing agreement. Fixed by
+  adding `parse_evidence_json`/`collision_safe_digest` to `ledger/core.py`
+  (re-synced via `just sync-contracts`) and having every skill's `ledger.py`
+  call through the shared core instead of reimplementing either; the existing
+  `test_bundled_copies.py` drift test now also covers both.
+
+  A thirteenth fresh `review-code-change` pass returned `clean` (no blocking or
+  `strong_recommendation` finding across all three lenses), with one non-gating
+  `defer` finding: the committed `carve-changesets` "after" eval run was bound
+  to `57a38c3` (the first ledger commit), which predates two later SKILL.md
+  obligations this candidate went on to add (`b01f88b`'s action-scoped dedup
+  lookup, `9f12fed`'s pinned publish-action vocabulary) — so it never actually
+  exercised the prose those two commits changed, even though the deterministic
+  corpus doesn't read `SKILL.md` prose at all regardless. Addressed by
+  re-recording `just eval-record carve-changesets --stage after` at this
+  candidate's true final head, still 12/12 with an empty per-case diff against
+  the stale run.
+
+  A fourteenth fresh `review-code-change` pass (solution simplicity and
+  correctness both clean) raised two more `strong_recommendation`
+  code-simplicity findings, both fixed: (1) the generic core mechanics
+  (workspace self-exclusion, append-only write/read, malformed-line/unknown-
+  kind tolerance, latest-wins and action-scoped dedup) were independently
+  re-verified in all three skills' `test_ledger.py` suites with only
+  field-name/value substitutions, despite this repository's own precedent for
+  avoiding exactly that in the identical bundling pattern
+  (`review-suite/scripts/tests/test_contracts.py` holds the full behavioral
+  suite once centrally; each consuming skill carries only a thin adherence
+  test). Fixed by adding `ledger/scripts/tests/test_core.py` (28 tests against
+  `ledger/core.py` directly, using arbitrary parameters rather than any one
+  skill's vocabulary) and trimming each skill's own `test_ledger.py` to only
+  what is genuinely skill-specific: `unit_key_for` composition and collision
+  disambiguation, that skill's own completed-results/disposition vocabulary, CLI
+  wiring, and (`babysit-pr` only) watcher-state reconciliation. (2)
+  `ledger/core.py`'s `latest_entry` was wrapped identically in all three skills'
+  `ledger.py` but had zero callers outside those wrappers and their own tests —
+  no CLI subcommand, no `SKILL.md`/ `references` mention, and
+  `already_recorded_complete` (the actual dedup mechanism) never called it
+  internally. Fixed by removing it from `ledger/core.py` and all three wrappers,
+  along with the tests that existed only to cover it.
+
+  A fifteenth fresh `review-code-change` pass (solution simplicity and
+  correctness both clean) raised one more `strong_recommendation`
+  code-simplicity finding, the same "zero callers outside its own declaration"
+  condition as the already-removed `latest_entry`: all three skills' `ledger.py`
+  re-exported `LedgerReadResult = core.LedgerReadResult`, but nothing outside
+  that declaration line referenced it anywhere in the repository. Fixed by
+  deleting the three re-export lines.
+
+  A sixteenth fresh `review-code-change` pass (solution simplicity clean) raised
+  one more `strong_recommendation` correctness finding: this candidate's own
+  `justfile` edit added `ledger/scripts/tests` to `just test`'s unit-test loop,
+  but `.github/workflows/ci.yml`'s independent loop — which this repository's
+  own precedent (the commit that added `triggering/tests` to both lists in
+  lockstep) keeps in sync with `justfile`'s — was never updated, so the new
+  suite would run locally but silently not run in CI. Fixed by adding
+  `ledger/scripts/tests` to `ci.yml`'s loop and its companion "no tests found"
+  message, mirroring the `justfile` edit exactly.
+
+  Eval evidence: the deterministic tier for `carve-changesets` is unchanged
+  before and after (12/12, empty per-case diff, confirmed against the final-head
+  "after" run). The real-model tier for `implement-epic` (via
+  `implement-ticket`'s executor, `--target-skill implement-epic`) ran once
+  before this change (base `2d5fa604`, 10/15) and three times after, because the
+  first two "after" runs were bound to intermediate heads a round 16/17 review
+  pass correctly flagged as stale (`2026-08-08T014515Z-0013-after.json` at
+  `57a38c3`, then `2026-08-08T172341Z-0014-after.json` at `2a10ceb`) before the
+  third landed on this candidate's true final head
+  (`2026-08-08T175524Z-0015-after.json`, 9/15). All three "after" runs total
+  9-10/15 with **different specific cases failing each time** — direct,
+  three-sample evidence of this corpus's own single-sample real-model variance
+  for epic-acceptance-adjacent cases, not a regression tied to this diff: run
+  `0013` (10/15) and the true `before` baseline disagree on zero cases
+  (identical failure set); run `0014` (9/15) newly failed
+  `epic-refreshes-after-blocked-merged-delivery` and
+  `epic-unreadable-implement-ticket` relative to `before`; run `0015` (9/15,
+  recorded after a clarifying prose fix — see the preceding commits) newly
+  passed both of those two but newly failed two entirely different cases instead
+  (`epic-third-party-implement-ticket`,
+  `implement-epic-verifies-stacked-child`), landing at the same total.
+  `epic-unreadable-implement-ticket` in particular exercises this skill's
+  "Require the ticket skill" dependency-verification section, which this
+  candidate's diff never touches at all — confirmed via the exact `git diff`
+  hunk ranges — ruling out a causal link for that case specifically.
+  `babysit-pr` has no registered forward-eval corpus;
+  `just eval-record babysit-pr` reports that gap directly
+  (`babysit-pr has no registered forward evaluations to record`) rather than
+  recording something in its place, exactly as `AGENTS.md`'s norm anticipates.
 
 - feat(skills): add rationalization tables to babysit-pr, implement-ticket, and
   carve-changesets (issue #129, epic #119) — a bare prohibition leaves an agent
@@ -53,7 +362,7 @@ summary: Chronological history of repository and skill changes.
   is `implement-epic` — a skill this diff does not touch at all, and which #129
   explicitly excludes — so the flip is this suite's already-documented
   single-sample real-model variance, not a regression this change caused); the
-  other 53 of 58 cases are unchanged.
+  other 53 of 58 cases are unchanged. (2d5fa6041825cc5161d4300f9b3056b948bd8029)
 
 - feat(carve-changesets): delegate the per-changeset review and fix loop to
   review-fix-loop (issue #105) — replace phase 2's inlined "construct and run

@@ -35,6 +35,12 @@ sync-contracts:
     cp review-suite/scripts/tests/test_review_gate.py "$tests_dest/test_review_gate.py"; \
     echo "Synced $scripts_dest/review_gate.py and $tests_dest/test_review_gate.py"; \
   done
+  @for skill in implement-epic carve-changesets babysit-pr; do \
+    scripts_dest="{{skills_dir}}/$skill/scripts"; \
+    mkdir -p "$scripts_dest"; \
+    cp ledger/core.py "$scripts_dest/ledger_core.py"; \
+    echo "Synced $scripts_dest/ledger_core.py"; \
+  done
 
 # Compare the separately installed skill copies under ~/.agents/skills against
 # this repository's working tree. `sync-contracts` above only refreshes the
@@ -63,7 +69,7 @@ test: test-plugins
   if [ "$found" -eq 0 ]; then \
     echo "No skill tests found under {{skills_dir}}/*/scripts/tests"; \
   fi; \
-  for tests in review-suite/scripts/tests triggering/tests; do \
+  for tests in ledger/scripts/tests review-suite/scripts/tests triggering/tests; do \
     if [ -d "$tests" ]; then \
       echo "Running tests in $tests"; \
       python3 -m unittest discover -s "$tests" -p 'test_*.py'; \
