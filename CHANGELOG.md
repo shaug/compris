@@ -4,6 +4,77 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics
+
+- feat(implement-ticket): harden worktree isolation mechanics (issue #134, epic
+  #119) — implement-ticket's own "Create exclusive implementation state" step
+  was generic ("create one feature branch and clean isolated worktree from the
+  verified base"), with no concrete placement, safety-guard, or cleanup
+  mechanics, exactly the gap #133's adjacent skills (`implement-epic`,
+  `carve-changesets`, `babysit-pr`) already closed for their own workspace
+  conventions — #133 explicitly left `implement-ticket` itself untouched, so
+  this is that skill's first own change in the epic. New
+  `references/worktree-isolation.md` states each mechanic with its failure mode:
+  prefer a native harness worktree/isolation tool when present, since a raw
+  `git worktree add` underneath a harness with its own tracking is invisible to
+  that tracking (phantom state); fall back to branch-only isolation, recorded
+  explicitly as degraded evidence, when the environment denies worktree
+  creation, rather than either stalling or silently claiming full isolation;
+  choose the worktree directory by precedence (an explicit caller/coordinator
+  location, then an existing convention directory, then a default), surfacing
+  any novel placement instead of letting it pass unremarked; guard the intended
+  path with the submodule check
+  (`git rev-parse --show-superproject-working-tree`, preventing worktree
+  metadata from binding to the wrong `.git` structure) and the ignore check
+  (`git check-ignore -v`, preventing placement somewhere routine ignored-file
+  cleanup could delete the worktree without going through
+  `git worktree remove`'s own safety checks); run the ticket's approved focused
+  validation against the fresh worktree at the verified base before any
+  implementation edit, so a broken baseline is never silently blamed on the
+  change; and scope cleanup to the exact worktree this run itself created at its
+  recorded path, never a naming-pattern sweep of a shared convention directory
+  that could delete a concurrent or unrelated run's worktree. `SKILL.md` gets an
+  "Always read" entry for the new reference alongside the other
+  unconditionally-loaded handoffs, plus a step-1 pointer;
+  `references/cleanup-and-result.md`'s worktree-removal step now points at the
+  new file's provenance-scoped-cleanup section instead of restating it (one
+  owner per rule). `scripts/tests/test_implement_ticket_contract.py` is
+  extended, not replaced, with five new tests pinning the reference wiring,
+  every required mechanic/failure-mode phrase, and the cleanup cross-reference —
+  full contract suite 111/111 passing. Ported with attribution from superpowers'
+  `using-git-worktrees` per the named-peer registry's existing entry for this
+  seam.
+
+  This ticket rewrites the exact mechanics this dispatch itself used to create
+  its own worktree, so it was executed reflexively: the worktree for this work
+  was created using implement-ticket's pre-change prose (confirm primary
+  checkout/registered worktrees, fetch, `git branch` + `git worktree add` from
+  the verified base) rather than bootstrapping through the not-yet-written new
+  prose.
+
+  Eval evidence: the real-model tier ran both before and after this change,
+  before bound to this branch's parent `bb02ae0` and after bound to `756ba31`,
+  this candidate's implementation commit — 34/58 before, 30/58 after. A first
+  before-eval attempt was invalidated and discarded rather than kept: it was
+  recorded while the worktree was still being edited concurrently in the
+  background, so its own `candidate.worktree_clean: false` correctly flagged
+  contamination risk, since the executor reads live skill files per case and a
+  mid-run edit can leak into whichever cases ran after it; re-recorded from a
+  `git stash`-clean tree with no concurrent edits. Comparing the valid
+  before/after pair: 7 cases move to newly-failing and 3 to newly-passing
+  against 48 unchanged. None of the 7 newly-failing cases' required or forbidden
+  actions concern worktree, isolation, native-tool preference, either guard, or
+  cleanup provenance — the only surface this diff touches. Two of the seven
+  (`epic-incompatible-implement-ticket`,
+  `implement-epic-consumes-ticket-results`) target `implement-epic`, a skill
+  this diff never touches at all, so those two cannot be caused by this change
+  by construction — the same "run varies, diff doesn't touch it" pattern #129's
+  and #133's real-model evidence already documented for this corpus. The
+  remaining five probe untrusted-content handling, cross-tracker separation, and
+  malformed-result rejection, topically unrelated to this diff's content.
+  Recorded as corpus noise rather than a candidate defect, per the ticket's own
+  guidance against chasing single-sample real-model variance.
+
 ## 2026-08-07 — Migrated carve-changesets' per-changeset review/fix loop and babysit-pr's post-publication review/fix loop to delegate to review-fix-loop, completing the design's caller-migration sequence, then added rationalization tables to babysit-pr, implement-ticket, and carve-changesets, then added a compaction-resilient ledger and workspace-per-run to implement-epic, carve-changesets, and babysit-pr
 
 - feat(skills): add compaction ledger and workspace-per-run to implement-epic,
@@ -314,6 +385,7 @@ summary: Chronological history of repository and skill changes.
   `just eval-record babysit-pr` reports that gap directly
   (`babysit-pr has no registered forward evaluations to record`) rather than
   recording something in its place, exactly as `AGENTS.md`'s norm anticipates.
+  (bb02ae01d16faa9fde1f40407ae77db2096de633)
 
 - feat(skills): add rationalization tables to babysit-pr, implement-ticket, and
   carve-changesets (issue #129, epic #119) — a bare prohibition leaves an agent

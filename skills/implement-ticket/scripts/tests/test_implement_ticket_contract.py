@@ -47,10 +47,14 @@ class ImplementTicketContractTests(unittest.TestCase):
             SKILL_ROOT / "references" / "review-fix-loop-handoff.md"
         )
         cls.result = read(SKILL_ROOT / "references" / "cleanup-and-result.md")
+        cls.worktree_isolation = read(
+            SKILL_ROOT / "references" / "worktree-isolation.md"
+        )
         cls.skill_compact = compact(cls.skill)
         cls.handoff_compact = compact(cls.handoff)
         cls.review_fix_loop_handoff_compact = compact(cls.review_fix_loop_handoff)
         cls.result_compact = compact(cls.result)
+        cls.worktree_isolation_compact = compact(cls.worktree_isolation)
         cls.eval_contract = compact(
             read(SKILL_ROOT / "evals" / "cases.json")
             + read(SKILL_ROOT / "evals" / "expectations.json")
@@ -64,6 +68,7 @@ class ImplementTicketContractTests(unittest.TestCase):
             + cls.carve_handoff
             + cls.review_fix_loop_handoff
             + cls.result
+            + cls.worktree_isolation
         )
         cls.cases = {
             item["id"]: item
@@ -480,6 +485,109 @@ class ImplementTicketContractTests(unittest.TestCase):
         self.assertIn("final changeset PR", contract)
         self.assertIn("The operator decides", contract)
         self.assertNotIn("few hundred", contract)
+
+    def test_worktree_isolation_reference_is_always_loaded(self):
+        """Step 1 is unconditional, so its reference must be an "Always read"
+        entry, matching the other always-loaded handoffs in this list."""
+        self.assertIn(
+            "Always read [worktree isolation mechanics]"
+            "(references/worktree-isolation.md) before creating exclusive "
+            "implementation state",
+            self.skill_compact,
+        )
+        self.assertIn(
+            "following [worktree isolation mechanics]"
+            "(references/worktree-isolation.md)",
+            self.skill_compact,
+        )
+
+    def test_worktree_isolation_covers_every_required_mechanic(self):
+        """Ticket #134's acceptance criterion: native-tool preference, the
+        sandbox fallback, placement precedence, the two guards, the
+        clean-baseline run, and provenance-scoped cleanup, each with its
+        failure mode."""
+        surface = self.worktree_isolation_compact
+        for required in (
+            "Check the available tool listing for a harness-provided worktree "
+            "or isolation tool before reaching for raw `git worktree` commands",
+            "Fall back to working in place: isolate the candidate by branch "
+            "alone inside the current checkout",
+            "record the degraded isolation explicitly in the run's evidence",
+            "an explicit location named in caller or coordinator instructions",
+            "an existing convention directory the repository or host "
+            "environment already uses for worktrees",
+            "Creating a worktree at a location that was not requested and "
+            "does not match an existing convention is a novel placement",
+            "`git rev-parse --show-superproject-working-tree`",
+            "`git check-ignore -v <intended-worktree-path>`",
+            "Run the ticket's approved focused validation, at minimum, at "
+            "the verified base, before making any implementation edit",
+            "remove only the worktree this run itself created, at the exact "
+            "path recorded during this step",
+            "Never enumerate a convention directory and remove every entry "
+            "matching a naming pattern",
+        ):
+            self.assertIn(required, surface)
+        # Each of the six mechanics states its own failure mode.
+        self.assertGreaterEqual(surface.count("*Prevents:*"), 6)
+
+    def test_sandbox_fallback_does_not_override_delegated_exclusivity(self):
+        """A fresh review-code-change pass on #134's candidate raised one
+        `strong_recommendation` correctness finding: the sandbox-fallback
+        mechanic and step 1's pre-existing 'a delegated worker... must own
+        exactly one verified worktree and feature branch exclusively' rule
+        were unreconciled, so a delegated/subagent context hitting a sandbox
+        denial while sharing a non-exclusive checkout could read the fallback
+        as license to mutate it. Fixed by qualifying the fallback so only
+        standalone execution may apply it in place; a delegated context must
+        surface the denial instead."""
+        surface = self.worktree_isolation_compact
+        self.assertIn(
+            "a delegated worker, subagent, or equivalent context whose "
+            "current checkout is not already exclusively its own",
+            surface,
+        )
+        self.assertIn(
+            "must not apply this fallback silently. Treat the denial as a "
+            "blocking condition instead and surface it to the coordinator "
+            "or caller",
+            surface,
+        )
+        self.assertIn(
+            "only standalone execution, which that same rule already "
+            "permits to mutate the primary context, may fall back in place",
+            surface,
+        )
+
+    def test_clean_baseline_run_covers_the_sandbox_fallback_path_too(self):
+        """A second fresh review-code-change pass (after the delegated-
+        exclusivity fix) raised one `strong_recommendation` correctness
+        finding: the clean-baseline mechanic was scoped only to "the freshly
+        created worktree", so an agent following the sandbox-fallback path
+        had no textual instruction to validate the base before implementing —
+        the same silent-corruption risk the mechanic exists to prevent, left
+        unaddressed in the one path with an already-weaker isolation
+        guarantee. Fixed by extending the requirement to the current
+        checkout when the fallback applies."""
+        surface = self.worktree_isolation_compact
+        self.assertIn(
+            "against the freshly created worktree when one exists, or "
+            "against the current checkout when the sandbox fallback applies",
+            surface,
+        )
+        self.assertIn(
+            "The isolation path taken does not change this requirement",
+            surface,
+        )
+
+    def test_cleanup_defers_to_the_provenance_rule_instead_of_restating_it(self):
+        """One owner per rule: cleanup-and-result.md points at the isolation
+        reference rather than duplicating the provenance-scoped rationale."""
+        self.assertIn(
+            "worktree-isolation.md#provenance-scoped-cleanup", self.result_compact
+        )
+        self.assertIn("Never force removal", self.result_compact)
+        self.assertNotIn("naming-pattern sweep", self.result_compact)
 
     def test_instruction_file_naming_is_host_neutral(self):
         self.assertIn("CLAUDE.md", self.skill_compact)
