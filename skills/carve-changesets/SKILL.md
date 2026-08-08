@@ -31,6 +31,10 @@ without copying either skill's workflow.
   result against its own bundled contract and schemas before consuming it.
 - Read [the suite handoffs](references/suite-handoffs.md) before publishing PRs,
   delegating a PR lifecycle, or recovering a successor suffix.
+- Always read [the compaction ledger](references/ledger.md) before the first
+  changeset action of a session and again before resuming, so a session resumed
+  after a compaction recovers prior changeset outcomes from the ledger and live
+  state rather than from recollection.
 
 Use `scripts/cli.py` as the single command surface. Resolve script and reference
 paths from this skill's root, not from a repository-relative installation
@@ -114,6 +118,13 @@ resolution authority remain separate from branch mutation and merge authority.
 
 ## Execute the phase workflow
 
+At the start of a session that will act on a source branch, record one
+session-identity line in [the compaction ledger](references/ledger.md), then
+read it. On resume or after a context compaction, trust that ledger plus freshly
+read live git/GitHub state over recollection of prior phase-workflow progress;
+never skip `review-fix-loop`, republication, or a merge step for a changeset the
+ledger does not show as completed and live-verified.
+
 ### 1. Propose
 
 Run `preflight` against the exact source and base with the approved test argv.
@@ -133,6 +144,13 @@ commits. Run `validate-chain` with approved validation, `compare` for the
 reconstructed tree, and the applicable `squash-check` or `db-compare` evidence.
 Use `status --local-only` to inspect live local truth without GitHub.
 
+Before constructing changeset *i*'s invocation, check
+[the compaction ledger's recovery rule](references/ledger.md#recovery-rule) for
+a completed, live-verified `review_fix_loop` entry for that changeset. Skip
+straight to *i + 1* when one exists; otherwise proceed as below. This is a dedup
+guard only — a ledger entry that fails live verification, or that records
+anything other than `converged`, changes nothing about this step.
+
 Delegate each exact changeset candidate's review and fix loop to
 repository-owned `review-fix-loop` under `publication.policy: local_commit`,
 following [the review-fix-loop handoff](references/review-fix-loop-handoff.md).
@@ -144,9 +162,12 @@ transfers judgment about findings and fix authorship for the remediation
 interval, not exclusive ownership of the branch. Treat any `review-fix-loop`
 dependency failure, invocation or terminal-result validation failure, or
 `blocked` result as a failed local gate exactly as a missing dependency or a
-`blocked` verdict was always treated. Return `chain_ready` only after every
-local candidate has a `converged` `review-fix-loop` result bound to its exact
-head and stacked base, and the full chain satisfies the contract.
+`blocked` verdict was always treated. Record one ledger entry per changeset
+(`action: review_fix_loop`) as soon as its own `review-fix-loop` result is
+known, whether `converged` or a failed gate — an interrupted session must find
+exactly where it stopped, not just where it succeeded. Return `chain_ready` only
+after every local candidate has a `converged` `review-fix-loop` result bound to
+its exact head and stacked base, and the full chain satisfies the contract.
 
 ### 3. Publish
 
@@ -158,15 +179,20 @@ and GitHub rather than a local cache.
 
 Delegate each exact PR to `babysit-pr` using the policy and evidence in the
 suite handoff reference. While delegated, do not run a competing CI, feedback,
-review, or mutation loop. Return `prs_open` only when every applicable non-merge
-gate at the requested boundary passes and merge is withheld.
+review, or mutation loop. Record one ledger entry per changeset
+(`action: publish`) once its `babysit-pr` result is known. Return `prs_open`
+only when every applicable non-merge gate at the requested boundary passes and
+merge is withheld.
 
 ### 4. Merge and propagate
 
 Require merge-and-propagate authority. When `babysit-pr` returns `merged`,
 independently verify the exact merged candidate on the live base, rehydrate the
 chain, use `propagate` to rewrite only the downstream suffix with exact leases,
-then hand the next exact PR back to `babysit-pr`.
+then hand the next exact PR back to `babysit-pr`. Record one ledger entry per
+changeset (`action: merge`, `terminal_result: merged`, the merge SHA as
+`head_sha`) immediately after this independent verification — never before it,
+since the ledger must never claim a merge the live base does not yet show.
 
 When `babysit-pr` instead returns a ticket-scoped head-changing fix after an
 earlier prefix has merged, reclaim ownership only through the recovery handback
@@ -197,7 +223,10 @@ Recognize the excuse and answer it with the rule that already applies:
 
 ## Preserve safety and truth
 
-- Keep `.carve-changesets/` ignored and out of commits and PRs.
+- Keep `.carve-changesets/` ignored and out of commits and PRs — its
+  per-source-branch ledger workspace additionally self-excludes via its own
+  `.gitignore`, per
+  [the compaction ledger](references/ledger.md#workspace-layout).
 - Keep `db-compare` raw outputs ephemeral by default. Retain exact raw output
   only at an explicitly selected, reported, permission-restricted destination;
   bound terminal diagnostics without transforming comparison inputs.
@@ -207,8 +236,9 @@ Recognize the excuse and answer it with the rule that already applies:
   leases where the contract permits force-push.
 - Preserve the exact root and successor-source identities and reconstruct their
   ordered lineage from commit trailers and PR metadata.
-- Never use a plan edit or cached head to override materialized, published, or
-  merged truth.
+- Never use a plan edit, cached head, or ledger entry to override materialized,
+  published, or merged truth; the ledger is a dedup guard, verified against live
+  state, never a source of truth in its own right.
 - Never reset away, overwrite, or delete user work, credentials, environment
   files, databases, or non-reproducible artifacts.
 - Rebuild candidate-bound validation, review, CI, and feedback evidence after a

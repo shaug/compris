@@ -71,6 +71,10 @@ subagent describe possible isolated execution roles, not required product APIs.
   parent, child, dependency, or status state.
 - Always read [epic closeout](references/closeout.md) before closing a parent or
   umbrella epic.
+- Always read [the compaction ledger](references/ledger.md) before the first
+  child dispatch of a session and again before selecting a child, so a resumed
+  or post-compaction session recovers prior dispatch outcomes from the ledger
+  and live state rather than from recollection.
 
 Resolve issue-tracker ownership independently from repository and PR-host
 ownership. Let `implement-ticket` load the applicable single-ticket adapters.
@@ -152,11 +156,27 @@ blocker requires user input.
 - Inspect existing branches and open or merged PRs before selecting a child.
 - Separate the serial critical-path recommendation from other parallel-ready
   work.
+- At the start of a session, record one session-identity line in the epic's own
+  [compaction ledger](references/ledger.md), then read it. On resume or after a
+  context compaction, trust that ledger plus this refreshed live state over
+  recollection of prior loop iterations.
 
 Never infer the current graph from an old plan, issue list order, Markdown task
 list, label, or previous loop iteration when native relationships are available.
+The compaction ledger is the one documented exception to "previous loop
+iteration": it is a durable record checked against live state, not a
+recollection substituting for it.
 
 ### 2. Select one child
+
+Before selecting a child, check the compaction ledger's dedup guard: when
+`already_recorded_complete` returns an entry for that child and live state
+verifies the claim, per [the recovery rule](references/ledger.md#recovery-rule),
+do not re-dispatch it — treat it exactly as an already-selected child from
+earlier this run. A ledger entry that fails live verification, or that records
+`blocked` or no terminal result, never suppresses selection; the ledger is a
+dedup guard against redoing verified-complete work, not a substitute for the
+graph-state checks below.
 
 Select an in-scope, PR-sized child only when native graph state shows no open
 blocker and the child is either open or was auto-closed while required
@@ -193,8 +213,11 @@ Invoke `implement-ticket` once with a concise handoff containing:
 - the explicit decomposition grant or its explicit absence; and
 - any epic-level rollout or merge-order constraint that qualifies the child.
 
-Deliver that handoff as files. Create `.implement-epic/` at the coordinator's
-own working root, outside every candidate ticket worktree, and write one
+Deliver that handoff as files. Create `.implement-epic/<epic-key>/` at the
+coordinator's own working root, outside every candidate ticket worktree, keyed
+by the in-scope epic per
+[the compaction ledger](references/ledger.md#workspace-layout) so a resumed
+session finds the same workspace deterministically. Inside it, write one
 **brief** file per selected child — the single source of its task requirements —
 and one **report** file per dispatch, which the executing context appends its
 status to across rounds. The dispatch prompt carries those two locations as
@@ -213,7 +236,9 @@ longer than the last, so dispatch reproduces stale context faster than it
 delivers current requirements, and the executing context receives superseded and
 live instructions mixed together with nothing marking which is which. Revise the
 brief and let the report accumulate on disk. Keep `.implement-epic/` ignored and
-out of commits and PRs.
+out of commits and PRs — `ensure_workspace` in `scripts/ledger.py` writes a
+self-excluding `.gitignore` into each epic-keyed workspace the first time
+anything is recorded.
 
 Choose the cheapest capability tier adequate for the child: mechanical
 transcription and enumeration take the cheapest tier, a child requiring judgment
@@ -273,6 +298,14 @@ skill returns for itself. See "Report the epic result" below for that contract.
 - `requires_epic`: treat it as an invalid child selection or malformed handoff.
   Stop or refresh and resolve scope; never recursively invoke this skill, bounce
   back to `implement-ticket`, or flatten the returned epic into the child.
+
+After this verification, record one entry in the compaction ledger for the child
+— `terminal_result` set to the verified state, the candidate head SHA when
+applicable, and enough evidence (PR number, merge SHA, tracker outcome) for a
+later session to re-verify the claim per
+[the recovery rule](references/ledger.md#recovery-rule). Record it after
+verification, not before dispatch: an entry claims what was confirmed, never
+what was merely requested.
 
 ### 5. Refresh or stop at the requested boundary
 
