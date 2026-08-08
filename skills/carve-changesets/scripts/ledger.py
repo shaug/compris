@@ -151,6 +151,8 @@ def already_recorded_complete(
     entries,
     changeset_slug: str,
     completed_terminal_results: frozenset[str] = DEFAULT_COMPLETED_TERMINAL_RESULTS,
+    *,
+    action: str | None = None,
 ) -> dict[str, Any] | None:
     """Recovery-path dedup guard: the ledger's own claim, not live proof.
 
@@ -159,9 +161,23 @@ def already_recorded_complete(
     what the ledger claims; the caller still must verify it against live git
     and GitHub state (materialized branch, correct ancestry, merged PR) before
     skipping re-review or re-publication of that changeset.
+
+    A changeset accumulates one entry per phase (`review_fix_loop`, `publish`,
+    `merge`) as it progresses, so the *latest* entry is not necessarily the
+    phase the caller is asking about — a `publish` entry recorded after an
+    earlier `converged` `review_fix_loop` entry would otherwise mask it from a
+    caller specifically checking whether review already converged. Pass
+    `action` (e.g. `"review_fix_loop"`) to scope the lookup to entries from
+    that phase only, mirroring `babysit-pr`'s own `already_dispositioned`
+    filter for exactly the same reason.
     """
+    action_filter = (lambda entry: entry.get("action") == action) if action else None
     return core.already_recorded_complete(
-        entries, ID_FIELD, changeset_slug, completed_terminal_results
+        entries,
+        ID_FIELD,
+        changeset_slug,
+        completed_terminal_results,
+        action_filter=action_filter,
     )
 
 
@@ -212,7 +228,9 @@ def _cmd_read(args: argparse.Namespace) -> int:
 
 def _cmd_find(args: argparse.Namespace) -> int:
     result = read_ledger(Path(args.root), args.source)
-    entry = already_recorded_complete(result.entries, args.changeset)
+    entry = already_recorded_complete(
+        result.entries, args.changeset, action=args.action
+    )
     print(json.dumps(entry, sort_keys=True, indent=2) if entry else "null")
     return 0 if entry else 1
 
@@ -255,6 +273,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     find.add_argument("--source", required=True)
     find.add_argument("--changeset", required=True)
+    find.add_argument(
+        "--action",
+        default=None,
+        help="scope the lookup to entries from this phase only, e.g. review_fix_loop",
+    )
     find.set_defaults(func=_cmd_find)
 
     return parser

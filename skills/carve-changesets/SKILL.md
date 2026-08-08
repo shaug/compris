@@ -146,10 +146,14 @@ Use `status --local-only` to inspect live local truth without GitHub.
 
 Before constructing changeset *i*'s invocation, check
 [the compaction ledger's recovery rule](references/ledger.md#recovery-rule) for
-a completed, live-verified `review_fix_loop` entry for that changeset. Skip
-straight to *i + 1* when one exists; otherwise proceed as below. This is a dedup
-guard only — a ledger entry that fails live verification, or that records
-anything other than `converged`, changes nothing about this step.
+a completed, live-verified `review_fix_loop` entry for that changeset, scoping
+the lookup to `action: review_fix_loop`
+(`already_recorded_complete(..., action="review_fix_loop")`) so a later
+`publish` or `merge` entry for the same changeset can never mask an earlier
+`converged` result. Skip straight to *i + 1* when one exists; otherwise proceed
+as below. This is a dedup guard only — a ledger entry that fails live
+verification, or that records anything other than `converged`, changes nothing
+about this step.
 
 Delegate each exact changeset candidate's review and fix loop to
 repository-owned `review-fix-loop` under `publication.policy: local_commit`,

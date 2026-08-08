@@ -83,12 +83,19 @@ which changesets already converged, published, or merged:
 1. Read `.carve-changesets/<source-branch-slug>/ledger.jsonl` with
    `read_ledger`.
 2. For each changeset in the plan, call
-   `already_recorded_complete(entries, changeset_slug)`. This is a **dedup
-   guard, not proof**: it returns the ledger's own latest claim, filtered to the
-   terminal results this skill's phase workflow treats as forward progress
-   (`converged`, `chain_ready`, `prs_open`, `all_merged`, `merged`) — `blocked`
-   never counts as complete, so a blocked changeset is never suppressed from a
-   fresh attempt by this guard alone.
+   `already_recorded_complete(entries, changeset_slug, action=<phase>)`, scoped
+   to the phase being checked (`"review_fix_loop"`, `"publish"`, or `"merge"`).
+   This is a **dedup guard, not proof**: it returns the ledger's own latest
+   claim *for that phase*, filtered to the terminal results this skill's phase
+   workflow treats as forward progress (`converged`, `chain_ready`, `prs_open`,
+   `all_merged`, `merged`) — `blocked` never counts as complete, so a blocked
+   changeset is never suppressed from a fresh attempt by this guard alone. The
+   `action` scope matters because one changeset accumulates one entry per phase
+   as it progresses: an unscoped lookup would let a later `publish` entry mask
+   an earlier `converged` `review_fix_loop` entry (or vice versa), so every call
+   site names the phase it is actually asking about — mirroring `babysit-pr`'s
+   own `already_dispositioned`, which always scopes to
+   `action == "feedback_disposition"` for the same reason.
 3. Verify that claim against live state before trusting it: the materialized
    branch still exists with the recorded head, the PR is open or merged as
    recorded, and the merged position is represented on the base when the claim

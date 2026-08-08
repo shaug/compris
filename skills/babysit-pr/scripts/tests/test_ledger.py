@@ -169,6 +169,34 @@ class RecoveryTests(TempRootTestCase):
         result = LEDGER.read_ledger(self.root, "example/project", 482)
         self.assertIsNone(LEDGER.already_dispositioned(result.entries, "unknown"))
 
+    def test_already_dispositioned_finds_earlier_disposition_past_later_other_action(
+        self,
+    ) -> None:
+        # A later retry entry (a different action, coincidentally sharing the
+        # same item_id space as a head SHA) must never mask an earlier
+        # feedback_disposition entry for the actual comment id.
+        LEDGER.record_entry(
+            self.root,
+            "example/project",
+            482,
+            item_id="review-comment-9001",
+            action="feedback_disposition",
+            terminal_result="fixed",
+            head_sha="head-1",
+        )
+        LEDGER.record_entry(
+            self.root,
+            "example/project",
+            482,
+            item_id="review-comment-9001",
+            action="retry",
+            terminal_result="rerun",
+        )
+        result = LEDGER.read_ledger(self.root, "example/project", 482)
+        entry = LEDGER.already_dispositioned(result.entries, "review-comment-9001")
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry["head_sha"], "head-1")
+
 
 class RetryCountTests(TempRootTestCase):
     def test_recorded_retry_counts_groups_by_head_sha(self) -> None:

@@ -96,7 +96,10 @@ duplicate or contradictory reply, and re-spending retry budget the watcher
 already accounted for can exhaust the configured maximum without ever running a
 genuinely new attempt.
 
-1. Read `.babysit-pr/<repo-slug>-pr<number>/ledger.jsonl` with `read_ledger`.
+1. Read `.babysit-pr/<repo-slug>-<number>/ledger.jsonl` with `read_ledger` — the
+   same `slugify(unit_key_for(repo, pr_number))` workspace path shown in
+   [Workspace layout](#workspace-layout) above (e.g.
+   `.babysit-pr/example-project-482/ledger.jsonl`), not a literal `-pr` segment.
 2. For each currently open feedback item, call
    `already_dispositioned(entries, item_id)`. This is a **dedup guard, not
    proof**: it returns the ledger's own latest `feedback_disposition` entry,

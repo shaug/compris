@@ -140,6 +140,55 @@ class RecoveryTests(TempRootTestCase):
         result = LEDGER.read_ledger(self.root, "feature/x")
         self.assertIsNone(LEDGER.already_recorded_complete(result.entries, "b"))
 
+    def test_already_recorded_complete_action_scope_ignores_later_other_phase(
+        self,
+    ) -> None:
+        # A later `publish` entry must never mask an earlier `converged`
+        # `review_fix_loop` entry when the caller is specifically asking
+        # about the review_fix_loop phase.
+        LEDGER.record_entry(
+            self.root,
+            "feature/x",
+            changeset_slug="a",
+            action="review_fix_loop",
+            terminal_result="converged",
+            head_sha="head-1",
+        )
+        LEDGER.record_entry(
+            self.root,
+            "feature/x",
+            changeset_slug="a",
+            action="publish",
+            terminal_result="blocked",
+        )
+        result = LEDGER.read_ledger(self.root, "feature/x")
+        # Unscoped: the latest entry (publish/blocked) is not "complete".
+        self.assertIsNone(LEDGER.already_recorded_complete(result.entries, "a"))
+        # Scoped to review_fix_loop: the earlier converged entry is found.
+        entry = LEDGER.already_recorded_complete(
+            result.entries, "a", action="review_fix_loop"
+        )
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry["head_sha"], "head-1")
+
+    def test_already_recorded_complete_action_scope_excludes_other_phase(self) -> None:
+        LEDGER.record_entry(
+            self.root,
+            "feature/x",
+            changeset_slug="a",
+            action="publish",
+            terminal_result="prs_open",
+        )
+        result = LEDGER.read_ledger(self.root, "feature/x")
+        self.assertIsNone(
+            LEDGER.already_recorded_complete(
+                result.entries, "a", action="review_fix_loop"
+            )
+        )
+        self.assertIsNotNone(
+            LEDGER.already_recorded_complete(result.entries, "a", action="publish")
+        )
+
     def test_latest_entry_prefers_most_recent(self) -> None:
         LEDGER.record_entry(
             self.root,
@@ -196,6 +245,56 @@ class CliTests(TempRootTestCase):
                 ["--root", root, "find", "--source", "feature/x", "--changeset", "b"]
             ),
             1,
+        )
+
+    def test_cli_find_supports_action_scope(self) -> None:
+        root = str(self.root)
+        LEDGER.main(
+            [
+                "--root",
+                root,
+                "record",
+                "--source",
+                "feature/x",
+                "--changeset",
+                "a",
+                "--action",
+                "publish",
+                "--terminal-result",
+                "prs_open",
+            ]
+        )
+        self.assertEqual(
+            LEDGER.main(
+                [
+                    "--root",
+                    root,
+                    "find",
+                    "--source",
+                    "feature/x",
+                    "--changeset",
+                    "a",
+                    "--action",
+                    "review_fix_loop",
+                ]
+            ),
+            1,
+        )
+        self.assertEqual(
+            LEDGER.main(
+                [
+                    "--root",
+                    root,
+                    "find",
+                    "--source",
+                    "feature/x",
+                    "--changeset",
+                    "a",
+                    "--action",
+                    "publish",
+                ]
+            ),
+            0,
         )
 
 

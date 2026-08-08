@@ -201,20 +201,32 @@ def already_recorded_complete(
 ) -> dict[str, Any] | None:
     """Recovery-path dedup guard: the ledger's own claim, not live proof.
 
-    Returns the latest entry for `id_value` when the ledger already records a
-    terminal result the caller treats as complete, else None. `action_filter`
-    lets a caller additionally require the latest entry to be of a specific
-    kind — `babysit-pr` uses this to require `action == "feedback_disposition"`
-    so a `retry` or `fix_pushed` entry sharing the same `item_id` space never
-    satisfies the disposition guard. This answers only what the ledger claims;
-    the caller still must verify that claim against live state before trusting
-    it — a ledger entry alone is never sufficient.
+    Returns the latest entry matching both `id_value` and (when supplied)
+    `action_filter`, when it records a terminal result the caller treats as
+    complete, else None. `action_filter` scopes the search itself — not just
+    a check on whichever entry happens to be globally latest for `id_value` —
+    because a unit accumulates one entry per phase as it progresses (a
+    `carve-changesets` changeset gets `review_fix_loop`, then `publish`, then
+    `merge` entries; a `babysit-pr` feedback item's `item_id` space can also
+    carry `retry`/`fix_pushed` entries). Without scoping the search itself, a
+    later entry from a *different* phase or action would mask an earlier
+    completed one purely by being more recent, causing needless re-work on
+    resume — filtering only the already-selected latest entry does not fix
+    this, since the correct answer may be an earlier entry the naive latest
+    lookup skipped past. `babysit-pr` uses this to require
+    `action == "feedback_disposition"` so a `retry` or `fix_pushed` entry
+    sharing the same `item_id` space never satisfies the disposition guard;
+    `carve-changesets` scopes to one of `review_fix_loop`/`publish`/`merge`
+    per phase. This answers only what the ledger claims; the caller still
+    must verify that claim against live state before trusting it — a ledger
+    entry alone is never sufficient.
     """
-    entry = latest_entry(entries, id_field, id_value)
-    if entry is None:
+    matches = [entry for entry in entries if entry.get(id_field) == str(id_value)]
+    if action_filter is not None:
+        matches = [entry for entry in matches if action_filter(entry)]
+    if not matches:
         return None
-    if action_filter is not None and not action_filter(entry):
-        return None
+    entry = matches[-1]
     if entry.get("terminal_result") in completed_terminal_results:
         return entry
     return None
