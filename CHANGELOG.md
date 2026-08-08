@@ -188,6 +188,17 @@ summary: Chronological history of repository and skill changes.
   docstring and inline comment, `ledger.md`'s vocabulary summary and
   recovery-rule step 2).
 
+  A tenth fresh `review-code-change` pass (solution simplicity and correctness
+  both clean) raised one `strong_recommendation` code-simplicity finding:
+  `babysit-pr/scripts/ledger.py` hand-wrote the identical "load a sibling script
+  by path and register it in `sys.modules`" five- statement sequence twice —
+  once for the bundled `ledger_core.py` (`_load_core`), once for
+  `gh_pr_watch.py` (`_load_watcher_module`) — with only the module name and
+  filename differing. Fixed by extracting one shared
+  `_load_sibling_module(name, filename)` helper both now call, with
+  `_load_watcher_module`'s intentional call-time (not import-time) loading
+  preserved unchanged.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

@@ -71,17 +71,27 @@ DEFAULT_COMPLETED_FEEDBACK_DISPOSITIONS = frozenset(
 )
 
 
-def _load_core():
-    """Load the bundled `ledger_core.py` by path, matching this repository's
-    own test-loader convention rather than assuming package-relative import
-    resolution regardless of how this script is invoked."""
-    core_path = Path(__file__).resolve().parent / "ledger_core.py"
-    spec = importlib.util.spec_from_file_location("ledger_core", core_path)
+def _load_sibling_module(name: str, filename: str):
+    """Load a same-directory script by path and register it in `sys.modules`.
+
+    Matches this repository's own test-loader convention rather than
+    assuming package-relative import resolution regardless of how this
+    script is invoked. Shared by `_load_core` (this module's own bundled
+    `ledger_core.py`) and `_load_watcher_module` (the sibling
+    `gh_pr_watch.py`) so the load-by-path mechanic exists once, not twice.
+    """
+    module_path = Path(__file__).resolve().parent / filename
+    spec = importlib.util.spec_from_file_location(name, module_path)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _load_core():
+    """Load the bundled `ledger_core.py` by path."""
+    return _load_sibling_module("ledger_core", "ledger_core.py")
 
 
 core = _load_core()
@@ -293,18 +303,12 @@ def reconcile_with_watcher_state(
 def _load_watcher_module():
     """Load `gh_pr_watch.py` by path so this module never assumes CWD.
 
-    Deferred to call time (rather than a module-level import) so unit tests
-    can exercise `reconcile_with_watcher_state` against a plain dict without
-    requiring the watcher module or its `fcntl` dependency to be importable
-    in every test environment.
+    Deferred to call time (rather than a module-level import, unlike
+    `_load_core`) so unit tests can exercise `reconcile_with_watcher_state`
+    against a plain dict without requiring the watcher module or its
+    `fcntl` dependency to be importable in every test environment.
     """
-    module_path = Path(__file__).resolve().parent / "gh_pr_watch.py"
-    spec = importlib.util.spec_from_file_location("gh_pr_watch", module_path)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return _load_sibling_module("gh_pr_watch", "gh_pr_watch.py")
 
 
 def load_watcher_state(repo: str, pr_number: int | str) -> dict[str, Any]:
