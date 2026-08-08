@@ -215,6 +215,23 @@ summary: Chronological history of repository and skill changes.
   "`rerun`, or the diagnosed classification" to the one literal value actually
   written.
 
+  A twelfth fresh `review-code-change` pass (solution simplicity and correctness
+  both clean) raised two more `strong_recommendation` code-simplicity findings,
+  both fixed by extending the shared canonical core rather than the per-skill
+  wrappers: (1) each skill's `_parse_evidence` CLI helper (`--evidence-json`
+  decode-and-validate) was byte-for-byte identical across all three, unlike
+  every other genuinely skill-specific piece of wrapper code, and sat outside
+  the bundled-copy drift test's coverage; (2) each skill's `unit_key_for`
+  independently hand-wrote the identical `hashlib.sha256(...).hexdigest()[:8]`
+  collision-breaking formula (already used once more, pre-existing, in
+  `babysit-pr`'s own `gh_pr_watch.default_state_file_for`), so the
+  collision-avoidance guarantee depended on three independently maintained
+  copies staying in sync with no structural check forcing agreement. Fixed by
+  adding `parse_evidence_json`/`collision_safe_digest` to `ledger/core.py`
+  (re-synced via `just sync-contracts`) and having every skill's `ledger.py`
+  call through the shared core instead of reimplementing either; the existing
+  `test_bundled_copies.py` drift test now also covers both.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

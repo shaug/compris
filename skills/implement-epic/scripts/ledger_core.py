@@ -26,6 +26,7 @@ format, and recovery rule this module implements.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -36,6 +37,38 @@ from typing import Any, Callable, Iterable
 
 SCHEMA_VERSION = 1
 LEDGER_FILENAME = "ledger.jsonl"
+
+
+def collision_safe_digest(value: str) -> str:
+    """Return an 8-hex-digit sha256 digest of `value`.
+
+    Every skill's `unit_key_for` folds this into its workspace key before
+    slugifying, because `slugify` collapses any run of non-identifier
+    characters — including `/`, common in branch names and `owner/repo`
+    strings — to a single `-`, which would otherwise let two distinct unit
+    identities alias onto the same slug purely by where such a character
+    happens to fall. Centralized here (rather than each skill hand-writing
+    the same formula) so the collision-avoidance guarantee depends on one
+    maintained implementation, not three independently kept in sync —
+    mirroring `gh_pr_watch.default_state_file_for`'s own pre-existing use of
+    the identical formula for the identical reason.
+    """
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
+
+
+def parse_evidence_json(raw: str | None) -> dict[str, Any]:
+    """Decode a CLI `--evidence-json` argument into a JSON object.
+
+    Shared by every skill's CLI `record` subcommand: `None` (the flag was
+    omitted) becomes `{}`; otherwise the raw string must decode to a JSON
+    object, or a `ValueError` names the requirement.
+    """
+    if raw is None:
+        return {}
+    parsed = json.loads(raw)
+    if not isinstance(parsed, dict):
+        raise ValueError("--evidence-json must decode to a JSON object")
+    return parsed
 
 
 def slugify(value: str) -> str:

@@ -51,7 +51,6 @@ worktree, not inside this installed skill.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import json
 import sys
@@ -112,16 +111,16 @@ def unit_key_for(repo: str, pr_number: int | str) -> str:
     — to a single `-`, which would otherwise let two distinct repos alias
     onto the same slug purely by where their own `/` happens to fall (e.g.
     `octocat/hello-world#482` and `octocat-hello/world#482` both slugify to
-    `octocat-hello-world-482`). An 8-hex-digit digest of the exact repo
-    string, inserted before slugification, breaks that collision — the same
-    fix `gh_pr_watch.default_state_file_for` already applies to its own
-    identically-shaped keying, for the identical reason (see its own comment
-    there: "the digest of the exact repository string guarantees distinct
-    repositories can never collide").
+    `octocat-hello-world-482`). `core.collision_safe_digest` breaks that
+    collision — the same fix `gh_pr_watch.default_state_file_for` already
+    applies to its own identically-shaped keying, for the identical reason
+    (see its own comment there: "the digest of the exact repository string
+    guarantees distinct repositories can never collide").
     """
     repo_normalized = repo.lower()
-    digest = hashlib.sha256(repo_normalized.encode("utf-8")).hexdigest()[:8]
-    return f"{repo_normalized}#{digest}#{pr_number}"
+    return (
+        f"{repo_normalized}#{core.collision_safe_digest(repo_normalized)}#{pr_number}"
+    )
 
 
 def slugify(value: str) -> str:
@@ -321,14 +320,9 @@ def load_watcher_state(repo: str, pr_number: int | str) -> dict[str, Any]:
 
 # --- CLI -------------------------------------------------------------------
 
-
-def _parse_evidence(raw: str | None) -> dict[str, Any]:
-    if raw is None:
-        return {}
-    parsed = json.loads(raw)
-    if not isinstance(parsed, dict):
-        raise ValueError("--evidence-json must decode to a JSON object")
-    return parsed
+# Re-exported for the CLI below and for callers/tests that reach for it
+# directly.
+_parse_evidence = core.parse_evidence_json
 
 
 def _cmd_session_start(args: argparse.Namespace) -> int:

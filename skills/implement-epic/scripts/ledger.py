@@ -39,7 +39,6 @@ the workspace lives in the coordinator's working root, not inside the skill.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import json
 import sys
@@ -82,13 +81,12 @@ def unit_key_for(epic_key: str) -> str:
     `slugify` collapses any run of non-identifier characters — including `/`
     — to a single `-`, which would otherwise let two distinct epic
     identities alias onto the same slug purely by where such a character
-    happens to fall. An 8-hex-digit digest of the exact epic key, inserted
-    before slugification, breaks that collision — the same fix
-    `carve-changesets`'s and `babysit-pr`'s own `unit_key_for` already apply
-    to their identically-shaped keying, for the identical reason.
+    happens to fall. `core.collision_safe_digest` breaks that collision — the
+    same fix `carve-changesets`'s and `babysit-pr`'s own `unit_key_for`
+    already apply to their identically-shaped keying, for the identical
+    reason.
     """
-    digest = hashlib.sha256(epic_key.encode("utf-8")).hexdigest()[:8]
-    return f"{epic_key}#{digest}"
+    return f"{epic_key}#{core.collision_safe_digest(epic_key)}"
 
 
 def workspace_dir(root: Path, epic_key: str) -> Path:
@@ -173,14 +171,9 @@ def already_recorded_complete(
 
 # --- CLI -------------------------------------------------------------------
 
-
-def _parse_evidence(raw: str | None) -> dict[str, Any]:
-    if raw is None:
-        return {}
-    parsed = json.loads(raw)
-    if not isinstance(parsed, dict):
-        raise ValueError("--evidence-json must decode to a JSON object")
-    return parsed
+# Re-exported for the CLI below and for callers/tests that reach for it
+# directly.
+_parse_evidence = core.parse_evidence_json
 
 
 def _cmd_session_start(args: argparse.Namespace) -> int:
