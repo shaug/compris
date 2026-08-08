@@ -51,6 +51,7 @@ worktree, not inside this installed skill.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import sys
@@ -95,8 +96,22 @@ def unit_key_for(repo: str, pr_number: int | str) -> str:
     Mirrors `gh_pr_watch.default_state_file_for`'s own keying (case-folded
     repo, explicit PR number) so the two stores are trivially correlatable by
     a human or a script even though they live in different locations.
+
+    `slugify` collapses every run of non-identifier characters — including
+    both `/` (common inside a repo owner/name) and `#` (the join point below)
+    — to a single `-`, which would otherwise let two distinct repos alias
+    onto the same slug purely by where their own `/` happens to fall (e.g.
+    `octocat/hello-world#482` and `octocat-hello/world#482` both slugify to
+    `octocat-hello-world-482`). An 8-hex-digit digest of the exact repo
+    string, inserted before slugification, breaks that collision — the same
+    fix `gh_pr_watch.default_state_file_for` already applies to its own
+    identically-shaped keying, for the identical reason (see its own comment
+    there: "the digest of the exact repository string guarantees distinct
+    repositories can never collide").
     """
-    return f"{repo.lower()}#{pr_number}"
+    repo_normalized = repo.lower()
+    digest = hashlib.sha256(repo_normalized.encode("utf-8")).hexdigest()[:8]
+    return f"{repo_normalized}#{digest}#{pr_number}"
 
 
 def slugify(value: str) -> str:

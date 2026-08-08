@@ -69,7 +69,7 @@ test: test-plugins
   if [ "$found" -eq 0 ]; then \
     echo "No skill tests found under {{skills_dir}}/*/scripts/tests"; \
   fi; \
-  for tests in review-suite/scripts/tests triggering/tests; do \
+  for tests in ledger/scripts/tests review-suite/scripts/tests triggering/tests; do \
     if [ -d "$tests" ]; then \
       echo "Running tests in $tests"; \
       python3 -m unittest discover -s "$tests" -p 'test_*.py'; \

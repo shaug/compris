@@ -23,15 +23,26 @@ either.
 ## Workspace layout
 
 The workspace is keyed by repository and PR number, mirroring
-`gh_pr_watch.default_state_file_for`'s own keying, so a resumed session finds
-the prior workspace deterministically without guessing a path:
+`gh_pr_watch.default_state_file_for`'s own keying — including that function's
+own fix for the same collision risk: `unit_key_for` folds an 8-hex-digit digest
+of the exact repository string into the key before slugifying, because
+slugifying alone collapses both `/` (common inside `owner/repo`) and the `#`
+join point to a single `-`, so `octocat/hello-world#482` and
+`octocat-hello/world#482` would otherwise both produce the same slug and
+silently share one workspace. With the digest, a resumed session finds the prior
+workspace deterministically without guessing a path, and two distinct
+repositories can never collide on one:
 
 ```text
 .babysit-pr/
-  example-project-482/
+  example-project-92324335-482/
     ledger.jsonl
     .gitignore          # written by ensure_workspace(); contains "*"
 ```
+
+(`92324335` above is `sha256("example/project")`'s first 8 hex digits —
+deterministic for that exact repo string, so the same repository always produces
+the same workspace path.)
 
 `scripts/ledger.py` derives this path from `(root, repo, pr_number)` via
 `workspace_dir`/`ledger_path`, and creates the directory plus its own
@@ -103,10 +114,11 @@ duplicate or contradictory reply, and re-spending retry budget the watcher
 already accounted for can exhaust the configured maximum without ever running a
 genuinely new attempt.
 
-1. Read `.babysit-pr/<repo-slug>-<number>/ledger.jsonl` with `read_ledger` — the
-   same `slugify(unit_key_for(repo, pr_number))` workspace path shown in
-   [Workspace layout](#workspace-layout) above (e.g.
-   `.babysit-pr/example-project-482/ledger.jsonl`), not a literal `-pr` segment.
+1. Read `.babysit-pr/<repo-slug>-<digest>-<number>/ledger.jsonl` with
+   `read_ledger` — the same `slugify(unit_key_for(repo, pr_number))` workspace
+   path shown in [Workspace layout](#workspace-layout) above (e.g.
+   `.babysit-pr/example-project-92324335-482/ledger.jsonl`), not a literal `-pr`
+   segment.
 2. For each currently open feedback item, call
    `already_dispositioned(entries, item_id)`. This is a **dedup guard, not
    proof**: it returns the ledger's own latest `feedback_disposition` entry,

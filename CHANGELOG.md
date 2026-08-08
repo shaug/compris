@@ -95,6 +95,24 @@ summary: Chronological history of repository and skill changes.
   instruction and a matching clarification to `references/ledger.md`'s ledger
   format table.
 
+  A fourth fresh `review-code-change` pass raised one `strong_recommendation`
+  correctness finding: `babysit-pr`'s `unit_key_for(repo, pr_number)` composed
+  the workspace key as `f"{repo.lower()}#{pr_number}"`, and `slugify` collapses
+  both `/` (common inside `owner/repo`) and `#` to the same `-`, so
+  `octocat/hello-world#482` and `octocat-hello/world#482` both produced the
+  identical slug — silently merging two distinct repositories' ledgers onto one
+  workspace, exactly the collision class `gh_pr_watch.default_state_file_for`'s
+  own sibling keying function already guards against with an 8-hex-digit digest
+  of the exact repo string. Fixed by applying the identical digest fix to
+  `unit_key_for`, with a new regression test and updated `references/ledger.md`
+  examples. The same pass's non-gating `defer` finding — no committed test would
+  catch future drift between `ledger/core.py` and its three bundled
+  `ledger_core.py` copies, unlike the `review-suite/` precedent this candidate
+  cites — was also addressed: a new
+  `ledger/scripts/tests/test_bundled_copies.py` mirrors
+  `review-suite/scripts/tests/test_bundled_contracts.py`'s drift check, wired
+  into `just test` via `justfile`.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

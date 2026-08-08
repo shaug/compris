@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import sys
@@ -23,17 +24,33 @@ class TempRootTestCase(unittest.TestCase):
         self.root = Path(self._tmp.name)
 
 
+def _expected_digest(repo_normalized: str) -> str:
+    return hashlib.sha256(repo_normalized.encode("utf-8")).hexdigest()[:8]
+
+
 class UnitKeyTests(unittest.TestCase):
     def test_unit_key_lowercases_repo(self) -> None:
+        digest = _expected_digest("example/project")
         self.assertEqual(
-            LEDGER.unit_key_for("Example/Project", 482), "example/project#482"
+            LEDGER.unit_key_for("Example/Project", 482),
+            f"example/project#{digest}#482",
         )
 
     def test_slugify_produces_safe_directory_name(self) -> None:
+        digest = _expected_digest("example/project")
         self.assertEqual(
             LEDGER.slugify(LEDGER.unit_key_for("Example/Project", 482)),
-            "example-project-482",
+            f"example-project-{digest}-482",
         )
+
+    def test_unit_key_digest_disambiguates_slash_boundary_collision(self) -> None:
+        # Without the digest, `octocat/hello-world#482` and
+        # `octocat-hello/world#482` would both slugify to
+        # `octocat-hello-world-482`, silently merging two distinct repos'
+        # workspaces onto one ledger file.
+        first = LEDGER.slugify(LEDGER.unit_key_for("octocat/hello-world", 482))
+        second = LEDGER.slugify(LEDGER.unit_key_for("octocat-hello/world", 482))
+        self.assertNotEqual(first, second)
 
 
 class WorkspaceTests(TempRootTestCase):
