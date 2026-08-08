@@ -113,6 +113,18 @@ summary: Chronological history of repository and skill changes.
   `review-suite/scripts/tests/test_bundled_contracts.py`'s drift check, wired
   into `just test` via `justfile`.
 
+  A fifth fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding, the same collision class already
+  fixed for `babysit-pr` in this candidate's own history, now found in
+  `carve-changesets`: `workspace_dir`/`ledger_path`/`ensure_workspace` passed
+  the bare `source_branch` straight into `slugify`, so `feature/api-timeout` and
+  `feature-api/timeout` both produced `feature-api-timeout` and would silently
+  share one workspace. Fixed by adding a `carve-changesets`-side `unit_key_for`
+  applying the identical digest fix, updating every call site
+  (`record_session_start`, `record_entry`, `read_ledger`, plus the three path
+  helpers) to compose through it, a new regression test, and matching
+  `references/ledger.md` example updates.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

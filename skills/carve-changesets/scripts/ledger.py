@@ -42,6 +42,7 @@ in the repository being carved, not inside this installed skill.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import sys
@@ -80,16 +81,32 @@ slugify = core.slugify
 LedgerReadResult = core.LedgerReadResult
 
 
+def unit_key_for(source_branch: str) -> str:
+    """Compose the workspace key from the source branch.
+
+    `slugify` collapses any run of non-identifier characters — including `/`,
+    common in branch names — to a single `-`, which would otherwise let two
+    distinct branches alias onto the same slug purely by where their own `/`
+    happens to fall (e.g. `feature/api-timeout` and `feature-api/timeout`
+    both slugify to `feature-api-timeout`). An 8-hex-digit digest of the
+    exact branch name, inserted before slugification, breaks that collision —
+    the same fix `babysit-pr`'s own `unit_key_for` already applies to its
+    identically-shaped repo+PR keying, for the identical reason.
+    """
+    digest = hashlib.sha256(source_branch.encode("utf-8")).hexdigest()[:8]
+    return f"{source_branch}#{digest}"
+
+
 def workspace_dir(root: Path, source_branch: str) -> Path:
-    return core.workspace_dir(root, WORKSPACE_DIRNAME, source_branch)
+    return core.workspace_dir(root, WORKSPACE_DIRNAME, unit_key_for(source_branch))
 
 
 def ledger_path(root: Path, source_branch: str) -> Path:
-    return core.ledger_path(root, WORKSPACE_DIRNAME, source_branch)
+    return core.ledger_path(root, WORKSPACE_DIRNAME, unit_key_for(source_branch))
 
 
 def ensure_workspace(root: Path, source_branch: str) -> Path:
-    return core.ensure_workspace(root, WORKSPACE_DIRNAME, source_branch)
+    return core.ensure_workspace(root, WORKSPACE_DIRNAME, unit_key_for(source_branch))
 
 
 def record_session_start(
@@ -101,7 +118,11 @@ def record_session_start(
 ) -> dict[str, Any]:
     """Append one session-identity line at the start of a session."""
     return core.record_session_start(
-        root, WORKSPACE_DIRNAME, source_branch, session_id=session_id, now=now
+        root,
+        WORKSPACE_DIRNAME,
+        unit_key_for(source_branch),
+        session_id=session_id,
+        now=now,
     )
 
 
@@ -126,7 +147,7 @@ def record_entry(
     return core.record_entry(
         root,
         WORKSPACE_DIRNAME,
-        source_branch,
+        unit_key_for(source_branch),
         id_field=ID_FIELD,
         id_value=changeset_slug,
         action=action,
@@ -139,7 +160,7 @@ def record_entry(
 
 def read_ledger(root: Path, source_branch: str):
     """Parse the ledger, tolerating a malformed or partially written line."""
-    return core.read_ledger(root, WORKSPACE_DIRNAME, source_branch)
+    return core.read_ledger(root, WORKSPACE_DIRNAME, unit_key_for(source_branch))
 
 
 def latest_entry(entries, changeset_slug: str) -> dict[str, Any] | None:

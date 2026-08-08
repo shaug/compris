@@ -9,25 +9,35 @@ a changeset it already finished.
 
 ## Workspace layout
 
-The workspace is keyed by the source branch being carved, so a resumed session
-finds the prior workspace deterministically without guessing a path:
+The workspace is keyed by the source branch being carved. `unit_key_for` folds
+an 8-hex-digit digest of the exact branch name into the key before slugifying,
+because slugifying alone collapses every `/` (common in branch names) to a
+single `-`, so `feature/api-timeout` and `feature-api/timeout` would otherwise
+both produce `feature-api-timeout` and silently share one workspace. With the
+digest, a resumed session finds the prior workspace deterministically without
+guessing a path, and two distinct branches can never collide on one:
 
 ```text
 .carve-changesets/
-  plan.json                              # unchanged: the ephemeral proposal
-  feature-cloud-host-migration/
+  plan.json                                        # unchanged: the ephemeral proposal
+  feature-cloud-host-migration-a1b2c3d4/
     ledger.jsonl
-    .gitignore                           # written by ensure_workspace(); contains "*"
+    .gitignore                                      # written by ensure_workspace(); contains "*"
 ```
 
+(`a1b2c3d4` above is `sha256("feature/cloud-host-migration")`'s first 8 hex
+digits — deterministic for that exact branch name, so the same branch always
+produces the same workspace path.)
+
 `scripts/ledger.py` derives this path from `(root, source_branch)` via
-`workspace_dir`/`ledger_path`, slugifying the branch name (`/` becomes `-`) so
-it is a safe single path component, and creates the directory plus its own
-self-excluding `.gitignore` the first time anything is recorded
-(`ensure_workspace`). `.carve-changesets/` itself is already required to be
-ignored by the consuming repository — `scripts/preflight.py` fails closed
-otherwise — so this workspace's own `.gitignore` is a second, self-contained
-guarantee, not a replacement for that check.
+`workspace_dir`/`ledger_path`, composing `unit_key_for(source_branch)` and
+slugifying the result (`/` becomes `-`) so it is a safe single path component,
+and creates the directory plus its own self-excluding `.gitignore` the first
+time anything is recorded (`ensure_workspace`). `.carve-changesets/` itself is
+already required to be ignored by the consuming repository —
+`scripts/preflight.py` fails closed otherwise — so this workspace's own
+`.gitignore` is a second, self-contained guarantee, not a replacement for that
+check.
 
 ## Ledger format
 
@@ -80,8 +90,9 @@ On resume, or after a context compaction, trust the ledger plus live git/GitHub
 state over recollection. Read the ledger for the source branch before assuming
 which changesets already converged, published, or merged:
 
-1. Read `.carve-changesets/<source-branch-slug>/ledger.jsonl` with
-   `read_ledger`.
+1. Read `.carve-changesets/<source-branch-slug>-<digest>/ledger.jsonl` with
+   `read_ledger` — the same `slugify(unit_key_for(source_branch))` workspace
+   path shown in [Workspace layout](#workspace-layout) above.
 2. For each changeset in the plan, call
    `already_recorded_complete(entries, changeset_slug, action=<phase>)`, scoped
    to the phase being checked (`"review_fix_loop"`, `"publish"`, or `"merge"`).

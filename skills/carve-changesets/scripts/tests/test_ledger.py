@@ -36,6 +36,21 @@ class SlugifyTests(unittest.TestCase):
             LEDGER.slugify("///")
 
 
+class UnitKeyTests(unittest.TestCase):
+    def test_unit_key_digest_disambiguates_slash_boundary_collision(self) -> None:
+        # Without the digest, "feature/api-timeout" and "feature-api/timeout"
+        # would both slugify to "feature-api-timeout", silently merging two
+        # distinct branches' workspaces onto one ledger file.
+        first = LEDGER.slugify(LEDGER.unit_key_for("feature/api-timeout"))
+        second = LEDGER.slugify(LEDGER.unit_key_for("feature-api/timeout"))
+        self.assertNotEqual(first, second)
+
+    def test_unit_key_is_deterministic(self) -> None:
+        self.assertEqual(
+            LEDGER.unit_key_for("feature/x"), LEDGER.unit_key_for("feature/x")
+        )
+
+
 class WorkspaceTests(TempRootTestCase):
     def test_ensure_workspace_creates_self_excluding_gitignore(self) -> None:
         directory = LEDGER.ensure_workspace(self.root, "feature/x")
