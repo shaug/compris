@@ -39,6 +39,21 @@ class SlugifyTests(unittest.TestCase):
             LEDGER.slugify("   ")
 
 
+class UnitKeyTests(unittest.TestCase):
+    def test_unit_key_digest_disambiguates_collision(self) -> None:
+        # Without the digest, two epic keys differing only in where a `/`
+        # falls could alias onto the same slug and silently share one
+        # workspace.
+        first = LEDGER.slugify(LEDGER.unit_key_for("github/119"))
+        second = LEDGER.slugify(LEDGER.unit_key_for("github-119"))
+        self.assertNotEqual(first, second)
+
+    def test_unit_key_is_deterministic(self) -> None:
+        self.assertEqual(
+            LEDGER.unit_key_for("github-119"), LEDGER.unit_key_for("github-119")
+        )
+
+
 class WorkspaceTests(TempRootTestCase):
     def test_ensure_workspace_creates_self_excluding_gitignore(self) -> None:
         directory = LEDGER.ensure_workspace(self.root, "github-119")

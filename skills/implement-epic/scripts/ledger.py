@@ -39,6 +39,7 @@ the workspace lives in the coordinator's working root, not inside the skill.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import sys
@@ -75,16 +76,31 @@ slugify = core.slugify
 LedgerReadResult = core.LedgerReadResult
 
 
+def unit_key_for(epic_key: str) -> str:
+    """Compose the workspace key from the epic key.
+
+    `slugify` collapses any run of non-identifier characters — including `/`
+    — to a single `-`, which would otherwise let two distinct epic
+    identities alias onto the same slug purely by where such a character
+    happens to fall. An 8-hex-digit digest of the exact epic key, inserted
+    before slugification, breaks that collision — the same fix
+    `carve-changesets`'s and `babysit-pr`'s own `unit_key_for` already apply
+    to their identically-shaped keying, for the identical reason.
+    """
+    digest = hashlib.sha256(epic_key.encode("utf-8")).hexdigest()[:8]
+    return f"{epic_key}#{digest}"
+
+
 def workspace_dir(root: Path, epic_key: str) -> Path:
-    return core.workspace_dir(root, WORKSPACE_DIRNAME, epic_key)
+    return core.workspace_dir(root, WORKSPACE_DIRNAME, unit_key_for(epic_key))
 
 
 def ledger_path(root: Path, epic_key: str) -> Path:
-    return core.ledger_path(root, WORKSPACE_DIRNAME, epic_key)
+    return core.ledger_path(root, WORKSPACE_DIRNAME, unit_key_for(epic_key))
 
 
 def ensure_workspace(root: Path, epic_key: str) -> Path:
-    return core.ensure_workspace(root, WORKSPACE_DIRNAME, epic_key)
+    return core.ensure_workspace(root, WORKSPACE_DIRNAME, unit_key_for(epic_key))
 
 
 def record_session_start(
@@ -92,7 +108,7 @@ def record_session_start(
 ) -> dict[str, Any]:
     """Append one session-identity line at the start of a session."""
     return core.record_session_start(
-        root, WORKSPACE_DIRNAME, epic_key, session_id=session_id, now=now
+        root, WORKSPACE_DIRNAME, unit_key_for(epic_key), session_id=session_id, now=now
     )
 
 
@@ -116,7 +132,7 @@ def record_entry(
     return core.record_entry(
         root,
         WORKSPACE_DIRNAME,
-        epic_key,
+        unit_key_for(epic_key),
         id_field=ID_FIELD,
         id_value=child_id,
         action=action,
@@ -129,7 +145,7 @@ def record_entry(
 
 def read_ledger(root: Path, epic_key: str):
     """Parse the ledger, tolerating a malformed or partially written line."""
-    return core.read_ledger(root, WORKSPACE_DIRNAME, epic_key)
+    return core.read_ledger(root, WORKSPACE_DIRNAME, unit_key_for(epic_key))
 
 
 def latest_entry(entries, child_id: str) -> dict[str, Any] | None:

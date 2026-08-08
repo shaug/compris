@@ -125,6 +125,13 @@ summary: Chronological history of repository and skill changes.
   helpers) to compose through it, a new regression test, and matching
   `references/ledger.md` example updates.
 
+  Having now found the identical collision class independently in two of the
+  three skills across two separate review passes, the same digest fix was
+  applied proactively to `implement-epic`'s `unit_key_for` too — ahead of a
+  further review pass rather than waiting for a sixth one to name it — with its
+  own regression test and matching `references/ledger.md` example updates, so
+  all three skills now share one collision-safety story.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

@@ -11,12 +11,17 @@ full.
 ## Workspace layout
 
 The workspace is keyed by the epic being orchestrated this run — a tracker
-prefix plus its id, for example `github-119` or `linear-eng-119` — so a resumed
-session finds the prior workspace deterministically without guessing a path:
+prefix plus its id, for example `github-119` or `linear-eng-119`. `unit_key_for`
+folds an 8-hex-digit digest of the exact epic key into the key before
+slugifying, because slugifying alone collapses any `/` or other punctuation an
+epic key might contain to a single `-`, which could otherwise let two distinct
+epic identities alias onto the same slug. With the digest, a resumed session
+finds the prior workspace deterministically without guessing a path, and two
+distinct epics can never collide on one:
 
 ```text
 .implement-epic/
-  github-119/
+  github-119-3c59fbe3/
     ledger.jsonl
     .gitignore          # written by ensure_workspace(); contains "*"
     brief-133.md
@@ -25,13 +30,18 @@ session finds the prior workspace deterministically without guessing a path:
     report-134.md
 ```
 
+(`3c59fbe3` above is `sha256("github-119")`'s first 8 hex digits — deterministic
+for that exact epic key, so the same epic always produces the same workspace
+path.)
+
 `scripts/ledger.py` derives this path from `(root, epic_key)` via
-`workspace_dir`/`ledger_path`, and creates the directory plus its own
-self-excluding `.gitignore` the first time anything is recorded
-(`ensure_workspace`). The brief/report naming and per-child pairing are
-unchanged from [Run the graph loop](../SKILL.md#run-the-graph-loop); only the
-containing directory moves from the workspace root to the epic-keyed
-subdirectory, and the ledger lives beside them.
+`workspace_dir`/`ledger_path`, composing `unit_key_for(epic_key)` and slugifying
+the result, and creates the directory plus its own self-excluding `.gitignore`
+the first time anything is recorded (`ensure_workspace`). The brief/report
+naming and per-child pairing are unchanged from
+[Run the graph loop](../SKILL.md#run-the-graph-loop); only the containing
+directory moves from the workspace root to the epic-keyed subdirectory, and the
+ledger lives beside them.
 
 ## Ledger format
 
@@ -81,7 +91,9 @@ On resume, or after a context compaction, trust the ledger plus live
 tracker/git/PR state over recollection. Read the ledger for the epic key before
 reading old graph-loop iterations from memory:
 
-1. Read `.implement-epic/<epic-key>/ledger.jsonl` with `read_ledger`.
+1. Read `.implement-epic/<epic-key>-<digest>/ledger.jsonl` with `read_ledger` —
+   the same `slugify(unit_key_for(epic_key))` workspace path shown in
+   [Workspace layout](#workspace-layout) above.
 2. For each candidate child, call
    `already_recorded_complete(entries, child_id)`. This is a **dedup guard, not
    proof**: it returns the ledger's own latest claim, filtered to the terminal
