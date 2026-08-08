@@ -142,6 +142,24 @@ summary: Chronological history of repository and skill changes.
   both independently confirmed correct. Fixed by substituting the actual
   computed digest.
 
+  A seventh fresh `review-code-change` pass raised one more
+  `strong_recommendation` correctness finding: `carve-changesets`'s "Publish"
+  step told the agent to record a `publish`-action ledger entry "once its
+  `babysit-pr` result is known" without pinning a literal `terminal_result`
+  string, unlike the `merge` action right after it (`terminal_result: merged` is
+  explicit there) — and `references/ledger.md`'s format section only gave an
+  undifferentiated example list conflating whole-skill aggregate vocabulary with
+  per-entry values. Since `DEFAULT_COMPLETED_TERMINAL_RESULTS` never includes
+  `babysit-pr`'s own terminal states (`ready_to_merge`/`closed`), an agent
+  following the doc literally could record a value the dedup guard never
+  matches, silently defeating recovery dedup for the publish phase (safe
+  direction: redundant re-delegation, not a false skip). Fixed by pinning
+  explicit literals in both `SKILL.md`'s Publish step and a new per-action
+  vocabulary table in `references/ledger.md`: `publish` translates a
+  `babysit-pr` `ready_to_merge` result to `terminal_result: prs_open` (or
+  `blocked` from `blocked`/`closed`), mirroring how `merge` already translates
+  `babysit-pr`'s `merged` result to the same literal.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff). The real-model tier for
   `implement-epic` (via `implement-ticket`'s executor,

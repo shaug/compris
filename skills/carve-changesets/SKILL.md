@@ -184,9 +184,13 @@ and GitHub rather than a local cache.
 Delegate each exact PR to `babysit-pr` using the policy and evidence in the
 suite handoff reference. While delegated, do not run a competing CI, feedback,
 review, or mutation loop. Record one ledger entry per changeset
-(`action: publish`) once its `babysit-pr` result is known. Return `prs_open`
-only when every applicable non-merge gate at the requested boundary passes and
-merge is withheld.
+(`action: publish`) once its `babysit-pr` result is known, translating that
+result into this skill's own vocabulary rather than babysit-pr's: record
+`terminal_result: prs_open` for a `ready_to_merge` babysit-pr result (this phase
+always requests `ready_to_merge`, never `merge_when_ready`), or
+`terminal_result: blocked` for `blocked`/`closed`. Return `prs_open` only when
+every applicable non-merge gate at the requested boundary passes and merge is
+withheld.
 
 ### 4. Merge and propagate
 

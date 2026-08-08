@@ -73,9 +73,22 @@ rewritten or truncated. Two kinds of line:
   `changeset_slug` is the plan's own `slug` field (`references/plan-schema.md`),
   already carried into commit trailers and PR titles — using it here means a
   ledger entry lines up with live git and GitHub state without a translation
-  step. `action` names which phase produced the entry (`review_fix_loop`,
-  `publish`, `merge`); `terminal_result` is that phase's own returned state
-  (`converged`, `prs_open`, `all_merged`, `blocked`, and so on). `evidence`
+  step. `action` names which phase produced the entry, and pins that phase's own
+  `terminal_result` vocabulary — this skill's own vocabulary, not necessarily
+  the delegate's:
+
+  | `action`          | `terminal_result` vocabulary                                                                                                                                                                                            |
+  | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `review_fix_loop` | `converged`, or the mapped `blocked` reason                                                                                                                                                                             |
+  | `publish`         | `prs_open` (translated from a `babysit-pr` `ready_to_merge` result — [Publish](../SKILL.md#3-publish) always requests `ready_to_merge`, never `merge_when_ready`, at this phase) or `blocked` (from `blocked`/`closed`) |
+  | `merge`           | `merged` (translated from a `babysit-pr` `merged` result) or `blocked`                                                                                                                                                  |
+
+  Every value is this skill's own phase-workflow vocabulary
+  (`converged`/`prs_open`/`chain_ready`/`all_merged`/`merged`/`blocked`), not a
+  delegate's terminal-state name copied verbatim — `publish` and `merge` entries
+  translate `babysit-pr`'s own returned state into that vocabulary at the moment
+  of recording, exactly as [Publish](../SKILL.md#3-publish) and
+  [Merge and propagate](../SKILL.md#4-merge-and-propagate) specify. `evidence`
   carries whatever identifiers let a later reader verify the claim against live
   state — the comparison base, the PR number, the merge SHA — never a substitute
   for that verification.
