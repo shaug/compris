@@ -275,6 +275,16 @@ summary: Chronological history of repository and skill changes.
   that declaration line referenced it anywhere in the repository. Fixed by
   deleting the three re-export lines.
 
+  A sixteenth fresh `review-code-change` pass (solution simplicity clean) raised
+  one more `strong_recommendation` correctness finding: this candidate's own
+  `justfile` edit added `ledger/scripts/tests` to `just test`'s unit-test loop,
+  but `.github/workflows/ci.yml`'s independent loop — which this repository's
+  own precedent (the commit that added `triggering/tests` to both lists in
+  lockstep) keeps in sync with `justfile`'s — was never updated, so the new
+  suite would run locally but silently not run in CI. Fixed by adding
+  `ledger/scripts/tests` to `ci.yml`'s loop and its companion "no tests found"
+  message, mirroring the `justfile` edit exactly.
+
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff, confirmed against the final-head
   "after" run). The real-model tier for `implement-epic` (via
