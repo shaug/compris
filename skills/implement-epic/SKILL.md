@@ -305,7 +305,10 @@ applicable, and enough evidence (PR number, merge SHA, tracker outcome) for a
 later session to re-verify the claim per
 [the recovery rule](references/ledger.md#recovery-rule). Record it after
 verification, not before dispatch: an entry claims what was confirmed, never
-what was merely requested.
+what was merely requested. This is bookkeeping only — it never substitutes for
+the graph refresh, acceptance verification, or tracker-state work the next
+section still requires, including when a merged delivery's acceptance remains
+incomplete.
 
 ### 5. Refresh or stop at the requested boundary
 
