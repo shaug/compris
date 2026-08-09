@@ -1,0 +1,374 @@
+# Cognitive-driven development
+
+This is the design document for compris taking sole ownership of cognitive
+shaping — the doctrine that decides whether a unit of work is comprehensible —
+together with the vocabulary that carries it and the skill that enforces it.
+
+Nothing described here is built. This document records the direction, the
+decisions behind it, the evidence they rest on, and what remains open. A
+presentation copy is published at
+<https://claude.ai/code/artifact/71ba7b43-e1fc-432f-b094-a72ce38852f1>.
+
+## The practice
+
+Work is normally broken apart by feature area, team ownership, or sprint
+capacity. Cognitive-driven development breaks it apart by what a reviewer can
+understand in one sitting, and treats that as the binding constraint rather than
+a nicety observed when there is time.
+
+Two consequences follow, and both are load-bearing.
+
+The tracker hierarchy stops being an organizational choice and becomes a
+**derived artifact of the implementation breakdown** — which is why the
+breakdown has to happen before the tickets exist, and why nobody can know
+whether something is one ticket or twelve until it has been done.
+
+And the skill that performs it becomes the highest-leverage and highest-risk in
+the suite: everything downstream inherits its decomposition, and no amount of
+good implementation repairs a bad one.
+
+## Why this exists
+
+compris is ticket-driven, and that is what separates it from a methodology
+library. Capturing a design, reviewing it, breaking it into an implementation
+plan, and building it are all necessary — but they have to happen *in public*,
+at whatever scope the organization draws. A plan file is local, ephemeral,
+single-agent, and dies with the context that produced it.
+
+So the test is simple: **if an implementation plan spans more than one pull
+request, it has exceeded its grasp** and should have been represented by
+something more permanent. Durable identity, real dependency edges, visibility to
+the org, survival across handoffs and context loss. That is a tracker, not a
+markdown file.
+
+## The boundary: for when the brainstorming is done
+
+`README.md` currently says compris is *for when the planning is done, and the
+work begins*. That is wrong, and it has already misled a reader into inverting
+this design once. compris plans constantly — it builds an implementation plan,
+shapes it into tickets, and revises it when reality disagrees. Planning is not
+the thing it starts after.
+
+Brainstorming is. It names an activity with a definite output, so the boundary
+can be checked rather than interpreted.
+
+> Brainstorming is done when the requirements and acceptance criteria are
+> captured, the goals and non-goals are known, and the stakeholders and
+> deadlines are identified.
+
+Everything after that is compris: turn it into a ticket-based implementation
+plan, and drive it to completion, adjusting the plan against conditions on the
+ground.
+
+The entry point does not care how much of that there is. A bugfix described in
+one sentence and a design document representing months of work are both legal
+inputs — the difference surfaces in the breakdown, not at the door.
+
+The boundary is hard in both directions. Left of it, a human decides what the
+work is. Right of it, compris decides how it is cut, delivers it, and re-cuts
+when the ground moves. That re-cutting loop is core behavior, not error
+recovery.
+
+## The invariant
+
+Every leaf ticket is scoped to exactly one cognitively shaped changeset, which
+becomes one pull request.
+
+The standard comes from atelier and travels intact, because inventing a second
+wording is how two codifications start drifting:
+
+> Line counts may inform judgment but are not universal correctness gates. The
+> test is whether a reviewer can construct an accurate mental model of the
+> change and evaluate it independently.
+>
+> — atelier, `docs/atelier-skill-design.md:480`
+
+Note what that rules out. This is not a threshold check. Line count is an input
+to judgment and nothing more — atelier explicitly retired the numeric
+heuristics, and states that lines of code are not a success measure. Any
+implementation that reduces this to a number has failed to port it.
+
+### The breakdown rules, ported whole
+
+- Keep an initiative executable as one ticket when it is already reviewable.
+- Avoid one-child decomposition without a real reason.
+- Separate unrelated concern domains.
+- Prefer additive foundations before disruptive transitions.
+- Separate mechanical restructuring from behavioral change when that helps
+  review.
+- Keep validation with the behavior it proves.
+- Identify re-split triggers before implementation.
+- Create follow-up work when implementation or review reveals new scope.
+
+The first two matter most for tone: one ticket is a legal outcome. Ceremonial
+decomposition is a failure, not diligence.
+
+## Ending shared custody
+
+atelier used to own the breakdown. It is moving toward multi-agent process
+management and model selection and routing, and it is mid-rebuild. Leaving the
+doctrine in the project that no longer applies it guarantees the drift this
+program exists to stop. A doctrine with two homes has no home.
+
+The name already fits the job. *compris* is French for *understood* — what the
+suite claims at the moment work changes hands. The shaping test asks whether a
+reviewer can build an accurate mental model. That is understanding,
+operationalized.
+
+**Port at a pinned commit.** atelier's text is still moving. compris already
+solved this for superpowers: the named-peer registry pins `obra/superpowers` at
+`44c9b2d6` because an unpinned reference describes a moving target. Record
+atelier's doctrine the same way, or the first thing the new owner inherits is
+the drift it was created to end.
+
+### Vocabulary comes too, but only our half of it
+
+atelier's layer diagram already split the nouns, and it put ours on our side.
+The mailbox layer holds "assignments, messages, claims, receipts"; the compris
+layer holds "implementation, review, changeset carving, PR lifecycle."
+
+So **changeset comes home** — it was always ours, it is already the noun in
+`carve-changesets`, and it is the noun in the doctrine's own title. **Initiative
+comes too**, as optional, non-authoritative grouping: authority, dependencies,
+readiness and acceptance live at the leaf, and grouping is derived from it.
+
+**Assignment, claim, receipt and worker stay with atelier.** They are the
+process-management layer it is moving into, and importing them would duplicate
+concepts compris already has — an assignment is a claimable unit of approved
+work, which is not the same thing as the shaped unit of code a reviewer reads.
+atelier's own wording keeps them distinct: an initiative that "fits one project
+and one reviewable changeset may consist of a single assignment." One maps to
+the other; neither replaces it. Receipt resolves the same way, since it and
+compris's evidence-binding are one idea under two names.
+
+That leaves three layers and no borrowed noun duplicating something we have: an
+**initiative** groups, the **leaf ticket** is the tracker object, and it is
+scoped to exactly one **changeset**, which becomes one pull request.
+
+Keeping `ticket` as the leaf noun is what makes this safe. Descriptions are the
+routing surface and description-based routing is winner-takes-attention: people
+say "implement this GitHub issue," and a description answering only to "execute
+this assignment" would quietly stop matching them. Because the leaf keeps the
+word users already say, only `initiative` and `changeset` are new internal
+currency — and `changeset` is already in a skill name, so it is not new at all.
+
+## The shaping skill
+
+Four skills already make shape judgments independently and none cites the
+others: `carve-changesets` decides changeset boundaries, `implement-ticket`'s
+publication size gate decides what counts as oversized,
+`review-solution-simplicity` judges whole-solution complexity, and
+`plan-implementation` will decide the decomposition. That is the same
+two-codifications problem, already present inside one repo.
+
+A document gets cited; a skill gets called. Extracting the judgment is what
+makes the doctrine enforceable rather than aspirational, and compris has the
+exact precedent — `review-code-change` does not implement its three lenses, it
+invokes them and reconciles typed verdicts.
+
+| Facet       | Contract                                                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Input**   | A candidate in any of its forms — source material, design document, ticket, implementation plan, branch, pull request — plus repository context. Heterogeneous evidence is expected. |
+| **Output**  | Typed. The verdict; the seam-aligned breakdown whenever the verdict is *exceeds*; a rationale per seam; and the re-split triggers the doctrine requires.                             |
+| **Stance**  | Read-only. It never creates a ticket, carves a branch, or mutates the candidate. Callers act on the proposal.                                                                        |
+| **Callers** | `plan-implementation` (source material to tickets), `carve-changesets` (branch to stacked changesets), `implement-ticket` (verdict at the publication size gate).                    |
+
+### Verdict and breakdown are one skill, not two
+
+Splitting them is tempting, since the size gate only wants the verdict. Resist
+it. You cannot credibly return *too big* without naming the seams — the
+seam-aligned breakdown **is** the evidence for the verdict. A skill that says
+too big with no proposed decomposition is asserting, not judging. Callers ignore
+the part they do not need.
+
+### Two things this quietly fixes
+
+It dissolves a question that looked hard: what should `plan-implementation`
+return for work that is one coherent subsystem but too large for a single PR?
+There is no terminal-state puzzle once the skill calls the shaper and receives a
+two-ticket breakdown. Oversized-coherent is not an outcome, it is an input to
+decomposition.
+
+And it closes the feedback loop. The shaper predicts where a re-split would
+become necessary; when one fires downstream, that is a falsified prediction
+recorded against a specific named trigger. You learn *which* seam judgment was
+wrong, not merely that one was. `carve-changesets` stops being a repair
+mechanism that implies guilt and becomes the instrument that measures the
+prediction.
+
+## The program
+
+Ordered so that each step is independently valuable and every later step cites
+an earlier one. The first two are pure documentation.
+
+1. **The doctrine document.** Human-shaped changesets, ported at a pinned
+   atelier commit, owned by compris. Cited by the four skills that already judge
+   shape independently. Zero behavior change, and it unifies four implicit
+   standards on day one. Carries the new tagline: `README.md` stops promising
+   *for when the planning is done* and starts promising *for when the
+   brainstorming is done*, with the done-condition spelled out. The line at
+   `README.md:15` about peers owning the thinking-it-through phase goes with it.
+
+2. **The object model document.** Initiative, leaf ticket, changeset, dependency
+   — and the mapping onto GitHub and Linear stated once. Still zero behavior
+   change. Deliberately narrow: it does *not* import assignment, claim, receipt
+   or worker, which stay in atelier's process layer. Receipt in particular would
+   duplicate compris's evidence-binding, which is the same idea and already ours
+   — and is where the prediction-feedback loop gets its home for free.
+
+3. **The shaping skill.** The contract above. One executable home for the
+   judgment, with its own eval corpus, rather than shape judgments buried in
+   four skills' separate corpora where none is really testing the doctrine.
+
+4. **`plan-implementation`** (was `ready-ticket`). Source material to an
+   initiative plus tickets: shaped by step 1, expressed via step 2, discovered
+   through the `writing-plans` breakdown, judged by step 3. Input ranges from a
+   stacktrace to a full design document; output ranges from one ticket to a
+   multi-tier dependency graph.
+
+5. **Migrate the downstream skills.** `implement-ticket`, `implement-epic` and
+   `babysit-pr` move to the object model internally. Trigger surfaces unchanged.
+
+6. **atelier cites compris.** atelier drops its section and points here — which
+   also repairs its orphaned reference to numeric heuristics that would
+   otherwise live nowhere.
+
+**On renaming.** Rename only where the name misleads about behavior.
+`ready-ticket` did — it promised one ticket and will produce a graph — so it
+becomes `plan-implementation`. `implement-ticket` does not mislead; it really
+does take one ticket, and `implement-epic` keeps a noun users say out loud. A
+big-bang rename buys nothing and costs routing.
+
+## Decisions on record
+
+### `plan-implementation` consumes an approved design; it does not produce one
+
+It stops approximating brainstorming's questioning. Elicitation narrows to the
+tracker-shaped residue a design cannot answer — surface-observable criteria,
+verification commands, pre- and post-merge classification.
+
+*Note this reverses a recorded decision.* Epic #118 established that "a ready
+ticket satisfies brainstorming's design-approval gate (elicitation happened at
+authoring time)."
+
+### The composition rules stand; the boundary is hard
+
+#118's rule survives intact — brainstorming applies pre-ticket, never
+mid-pipeline. Only its justification changes, from *the skill absorbed the
+design-approval gate* to *brainstorming actually ran*.
+
+And the boundary fails closed. When a compris step finds itself wanting
+something brainstorming should have settled, that is a compris failure case:
+exit with *needs more information*, naming what is missing. Never gather it. A
+distinct typed result — `requires_brainstorming`, parallel to
+`implement-ticket`'s `requires_epic` — makes it machine-routable and keeps the
+planner from drifting back into being a design prompt.
+
+### A design document is required for every ticket, scaled to the work
+
+No threshold to adjudicate and no second door for bug reports. Trivial work gets
+a trivial design.
+
+*Verified.* brainstorming already owns the scaling problem: "Every project goes
+through this process. A todo list, a single-function utility, a config change —
+all of them. The design can be short (a few sentences for truly simple
+projects), but you MUST present it and get approval."
+
+### compris owns the implementation breakdown, using writing-plans to do it
+
+The breakdown is how the ticket structure is *discovered* — nobody can know
+whether something is one ticket or twelve until it has been broken down. That
+makes `writing-plans` structurally load-bearing rather than a quality
+enhancement, and moves it in the registry from House territory to a genuine
+referenced peer.
+
+### Ticket authority is endpoint-scoped, not per-item
+
+Granting the skill ticket management grants it the whole graph. In for a penny,
+in for a pound.
+
+*What remains is disclosure, not permission.* The existing body-approval step
+scales up to presenting the graph — shape, leaves, dependency edges — before
+anything is created.
+
+### Prediction is best-effort, and instrumented
+
+Developers are bad at estimating; the answer is measurement, not accuracy.
+Paying for the full plan now is acceptable provided the approach's usefulness
+can be reflected on later and adjusted.
+
+*Cheapest version.* The ticket records its predicted shape; `implement-ticket`
+and `babysit-pr` already observe the actual outcome. atelier's evaluation
+criteria — whether changes remain cognitively reviewable, and how much operator
+effort acceptance costs — are a better forward-eval target than grading prose
+compliance.
+
+### Three eval surfaces, not one stretched corpus
+
+The **forward corpus** keeps asking whether the prose governs once loaded,
+extended with peer-present cases and new vocabulary terms. The **shaping
+corpus** belongs to the shaping skill and asks a question nothing here asks
+today — was the breakdown good — graded by judge panel against the eight
+doctrine rules. **Re-split telemetry** is the real measure: every shipped leaf
+records whether its prediction held.
+
+*Why the shaping corpus lives on the shaping skill.* One corpus then tests the
+doctrine for all four call sites — the extraction argument carried through to
+verification. Two non-goals: the eval does not observe artifact lifecycle, since
+"reason from artifacts alone" is the right constraint and unit tests plus one
+manual run cover the filesystem more cheaply; and diff continuity is not claimed
+across the vocabulary change — record a fresh baseline and say so.
+
+### `ready-ticket` becomes `plan-implementation`
+
+It names the activity rather than the artifact, so it no longer promises one
+ticket while producing a graph — and it is verb-first, like every other skill in
+the suite.
+
+*It forces a doctrine revision.* The trigger-namespace rule forbids compris
+descriptions from claiming planning language, because that is what peer skills
+trigger on. That rule assumed planning lived upstream; this program moves it
+in-house. The namespace list has to say compris now claims
+implementation-planning language deliberately, and the collision audit needs a
+`plan-implementation` × `writing-plans` row recording the overlap as structural
+and cooperative.
+
+## Verified evidence
+
+Established against `obra/superpowers` at pin `44c9b2d6` and the compris tree.
+Three assumptions were falsified in the process; all are reflected above.
+
+| Finding                                                                                                          | Consequence                                                                                                                                   | Source                             |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `writing-plans` never reads a spec from disk — no path parameter, no file read                                   | The design can be handed over inline; no document has to exist for the handoff                                                                | `SKILL.md:23,71,140`               |
+| It supplies no pull-request sizing verdict; the PR concept appears nowhere in it                                 | Sizing is house-owned outright. Its only whole-plan check duplicates a trigger we already have                                                | `skills/writing-plans/`            |
+| Its own plan reviewer is dangling — referenced nowhere since an inline checklist replaced it                     | The peer ships no review, so the house reviewer is required rather than optional                                                              | `plan-document-reviewer-prompt.md` |
+| Committed peer plans run 143–1649 lines, placeholders forbidden, complete code required                          | A material context expenditure — accepted, pending instrumentation                                                                            | 13 committed plans                 |
+| `brainstorming` writes *and commits* its design document to git                                                  | It stays a borrow, never invoked. Borrow a peer that mutates the user's repo; invoke one whose output is disposable                           | `SKILL.md:107,110`                 |
+| Its step-7 Spec Self-Review is `ready-ticket`'s four scans, same order                                           | The skill already ports the peer further than the registry declares                                                                           | `SKILL.md:112–118`                 |
+| The triggering corpus records planning language as expecting "no compris skill; planning language is peer-owned" | That expectation inverts — planning language should now route to `plan-implementation`. A recorded case flips sign and seeds the new baseline | `triggering/known-overlaps.json`   |
+| Skill-invokes-skill is established practice across five compris skills                                           | Dispatch is not novel. The anti-invoke rule in `implement-ticket` is an anti-cycle rule for one pairing                                       | `implement-epic:186`               |
+
+## Still open
+
+### Can `writing-plans` be steered to behavioral altitude?
+
+Depth is not the worry — sample code, schemas and protocol design are welcome,
+because the rough shape of an implementation is what makes a sizing estimate
+credible. The worry is altitude. The peer produces unit-level TDD bound to
+internals, while compris requires acceptance criteria observable at the public
+surface.
+
+*The resolution, if it holds.* Hand the peer the behavioral criteria as its
+spec. Its own coverage check — "skim each requirement in the spec, can you point
+to a task that implements it?" — then maps behavior onto implementation tasks
+for us. The plan's unit detail sharpens sizing and dies with the scratch
+artifact; the ticket keeps the surface-observable contract. Unverified: whether
+prose alone steers the peer to that altitude.
+
+### Grading a breakdown, not a compliance
+
+The shaping corpus asks whether a decomposition was *good*, which no existing
+compris corpus asks of anything. Reference decompositions plus a judge panel is
+the plan, but the grading rubric is unwritten and exact-match is known to be
+wrong, since many valid decompositions exist for one input.

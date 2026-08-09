@@ -4,6 +4,29 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
+
+- docs: record the cognitive-driven development design — compris is
+  ticket-driven because work spanning more than one pull request has exceeded a
+  local plan's grasp and needs durable, public representation. The document
+  establishes the invariant that every leaf ticket is scoped to exactly one
+  cognitively shaped changeset, ports atelier's human-shaped-changeset test
+  verbatim ("whether a reviewer can construct an accurate mental model of the
+  change and evaluate it independently") along with its eight breakdown rules,
+  and takes sole ownership of both from `shaug/atelier`, which is moving toward
+  multi-agent process management and model routing — a doctrine with two homes
+  has no home. Half the vocabulary comes with it: `changeset` and `initiative`,
+  which atelier's own layer diagram already places on the compris side, while
+  `assignment`, `claim`, `receipt` and `worker` stay in its process layer.
+  Records eight decisions with their reasoning, eight verified findings against
+  `obra/superpowers` at pin `44c9b2d6`, and two open questions. Load-bearing
+  verification falsified three assumptions during authoring: `writing-plans`
+  reads no spec from disk, supplies no pull-request sizing verdict, and ships a
+  dangling plan reviewer — so sizing is house-owned outright and the house
+  reviewer is required rather than optional. Nothing is implemented; the
+  doctrine document and the object model document are the first two steps of the
+  recorded six-step program.
+
 ## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, added version-bump tooling, release notes, and a documented release process, then repositioned marketplace metadata and the README lead as the outer-loop companion to superpowers, then deduplicated the byte-identical `compact()` test helper into `scripts/tests/helpers.py`
 
 - refactor: deduplicate the byte-identical `compact()` whitespace-collapsing
@@ -490,7 +513,8 @@ summary: Chronological history of repository and skill changes.
   plus three in `docs/skill-authoring.md`'s own new test file pinning the
   admissible-evidence rule's wording, placement, and reconciliation with the
   baseline exemplar — each independently observed failing when run against the
-  unmodified base `20d05b0` and passing at head.
+  unmodified base `20d05b0` and passing at head
+  (2d5fa6041825cc5161d4300f9b3056b948bd8029)
 
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff) — the corpus reads only the
