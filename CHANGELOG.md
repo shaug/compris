@@ -4,6 +4,170 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
+
+- docs: drop the hosted link from the cognitive-driven development design — the
+  Markdown pointed at a claude.ai-hosted rendering of itself, which is an
+  external dependency the repository does not control, cannot version, and
+  cannot guarantee stays reachable or in step. The committed
+  `cognitive-driven-development.html` is the presentation copy, and it travels
+  with the document in the same history and the same review.
+
+- docs: commit the presentation copy of the cognitive-driven development design
+  and link it from the Markdown — the rendered brief existed only as a published
+  artifact, outside version control, which had already let the two drift twice
+  in one session: once when several rounds of edits landed in the Markdown
+  alone, and once when the artifact was republished with a description promising
+  content its HTML did not contain. `docs/cognitive-driven-development.html` now
+  sits beside the Markdown and is the file the artifact is published from,
+  wrapped as a standalone document so it also renders when opened directly; the
+  Artifact renderer supplies its own wrapper, so publishing strips this one. The
+  Markdown states which is canonical for review and that both change together.
+  `just format` covers only Python and Markdown, so the HTML is not reformatted
+  and the committed copy stays byte-comparable with what gets published
+  (c2e363470d024fbaa1cd446f48b2946a7abb2674)
+
+- docs: make cognitive shaping a policy-governed default and state the program's
+  motive honestly — not every project demands cognitively shaped pull requests.
+  A project may legitimately want compris for ticket authoring and delivery
+  automation while declining to be gated on shape, and compris itself is one
+  such project today. The invariant is therefore a default rather than a law:
+  the shaper always judges and the consuming project decides whether an
+  `exceeds` verdict gates anything, which needs no new policy machinery because
+  the shaper's read-only stance already separates judgment from enforcement.
+  That also corrects an overclaim made while gathering failure-first evidence:
+  this repository's merged-PR churn (median 1,253 lines, max 7,829) and the fact
+  that `carve-changesets` has never carved anything here were presented as
+  observed failure, when both are the deliberate exercise of that latitude. The
+  brief now states plainly that the program is capability-driven, not
+  failure-driven. Two findings survive the correction, both from real data
+  rather than principle: recorded machine-generated evidence must be excluded
+  from shape judgment, since PR #179 is 4,715 lines of churn of which 4,538 is
+  committed eval results and the reviewable change is 177 lines — a raw-churn
+  metric would reject a small change precisely because the eval norm requires
+  its evidence committed; and the retrospective merged-history corpus is
+  buildable today against `git log`, which is how the distortion was caught in
+  the first place (43c83dea578cbfb93ccfa29fab0c8317841d015d)
+
+- docs: decompose the cognitive-driven development brief into four specs and
+  record the alternatives it never examined — a brainstorming pass over the
+  committed design applied that skill's scope rule and found three dependency
+  roots, three risk profiles and three definitions of done in one document. The
+  tell was not the step count but that every reversal of standing repository
+  doctrine sat in one step: #118's design-approval gate, granular default-off
+  authority, `ready-ticket`'s no-additional-items rule, and the
+  trigger-namespace rule. The brief is now Spec A (compris owns the doctrine —
+  no new skills, no renames, no reversals, complete on its own), Spec B (an
+  executable shaping verdict), Spec C (the planner, carrying every reversal),
+  and Spec D (object model and migration, a live YAGNI candidate because both
+  halves are conceded zero-behavior-change yet the migration triggers the
+  eval-record obligation across three large skills while the brief forfeits the
+  diff it produces). Also records three alternatives a long convergent
+  conversation had left unexamined. The first is serious enough to gate Spec B:
+  the brief argued "a document gets cited; a skill gets called" and concluded
+  only a skill makes doctrine enforceable, but that is a false binary and the
+  counterexample was already in the tree — `review-suite/` distributes canonical
+  normative text, including a ported peer doctrine, via `just sync-contracts`
+  into three consumers' `references/`, drift-checked by `just check-installed`.
+  Spec B is not to be built until that is argued down or adopted. The document
+  reaching this conclusion is the invariant working on itself: it exceeded one
+  reviewable unit and had to become several separately trackable things, decided
+  by the rule it proposes for everything else
+  (e7740840ec5b47ade2615d52913092a1a37de8a4)
+
+- docs: record that the peer pin is marketplace release 6.2.0, and re-sync the
+  published brief — the superpowers plugin turned out to be installed after all,
+  just after this session resolved its skill listing, so the pin could finally
+  be checked against what a user actually receives. It matches: the installed
+  plugin and the pinned checkout carry the same fourteen skills, and
+  `writing-plans` and `brainstorming` — the two every finding in the design
+  rests on — are byte-identical between them. Recording the release alongside
+  the SHA makes the pin resolvable by a reader who cannot run `git`, and it
+  retires the document's last unverified assumption about its own evidence. Also
+  fixes three defects the eight-step renumbering introduced: two internal
+  cross-references pointing at the wrong steps, and a stale "four skills'
+  separate corpora" that should have followed the four-judges-to-three
+  correction. The published brief is regenerated from the committed markdown
+  rather than patched, so the two no longer drift
+  (1d6322dcfdccdc02199c1f4c85a84becac010b24)
+
+- docs: bolster the cognitive-driven development design against an adversarial
+  read — an independent reviewer checked the committed document against the
+  repository's own contracts and found seventeen problems, all verified before
+  acting. Four needed decisions and are now recorded. `initiative` and `epic`
+  are kept as a mapped pair rather than one replacing the other: an initiative
+  is the logical grouping the breakdown derives, an epic is its tracker
+  realization, and compris keeps `implement-epic`'s authoritative parent (its
+  own acceptance ledger and closeout gate) instead of overwriting it with
+  atelier's lighter non-authoritative grouping. The invariant is restated as a
+  prediction rather than an identity, because `implement-ticket` ships
+  `ready_prs` — one ticket, an authorized carved stack, several pull requests —
+  so a carved stack is a recorded falsification, not a violation. The breakdown
+  becomes house-owned and complete without a peer, since
+  `docs/skill-authoring.md:598` forbids depending on one; `writing-plans`
+  supplies the richer method when present, and the cost of maintaining both
+  paths is named. Ticket-graph creation stays an approval gate that may be
+  pre-approved at invocation, at which point the presentation becomes disclosure
+  — which is also what makes autonomous graph creation possible, since an
+  autonomous run has nobody to ask. Thirteen further corrections: the extraction
+  premise dropped from four independent judges to three, because
+  `implement-ticket:632-635` already reads `carve-changesets`' live guardrails
+  and is forbidden to substitute local heuristics — it is the pattern's
+  precedent, not an instance of the problem; a new program step wires the
+  doctrine in and retires `carve-changesets/references/SPEC.md`'s own guardrails
+  so the doctrine replaces codifications rather than becoming a fifth; another
+  revises `docs/skill-authoring.md` and `README.md`, whose composition rule 1
+  asserts a mechanism that stops being true; the shaper contract gains a closed
+  terminal-state set with `blocked` as its honest fallback; the rubric now
+  accounts for all eight breakdown rules, recording that rule 8 is not gradeable
+  at plan time; and two citations of mine were wrong — `implement-epic:186` was
+  correct when written and rotted in the rebase, while the triggering-corpus row
+  cited a refuted observation rather than `triggering/expectations.json:130`,
+  where the case is a *negative* owned by `review-code-change` that cannot
+  simply be flipped without destroying that skill's coverage
+  (99877814bd3c1f2be2378160d0fa9aae0c280c8e)
+
+- docs: settle the shaping rubric and reframe the altitude question as an
+  experiment — the shaping corpus grades seams rather than partitions, because
+  two good decompositions of the same work agree on where the seams are and
+  disagree on how they group, so partition equality rejects correct answers and
+  accepts cuts through the middle of a concern. The eight breakdown rules sort
+  by kind: three are mechanically checkable and need no judge (one-child count
+  plus a stated reason, re-split trigger presence, the fits-as-one case),
+  halving the judge surface and keeping most of the corpus deterministic. Each
+  case is built around a specific trap, since a corpus that only rewards good
+  answers measures little; the merged-PR history supplies free labeled data,
+  where work whose shape held is a positive and work that had to be carved is a
+  negative already annotated by the carving; judges are perspective-diverse
+  rather than redundant; and no numeric score is emitted, because the doctrine
+  retired numeric heuristics and per-rule pass/fail with recorded observations
+  is what `AGENTS.md` already asks for. Separately, the `writing-plans` altitude
+  question moves from an open question to a recorded experiment with a named run
+  and success criterion — nobody owes an answer there, someone owes a run — with
+  the three-way contingency deliberately left un-pre-decided until it reports
+  (eab76ecab2e4fe400c00c00622e0adda49a3ea7c)
+
+- docs: record the cognitive-driven development design — compris is
+  ticket-driven because work spanning more than one pull request has exceeded a
+  local plan's grasp and needs durable, public representation. The document
+  establishes the invariant that every leaf ticket is scoped to exactly one
+  cognitively shaped changeset, ports atelier's human-shaped-changeset test
+  verbatim ("whether a reviewer can construct an accurate mental model of the
+  change and evaluate it independently") along with its eight breakdown rules,
+  and takes sole ownership of both from `shaug/atelier`, which is moving toward
+  multi-agent process management and model routing — a doctrine with two homes
+  has no home. Half the vocabulary comes with it: `changeset` and `initiative`,
+  which atelier's own layer diagram already places on the compris side, while
+  `assignment`, `claim`, `receipt` and `worker` stay in its process layer.
+  Records eight decisions with their reasoning, eight verified findings against
+  `obra/superpowers` at pin `44c9b2d6`, and two open questions. Load-bearing
+  verification falsified three assumptions during authoring: `writing-plans`
+  reads no spec from disk, supplies no pull-request sizing verdict, and ships a
+  dangling plan reviewer — so sizing is house-owned outright and the house
+  reviewer is required rather than optional. Nothing is implemented; the
+  doctrine document and the object model document are the first two steps of the
+  recorded six-step program (53cb800756fcaaec57a080ed58ab2552145eecdc)
+
 ## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, added version-bump tooling, release notes, and a documented release process, then repositioned marketplace metadata and the README lead as the outer-loop companion to superpowers, then deduplicated the byte-identical `compact()` test helper into `scripts/tests/helpers.py`
 
 - refactor: deduplicate the byte-identical `compact()` whitespace-collapsing
@@ -490,7 +654,8 @@ summary: Chronological history of repository and skill changes.
   plus three in `docs/skill-authoring.md`'s own new test file pinning the
   admissible-evidence rule's wording, placement, and reconciliation with the
   baseline exemplar — each independently observed failing when run against the
-  unmodified base `20d05b0` and passing at head.
+  unmodified base `20d05b0` and passing at head
+  (2d5fa6041825cc5161d4300f9b3056b948bd8029)
 
   Eval evidence: the deterministic tier for `carve-changesets` is unchanged
   before and after (12/12, empty per-case diff) — the corpus reads only the
