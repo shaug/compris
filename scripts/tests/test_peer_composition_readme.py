@@ -19,6 +19,8 @@ import re
 import unittest
 from pathlib import Path
 
+from helpers import compact
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 README = REPOSITORY_ROOT / "README.md"
 
@@ -34,10 +36,6 @@ SEAM_STATUS = {
     **dict.fromkeys(LANDED_SEAM_TICKETS, "Landed"),
     **dict.fromkeys(PLANNED_SEAM_TICKETS, "Planned"),
 }
-
-
-def compact(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
 
 
 def last_cell(row: str) -> str:

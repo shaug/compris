@@ -7,16 +7,13 @@ own tests live here rather than inside any one skill's test suite.
 
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
+from helpers import compact
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 AUTHORING_DOC = REPOSITORY_ROOT / "docs" / "skill-authoring.md"
-
-
-def compact(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
 
 
 class SkillAuthoringDocTests(unittest.TestCase):
