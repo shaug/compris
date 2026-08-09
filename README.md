@@ -24,6 +24,16 @@ its caller can validate. They fail closed: a review that cannot bind its
 evidence to the candidate says so rather than returning a clean verdict it did
 not earn.
 
+**Where it composes.** `compris` is the outer-loop companion to peer methodology
+libraries such as [superpowers](https://github.com/obra/superpowers): it owns
+ticket readiness, review production, and the post-publication pull-request
+lifecycle, while peers own in-phase methodology — how to brainstorm, how to run
+a red–green loop, how to debug a failure hypothesis-first. Install both for the
+complete cycle from idea to merged pull request; `compris` is fully functional
+without a peer installed. See
+[Using beside peer skills](#using-beside-peer-skills) for the full division of
+labor and composition rules.
+
 ## Installation
 
 Install the plugin when you need any composed workflow. It packages every skill

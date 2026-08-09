@@ -4,14 +4,14 @@
     "name": "shaug"
   },
   "metadata": {
-    "description": "For when the planning is done, and the work begins. Installs the complete compris skill suite as one dependency-closed plugin."
+    "description": "For when the planning is done, and the work begins. compris is the ticket-to-merge outer loop — readiness gates, contract-driven review, and the post-publication PR lifecycle — designed to compose with, not depend on, inner-loop methodology libraries such as superpowers. Installs the complete skill suite as one dependency-closed plugin."
   },
   "plugins": [
     {
       "name": "compris",
       "version": "0.1.1",
       "source": "./",
-      "description": "Implementation, code-review, PR-lifecycle, and changeset workflows that install and run together."
+      "description": "The ticket-to-merge outer loop — readiness gates, contract-driven review, PR lifecycle, and epic orchestration — that composes with, not depends on, inner-loop methodology libraries such as superpowers."
     }
   ]
 }

@@ -4,7 +4,32 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, then added version-bump tooling, release notes, and a documented release process
+## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, added version-bump tooling, release notes, and a documented release process, then repositioned marketplace metadata and the README lead as the outer-loop companion to superpowers
+
+- feat: reposition marketplace metadata and the README lead as the outer-loop
+  companion to superpowers (issue #139, epic #121) — the "Using beside peer
+  skills" README section already stated the outer-loop/inner-loop division of
+  labor, but nothing surfaced that framing where a prospective user first looks:
+  the README lead and the four plugin/marketplace description surfaces. Adds a
+  "Where it composes" lead paragraph naming superpowers explicitly, stating the
+  "fully functional without a peer installed" guarantee, and linking
+  `#using-beside-peer-skills`. Updates `.claude-plugin/plugin.json`,
+  `.codex-plugin/plugin.json` (both its top-level `description` and its
+  `interface.longDescription`), and `.claude-plugin/marketplace.json` (both
+  `metadata.description` and the `compris` plugin entry's `description`) to the
+  same "ticket-to-merge outer loop... composes with, not depends on, inner-loop
+  methodology libraries such as superpowers" positioning; ticket body referred
+  to the project by its pre-rename name `agent-scripts`, so the copy uses the
+  current name `compris` throughout, verified against the actual repository
+  identity rather than copied verbatim. `.agents/plugins/marketplace.json`
+  carries no description-shaped field in its current schema, so it is unchanged
+  — its plugin entry gained a `version` field under #138, and the other three
+  surfaces already carry this ticket's positioning. New
+  `scripts/tests/test_marketplace_positioning.py` pins the outer-loop framing,
+  the superpowers mention, and the compose/depend contrast across the README
+  lead and all four description surfaces. Docs/config-only change — no
+  behavioral test beyond the new structural pins; `just lint`/`just test` both
+  green.
 
 - feat: add version-bump tooling, cross-manifest drift detection, narrative
   release notes, and a documented release process (issue #138, epic #121) —
@@ -34,7 +59,7 @@ summary: Chronological history of repository and skill changes.
   `just lint` and `just test` green at the resulting head and no git tag cut —
   recorded as the first `RELEASE-NOTES.md` entry. Cutting the first real tagged
   release stays a separate, explicit operator action; this ticket's non-goals
-  explicitly exclude it.
+  explicitly exclude it. (a55c2cc425335470962a846c3b4d252877d089e8)
 
 - feat(implement-ticket): harden worktree isolation mechanics (issue #134, epic
   #119) — implement-ticket's own "Create exclusive implementation state" step
