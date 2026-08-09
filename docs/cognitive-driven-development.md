@@ -5,8 +5,8 @@ shaping — the doctrine that decides whether a unit of work is comprehensible �
 together with the vocabulary that carries it and the skill that enforces it.
 
 Nothing described here is built. This document records the direction, the
-decisions behind it, the evidence they rest on, and what remains open. A
-presentation copy is published at
+decisions behind it, the evidence they rest on, and the one experiment still
+owed. A presentation copy is published at
 <https://claude.ai/code/artifact/71ba7b43-e1fc-432f-b094-a72ce38852f1>.
 
 ## The practice
@@ -319,6 +319,48 @@ verification. Two non-goals: the eval does not observe artifact lifecycle, since
 manual run cover the filesystem more cheaply; and diff continuity is not claimed
 across the vocabulary change — record a fresh baseline and say so.
 
+### The shaping rubric grades seams, not partitions
+
+**Sort the eight rules by kind first.** Three are mechanically checkable and
+need no judge: one-child decomposition (count children; if one, require a stated
+reason), re-split triggers (a presence check), and the fits-as-one-ticket case
+(if the verdict was *fits*, did it produce exactly one?). Making those
+deterministic assertions halves the judge surface and keeps most of the corpus
+stable and cheap. Only concern separation, ordering,
+mechanical-versus-behavioral separation, validation placement, and the
+mental-model test need judgment.
+
+**Grade seams, not partitions.** Two good decompositions of the same work
+typically agree on *where the seams are* and disagree on *how they group*. Score
+those separately: did each proposed cut land on a boundary the reference also
+recognized, and was the grouping defensible? A decomposition that cuts at real
+seams but bundles differently is fine; one that cuts through the middle of a
+concern is wrong regardless of how many pieces it made. Partition equality gets
+this backwards, and seam-level scoring maps onto the skill's own output
+vocabulary.
+
+**Build each case around a specific trap.** The eight rules imply eight ways to
+be wrong — an input that tempts ceremonial one-child decomposition, one that
+invites mixing a rename with a behavior change, one where validation naturally
+drifts from the behavior it proves. A corpus that only rewards good answers
+measures very little; one where every case has a known bait measures whether the
+doctrine governs.
+
+**Anchor on merged history.** Shipped work whose shape held is a labeled
+positive; work that had to be carved is a labeled negative, already annotated by
+the fact that it was carved. Reconstruct the input, ask the shaper what it would
+have proposed, compare. Free labeled data, and it grounds the standard in the
+team's real review culture rather than a synthetic one — the retrospective twin
+of the re-split telemetry.
+
+**Diverse judges, not redundant ones.** A concern-coherence judge, an ordering
+judge, and a mental-model judge, matching the review-suite pattern. Three
+identical judges mostly measure sampling temperature.
+
+**No numeric score.** The doctrine retired numeric heuristics; a rubric emitting
+7.2 out of 10 reintroduces what atelier removed. Per-rule pass/fail with
+recorded observations matches what `AGENTS.md` already asks for.
+
 ### `ready-ticket` becomes `plan-implementation`
 
 It names the activity rather than the artifact, so it no longer promises one
@@ -349,7 +391,9 @@ Three assumptions were falsified in the process; all are reflected above.
 | The triggering corpus records planning language as expecting "no compris skill; planning language is peer-owned" | That expectation inverts — planning language should now route to `plan-implementation`. A recorded case flips sign and seeds the new baseline | `triggering/known-overlaps.json`   |
 | Skill-invokes-skill is established practice across five compris skills                                           | Dispatch is not novel. The anti-invoke rule in `implement-ticket` is an anti-cycle rule for one pairing                                       | `implement-epic:186`               |
 
-## Still open
+## Recorded experiments
+
+Not open questions. Nobody owes an answer here; someone owes a run.
 
 ### Can `writing-plans` be steered to behavioral altitude?
 
@@ -359,16 +403,25 @@ credible. The worry is altitude. The peer produces unit-level TDD bound to
 internals, while compris requires acceptance criteria observable at the public
 surface.
 
-*The resolution, if it holds.* Hand the peer the behavioral criteria as its
-spec. Its own coverage check — "skim each requirement in the spec, can you point
-to a task that implements it?" — then maps behavior onto implementation tasks
-for us. The plan's unit detail sharpens sizing and dies with the scratch
-artifact; the ticket keeps the surface-observable contract. Unverified: whether
-prose alone steers the peer to that altitude.
+**The run.** Install superpowers at pin `44c9b2d6`, hand `writing-plans` a spec
+written as surface-observable acceptance criteria, and inspect what returns.
 
-### Grading a breakdown, not a compliance
+**Success criterion.** Its Interfaces block does not name internal function
+signatures, and its test steps assert against observable behavior rather than
+against functions. One session; blocks neither step 1 nor step 2.
 
-The shaping corpus asks whether a decomposition was *good*, which no existing
-compris corpus asks of anything. Reference decompositions plus a judge panel is
-the plan, but the grading rubric is unwritten and exact-match is known to be
-wrong, since many valid decompositions exist for one input.
+**The hypothesis, if it holds.** The peer's own coverage check — "skim each
+requirement in the spec, can you point to a task that implements it?" — maps
+behavior onto implementation tasks for us. The plan's unit detail sharpens
+sizing and dies with the scratch artifact; the ticket keeps the
+surface-observable contract.
+
+**The fork if it fails**, deliberately not pre-decided:
+
+- _Take it as-is_ — use the output only for sizing and derive the behavioral
+  criteria independently. Cheapest; nothing binds plan coverage to ticket
+  criteria.
+- _Post-process_ — compris lifts internal-altitude tests to the surface as a
+  house step. Preserves the binding; a translation step can lose or invent.
+- _Structure only_ — take the file map, task boundaries and sequencing; compris
+  owns everything test-shaped. Cleanest boundary, least peer value.

@@ -6,6 +6,25 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: settle the shaping rubric and reframe the altitude question as an
+  experiment — the shaping corpus grades seams rather than partitions, because
+  two good decompositions of the same work agree on where the seams are and
+  disagree on how they group, so partition equality rejects correct answers and
+  accepts cuts through the middle of a concern. The eight breakdown rules sort
+  by kind: three are mechanically checkable and need no judge (one-child count
+  plus a stated reason, re-split trigger presence, the fits-as-one case),
+  halving the judge surface and keeping most of the corpus deterministic. Each
+  case is built around a specific trap, since a corpus that only rewards good
+  answers measures little; the merged-PR history supplies free labeled data,
+  where work whose shape held is a positive and work that had to be carved is a
+  negative already annotated by the carving; judges are perspective-diverse
+  rather than redundant; and no numeric score is emitted, because the doctrine
+  retired numeric heuristics and per-rule pass/fail with recorded observations
+  is what `AGENTS.md` already asks for. Separately, the `writing-plans` altitude
+  question moves from an open question to a recorded experiment with a named run
+  and success criterion — nobody owes an answer there, someone owes a run — with
+  the three-way contingency deliberately left un-pre-decided until it reports.
+
 - docs: record the cognitive-driven development design — compris is
   ticket-driven because work spanning more than one pull request has exceeded a
   local plan's grasp and needs durable, public representation. The document
@@ -25,7 +44,7 @@ summary: Chronological history of repository and skill changes.
   dangling plan reviewer — so sizing is house-owned outright and the house
   reviewer is required rather than optional. Nothing is implemented; the
   doctrine document and the object model document are the first two steps of the
-  recorded six-step program.
+  recorded six-step program (53cb800756fcaaec57a080ed58ab2552145eecdc)
 
 ## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, added version-bump tooling, release notes, and a documented release process, then repositioned marketplace metadata and the README lead as the outer-loop companion to superpowers, then deduplicated the byte-identical `compact()` test helper into `scripts/tests/helpers.py`
 
