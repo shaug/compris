@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+from helpers import REPOSITORY_ROOT, copy_fixture
+
 SPEC = importlib.util.spec_from_file_location(
     "validate_plugins", REPOSITORY_ROOT / "scripts" / "validate_plugins.py"
 )
@@ -18,8 +18,7 @@ SPEC.loader.exec_module(validate_plugins)
 
 class ValidatePluginsTests(unittest.TestCase):
     def copy_fixture(self, destination: Path) -> None:
-        for name in (".agents", ".claude-plugin", ".codex-plugin", "skills"):
-            shutil.copytree(REPOSITORY_ROOT / name, destination / name)
+        copy_fixture(destination)
 
     def test_repository_plugin_package_is_complete(self) -> None:
         validate_plugins.validate(REPOSITORY_ROOT)
@@ -47,6 +46,34 @@ class ValidatePluginsTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 validate_plugins.PluginValidationError, "missing the babysit-pr watcher"
+            ):
+                validate_plugins.validate(root)
+
+    def test_marketplace_entries_require_a_valid_version(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_fixture(root)
+            marketplace_path = root / ".claude-plugin" / "marketplace.json"
+            catalog = json.loads(marketplace_path.read_text(encoding="utf-8"))
+            catalog["plugins"][0].pop("version", None)
+            marketplace_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                validate_plugins.PluginValidationError, "invalid version"
+            ):
+                validate_plugins.validate(root)
+
+    def test_marketplace_version_drift_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_fixture(root)
+            marketplace_path = root / ".agents" / "plugins" / "marketplace.json"
+            catalog = json.loads(marketplace_path.read_text(encoding="utf-8"))
+            catalog["plugins"][0]["version"] = "9.9.9"
+            marketplace_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                validate_plugins.PluginValidationError, "versions must match"
             ):
                 validate_plugins.validate(root)
 

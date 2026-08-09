@@ -97,11 +97,6 @@ def validate(root: Path) -> None:
             f"invalid version in {path}",
         )
 
-    _require(
-        claude_manifest["version"] == codex_manifest["version"],
-        "Claude and Codex plugin versions must match",
-    )
-
     claude_marketplace_path = root / ".claude-plugin" / "marketplace.json"
     claude_entry = _single_marketplace_entry(
         _load_object(claude_marketplace_path), claude_marketplace_path
@@ -127,6 +122,28 @@ def validate(root: Path) -> None:
     _require(
         isinstance(codex_entry.get("category"), str),
         "Codex plugin category is required",
+    )
+
+    for path, entry in (
+        (claude_marketplace_path, claude_entry),
+        (codex_marketplace_path, codex_entry),
+    ):
+        version = entry.get("version")
+        _require(
+            isinstance(version, str) and SEMVER.fullmatch(version),
+            f"invalid version in {path}",
+        )
+
+    all_versions = {
+        claude_manifest_path: claude_manifest["version"],
+        codex_manifest_path: codex_manifest["version"],
+        claude_marketplace_path: claude_entry["version"],
+        codex_marketplace_path: codex_entry["version"],
+    }
+    _require(
+        len(set(all_versions.values())) == 1,
+        "plugin and marketplace versions must match across "
+        + ", ".join(str(path) for path in all_versions),
     )
 
     installed_skills = {
