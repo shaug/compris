@@ -1,0 +1,1154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Presentation copy of docs/cognitive-driven-development.md.
+  The Markdown is canonical for review; this renders the same content.
+  Published as a Claude Artifact by stripping this document wrapper; the
+  Artifact renderer supplies its own. Keep this file and the Markdown in
+  step when either changes.
+-->
+<title>compris: cognitive-driven development</title>
+
+<style>
+  :root {
+    --paper:      #EDEEF0;
+    --surface:    #FFFFFF;
+    --surface-2:  #E4E6EA;
+    --ink:        #181F2B;
+    --ink-soft:   #3A4557;
+    --muted:      #5C6B82;
+    --rule:       #C9CFD9;
+    --accent:     #2D4B8E;
+    --accent-soft:#DDE4F2;
+    --warn:       #8A5A2B;
+    --warn-soft:  #F0E5D6;
+    --good:       #2F6B4F;
+    --good-soft:  #DCEAE1;
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #12161D;
+      --surface:    #181D26;
+      --surface-2:  #1F2530;
+      --ink:        #E4E8EF;
+      --ink-soft:   #B9C2D0;
+      --muted:      #8A97AC;
+      --rule:       #2C3442;
+      --accent:     #7FA3E8;
+      --accent-soft:#1C2941;
+      --warn:       #C89B62;
+      --warn-soft:  #2E2517;
+      --good:       #6FAE8C;
+      --good-soft:  #17281F;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #12161D;
+    --surface:    #181D26;
+    --surface-2:  #1F2530;
+    --ink:        #E4E8EF;
+    --ink-soft:   #B9C2D0;
+    --muted:      #8A97AC;
+    --rule:       #2C3442;
+    --accent:     #7FA3E8;
+    --accent-soft:#1C2941;
+    --warn:       #C89B62;
+    --warn-soft:  #2E2517;
+    --good:       #6FAE8C;
+    --good-soft:  #17281F;
+  }
+
+  :root[data-theme="light"] {
+    --paper:      #EDEEF0;
+    --surface:    #FFFFFF;
+    --surface-2:  #E4E6EA;
+    --ink:        #181F2B;
+    --ink-soft:   #3A4557;
+    --muted:      #5C6B82;
+    --rule:       #C9CFD9;
+    --accent:     #2D4B8E;
+    --accent-soft:#DDE4F2;
+    --warn:       #8A5A2B;
+    --warn-soft:  #F0E5D6;
+    --good:       #2F6B4F;
+    --good-soft:  #DCEAE1;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  @media (min-width: 1000px) {
+    .shell {
+      grid-template-columns: 210px minmax(0, var(--measure));
+      column-gap: 64px;
+      justify-content: center;
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    grid-column: 1 / -1;
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 48px;
+  }
+
+  .eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 20px;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(38px, 6vw, 61px);
+    line-height: 1.04;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 24px;
+    max-width: 18ch;
+  }
+
+  .standfirst {
+    font-size: clamp(19px, 2.4vw, 23px);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    margin: 0 0 36px;
+    text-wrap: pretty;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .meta b {
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- contents rail ---------- */
+
+  .rail { display: none; }
+
+  @media (min-width: 1000px) {
+    .rail {
+      display: block;
+      grid-column: 1;
+      align-self: start;
+      position: sticky;
+      top: 40px;
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .rail p {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+    .rail ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .rail a {
+      color: var(--ink-soft);
+      text-decoration: none;
+      border-left: 2px solid var(--rule);
+      padding-left: 12px;
+      display: block;
+    }
+    .rail a:hover,
+    .rail a:focus-visible {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+  }
+
+  /* ---------- main column ---------- */
+
+  main {
+    grid-column: 1;
+    min-width: 0;
+    max-width: var(--measure);
+  }
+
+  @media (min-width: 1000px) {
+    main { grid-column: 2; }
+  }
+
+  section { margin: 0 0 68px; scroll-margin-top: 28px; }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 30px;
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+    margin: 0 0 8px;
+  }
+
+  .kicker {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: -0.005em;
+    margin: 34px 0 10px;
+  }
+
+  p { margin: 0 0 18px; text-wrap: pretty; }
+
+  main > section > p:first-of-type { margin-top: 18px; }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--surface-2);
+    padding: 0.12em 0.36em;
+    border-radius: 3px;
+  }
+
+  ul, ol { margin: 0 0 18px; padding-left: 1.3em; }
+  li { margin-bottom: 9px; }
+  li::marker { color: var(--muted); }
+
+  strong { font-weight: 650; }
+
+  blockquote {
+    margin: 22px 0;
+    padding: 2px 0 2px 22px;
+    border-left: 3px solid var(--accent);
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  blockquote cite {
+    display: block;
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-style: normal;
+    color: var(--muted);
+  }
+
+  /* ---------- diagram ---------- */
+
+  .figure {
+    margin: 30px 0 34px;
+    overflow-x: auto;
+  }
+  .figure svg { display: block; min-width: 580px; width: 100%; height: auto; }
+  figcaption {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  /* ---------- program steps ---------- */
+
+  .program {
+    list-style: none;
+    padding: 0;
+    margin: 26px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    counter-reset: step;
+  }
+  .program li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 18px;
+    padding: 20px 0;
+    margin: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .program li:last-child { border-bottom: 1px solid var(--rule); }
+  .program li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    padding-top: 3px;
+  }
+  .program h3 { margin: 0 0 6px; font-size: 16px; }
+  .program p { margin: 0; font-size: 16px; color: var(--ink-soft); }
+  .program p + p { margin-top: 10px; }
+  .program .tag {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-left: 8px;
+    vertical-align: 2px;
+    background: var(--good-soft);
+    color: var(--good);
+  }
+  .program .tag.later { background: var(--surface-2); color: var(--muted); }
+
+  /* ---------- record blocks ---------- */
+
+  .record {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 22px 24px;
+    margin: 0 0 14px;
+  }
+  .record.open { border-left: 3px solid var(--warn); }
+  .record.settled { border-left: 3px solid var(--good); }
+  .record h3 { margin: 0 0 8px; font-size: 16px; }
+  .record p { margin: 0 0 12px; font-size: 16px; }
+  .record p:last-child { margin-bottom: 0; }
+  .record .why {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .record .why b {
+    color: var(--ink-soft);
+    font-weight: 650;
+  }
+
+  /* ---------- evidence table ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 24px 0 8px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 520px;
+    font-size: 15px;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom-color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  td:last-child { padding-right: 0; }
+  td.src { font-family: var(--mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+
+  /* ---------- contract ---------- */
+
+  .contract {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 4px 24px;
+    margin: 26px 0;
+  }
+  .contract dl { margin: 0; padding: 20px 0; }
+  .contract div + div { border-top: 1px solid var(--rule); }
+  .contract dt {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 7px;
+  }
+  .contract dd { margin: 0; font-size: 16px; color: var(--ink-soft); }
+  .contract dd ul { margin: 8px 0 0; }
+
+  .note {
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin: 24px 0;
+  }
+  .note b { font-weight: 650; color: var(--ink); }
+
+  hr.end {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 24px;
+  }
+
+  .colophon {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">Program brief · compris</p>
+    <h1>Cognitive-driven development</h1>
+    <p class="standfirst">
+      Test-driven development lets the test drive the design. Cognitive-driven development lets
+      a reviewer's capacity to hold the change drive how the work is broken apart — and compris
+      takes ownership of the doctrine, the vocabulary, and the judgment that enforces it.
+    </p>
+    <div class="meta">
+      <span><b>Status</b> Direction agreed, nothing built</span>
+      <span><b>Ceded by</b> shaug/atelier</span>
+      <span><b>Renames</b> ready-ticket → plan-implementation</span>
+      <span><b>Decomposes into</b> four specs</span>
+      <span><b>Next</b> Spec A</span>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Contents">
+    <p>Contents</p>
+    <ol>
+      <li><a href="#practice">The practice</a></li>
+      <li><a href="#thesis">The thesis</a></li>
+      <li><a href="#boundary">Where the line falls</a></li>
+      <li><a href="#invariant">The invariant</a></li>
+      <li><a href="#custody">Ending shared custody</a></li>
+      <li><a href="#shaper">The shaping skill</a></li>
+      <li><a href="#program">Four specs</a></li>
+      <li><a href="#alts">Alternatives open</a></li>
+      <li><a href="#decisions">Decisions on record</a></li>
+      <li><a href="#status">What the evidence shows</a></li>
+      <li><a href="#evidence">Verified evidence</a></li>
+      <li><a href="#open">Experiment</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="practice">
+      <p class="kicker">The practice</p>
+      <h2>Comprehension drives decomposition</h2>
+      <p>
+        Work is normally broken apart by feature area, team ownership, or sprint capacity.
+        Cognitive-driven development breaks it apart by what a reviewer can understand in one
+        sitting, and treats that as the binding constraint rather than a nicety observed when
+        there is time.
+      </p>
+      <p>
+        Two consequences follow, and both are load-bearing. The tracker hierarchy stops being an
+        organizational choice and becomes a <strong>derived artifact of the implementation
+        breakdown</strong> — which is why the breakdown has to happen before the tickets exist,
+        and why nobody can know whether something is one ticket or twelve until it has been
+        broken down. And the skill that performs it becomes the highest-leverage and highest-risk
+        in the suite: everything downstream inherits its decomposition, and no amount of good
+        implementation repairs a bad one.
+      </p>
+    </section>
+
+    <section id="thesis">
+      <p class="kicker">Why this exists</p>
+      <h2>Work that spans pull requests has outgrown a local plan</h2>
+      <p>
+        compris is ticket-driven, and that is what separates it from a methodology library.
+        Capturing a design, reviewing it, breaking it into an implementation plan, and building
+        it are all necessary — but they have to happen <em>in public</em>, at whatever scope the
+        organization draws. A plan file is local, ephemeral, single-agent, and dies with the
+        context that produced it.
+      </p>
+      <p>
+        So the test is simple: <strong>if an implementation plan spans more than one pull
+        request, it has exceeded its grasp</strong> and should have been represented by something
+        more permanent. Durable identity, real dependency edges, visibility to the org, survival
+        across handoffs and context loss. That is a tracker, not a markdown file.
+      </p>
+    </section>
+
+    <section id="boundary">
+      <p class="kicker">Retiring the old tagline</p>
+      <h2>For when the brainstorming is done</h2>
+      <p>
+        The README currently says compris is <em>for when the planning is done, and the work
+        begins</em>. That is wrong, and it has already misled a reader into inverting this design
+        once. compris plans constantly — it builds an implementation plan, shapes it into tickets,
+        and revises it when reality disagrees. Planning is not the thing it starts after.
+      </p>
+      <p>
+        Brainstorming is. It names an activity with a definite output, so the boundary can be
+        checked rather than interpreted. <strong>Brainstorming is done when the requirements and
+        acceptance criteria are captured, the goals and non-goals are known, and the stakeholders
+        and deadlines are identified — each at the scale the work warrants.</strong> For a
+        one-line bugfix, the sentence is the design.
+      </p>
+      <p>
+        Everything after that is compris: turn it into a ticket-based implementation plan, and
+        drive it to completion, adjusting the plan against conditions on the ground. A bugfix in
+        one sentence and a design document representing months of work are both legal inputs —
+        the difference surfaces in the breakdown, not at the door.
+      </p>
+
+      <figure class="figure">
+        <svg viewBox="0 0 900 230" role="img" aria-label="Pipeline diagram. Left of the boundary, brainstorming turns input of any size into captured requirements, acceptance criteria, goals and non-goals, stakeholders and deadlines. Right of the boundary, compris shapes that into an epic and leaf tickets, each realized as one changeset and one pull request, with a re-split loop feeding back into shaping.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"></path>
+            </marker>
+            <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+            </marker>
+          </defs>
+
+          <text x="8" y="20" font-family="var(--sans)" font-size="11" font-weight="650" letter-spacing="1.4" fill="var(--muted)">BRAINSTORMING · PEERS</text>
+          <text x="418" y="20" font-family="var(--sans)" font-size="11" font-weight="650" letter-spacing="1.4" fill="var(--accent)">COMPRIS</text>
+
+          <line x1="400" y1="32" x2="400" y2="212" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 5"></line>
+
+          <rect x="8" y="56" width="150" height="52" rx="4" fill="var(--surface)" stroke="var(--rule)"></rect>
+          <text x="83" y="79" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="var(--ink)">one sentence</text>
+          <text x="83" y="97" text-anchor="middle" font-family="var(--sans)" font-size="12" fill="var(--muted)">…or months of work</text>
+
+          <line x1="166" y1="82" x2="204" y2="82" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+          <rect x="212" y="46" width="172" height="72" rx="4" fill="var(--surface)" stroke="var(--rule)"></rect>
+          <text x="298" y="68" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">requirements · criteria</text>
+          <text x="298" y="87" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">goals · non-goals</text>
+          <text x="298" y="106" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">stakeholders · dates</text>
+
+          <line x1="392" y1="82" x2="428" y2="82" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+          <rect x="436" y="56" width="132" height="52" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"></rect>
+          <text x="502" y="79" text-anchor="middle" font-family="var(--sans)" font-size="13.5" font-weight="600" fill="var(--ink)">shape</text>
+          <text x="502" y="97" text-anchor="middle" font-family="var(--sans)" font-size="12" fill="var(--muted)">seams · breakdown</text>
+
+          <line x1="576" y1="82" x2="612" y2="82" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+          <rect x="620" y="46" width="120" height="34" rx="4" fill="var(--surface)" stroke="var(--rule)"></rect>
+          <text x="680" y="68" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">epic</text>
+
+          <rect x="620" y="88" width="120" height="34" rx="4" fill="var(--surface)" stroke="var(--rule)"></rect>
+          <text x="680" y="110" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">leaf ticket</text>
+
+          <line x1="748" y1="105" x2="784" y2="105" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ar)"></line>
+
+          <rect x="792" y="88" width="100" height="34" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"></rect>
+          <text x="842" y="104" text-anchor="middle" font-family="var(--sans)" font-size="12.5" fill="var(--ink)">changeset</text>
+          <text x="842" y="118" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--muted)">one PR</text>
+
+          <path d="M 842 130 L 842 176 L 502 176 L 502 118" fill="none" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#ar-a)"></path>
+          <text x="672" y="194" text-anchor="middle" font-family="var(--sans)" font-size="12" fill="var(--accent)">re-split trigger fires · the plan adjusts</text>
+        </svg>
+        <figcaption>
+          Left of the line, a human decides what the work is. Right of it, compris decides how it
+          is cut, delivers it, and re-cuts when the ground moves. The loop is core behavior, not
+          error recovery.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="invariant">
+      <p class="kicker">The one thing everything serves</p>
+      <h2>Every leaf ticket is scoped to one predicted changeset</h2>
+      <p>
+        <strong>The invariant is a default, not a law.</strong> Not every project demands
+        cognitively shaped pull requests. A project may legitimately want compris for ticket
+        authoring and delivery automation while declining to be gated on shape — compris itself
+        is one such project today. So the shaper always <em>judges</em>, and the consuming
+        project decides whether an <code>exceeds</code> verdict gates anything. No new policy
+        machinery is needed: the shaper is already read-only, which separates judgment from
+        enforcement by construction.
+      </p>
+      <p>
+        <strong>And the prediction is the invariant, not the identity.</strong>
+        <code>implement-ticket</code> ships <code>ready_prs</code> — one ticket, an authorized
+        carved stack, several pull requests — and that path stays. A carved stack is the
+        <em>recorded falsification</em> of a shaping prediction, not a violation of the rule.
+        Developers are bad at estimating; the answer is measurement, not accuracy.
+      </p>
+      <p>The standard comes from atelier and travels intact:</p>
+      <blockquote>
+        <p>
+          Line counts may inform judgment but are not universal correctness gates. The test is
+          whether a reviewer can construct an accurate mental model of the change and evaluate it
+          independently.
+        </p>
+        <cite>atelier · docs/atelier-skill-design.md:480</cite>
+      </blockquote>
+      <p>
+        This is not a threshold check. atelier dropped its predecessor's fixed implementation and
+        <em>some</em> of its numeric heuristics, subordinating line count to the mental-model
+        test, and states outright that lines of code are not a success measure. Any
+        implementation that reduces this to a number has failed to port it.
+      </p>
+
+      <h3>The breakdown rules, ported whole</h3>
+      <ul>
+        <li>Keep an initiative executable as one ticket when it is already reviewable.</li>
+        <li>Avoid one-child decomposition without a real reason.</li>
+        <li>Separate unrelated concern domains.</li>
+        <li>Prefer additive foundations before disruptive transitions.</li>
+        <li>Separate mechanical restructuring from behavioral change when that helps review.</li>
+        <li>Keep validation with the behavior it proves.</li>
+        <li>Identify re-split triggers before implementation.</li>
+        <li>Create follow-up work when implementation or review reveals new scope.</li>
+      </ul>
+      <p>
+        The first two matter most for tone: one ticket is a legal outcome. Ceremonial
+        decomposition is a failure, not diligence.
+      </p>
+    </section>
+
+    <section id="custody">
+      <p class="kicker">Ownership</p>
+      <h2>Ending shared custody</h2>
+      <p>
+        atelier used to own the breakdown. It is moving toward multi-agent process management and
+        model selection and routing, and it is mid-rebuild. Leaving the doctrine in the project
+        that no longer applies it guarantees the drift this program exists to stop. A doctrine
+        with two homes has no home.
+      </p>
+      <p>
+        The name already fits the job. <em>compris</em> is French for <em>understood</em> — what
+        the suite claims at the moment work changes hands. The shaping test asks whether a
+        reviewer can build an accurate mental model. That is understanding, operationalized.
+      </p>
+      <div class="note">
+        <b>Port at a pinned commit.</b> atelier's text is still moving. compris already solved
+        this for superpowers — the registry pins <code>obra/superpowers</code> at
+        <code>44c9b2d6</code>, which corresponds to marketplace release 6.2.0, because an
+        unpinned reference describes a moving target. Recording the release alongside the SHA
+        makes the pin resolvable by a reader who cannot run <code>git</code>.
+      </div>
+
+      <h3>Vocabulary comes too — but only our half of it</h3>
+      <p>
+        atelier's layer diagram already split the nouns, and it put ours on our side. The mailbox
+        layer holds "assignments, messages, claims, receipts"; the compris layer holds
+        "implementation, review, <strong>changeset carving</strong>, PR lifecycle." So
+        <strong>changeset comes home</strong> — already the noun in
+        <code>carve-changesets</code> and in the doctrine's own title.
+      </p>
+      <p>
+        <strong>Assignment, claim, receipt and worker stay with atelier.</strong> They are the
+        process-management layer it is moving into. An assignment is a claimable unit of approved
+        work, which is not the shaped unit of code a reviewer reads; atelier's own wording keeps
+        them distinct. Receipt resolves the same way, since it and compris's evidence-binding are
+        one idea under two names.
+      </p>
+      <p>
+        <strong>Initiative comes, but mapped rather than substituted.</strong> An initiative is
+        the logical grouping the breakdown derives; an <strong>epic</strong> is its tracker
+        realization — and compris keeps its own richer semantics there, since
+        <code>implement-epic</code> gives the parent an acceptance ledger and holds closeout to
+        explicit authority, which atelier's lighter notion would have overwritten.
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Logical — internal currency</th><th>Realized — what users say</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>initiative</td><td>epic</td></tr>
+            <tr><td>changeset</td><td>pull request</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        A <strong>leaf ticket</strong> is a child of an epic and is scoped to one changeset.
+        Keeping <code>ticket</code> as the leaf noun is what makes this safe: descriptions are the
+        routing surface, people say "implement this GitHub issue," and a description answering
+        only to "execute this assignment" would quietly stop matching them.
+      </p>
+    </section>
+
+    <section id="shaper">
+      <p class="kicker">The new shared skill</p>
+      <h2>One executable home for the judgment</h2>
+      <p>
+        Three skills judge shape independently today and none cites the others:
+        <code>carve-changesets</code> decides changeset boundaries,
+        <code>review-solution-simplicity</code> judges whole-solution complexity, and
+        <code>plan-implementation</code> will decide the decomposition. Same two-codifications
+        problem, already inside one repo.
+      </p>
+      <p>
+        <strong>The fourth is the precedent, not the problem.</strong>
+        <code>implement-ticket</code> carries no heuristic of its own — it loads
+        <code>carve-changesets</code> by stable name, reads its live guardrails, and is forbidden
+        to "copy their thresholds or substitute local heuristics," which
+        <code>docs/skill-authoring.md:198</code> records as the repository's worked example. One
+        caller already delegates shape judgment to an external authority, so extracting the
+        shaper generalizes something that works rather than inventing something new.
+      </p>
+      <p>
+        A document gets cited; a skill gets called. Extracting the judgment is what makes the
+        doctrine enforceable rather than aspirational, and compris has the exact precedent —
+        <code>review-code-change</code> does not implement its three lenses, it invokes them and
+        reconciles typed verdicts.
+      </p>
+
+      <div class="contract">
+        <dl>
+          <div>
+            <dt>Input</dt>
+            <dd>A candidate in any of its forms — source material, design document, ticket, implementation plan, branch, pull request — plus repository context. Heterogeneous evidence is expected.</dd>
+          </div>
+          <div>
+            <dt>Output</dt>
+            <dd>Typed. The verdict; the seam-aligned breakdown whenever the verdict is <em>exceeds</em>; a rationale per seam; and the re-split triggers the doctrine requires.</dd>
+          </div>
+          <div>
+            <dt>Terminal states</dt>
+            <dd>Exactly three: <code>fits</code>, <code>exceeds</code>, <code>blocked</code>. <code>blocked</code> is the honest fallback, claimed when the evidence needed to judge shape cannot be recovered. A <code>fits</code> verdict still emits a one-element breakdown, so the mechanical checks always have an object.</dd>
+          </div>
+          <div>
+            <dt>Stance</dt>
+            <dd>Read-only. It never creates a ticket, carves a branch, or mutates the candidate. Callers act on the proposal.</dd>
+          </div>
+          <div>
+            <dt>Callers</dt>
+            <dd>
+              <ul>
+                <li><code>plan-implementation</code> — source material to tickets</li>
+                <li><code>carve-changesets</code> — branch to stacked changesets</li>
+                <li><code>implement-ticket</code> — verdict at the publication size gate</li>
+              </ul>
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <h3>Verdict and breakdown are one skill, not two</h3>
+      <p>
+        Splitting them is tempting, since the size gate only wants the verdict. Resist it. You
+        cannot credibly return <em>too big</em> without naming the seams — the seam-aligned
+        breakdown <strong>is</strong> the evidence for the verdict. A skill that says too big with
+        no proposed decomposition is asserting, not judging.
+      </p>
+
+      <h3>Two things this quietly fixes</h3>
+      <p>
+        It dissolves a question that looked hard: what should <code>plan-implementation</code>
+        return for work that is one coherent subsystem but too large for a single PR? There is no
+        terminal-state puzzle once the skill calls the shaper and receives a two-ticket
+        breakdown. Oversized-coherent is not an outcome, it is an input to decomposition.
+      </p>
+      <p>
+        And it closes the feedback loop. The shaper predicts where a re-split would become
+        necessary; when one fires downstream, that is a falsified prediction recorded against a
+        specific named trigger. You learn <em>which</em> seam judgment was wrong, not merely that
+        one was.
+      </p>
+    </section>
+
+    <section id="program">
+      <p class="kicker">Scope</p>
+      <h2>Four specs, not one design</h2>
+      <p>
+        Brainstorming's scope rule fired on this brief. The tell was not the step count — it was
+        that <strong>every reversal of standing repository doctrine sat in one place.</strong>
+        Spec C alone reverses #118's design-approval gate, granular default-off authority,
+        <code>ready-ticket</code>'s no-additional-items rule, and the trigger-namespace rule. Four
+        doctrine reversals is not a step, and bundling them lets the riskiest work gate the
+        safest.
+      </p>
+      <div class="note">
+        <b>The brief hit its own invariant.</b> It exceeded one reviewable unit and had to be
+        represented as several separately trackable things — decided by exactly the rule it
+        proposes for everything else.
+      </div>
+
+      <ol class="program">
+        <li><div>
+          <h3>Spec A — compris owns the doctrine <span class="tag">next</span></h3>
+          <p>The doctrine document at a pinned atelier commit; retire <code>carve-changesets</code>' own guardrails in its favor so it replaces a codification rather than becoming a fifth; <code>review-solution-simplicity</code> cites it; atelier points here. <strong>No new skills, no renames, no reversals</strong> — and it ends shared custody on its own.</p>
+        </div></li>
+        <li><div>
+          <h3>Spec B — an executable shaping verdict</h3>
+          <p>The shaping skill, its corpus, and re-split telemetry. Two callers exist on day one. Depends on A for the standard; does not depend on C. <strong>Gated</strong> on the bundled-contract alternative below.</p>
+        </div></li>
+        <li><div>
+          <h3>Spec C — the planner</h3>
+          <p><code>plan-implementation</code>: the rename, endpoint-scoped authority, the boundary move, <code>requires_brainstorming</code>, the <code>writing-plans</code> relationship, and the README and registry edits that follow. A product repositioning of the repository — and it carries every doctrine reversal in the brief.</p>
+        </div></li>
+        <li><div>
+          <h3>Spec D — object model and migration <span class="tag later">YAGNI candidate</span></h3>
+          <p>Deferrable until B and C prove the vocabulary is load-bearing. Both halves are conceded zero-behavior-change, yet the migration triggers the <code>just eval-record</code> obligation across three large skills — while the brief forfeits the diff that obligation produces. Full price, discarded output.</p>
+        </div></li>
+      </ol>
+
+      <div class="note">
+        <b>On renaming.</b> Rename only where the name misleads. <code>ready-ticket</code> did — it
+        promised one ticket and will produce a graph. <code>implement-ticket</code> does not, and
+        <code>implement-epic</code> keeps a noun users say out loud.
+      </div>
+    </section>
+
+    <section id="alts">
+      <p class="kicker">Not yet ruled out</p>
+      <h2>Alternatives the conversation never examined</h2>
+      <p>
+        This shape was reached by convergence over one long conversation, which is exactly the
+        condition under which unexamined alternatives survive. The first is the most serious,
+        because it attacks Spec B's premise rather than varying it.
+      </p>
+
+      <div class="record open">
+        <h3>A bundled synced contract, with no new skill</h3>
+        <p>
+          This brief argues "a document gets cited; a skill gets called," and concludes only a
+          skill makes doctrine enforceable. <strong>That is a false binary, and the counterexample
+          was already in the tree.</strong> <code>review-suite/</code> holds canonical normative
+          text — including <code>consumption-disciplines.md</code>, itself a ported peer doctrine —
+          which <code>just sync-contracts</code> bundles verbatim into three consumers'
+          <code>references/</code> and <code>just check-installed</code> drift-checks.
+        </p>
+        <p class="why">
+          <b>Trades away:</b> nothing measures whether a breakdown obeyed the doctrine, so no typed
+          verdict at the size gate and no prediction-feedback loop. <b>Buys:</b> the smallest change
+          that ends shared custody, on infrastructure already built and tested, with no new
+          contract, terminal states, or corpus. Spec B should not be built until this is argued
+          down or adopted.
+        </p>
+      </div>
+
+      <div class="record open">
+        <h3>Shape as a fourth review lens</h3>
+        <p>
+          <code>review-code-change</code> already invokes three read-only lenses against a shared
+          schema. A shape lens inherits the packet, the result contract, the validator, and the
+          replay evaluator — all built.
+        </p>
+        <p class="why">
+          <b>Trades away:</b> lenses run on committed candidates and return findings, not
+          decompositions, so this cannot serve plan-time input. It covers two of three callers —
+          which isolates the real question: does the third alone justify a new contract shape,
+          three terminal states, and a new corpus?
+        </p>
+      </div>
+
+      <div class="record open">
+        <h3>Build only the missing edge</h3>
+        <p>
+          Keep <code>ready-ticket</code> under its name and per-item authority, and build the one
+          thing it cannot do: turning <code>decomposition_recommended</code> into a parent plus
+          children plus dependency edges. No rename, no planning-language claim, no house breakdown
+          procedure, no reversals.
+        </p>
+        <p class="why">
+          <b>Trades away:</b> a thin breakdown method, so weaker shape prediction and no design
+          document as input. But it separates what Spec C bundles — is the value the <em>graph
+          output</em> or the <em>breakdown method</em>? This buys the first without the second, and
+          the answer says whether Spec C needs to exist as written.
+        </p>
+      </div>
+
+      <div class="record open">
+        <h3>An ordering variant: telemetry first</h3>
+        <p>
+          The brief calls re-split telemetry "the real measure," and it appears nowhere in the
+          program. Shipping it first — leaf tickets record a predicted shape, which
+          <code>implement-ticket</code> and <code>babysit-pr</code> already observe the outcome of —
+          plus the retrospective merged-history corpus, buildable today against
+          <code>git log</code> with zero prose changes, would produce the labeled data this whole
+          program is justified by <em>before</em> the program is built.
+        </p>
+      </div>
+    </section>
+
+    <section id="decisions">
+      <p class="kicker">Settled, with reasons</p>
+      <h2>Decisions on record</h2>
+
+      <div class="record settled">
+        <h3><code>plan-implementation</code> consumes an approved design; it does not produce one</h3>
+        <p>Elicitation narrows to the tracker-shaped residue a design cannot answer — surface-observable criteria, verification commands, pre- and post-merge classification.</p>
+        <p class="why"><b>Note this reverses a recorded decision.</b> Epic #118 established that "a ready ticket satisfies brainstorming's design-approval gate (elicitation happened at authoring time)."</p>
+      </div>
+
+      <div class="record settled">
+        <h3>The composition rules stand; the boundary is hard</h3>
+        <p>The <em>ordering</em> rule survives — brainstorming applies pre-ticket, never mid-pipeline. But README's first composition rule is not merely re-justified: its mechanism sentence asserts the gate is satisfied <em>because <code>ready-ticket</code> ran elicitation</em>, which stops being true. It is rewritten, not re-argued.</p>
+        <p class="why"><b>And the boundary fails closed.</b> When a compris step wants something brainstorming should have settled, exit with <code>requires_brainstorming</code> naming what is missing. Never gather it — that is what keeps the planner from drifting back into being a design prompt.</p>
+      </div>
+
+      <div class="record settled">
+        <h3>A design document is required for every ticket, scaled to the work</h3>
+        <p>No threshold to adjudicate and no second door for bug reports.</p>
+        <p class="why"><b>Verified.</b> brainstorming already owns the scaling problem: "Every project goes through this process. A todo list, a single-function utility, a config change — all of them. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval."</p>
+      </div>
+
+      <div class="record settled">
+        <h3>compris owns the breakdown; the peer is the richer path, never a dependency</h3>
+        <p>The breakdown is how the ticket structure is <em>discovered</em>, which moves <code>writing-plans</code> from House territory to a genuine referenced peer.</p>
+        <p class="why"><b>But house-owned and complete without it.</b> <code>docs/skill-authoring.md:598</code> forbids depending on a peer and <code>:619</code> forbids conditioning a quality outcome on its availability. compris writes its own breakdown procedure; the peer supplies a deeper method when present. The cost is real and accepted: two paths to maintain, and a corpus that grades both.</p>
+      </div>
+
+      <div class="record settled">
+        <h3>Ticket authority is endpoint-scoped; the graph gate is approval</h3>
+        <p>Granting ticket management grants the whole graph. In for a penny, in for a pound.</p>
+        <p class="why"><b>This reverses two recorded decisions</b> — granular default-off authority, and <code>ready-ticket</code>'s rule that authoring never implies creating additional items. What remains is an <em>approval</em> gate, not a disclosure: presenting the graph before creating it. <b>Approval may be given at invocation</b>, and then the presentation becomes disclosure — which is also what makes autonomous graph creation possible, since an autonomous run has nobody to ask.</p>
+      </div>
+
+      <div class="record settled">
+        <h3>Prediction is best-effort, and instrumented</h3>
+        <p>Developers are bad at estimating; the answer is measurement, not accuracy.</p>
+        <p class="why"><b>Cheapest version.</b> The ticket records its predicted shape; <code>implement-ticket</code> and <code>babysit-pr</code> already observe the outcome. atelier's own evaluation criteria — whether changes remain cognitively reviewable, and how much operator effort acceptance costs — beat grading prose compliance.</p>
+      </div>
+
+      <div class="record settled">
+        <h3>Three eval surfaces, not one stretched corpus</h3>
+        <p>The <strong>forward corpus</strong> keeps asking whether the prose governs once loaded. The <strong>shaping corpus</strong> belongs to the shaping skill and asks what nothing here asks today — was the breakdown good. <strong>Re-split telemetry</strong> is the real measure.</p>
+        <p class="why"><b>Two non-goals.</b> The eval does not observe artifact lifecycle — "reason from artifacts alone" is the right constraint, and unit tests plus one manual run cover the filesystem more cheaply. And diff continuity is not claimed across the vocabulary change: record a fresh baseline and say so.</p>
+      </div>
+
+      <div class="record settled">
+        <h3>The shaping rubric grades seams, not partitions</h3>
+        <p>Two good decompositions agree on <em>where the seams are</em> and disagree on <em>how they group</em>. Score those separately: did each cut land on a boundary the reference also recognized, and was the grouping defensible? Partition equality gets this backwards.</p>
+        <p class="why"><b>All eight rules accounted for.</b> Three are mechanically checkable and need no judge; four need judgment; the eighth — follow-up work when new scope appears — is not gradeable at plan time at all and belongs to the telemetry surface. Each case is built around a specific trap. Merged history supplies free labels: work whose shape held is a positive, work that had to be carved is a negative already annotated by the carving. Diverse judges, and no numeric score.</p>
+      </div>
+
+      <div class="record settled">
+        <h3><code>ready-ticket</code> becomes <code>plan-implementation</code></h3>
+        <p>It names the activity rather than the artifact, and it is verb-first like every other skill in the suite.</p>
+        <p class="why"><b>It forces a doctrine revision.</b> The trigger-namespace rule forbids compris descriptions from claiming planning language. That rule assumed planning lived upstream; this program moves it in-house.</p>
+      </div>
+    </section>
+
+    <section id="status">
+      <p class="kicker">Honest accounting</p>
+      <h2>What the evidence does and does not show</h2>
+      <p>
+        This program is <strong>capability-driven, not failure-driven</strong>, and the brief
+        should say so rather than imply otherwise. <code>docs/skill-authoring.md:24</code> asks a
+        change to trace to an observed failure. Measured against compris's own history, no such
+        failure is established.
+      </p>
+      <p>
+        Merged-PR churn here runs to a median of 1,253 lines and a maximum of 7,829, which the
+        shaping test would reject outright — but that is not evidence of anything breaking. This
+        project deliberately declines shape gating, which is exactly the policy latitude the
+        invariant now allows. <code>carve-changesets</code> has never carved anything in this
+        repository for the same reason: the mechanism has not failed, it has not been asked.
+      </p>
+      <p>Two findings survive the correction, both from real data rather than principle:</p>
+      <div class="record settled">
+        <h3>Recorded machine-generated evidence must be excluded from shape judgment</h3>
+        <p>
+          PR #179 is 4,715 lines of churn, of which 4,538 is committed eval results — the
+          reviewable change is <strong>177 lines</strong>. A metric counting raw churn would reject
+          a small change precisely because the eval norm requires its evidence committed. Any
+          implementation that misses this is measuring the wrong thing.
+        </p>
+      </div>
+      <div class="record settled">
+        <h3>The retrospective corpus is buildable today</h3>
+        <p>
+          The distribution above came from <code>git log</code> and the GitHub API with no prose
+          changes — the "anchor on merged history" idea already recorded — and it caught the
+          eval-results distortion on first contact.
+        </p>
+      </div>
+      <p>
+        The honest statement of motive is therefore: build the capability for projects that want
+        it, governed by policy, rather than fix an observed break here.
+      </p>
+    </section>
+
+    <section id="evidence">
+      <p class="kicker">Load-bearing verification</p>
+      <h2>Verified evidence</h2>
+      <p>
+        Established against <code>obra/superpowers</code> at pin <code>44c9b2d6</code> and the
+        compris tree. Three assumptions were falsified in the process; all are reflected above.
+        The pin is <strong>marketplace release 6.2.0</strong>, verified rather than assumed —
+        same fourteen skills, and <code>writing-plans</code> and <code>brainstorming</code> are
+        byte-identical between the installed plugin and the pinned checkout. These citations hold
+        against the version a user actually receives.
+      </p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Finding</th><th>Consequence</th><th>Source</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>implement-ticket</code> already reads <code>carve-changesets</code>' live guardrails and may not substitute local heuristics</td>
+              <td>Only three skills judge shape independently. The fourth is the pattern's precedent, which strengthens the extraction argument</td>
+              <td class="src">implement-ticket:632-635</td>
+            </tr>
+            <tr>
+              <td><code>carve-changesets</code> already carries normative cognitive-load guardrails</td>
+              <td>Without retiring them the doctrine becomes a fifth codification rather than replacing four</td>
+              <td class="src">SPEC.md:73</td>
+            </tr>
+            <tr>
+              <td><code>writing-plans</code> never reads a spec from disk — no path parameter, no file read</td>
+              <td>The design is handed over inline; no document has to exist for the handoff</td>
+              <td class="src">SKILL.md:23,71,140</td>
+            </tr>
+            <tr>
+              <td>It supplies no pull-request sizing verdict; the concept appears nowhere in it</td>
+              <td>Sizing is house-owned outright. Its only whole-plan check duplicates a trigger we already have</td>
+              <td class="src">skills/writing-plans/</td>
+            </tr>
+            <tr>
+              <td>Its plan review is an inline checklist; the typed subagent reviewer it replaced is referenced nowhere</td>
+              <td>The peer ships no typed, evidence-bound review, so the house reviewer is required rather than optional</td>
+              <td class="src">plan-document-reviewer-prompt.md</td>
+            </tr>
+            <tr>
+              <td><code>brainstorming</code> writes <em>and commits</em> its design document to git</td>
+              <td>It stays a borrow, never invoked. Borrow a peer that mutates the user's repo; invoke one whose output is disposable</td>
+              <td class="src">SKILL.md:107,110</td>
+            </tr>
+            <tr>
+              <td>Its step-7 Spec Self-Review is <code>ready-ticket</code>'s four scans, same order</td>
+              <td>The skill already ports the peer further than the registry declares</td>
+              <td class="src">SKILL.md:112–118</td>
+            </tr>
+            <tr>
+              <td>Planning language is a <strong>negative</strong> case owned by <code>review-code-change</code>, expecting no compris skill</td>
+              <td>The expectation inverts, but flipping the case destroys that skill's negative coverage. Add a positive <code>plan-implementation</code> case and re-scope the negative</td>
+              <td class="src">expectations.json:130</td>
+            </tr>
+            <tr>
+              <td>Skill-invokes-skill is established practice across five compris skills</td>
+              <td>Three anti-cycle pairings plus one layering rule — a read-only shaper closes no cycle, because it invokes nothing</td>
+              <td class="src">implement-ticket:301-303</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="open">
+      <p class="kicker">Owed: a run, not an answer</p>
+      <h2>Recorded experiment</h2>
+
+      <div class="record open">
+        <h3>Can <code>writing-plans</code> be steered to behavioral altitude?</h3>
+        <p>
+          Depth is not the worry — sample code, schemas and protocol design are welcome, because
+          the rough shape of an implementation is what makes a sizing estimate credible. The worry
+          is altitude. The peer produces unit-level TDD bound to internals, while compris requires
+          acceptance criteria observable at the public surface.
+        </p>
+        <p class="why">
+          <b>The run.</b> Hand <code>writing-plans</code> a spec written as surface-observable
+          acceptance criteria and inspect what returns. <b>Success:</b> its Interfaces block names
+          no internal function signatures, and its test steps assert against behavior rather than
+          functions. <b>The hypothesis:</b> the peer's own coverage check — "skim each requirement
+          in the spec, can you point to a task that implements it?" — maps behavior onto
+          implementation tasks for us. Now unblocked: the plugin is installed and matches the pin.
+        </p>
+      </div>
+
+      <div class="record open">
+        <h3>The fork if steering fails — deliberately not pre-decided</h3>
+        <p>
+          <b>Take it as-is</b> — use the output only for sizing, derive the behavioral criteria
+          independently. Cheapest; nothing binds plan coverage to ticket criteria.
+          <b>Post-process</b> — compris lifts internal-altitude tests to the surface as a house
+          step. Preserves the binding; a translation step can lose or invent.
+          <b>Structure only</b> — take the file map, task boundaries and sequencing; compris owns
+          everything test-shaped. Cleanest boundary, least peer value.
+        </p>
+      </div>
+    </section>
+
+    <hr class="end">
+    <p class="colophon">
+      Captured from a working session and hardened by an adversarial read that found seventeen
+      problems, each verified against the source before it was acted on. Nothing in this brief has
+      been built, filed, or committed — no ticket, no tracker write, no behavior change. The
+      doctrine document is the next artifact.
+    </p>
+
+  </main>
+</div>
+</body>
+</html>

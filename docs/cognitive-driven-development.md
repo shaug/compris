@@ -6,9 +6,13 @@ together with the vocabulary that carries it and the skill that enforces it.
 
 Nothing described here is built. This document records the direction, the
 decisions behind it, the evidence they rest on, the four specs it decomposes
-into, the alternatives not yet ruled out, and the one experiment still owed. A
-presentation copy is published at
-<https://claude.ai/code/artifact/71ba7b43-e1fc-432f-b094-a72ce38852f1>.
+into, the alternatives not yet ruled out, and the one experiment still owed.
+
+This Markdown is canonical for review.
+[`cognitive-driven-development.html`](cognitive-driven-development.html) is a
+presentation copy of the same content, committed alongside it and also published
+at <https://claude.ai/code/artifact/71ba7b43-e1fc-432f-b094-a72ce38852f1>. When
+one changes, change both.
 
 ## The practice
 

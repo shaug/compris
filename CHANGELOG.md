@@ -6,6 +6,19 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: commit the presentation copy of the cognitive-driven development design
+  and link it from the Markdown — the rendered brief existed only as a published
+  artifact, outside version control, which had already let the two drift twice
+  in one session: once when several rounds of edits landed in the Markdown
+  alone, and once when the artifact was republished with a description promising
+  content its HTML did not contain. `docs/cognitive-driven-development.html` now
+  sits beside the Markdown and is the file the artifact is published from,
+  wrapped as a standalone document so it also renders when opened directly; the
+  Artifact renderer supplies its own wrapper, so publishing strips this one. The
+  Markdown states which is canonical for review and that both change together.
+  `just format` covers only Python and Markdown, so the HTML is not reformatted
+  and the committed copy stays byte-comparable with what gets published.
+
 - docs: make cognitive shaping a policy-governed default and state the program's
   motive honestly — not every project demands cognitively shaped pull requests.
   A project may legitimately want compris for ticket authoring and delivery
@@ -26,7 +39,7 @@ summary: Chronological history of repository and skill changes.
   metric would reject a small change precisely because the eval norm requires
   its evidence committed; and the retrospective merged-history corpus is
   buildable today against `git log`, which is how the distortion was caught in
-  the first place.
+  the first place (43c83dea578cbfb93ccfa29fab0c8317841d015d)
 
 - docs: decompose the cognitive-driven development brief into four specs and
   record the alternatives it never examined — a brainstorming pass over the
