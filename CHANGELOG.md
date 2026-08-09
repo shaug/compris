@@ -4,7 +4,23 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, added version-bump tooling, release notes, and a documented release process, then repositioned marketplace metadata and the README lead as the outer-loop companion to superpowers
+## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, added version-bump tooling, release notes, and a documented release process, then repositioned marketplace metadata and the README lead as the outer-loop companion to superpowers, then deduplicated the byte-identical `compact()` test helper into `scripts/tests/helpers.py`
+
+- refactor: deduplicate the byte-identical `compact()` whitespace-collapsing
+  helper that `test_peer_composition_readme.py`, `test_skill_authoring_doc.py`,
+  `test_release_docs.py`, and `test_marketplace_positioning.py` each
+  independently defined — moved it into the shared `scripts/tests/helpers.py`
+  (following the same `helpers.py`-per-test-directory convention already used by
+  `skills/carve-changesets/scripts/tests/helpers.py` and
+  `skills/review-fix-loop/scripts/tests/helpers.py`) and updated all four
+  callers to import it instead. Dropped the now-unused `import re` in the three
+  files where `compact()` was the only user of the module; kept it in
+  `test_peer_composition_readme.py`, which still calls `re.search` elsewhere.
+  Flagged as a non-gating `defer`-severity finding by review-code-change's
+  code-simplicity lens while reviewing #139; out of that PR's scope, fixed
+  separately here. Pure deduplication, no behavior change — all four files'
+  existing tests pass unchanged; `just format`/`just lint`/`just test` all
+  green.
 
 - feat: reposition marketplace metadata and the README lead as the outer-loop
   companion to superpowers (issue #139, epic #121) — the "Using beside peer
@@ -29,7 +45,7 @@ summary: Chronological history of repository and skill changes.
   the superpowers mention, and the compose/depend contrast across the README
   lead and all four description surfaces. Docs/config-only change — no
   behavioral test beyond the new structural pins; `just lint`/`just test` both
-  green.
+  green. (b42eda34761fe375f0352bed98c551e905cbf398)
 
 - feat: add version-bump tooling, cross-manifest drift detection, narrative
   release notes, and a documented release process (issue #138, epic #121) —

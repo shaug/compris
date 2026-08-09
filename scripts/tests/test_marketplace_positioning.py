@@ -9,16 +9,13 @@ carries the same "outer loop" / "compose with, not depend on" positioning.
 from __future__ import annotations
 
 import json
-import re
 import unittest
 from pathlib import Path
 
+from helpers import compact
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 README = REPOSITORY_ROOT / "README.md"
-
-
-def compact(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
 
 
 class ReadmeLeadPositioningTests(unittest.TestCase):

@@ -7,17 +7,14 @@ and operator-only tagging authority.
 
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
+
+from helpers import compact
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_NOTES = REPOSITORY_ROOT / "RELEASE-NOTES.md"
 RELEASE_PROCESS = REPOSITORY_ROOT / "docs" / "release-process.md"
-
-
-def compact(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
 
 
 class ReleaseNotesTests(unittest.TestCase):

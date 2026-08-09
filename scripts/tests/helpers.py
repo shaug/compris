@@ -7,6 +7,7 @@ Follows the same `helpers.py`-per-test-directory convention already used by
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -22,3 +23,8 @@ def copy_fixture(destination: Path) -> None:
     """Copy the plugin packaging fixture directories into `destination`."""
     for name in PLUGIN_FIXTURE_DIRS:
         shutil.copytree(REPOSITORY_ROOT / name, destination / name)
+
+
+def compact(value: str) -> str:
+    """Collapse runs of whitespace to a single space and strip the ends."""
+    return re.sub(r"\s+", " ", value).strip()
