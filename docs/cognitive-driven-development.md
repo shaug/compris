@@ -5,8 +5,9 @@ shaping — the doctrine that decides whether a unit of work is comprehensible �
 together with the vocabulary that carries it and the skill that enforces it.
 
 Nothing described here is built. This document records the direction, the
-decisions behind it, the evidence they rest on, and the one experiment still
-owed. A presentation copy is published at
+decisions behind it, the evidence they rest on, the four specs it decomposes
+into, the alternatives not yet ruled out, and the one experiment still owed. A
+presentation copy is published at
 <https://claude.ai/code/artifact/71ba7b43-e1fc-432f-b094-a72ce38852f1>.
 
 ## The practice
@@ -195,6 +196,12 @@ makes the doctrine enforceable rather than aspirational, and compris has the
 exact precedent — `review-code-change` does not implement its three lenses, it
 invokes them and reconciles typed verdicts.
 
+**That framing is contested, and the contest is unresolved.**
+Cited-versus-called is a false binary: `review-suite/` distributes canonical
+normative text by mechanical sync and drift check, with no skill involved. See
+[Alternatives not yet ruled out](#alternatives-not-yet-ruled-out). Spec B should
+not be built until that alternative is argued down or adopted.
+
 | Facet               | Contract                                                                                                                                                                                                                                                  |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Input**           | A candidate in any of its forms — source material, design document, ticket, implementation plan, branch, pull request — plus repository context. Heterogeneous evidence is expected.                                                                      |
@@ -228,55 +235,128 @@ prediction.
 
 ## The program
 
-Ordered so that each step is independently valuable and every later step cites
-an earlier one. The first two are pure documentation.
+Brainstorming's scope rule fired on this document: it describes work with three
+different dependency roots, three risk profiles, and three definitions of done.
+The tell is not the step count — it is that **every reversal of standing
+repository doctrine sits in one place.** Spec C alone reverses #118's
+design-approval gate, `docs/skill-authoring.md:366`'s granular default-off
+authority, `ready-ticket:82-84`'s no-additional-items rule, and the
+trigger-namespace rule. Four doctrine reversals is not a step.
 
-1. **The doctrine document.** Human-shaped changesets, ported at a pinned
-   atelier commit, owned by compris. Genuinely zero behavior change: a new
-   document that nothing yet cites.
+So this brief is a program of four specs, not one design. Bundling them would
+let the riskiest gate the safest.
 
-2. **Wire the doctrine in.** Add citations from the skills that judge shape, and
-   retire `carve-changesets/references/SPEC.md`'s own cognitive-load guardrails
-   and decomposition-order sections in favor of one — otherwise the doctrine
-   becomes a *fifth* codification rather than replacing the existing ones. This
-   step edits normative skill prose, so it carries the `just eval-record`
-   before/after obligation; step 1 does not.
+The document reaching this conclusion is itself the invariant working. It
+exceeded one reviewable unit and had to be represented as several separately
+trackable things — decided by exactly the rule it proposes for everything else.
 
-3. **Revise the governing documents.** `docs/skill-authoring.md`: the
-   trigger-namespace list claims implementation-planning language; the
-   `writing-plans` registry entry moves from House territory to referenced peer;
-   the `ready-ticket` collision-audit row is renamed and a `plan-implementation`
-   × `writing-plans` row is added. `README.md`: the new tagline, the line at
-   `:15` about peers owning the thinking-it-through phase, and the first
-   composition rule.
+### Spec A — compris owns the shaping doctrine
 
-4. **The object model document.** Initiative, leaf ticket, changeset, dependency
-   — and the mapping onto GitHub and Linear stated once. Still zero behavior
-   change. Deliberately narrow: it does *not* import assignment, claim, receipt
-   or worker, which stay in atelier's process layer. Receipt in particular would
-   duplicate compris's evidence-binding, which is the same idea and already ours
-   — and is where the prediction-feedback loop gets its home for free.
+The doctrine document, ported at a pinned atelier commit; retire
+`carve-changesets/references/SPEC.md`'s cognitive-load guardrails and
+decomposition-order sections in its favor so the doctrine replaces a
+codification rather than becoming a fifth; `review-solution-simplicity` cites
+it; atelier drops its section and points here.
 
-5. **The shaping skill.** The contract above. One executable home for the
-   judgment, with its own eval corpus, rather than shape judgments buried in
-   three skills' separate corpora where none is really testing the doctrine.
+*No new skills, no renames, no doctrine reversals.* This is the piece that
+actually ends shared custody, and it is complete on its own. Ships on
+infrastructure that already exists.
 
-6. **`plan-implementation`** (was `ready-ticket`). Source material to an
-   initiative plus tickets: shaped by step 1, expressed via step 4, discovered
-   through the breakdown, judged by step 5. Input ranges from a stacktrace to a
-   full design document; output ranges from one ticket to a multi-tier
-   dependency graph.
+### Spec B — an executable shaping verdict
 
-7. **Migrate the downstream skills.** `implement-ticket`, `implement-epic` and
-   `babysit-pr` move to the object model internally. Trigger surfaces unchanged.
+The shaping skill and its contract, the shaping corpus, and the re-split
+telemetry. Two real callers exist on day one: `carve-changesets`, and
+`implement-ticket`'s size gate, which already loads a shape authority by stable
+name and is forbidden to substitute local heuristics.
 
-8. **atelier cites compris.** atelier drops its section and points here.
+*Depends on A for the standard it enforces.* Does not depend on C.
+
+### Spec C — the planner
+
+`ready-ticket` becomes `plan-implementation`: the rename, the endpoint-scoped
+authority model, the boundary move to *for when the brainstorming is done*,
+`requires_brainstorming`, the `writing-plans` relationship change, and the
+README, registry and collision-audit edits that follow from all of it.
+
+*This is a product repositioning of the repository, not a step in another spec's
+program.* It carries every doctrine reversal in the brief.
+
+### Spec D — object model and downstream migration
+
+The object model document, and migrating `implement-ticket`, `implement-epic`
+and `babysit-pr` to it internally.
+
+*Deferrable until B and C prove the vocabulary is load-bearing*, and a live
+YAGNI candidate: both halves are conceded zero-behavior-change, yet the
+migration edits normative prose in three large skills and so triggers the
+`just eval-record` obligation three times — while this brief simultaneously
+forfeits the diff that obligation produces, by not claiming continuity across
+the vocabulary change. That is paying the full price of the eval norm and
+discarding its output.
 
 **On renaming.** Rename only where the name misleads about behavior.
 `ready-ticket` did — it promised one ticket and will produce a graph — so it
-becomes `plan-implementation`. `implement-ticket` does not mislead; it really
-does take one ticket, and `implement-epic` keeps a noun users say out loud. A
-big-bang rename buys nothing and costs routing.
+becomes `plan-implementation` under Spec C. `implement-ticket` does not mislead;
+it really does take one ticket, and `implement-epic` keeps a noun users say out
+loud. A big-bang rename buys nothing and costs routing.
+
+## Alternatives not yet ruled out
+
+The shape above was reached by convergence over one long conversation, which is
+exactly the condition under which unexamined alternatives survive. Three were
+never put on the table. The first is the most serious, because it attacks Spec
+B's premise rather than offering a variation on it.
+
+### A bundled synced contract, with no new skill
+
+This brief argues that "a document gets cited; a skill gets called," and
+concludes that only a skill makes the doctrine enforceable. **That is a false
+binary, and the counterexample is already in the tree.** `review-suite/` holds
+canonical normative text — including `consumption-disciplines.md`, itself a
+ported peer doctrine — which `just sync-contracts` bundles verbatim into each
+consumer's `references/`, and `just check-installed` drift-checks. Three skills
+consume it that way today.
+
+So there is a proven third mechanism: text loaded by stable name and
+mechanically verified against drift, with no new contract, terminal states, or
+corpus.
+
+*Trades away:* nothing measures whether a given breakdown obeyed the doctrine,
+so there is no typed verdict at the size gate and no prediction-feedback loop.
+
+### Shape as a fourth review lens
+
+`review-code-change` already invokes three read-only lenses and reconciles typed
+verdicts against a shared schema. A shape lens would inherit the shared packet,
+the result contract, the validator, and the replay evaluator — all built and
+tested.
+
+*Trades away:* lenses run on a committed candidate and return findings, not
+decompositions, so this cannot serve plan-time input. It covers two of the three
+named callers, which isolates the real question — whether the third caller alone
+justifies a new contract shape, three terminal states, and a new corpus.
+
+### Build only the missing edge
+
+Keep `ready-ticket` under its name and its per-item authority, and build the one
+thing it demonstrably cannot do: turning `decomposition_recommended` into a
+parent plus children plus dependency edges. No rename, no claim on planning
+language, no house breakdown procedure, no reversals.
+
+*Trades away:* the breakdown method stays thin, so shape prediction is weaker
+and compris still cannot take a design document as input. But it separates what
+Spec C bundles — is the value in the *graph output* or in the *breakdown
+method*? This delivers the first without buying the second, and the answer says
+whether Spec C needs to exist as written.
+
+### An ordering variant worth naming
+
+This brief calls re-split telemetry "the real measure," and it appears nowhere
+in the program. Shipping it first — leaf tickets record a predicted shape, which
+`implement-ticket` and `babysit-pr` already observe the outcome of — plus the
+retrospective merged-history corpus, which is buildable today against `git log`
+with zero prose changes, would produce the labeled data this whole program is
+justified by *before* the program is built.
 
 ## Decisions on record
 
@@ -484,7 +564,7 @@ written as surface-observable acceptance criteria, and inspect what returns.
 
 **Success criterion.** Its Interfaces block does not name internal function
 signatures, and its test steps assert against observable behavior rather than
-against functions. One session; blocks neither step 1 nor step 2.
+against functions. One session, and it blocks no spec — it informs Spec C.
 
 **The hypothesis, if it holds.** The peer's own coverage check — "skim each
 requirement in the spec, can you point to a task that implements it?" — maps

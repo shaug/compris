@@ -6,6 +6,31 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: decompose the cognitive-driven development brief into four specs and
+  record the alternatives it never examined — a brainstorming pass over the
+  committed design applied that skill's scope rule and found three dependency
+  roots, three risk profiles and three definitions of done in one document. The
+  tell was not the step count but that every reversal of standing repository
+  doctrine sat in one step: #118's design-approval gate, granular default-off
+  authority, `ready-ticket`'s no-additional-items rule, and the
+  trigger-namespace rule. The brief is now Spec A (compris owns the doctrine —
+  no new skills, no renames, no reversals, complete on its own), Spec B (an
+  executable shaping verdict), Spec C (the planner, carrying every reversal),
+  and Spec D (object model and migration, a live YAGNI candidate because both
+  halves are conceded zero-behavior-change yet the migration triggers the
+  eval-record obligation across three large skills while the brief forfeits the
+  diff it produces). Also records three alternatives a long convergent
+  conversation had left unexamined. The first is serious enough to gate Spec B:
+  the brief argued "a document gets cited; a skill gets called" and concluded
+  only a skill makes doctrine enforceable, but that is a false binary and the
+  counterexample was already in the tree — `review-suite/` distributes canonical
+  normative text, including a ported peer doctrine, via `just sync-contracts`
+  into three consumers' `references/`, drift-checked by `just check-installed`.
+  Spec B is not to be built until that is argued down or adopted. The document
+  reaching this conclusion is the invariant working on itself: it exceeded one
+  reviewable unit and had to become several separately trackable things, decided
+  by the rule it proposes for everything else.
+
 - docs: record that the peer pin is marketplace release 6.2.0, and re-sync the
   published brief — the superpowers plugin turned out to be installed after all,
   just after this session resolved its skill listing, so the pin could finally
@@ -19,7 +44,8 @@ summary: Chronological history of repository and skill changes.
   cross-references pointing at the wrong steps, and a stale "four skills'
   separate corpora" that should have followed the four-judges-to-three
   correction. The published brief is regenerated from the committed markdown
-  rather than patched, so the two no longer drift.
+  rather than patched, so the two no longer drift
+  (1d6322dcfdccdc02199c1f4c85a84becac010b24)
 
 - docs: bolster the cognitive-driven development design against an adversarial
   read — an independent reviewer checked the committed document against the
