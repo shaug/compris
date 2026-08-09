@@ -76,7 +76,15 @@ recovery.
 Every leaf ticket is scoped to what is predicted to be one cognitively shaped
 changeset, realized as one pull request.
 
-The prediction is the invariant, not the identity. `implement-ticket` ships
+**The invariant is a default, not a law.** Not every project demands cognitively
+shaped pull requests. A personal project may legitimately want compris for
+ticket authoring and delivery automation while declining to be gated on shape —
+compris itself is one such project today. So the shaper always *judges*, and the
+consuming project decides whether an `exceeds` verdict gates anything. No new
+policy machinery is needed: the shaper is already read-only, which separates
+judgment from enforcement by construction.
+
+And the prediction is the invariant, not the identity. `implement-ticket` ships
 `ready_prs` — one ticket, an authorized carved stack, several pull requests —
 and that path stays. A carved stack is the *recorded falsification* of a shaping
 prediction, not a violation of the rule. Developers are bad at estimating; the
@@ -524,6 +532,36 @@ in-house. The namespace list has to say compris now claims
 implementation-planning language deliberately, and the collision audit needs a
 `plan-implementation` × `writing-plans` row recording the overlap as structural
 and cooperative.
+
+## What the evidence does and does not show
+
+This program is **capability-driven, not failure-driven**, and the brief should
+say so rather than imply otherwise. `docs/skill-authoring.md:24` asks a change
+to trace to an observed failure. Measured against compris's own history, no such
+failure is established.
+
+Merged-PR churn here runs to a median of 1,253 lines and a maximum of 7,829,
+which the shaping test would reject outright — but that is not evidence of
+anything breaking. This project deliberately declines shape gating, which is
+exactly the policy latitude recorded above. `carve-changesets` has never carved
+anything in this repository for the same reason: the mechanism has not failed,
+it has not been asked.
+
+Two findings survive the correction, and both came from looking at real data
+rather than reasoning from principle:
+
+- **Recorded machine-generated evidence must be excluded from shape judgment.**
+  PR #179 is 4,715 lines of churn, of which 4,538 is committed eval results; the
+  reviewable change is 177 lines. A metric counting raw churn would reject a
+  small change because the eval norm requires its evidence to be committed. Any
+  implementation that misses this is measuring the wrong thing.
+- **The retrospective corpus is buildable today.** The distribution above came
+  from `git log` and the GitHub API with no prose changes — the "anchor on
+  merged history" idea already recorded — and it caught the eval-results
+  distortion on first contact.
+
+The honest statement of motive is therefore: build the capability for projects
+that want it, governed by policy, rather than fix an observed break here.
 
 ## Verified evidence
 

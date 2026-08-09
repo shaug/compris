@@ -6,6 +6,28 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: make cognitive shaping a policy-governed default and state the program's
+  motive honestly — not every project demands cognitively shaped pull requests.
+  A project may legitimately want compris for ticket authoring and delivery
+  automation while declining to be gated on shape, and compris itself is one
+  such project today. The invariant is therefore a default rather than a law:
+  the shaper always judges and the consuming project decides whether an
+  `exceeds` verdict gates anything, which needs no new policy machinery because
+  the shaper's read-only stance already separates judgment from enforcement.
+  That also corrects an overclaim made while gathering failure-first evidence:
+  this repository's merged-PR churn (median 1,253 lines, max 7,829) and the fact
+  that `carve-changesets` has never carved anything here were presented as
+  observed failure, when both are the deliberate exercise of that latitude. The
+  brief now states plainly that the program is capability-driven, not
+  failure-driven. Two findings survive the correction, both from real data
+  rather than principle: recorded machine-generated evidence must be excluded
+  from shape judgment, since PR #179 is 4,715 lines of churn of which 4,538 is
+  committed eval results and the reviewable change is 177 lines — a raw-churn
+  metric would reject a small change precisely because the eval norm requires
+  its evidence committed; and the retrospective merged-history corpus is
+  buildable today against `git log`, which is how the distortion was caught in
+  the first place.
+
 - docs: decompose the cognitive-driven development brief into four specs and
   record the alternatives it never examined — a brainstorming pass over the
   committed design applied that skill's scope rule and found three dependency
@@ -29,7 +51,8 @@ summary: Chronological history of repository and skill changes.
   Spec B is not to be built until that is argued down or adopted. The document
   reaching this conclusion is the invariant working on itself: it exceeded one
   reviewable unit and had to become several separately trackable things, decided
-  by the rule it proposes for everything else.
+  by the rule it proposes for everything else
+  (e7740840ec5b47ade2615d52913092a1a37de8a4)
 
 - docs: record that the peer pin is marketplace release 6.2.0, and re-sync the
   published brief — the superpowers plugin turned out to be installed after all,
