@@ -1,7 +1,7 @@
 {
   "name": "compris",
   "version": "0.1.1",
-  "description": "For when the planning is done, and the work begins. Installs the complete compris implementation, review, PR-lifecycle, and changeset skill suite.",
+  "description": "For when the planning is done, and the work begins. compris is the ticket-to-merge outer loop — readiness gates, contract-driven review, the post-publication PR lifecycle, and epic orchestration — designed to compose with, not depend on, inner-loop methodology libraries such as superpowers. Installs the complete implementation, review, PR-lifecycle, and changeset skill suite.",
   "author": {
     "name": "shaug",
     "url": "https://github.com/shaug"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Compris",
     "shortDescription": "For when the planning is done, and the work begins",
-    "longDescription": "Install the dependency-closed suite for ticket and epic implementation, code review, PR babysitting, and changeset carving.",
+    "longDescription": "Install the dependency-closed suite for the ticket-to-merge outer loop — readiness gates, contract-driven review, PR lifecycle, and epic orchestration — that composes with, not depends on, inner-loop methodology libraries such as superpowers.",
     "developerName": "shaug",
     "category": "Developer Tools",
     "capabilities": [
