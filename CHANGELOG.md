@@ -10,8 +10,8 @@ summary: Chronological history of repository and skill changes.
   helper that `test_peer_composition_readme.py`, `test_skill_authoring_doc.py`,
   `test_release_docs.py`, and `test_marketplace_positioning.py` each
   independently defined — moved it into the shared `scripts/tests/helpers.py`
-  (following the same `helpers.py`-per-test-directory convention already used
-  by `skills/carve-changesets/scripts/tests/helpers.py` and
+  (following the same `helpers.py`-per-test-directory convention already used by
+  `skills/carve-changesets/scripts/tests/helpers.py` and
   `skills/review-fix-loop/scripts/tests/helpers.py`) and updated all four
   callers to import it instead. Dropped the now-unused `import re` in the three
   files where `compact()` was the only user of the module; kept it in
