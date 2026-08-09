@@ -129,6 +129,36 @@ class BumpVersionTests(unittest.TestCase):
             ):
                 self.assertEqual(self.read_version(root, rel, entry=entry), "0.5.0")
 
+    def test_replace_atomic_never_touches_the_real_file_when_the_write_itself_fails(
+        self,
+    ) -> None:
+        """A failure partway through the write, not just on open, must never
+        truncate or otherwise corrupt the real target file."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "surface.json"
+            original = '{"version": "0.1.0"}\n'
+            target.write_text(original, encoding="utf-8")
+
+            real_fdopen = bump_version.os.fdopen
+
+            def flaky_fdopen(fd, *args, **kwargs):
+                handle = real_fdopen(fd, *args, **kwargs)
+
+                def flaky_write(content):
+                    raise OSError("simulated disk failure mid-write")
+
+                handle.write = flaky_write
+                return handle
+
+            with patch.object(bump_version.os, "fdopen", flaky_fdopen):
+                with self.assertRaises(OSError):
+                    bump_version._replace_atomic(target, '{"version": "0.2.0"}\n')
+
+            self.assertEqual(target.read_text(encoding="utf-8"), original)
+            leftover = [entry for entry in root.iterdir() if entry != target]
+            self.assertEqual(leftover, [], "the failed temp file must be cleaned up")
+
     def test_write_atomically_restores_originals_when_a_later_write_fails(
         self,
     ) -> None:
@@ -141,14 +171,14 @@ class BumpVersionTests(unittest.TestCase):
             original_claude = claude_path.read_text(encoding="utf-8")
             original_codex = codex_path.read_text(encoding="utf-8")
 
-            real_write_text = Path.write_text
+            real_replace_atomic = bump_version._replace_atomic
 
-            def flaky_write_text(self: Path, content: str, *args, **kwargs):
-                if self == codex_path:
+            def flaky_replace_atomic(path: Path, content: str) -> None:
+                if path == codex_path:
                     raise OSError("simulated disk failure")
-                return real_write_text(self, content, *args, **kwargs)
+                return real_replace_atomic(path, content)
 
-            with patch.object(Path, "write_text", flaky_write_text):
+            with patch.object(bump_version, "_replace_atomic", flaky_replace_atomic):
                 with self.assertRaises(OSError):
                     bump_version.write_atomically(updates)
 

@@ -22,9 +22,12 @@ this script's scope — see docs/release-process.md.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -144,11 +147,41 @@ def compute_updates(root: Path, version: str) -> dict[Path, str]:
     return updates
 
 
+def _replace_atomic(path: Path, content: str) -> None:
+    """Write `content` to `path` via a sibling temp file and `os.replace`.
+
+    Matches this repository's established atomic-write idiom
+    (`skills/review-fix-loop/scripts/local_execution.py`'s
+    `write_checkpoint_atomic`): the real target is only ever touched by the
+    final rename, so a failure while writing the temp file — including one
+    partway through the write itself, not just on open — never truncates or
+    otherwise corrupts the real file.
+    """
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f".tmp-{path.name}-", suffix=".json"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, path)
+    except Exception:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp_name)
+        raise
+
+
 def write_atomically(updates: dict[Path, str]) -> None:
     """Write every surface, restoring already-written files if a later write fails.
 
-    All four surfaces are meant to move together; a partial write would leave
-    exactly the drift `validate_plugins.py` exists to catch.
+    Each surface is written via `_replace_atomic`, so a failure while writing
+    any one surface never touches that surface's own real file. All four
+    surfaces are meant to move together, though: a failure between two
+    separate replaces is still possible, so this also restores every surface
+    this call already replaced, matching the still-published original content
+    — a partial bump never lands and stays exactly the drift
+    `validate_plugins.py` exists to catch.
     """
     originals: dict[Path, str] = {
         path: path.read_text(encoding="utf-8") for path in updates
@@ -156,11 +189,11 @@ def write_atomically(updates: dict[Path, str]) -> None:
     written: list[Path] = []
     try:
         for path, content in updates.items():
-            path.write_text(content, encoding="utf-8")
+            _replace_atomic(path, content)
             written.append(path)
     except OSError:
         for path in written:
-            path.write_text(originals[path], encoding="utf-8")
+            _replace_atomic(path, originals[path])
         raise
 
 
