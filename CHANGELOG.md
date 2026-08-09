@@ -6,6 +6,41 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: bolster the cognitive-driven development design against an adversarial
+  read — an independent reviewer checked the committed document against the
+  repository's own contracts and found seventeen problems, all verified before
+  acting. Four needed decisions and are now recorded. `initiative` and `epic`
+  are kept as a mapped pair rather than one replacing the other: an initiative
+  is the logical grouping the breakdown derives, an epic is its tracker
+  realization, and compris keeps `implement-epic`'s authoritative parent (its
+  own acceptance ledger and closeout gate) instead of overwriting it with
+  atelier's lighter non-authoritative grouping. The invariant is restated as a
+  prediction rather than an identity, because `implement-ticket` ships
+  `ready_prs` — one ticket, an authorized carved stack, several pull requests —
+  so a carved stack is a recorded falsification, not a violation. The breakdown
+  becomes house-owned and complete without a peer, since
+  `docs/skill-authoring.md:598` forbids depending on one; `writing-plans`
+  supplies the richer method when present, and the cost of maintaining both
+  paths is named. Ticket-graph creation stays an approval gate that may be
+  pre-approved at invocation, at which point the presentation becomes disclosure
+  — which is also what makes autonomous graph creation possible, since an
+  autonomous run has nobody to ask. Thirteen further corrections: the extraction
+  premise dropped from four independent judges to three, because
+  `implement-ticket:632-635` already reads `carve-changesets`' live guardrails
+  and is forbidden to substitute local heuristics — it is the pattern's
+  precedent, not an instance of the problem; a new program step wires the
+  doctrine in and retires `carve-changesets/references/SPEC.md`'s own guardrails
+  so the doctrine replaces codifications rather than becoming a fifth; another
+  revises `docs/skill-authoring.md` and `README.md`, whose composition rule 1
+  asserts a mechanism that stops being true; the shaper contract gains a closed
+  terminal-state set with `blocked` as its honest fallback; the rubric now
+  accounts for all eight breakdown rules, recording that rule 8 is not gradeable
+  at plan time; and two citations of mine were wrong — `implement-epic:186` was
+  correct when written and rotted in the rebase, while the triggering-corpus row
+  cited a refuted observation rather than `triggering/expectations.json:130`,
+  where the case is a *negative* owned by `review-code-change` that cannot
+  simply be flipped without destroying that skill's coverage.
+
 - docs: settle the shaping rubric and reframe the altitude question as an
   experiment — the shaping corpus grades seams rather than partitions, because
   two good decompositions of the same work agree on where the seams are and
@@ -23,7 +58,8 @@ summary: Chronological history of repository and skill changes.
   is what `AGENTS.md` already asks for. Separately, the `writing-plans` altitude
   question moves from an open question to a recorded experiment with a named run
   and success criterion — nobody owes an answer there, someone owes a run — with
-  the three-way contingency deliberately left un-pre-decided until it reports.
+  the three-way contingency deliberately left un-pre-decided until it reports
+  (eab76ecab2e4fe400c00c00622e0adda49a3ea7c)
 
 - docs: record the cognitive-driven development design — compris is
   ticket-driven because work spanning more than one pull request has exceeded a
