@@ -50,6 +50,34 @@ class ValidatePluginsTests(unittest.TestCase):
             ):
                 validate_plugins.validate(root)
 
+    def test_marketplace_entries_require_a_valid_version(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_fixture(root)
+            marketplace_path = root / ".claude-plugin" / "marketplace.json"
+            catalog = json.loads(marketplace_path.read_text(encoding="utf-8"))
+            catalog["plugins"][0].pop("version", None)
+            marketplace_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                validate_plugins.PluginValidationError, "invalid version"
+            ):
+                validate_plugins.validate(root)
+
+    def test_marketplace_version_drift_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_fixture(root)
+            marketplace_path = root / ".agents" / "plugins" / "marketplace.json"
+            catalog = json.loads(marketplace_path.read_text(encoding="utf-8"))
+            catalog["plugins"][0]["version"] = "9.9.9"
+            marketplace_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                validate_plugins.PluginValidationError, "versions must match"
+            ):
+                validate_plugins.validate(root)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -139,6 +139,12 @@ said. Neither satisfies the other.
 
 - Changelog: format new entries as `<commit title>`.
 
+- Release process: [`docs/release-process.md`](docs/release-process.md)
+  documents how a tagged release is prepared and cut, including the four version
+  surfaces `scripts/validate_plugins.py` keeps in sync and operator-only tagging
+  authority. `RELEASE-NOTES.md` is the narrative release history — distinct from
+  `CHANGELOG.md`'s daily journal above.
+
 - Avoid shell interpolation in commit and PR messages. Always write the full
   message to a temporary file and use file-based flags instead of inline `-m`
   strings.

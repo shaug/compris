@@ -1,6 +1,6 @@
 {
   "name": "compris",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "For when the planning is done, and the work begins. Installs the complete compris implementation, review, PR-lifecycle, and changeset skill suite.",
   "author": {
     "name": "shaug",
