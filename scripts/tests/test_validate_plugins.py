@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+from helpers import REPOSITORY_ROOT, copy_fixture
+
 SPEC = importlib.util.spec_from_file_location(
     "validate_plugins", REPOSITORY_ROOT / "scripts" / "validate_plugins.py"
 )
@@ -18,8 +18,7 @@ SPEC.loader.exec_module(validate_plugins)
 
 class ValidatePluginsTests(unittest.TestCase):
     def copy_fixture(self, destination: Path) -> None:
-        for name in (".agents", ".claude-plugin", ".codex-plugin", "skills"):
-            shutil.copytree(REPOSITORY_ROOT / name, destination / name)
+        copy_fixture(destination)
 
     def test_repository_plugin_package_is_complete(self) -> None:
         validate_plugins.validate(REPOSITORY_ROOT)

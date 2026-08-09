@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+from helpers import REPOSITORY_ROOT, copy_fixture
 
 
 def _load(name: str, relative: str):
@@ -24,10 +24,7 @@ validate_plugins = _load("validate_plugins", "scripts/validate_plugins.py")
 
 class BumpVersionTests(unittest.TestCase):
     def copy_fixture(self, destination: Path) -> None:
-        import shutil
-
-        for name in (".agents", ".claude-plugin", ".codex-plugin", "skills"):
-            shutil.copytree(REPOSITORY_ROOT / name, destination / name)
+        copy_fixture(destination)
 
     def read_version(self, root: Path, rel: str, *, entry: bool = False) -> str:
         manifest = json.loads((root / rel).read_text(encoding="utf-8"))
