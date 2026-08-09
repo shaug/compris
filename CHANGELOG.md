@@ -6,6 +6,13 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: drop the hosted link from the cognitive-driven development design — the
+  Markdown pointed at a claude.ai-hosted rendering of itself, which is an
+  external dependency the repository does not control, cannot version, and
+  cannot guarantee stays reachable or in step. The committed
+  `cognitive-driven-development.html` is the presentation copy, and it travels
+  with the document in the same history and the same review.
+
 - docs: commit the presentation copy of the cognitive-driven development design
   and link it from the Markdown — the rendered brief existed only as a published
   artifact, outside version control, which had already let the two drift twice
@@ -17,7 +24,8 @@ summary: Chronological history of repository and skill changes.
   Artifact renderer supplies its own wrapper, so publishing strips this one. The
   Markdown states which is canonical for review and that both change together.
   `just format` covers only Python and Markdown, so the HTML is not reformatted
-  and the committed copy stays byte-comparable with what gets published.
+  and the committed copy stays byte-comparable with what gets published
+  (c2e363470d024fbaa1cd446f48b2946a7abb2674)
 
 - docs: make cognitive shaping a policy-governed default and state the program's
   motive honestly — not every project demands cognitively shaped pull requests.
