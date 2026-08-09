@@ -125,7 +125,9 @@ operationalized.
 
 **Port at a pinned commit.** atelier's text is still moving. compris already
 solved this for superpowers: the named-peer registry pins `obra/superpowers` at
-`44c9b2d6` because an unpinned reference describes a moving target. Record
+`44c9b2d6` — which corresponds to marketplace release 6.2.0 — because an
+unpinned reference describes a moving target. Recording the release alongside
+the SHA makes the pin resolvable by a reader who cannot run `git`. Record
 atelier's doctrine the same way, or the first thing the new owner inherits is
 the drift it was created to end.
 
@@ -245,8 +247,8 @@ an earlier one. The first two are pure documentation.
    `writing-plans` registry entry moves from House territory to referenced peer;
    the `ready-ticket` collision-audit row is renamed and a `plan-implementation`
    × `writing-plans` row is added. `README.md`: the new tagline, the line at
-   `:15` about peers owning the thinking-it-through phase, and composition rule
-   1\.
+   `:15` about peers owning the thinking-it-through phase, and the first
+   composition rule.
 
 4. **The object model document.** Initiative, leaf ticket, changeset, dependency
    — and the mapping onto GitHub and Linear stated once. Still zero behavior
@@ -257,13 +259,13 @@ an earlier one. The first two are pure documentation.
 
 5. **The shaping skill.** The contract above. One executable home for the
    judgment, with its own eval corpus, rather than shape judgments buried in
-   four skills' separate corpora where none is really testing the doctrine.
+   three skills' separate corpora where none is really testing the doctrine.
 
 6. **`plan-implementation`** (was `ready-ticket`). Source material to an
-   initiative plus tickets: shaped by step 1, expressed via step 2, discovered
-   through the `writing-plans` breakdown, judged by step 3. Input ranges from a
-   stacktrace to a full design document; output ranges from one ticket to a
-   multi-tier dependency graph.
+   initiative plus tickets: shaped by step 1, expressed via step 4, discovered
+   through the breakdown, judged by step 5. Input ranges from a stacktrace to a
+   full design document; output ranges from one ticket to a multi-tier
+   dependency graph.
 
 7. **Migrate the downstream skills.** `implement-ticket`, `implement-epic` and
    `babysit-pr` move to the object model internally. Trigger surfaces unchanged.
@@ -447,6 +449,12 @@ and cooperative.
 
 Established against `obra/superpowers` at pin `44c9b2d6` and the compris tree.
 Three assumptions were falsified in the process; all are reflected above.
+
+The pin is **marketplace release 6.2.0**, verified rather than assumed: the
+installed plugin's `skills/` tree and the pinned checkout carry the same
+fourteen skills, and `writing-plans` and `brainstorming` — the two every finding
+below rests on — are byte-identical between them. So these citations hold
+against the version a user actually receives, not only against a commit.
 
 | Finding                                                                                                   | Consequence                                                                                                                                                                                                             | Source                             |
 | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |

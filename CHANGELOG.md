@@ -6,6 +6,21 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
+- docs: record that the peer pin is marketplace release 6.2.0, and re-sync the
+  published brief — the superpowers plugin turned out to be installed after all,
+  just after this session resolved its skill listing, so the pin could finally
+  be checked against what a user actually receives. It matches: the installed
+  plugin and the pinned checkout carry the same fourteen skills, and
+  `writing-plans` and `brainstorming` — the two every finding in the design
+  rests on — are byte-identical between them. Recording the release alongside
+  the SHA makes the pin resolvable by a reader who cannot run `git`, and it
+  retires the document's last unverified assumption about its own evidence. Also
+  fixes three defects the eight-step renumbering introduced: two internal
+  cross-references pointing at the wrong steps, and a stale "four skills'
+  separate corpora" that should have followed the four-judges-to-three
+  correction. The published brief is regenerated from the committed markdown
+  rather than patched, so the two no longer drift.
+
 - docs: bolster the cognitive-driven development design against an adversarial
   read — an independent reviewer checked the committed document against the
   repository's own contracts and found seventeen problems, all verified before
@@ -39,7 +54,8 @@ summary: Chronological history of repository and skill changes.
   correct when written and rotted in the rebase, while the triggering-corpus row
   cited a refuted observation rather than `triggering/expectations.json:130`,
   where the case is a *negative* owned by `review-code-change` that cannot
-  simply be flipped without destroying that skill's coverage.
+  simply be flipped without destroying that skill's coverage
+  (99877814bd3c1f2be2378160d0fa9aae0c280c8e)
 
 - docs: settle the shaping rubric and reframe the altitude question as an
   experiment — the shaping corpus grades seams rather than partitions, because
