@@ -4,7 +4,37 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics
+## 2026-08-08 — Hardened implement-ticket's own worktree isolation mechanics, then added version-bump tooling, release notes, and a documented release process
+
+- feat: add version-bump tooling, cross-manifest drift detection, narrative
+  release notes, and a documented release process (issue #138, epic #121) —
+  `scripts/bump_version.py` is the only tool that should change any of the four
+  version surfaces (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
+  `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`; the two
+  marketplace catalogs previously carried no version at all). It reads the
+  current version from the two plugin manifests, computes a
+  `--bump major|minor|patch` or explicit `--to` target, and writes all four in
+  one pass, restoring already-written surfaces if a later write fails so a
+  partial bump never lands. `scripts/validate_plugins.py`'s existing
+  Claude/Codex plugin-version match check (already wired into `just lint`) is
+  extended to require a valid semver on both marketplace catalogs' plugin
+  entries too and to reject drift across all four, not just the original two.
+  `RELEASE-NOTES.md` is new: the narrative history of tagged releases (what
+  changed, why, evidence — distinct from this file's daily commit journal), with
+  its format documented at the top of the file. `docs/release-process.md`
+  documents the version-surface table, the bump-script usage, and that cutting
+  the git tag and GitHub release is reserved for the operator — preparing a
+  release is ordinary PR-completion authority, cutting it is not, and no
+  automation in the repository performs that step. `AGENTS.md`'s Git Workflow
+  section gets a pointer to the new doc. The ticket's own acceptance criterion
+  for a recorded dry run is this change's real diff:
+  `python3 scripts/bump_version.py --bump patch` was run for real on this
+  branch, bumping every surface from `0.1.0` to `0.1.1` (seeding the two
+  marketplace catalogs' version field for the first time in the same pass), with
+  `just lint` and `just test` green at the resulting head and no git tag cut —
+  recorded as the first `RELEASE-NOTES.md` entry. Cutting the first real tagged
+  release stays a separate, explicit operator action; this ticket's non-goals
+  explicitly exclude it.
 
 - feat(implement-ticket): harden worktree isolation mechanics (issue #134, epic
   #119) — implement-ticket's own "Create exclusive implementation state" step
@@ -75,36 +105,6 @@ summary: Chronological history of repository and skill changes.
   Recorded as corpus noise rather than a candidate defect, per the ticket's own
   guidance against chasing single-sample real-model variance.
   (e509ab51491b044be981246985b635a99ff29026)
-
-- feat: add version-bump tooling, cross-manifest drift detection, narrative
-  release notes, and a documented release process (issue #138, epic #121) —
-  `scripts/bump_version.py` is the only tool that should change any of the four
-  version surfaces (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`,
-  `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`; the two
-  marketplace catalogs previously carried no version at all). It reads the
-  current version from the two plugin manifests, computes a
-  `--bump major|minor|patch` or explicit `--to` target, and writes all four in
-  one pass, restoring already-written surfaces if a later write fails so a
-  partial bump never lands. `scripts/validate_plugins.py`'s existing
-  Claude/Codex plugin-version match check (already wired into `just lint`) is
-  extended to require a valid semver on both marketplace catalogs' plugin
-  entries too and to reject drift across all four, not just the original two.
-  `RELEASE-NOTES.md` is new: the narrative history of tagged releases (what
-  changed, why, evidence — distinct from this file's daily commit journal), with
-  its format documented at the top of the file. `docs/release-process.md`
-  documents the version-surface table, the bump-script usage, and that cutting
-  the git tag and GitHub release is reserved for the operator — preparing a
-  release is ordinary PR-completion authority, cutting it is not, and no
-  automation in the repository performs that step. `AGENTS.md`'s Git Workflow
-  section gets a pointer to the new doc. The ticket's own acceptance criterion
-  for a recorded dry run is this change's real diff:
-  `python3 scripts/bump_version.py --bump patch` was run for real on this
-  branch, bumping every surface from `0.1.0` to `0.1.1` (seeding the two
-  marketplace catalogs' version field for the first time in the same pass), with
-  `just lint` and `just test` green at the resulting head and no git tag cut —
-  recorded as the first `RELEASE-NOTES.md` entry. Cutting the first real tagged
-  release stays a separate, explicit operator action; this ticket's non-goals
-  explicitly exclude it.
 
 ## 2026-08-07 — Migrated carve-changesets' per-changeset review/fix loop and babysit-pr's post-publication review/fix loop to delegate to review-fix-loop, completing the design's caller-migration sequence, then added rationalization tables to babysit-pr, implement-ticket, and carve-changesets, then added a compaction-resilient ledger and workspace-per-run to implement-epic, carve-changesets, and babysit-pr
 
