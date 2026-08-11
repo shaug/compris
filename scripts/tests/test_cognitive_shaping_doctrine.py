@@ -70,9 +70,11 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
     def setUpClass(cls):
         cls.doc = normalize(DOCTRINE.read_text())
 
-    def test_compris_is_named_the_sole_owner_of_the_doctrine(self):
-        self.assertIn("compris is the sole owner", self.doc)
-        self.assertIn("A doctrine with two homes has no home", self.doc)
+    def test_the_doctrine_identifies_compris_as_its_owner(self):
+        self.assertIn(
+            "This is compris's canonical statement of cognitive shaping",
+            self.doc,
+        )
 
     def test_the_doctrine_attributes_itself_to_no_outside_project(self):
         for foreign in FOREIGN_SOURCES:

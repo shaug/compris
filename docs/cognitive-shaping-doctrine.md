@@ -6,23 +6,8 @@ apart against it, the vocabulary that carries them, and what enforcement is and
 is not.
 
 It is doctrine, not design. [cognitive-driven-development.md] records the
-program this doctrine was extracted for, the decisions behind it, and the
-alternatives still open. Read that for why; read this for what holds.
-
-## Ownership
-
-compris is the sole owner of this doctrine. Any other statement of the same
-standard — in a consuming skill's own contract or anywhere else — is a copy,
-never a competing authority.
-
-A doctrine with two homes has no home. Once the same standard is stated in two
-places, the two drift, and a reader who finds both has no way to tell which one
-governs.
-
-Retiring the remaining copies is separately tracked and is not performed here.
-Naming that state is part of the ownership claim rather than a caveat on it: a
-reader who finds two texts needs to know which one is authoritative while the
-other is still standing.
+program this doctrine serves, the decisions behind it, and the alternatives
+still open. Read that for why; read this for what holds.
 
 ## The standard
 
@@ -30,16 +15,12 @@ other is still standing.
 > test is whether a reviewer can construct an accurate mental model of the
 > change and evaluate it independently.
 
-That wording is fixed. Restating it in fresh words in each place it is needed is
-how one standard becomes several, which is the drift this document exists to
-end.
+Use that wording as it stands. A consumer that paraphrases it into its own
+contract has created a second standard, and the two will drift.
 
-Note what the standard rules out. It is not a threshold check. Line count is an
-input to judgment and nothing more. Earlier statements of this standard carried
-numeric heuristics alongside it; they were dropped deliberately, to subordinate
-line count to the mental-model test rather than let a number stand in for it.
-Any implementation that reduces this standard to a threshold has failed to carry
-it, however defensible the threshold is.
+Note what the standard rules out. It is not a threshold check: line count is an
+input to judgment and nothing more. Any implementation that reduces the standard
+to a number has failed to carry it, however defensible the number is.
 
 ### Recorded machine-generated evidence is excluded from shape judgment
 
@@ -129,11 +110,12 @@ accuracy.
 
 ## Consumers
 
-Named so a reader can tell authority from copy. Binding each consumer to this
-document is separately tracked and is not performed here.
+Binding these to this document is separately tracked and is not performed here.
+Where one still states its own generic version of the rules, this document
+governs.
 
-- `carve-changesets` decides changeset boundaries and still carries its own
-  generic codification.
+- `carve-changesets` decides changeset boundaries, and still states its own
+  cognitive-load guardrails and decomposition order.
 - `review-solution-simplicity` judges whole-solution complexity.
 - `implement-ticket` classifies a candidate at its publication size gate, and
   already reads a named authority rather than carrying a heuristic of its own.

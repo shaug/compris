@@ -6,17 +6,15 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-11 — Gave the cognitive-shaping doctrine a single canonical home in compris, and named the tree and the model an eval summary measured
 
-- docs: publish the canonical cognitive-shaping doctrine — the standard that
-  decides whether a unit of work is comprehensible was stated in more than one
-  place, and a doctrine with two homes has no home: the copies drift, and a
-  reader who finds both cannot tell which one governs.
-  `docs/cognitive-shaping-doctrine.md` now states compris's sole ownership and
-  carries the mental-model standard at its fixed wording, all eight breakdown
-  rules, the logical-to-realized vocabulary, policy-controlled enforcement that
-  separates judging shape from gating on it, and the exclusion of recorded
+- docs: publish the canonical cognitive-shaping doctrine —
+  `docs/cognitive-shaping-doctrine.md` is now the one place the standard that
+  decides whether a unit of work is comprehensible is stated. It carries the
+  mental-model test at its fixed wording, all eight breakdown rules, the
+  logical-to-realized vocabulary, policy-controlled enforcement that separates
+  judging shape from gating on it, and the exclusion of recorded
   machine-generated eval evidence from shape judgment. No numeric line-count
   gate is presented as correctness policy, and no skill behavior changes here —
-  binding each consumer and retiring the duplicate copies is tracked separately.
+  binding each consumer to it is tracked separately.
 
 - fix: record the candidate's git tree hash and, for real-model runs, the pinned
   model name in every recorded eval summary — `candidate.sha` names a branch
