@@ -17,17 +17,12 @@ from helpers import compact
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
 
-# The atelier source this doctrine was ported from, recorded so a reader who
-# cannot run `git` can still resolve it: the commit names the content, the
-# release tag and its date name something a human can look up.
-ATELIER_SOURCE_REPOSITORY = "shaug/atelier"
-ATELIER_SOURCE_PATH = "docs/atelier-skill-design.md"
-ATELIER_PIN_COMMIT = "c08755f3a80c39b747df4cbf9be94e559d5081e2"
-ATELIER_PIN_RELEASE = "atelier-cli-v2-final"
-ATELIER_PIN_DATE = "2026-07-26"
+# The doctrine is compris's own. It names no upstream project, because there is
+# no external owner to attribute and an outward-facing citation would imply one.
+FOREIGN_SOURCES = ("atelier",)
 
-# Ported intact from the pinned source. A second wording is how two
-# codifications start drifting, which is the failure this port exists to end.
+# Fixed wording. A second wording is how two codifications start drifting,
+# which is the failure this document exists to end.
 MENTAL_MODEL_STANDARD = compact(
     """
     Line counts may inform judgment but are not universal correctness gates.
@@ -36,8 +31,8 @@ MENTAL_MODEL_STANDARD = compact(
     """
 )
 
-# All eight, in the pinned source's order. The doctrine must account for every
-# one; dropping any is how a ported rule set quietly becomes a summary of one.
+# All eight. The doctrine must account for every one; dropping any is how a
+# rule set quietly becomes a summary of itself.
 BREAKDOWN_RULES = (
     "Keep an initiative executable as one ticket when it is already reviewable",
     "Avoid one-child decomposition without a real reason",
@@ -63,9 +58,9 @@ NUMERIC_GATE_PATTERNS = (
 def normalize(markdown: str) -> str:
     """Compact `markdown`, dropping the blockquote markers `>` introduces.
 
-    The ported standard is quoted, and wrapping it puts a `>` at the head of
-    every line; leaving those in would make the assertion depend on where the
-    formatter happened to break the quote.
+    The standard is set as a blockquote, and wrapping it puts a `>` at the head
+    of every line; leaving those in would make the assertion depend on where
+    the formatter happened to break the quote.
     """
     return compact(re.sub(r"^\s*>\s?", "", markdown, flags=re.MULTILINE))
 
@@ -79,15 +74,10 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
         self.assertIn("compris is the sole owner", self.doc)
         self.assertIn("A doctrine with two homes has no home", self.doc)
 
-    def test_the_atelier_source_pin_resolves_without_running_git(self):
-        for required in (
-            ATELIER_SOURCE_REPOSITORY,
-            ATELIER_SOURCE_PATH,
-            ATELIER_PIN_COMMIT,
-            ATELIER_PIN_RELEASE,
-            ATELIER_PIN_DATE,
-        ):
-            self.assertIn(required, self.doc)
+    def test_the_doctrine_attributes_itself_to_no_outside_project(self):
+        for foreign in FOREIGN_SOURCES:
+            with self.subTest(source=foreign):
+                self.assertNotIn(foreign, self.doc.lower())
 
     def test_the_mental_model_standard_is_carried_intact(self):
         self.assertIn(MENTAL_MODEL_STANDARD, self.doc)

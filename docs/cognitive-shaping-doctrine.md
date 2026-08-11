@@ -5,49 +5,24 @@ decides whether a unit of work is comprehensible, the rules that break work
 apart against it, the vocabulary that carries them, and what enforcement is and
 is not.
 
-It is doctrine, not design.
-[`cognitive-driven-development.md`](cognitive-driven-development.md) records the
+It is doctrine, not design. [cognitive-driven-development.md] records the
 program this doctrine was extracted for, the decisions behind it, and the
 alternatives still open. Read that for why; read this for what holds.
 
 ## Ownership
 
-compris is the sole owner of this doctrine. Every other statement of it — in
-atelier, in a consuming skill's own contract, or anywhere else — is a historical
-source or a consumer copy, never a competing authority.
+compris is the sole owner of this doctrine. Any other statement of the same
+standard — in a consuming skill's own contract or anywhere else — is a copy,
+never a competing authority.
 
-A doctrine with two homes has no home. atelier is moving toward multi-agent
-process management and is mid-rebuild, so leaving the standard in the project
-that no longer applies it guarantees exactly the drift this document exists to
-end.
+A doctrine with two homes has no home. Once the same standard is stated in two
+places, the two drift, and a reader who finds both has no way to tell which one
+governs.
 
 Retiring the remaining copies is separately tracked and is not performed here.
 Naming that state is part of the ownership claim rather than a caveat on it: a
 reader who finds two texts needs to know which one is authoritative while the
 other is still standing.
-
-## Provenance
-
-| Field             | Value                                               |
-| ----------------- | --------------------------------------------------- |
-| Source repository | `shaug/atelier`                                     |
-| Source path       | `docs/atelier-skill-design.md`                      |
-| Source section    | "Human-shaped changesets", lines 463–482 at the pin |
-| Commit            | `c08755f3a80c39b747df4cbf9be94e559d5081e2`          |
-| Release           | `atelier-cli-v2-final`                              |
-| Release date      | 2026-07-26                                          |
-
-*Why pinned.* An unpinned reference describes a moving target, so a citation
-that was accurate when written becomes wrong without anything changing here.
-compris already solved this for superpowers, which
-[`skill-authoring.md`](skill-authoring.md) pins at a commit and resolves to a
-marketplace release. Recording the release and its date alongside the commit is
-what makes the pin resolvable by a reader who cannot run `git`: the commit names
-the content, and the release names something a human can look up.
-
-The pin is a provenance record, not a subscription. Upstream drift is absorbed
-by re-reviewing against a new pin and editing this document — never by treating
-the citation as approximate.
 
 ## The standard
 
@@ -55,15 +30,16 @@ the citation as approximate.
 > test is whether a reviewer can construct an accurate mental model of the
 > change and evaluate it independently.
 
-Carried intact from the pinned source. Inventing a second wording is how two
-codifications start drifting, which is the failure this port exists to end.
+That wording is fixed. Restating it in fresh words in each place it is needed is
+how one standard becomes several, which is the drift this document exists to
+end.
 
 Note what the standard rules out. It is not a threshold check. Line count is an
-input to judgment and nothing more: atelier dropped its predecessor's fixed
-implementation and some of its numeric heuristics precisely in order to
-subordinate line count to the mental-model test. Any implementation that reduces
-this standard to a number has failed to carry it, however defensible the number
-is.
+input to judgment and nothing more. Earlier statements of this standard carried
+numeric heuristics alongside it; they were dropped deliberately, to subordinate
+line count to the mental-model test rather than let a number stand in for it.
+Any implementation that reduces this standard to a threshold has failed to carry
+it, however defensible the threshold is.
 
 ### Recorded machine-generated evidence is excluded from shape judgment
 
@@ -71,16 +47,16 @@ Committed eval results, generated fixtures, lockfiles, and comparable
 machine-produced artifacts are part of the change and are excluded from the
 shape judgment, because no reviewer builds a mental model of them.
 
-*Prevents:* a judgment made on raw churn rejects a small change because this
-repository's own eval-evidence norm required that change's evidence to be
-committed. compris PR #179 is the observed case: 4,715 lines of churn, of which
-4,538 lines are recorded eval results, leaving a reviewable change of 177 lines.
-Judging the 4,715 measures the wrong thing.
+*Prevents:* a judgment made on raw churn rejects a small change because the
+eval-evidence norm in [AGENTS.md] required that change's evidence to be
+committed. Pull request #179 is the observed case: 4,715 lines of churn, of
+which 4,538 lines are recorded eval results, leaving a reviewable change of 177
+lines. Judging the 4,715 measures the wrong thing.
 
 ## The breakdown rules
 
-Eight rules, carried whole from the pinned source, with the source's
-`assignment` mapped to compris's own leaf noun.
+Eight rules. Each is load-bearing, and a breakdown is judged against all of
+them.
 
 - Keep an initiative executable as one ticket when it is already reviewable.
 - Avoid one-child decomposition without a real reason.
@@ -121,10 +97,10 @@ Description-based routing is winner-takes-attention: people say "implement this
 GitHub issue", and a description answering only to a logical noun would quietly
 stop matching them.
 
-`assignment`, `claim`, `receipt`, and `worker` are deliberately not imported.
-They belong to atelier's process-management layer, and an assignment — a
-claimable unit of approved work — is not the shaped unit of code a reviewer
-reads. One maps onto the other; neither replaces it.
+Process-management nouns — `assignment`, `claim`, `receipt`, `worker` — are
+deliberately outside this vocabulary. A claimable unit of approved work is not
+the shaped unit of code a reviewer reads; one maps onto the other, and neither
+replaces it.
 
 ## Enforcement is policy-controlled
 
@@ -161,3 +137,8 @@ document is separately tracked and is not performed here.
 - `review-solution-simplicity` judges whole-solution complexity.
 - `implement-ticket` classifies a candidate at its publication size gate, and
   already reads a named authority rather than carrying a heuristic of its own.
+
+<!-- inline reference link definitions. please keep alphabetized -->
+
+[agents.md]: ../AGENTS.md
+[cognitive-driven-development.md]: cognitive-driven-development.md
