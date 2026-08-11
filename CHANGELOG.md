@@ -4,6 +4,21 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-11 — Named the tree and the model an eval summary measured, so both survive rebase and squash-merge
+
+- fix: record the candidate's git tree hash and, for real-model runs, the pinned
+  model name in every recorded eval summary — `candidate.sha` names a branch
+  commit that rebase rewrites and squash-merge discards outright, so no summary
+  merged so far names a SHA a fresh clone can resolve, and the recorder never
+  named which model actually produced a real-model run, so a before/after diff
+  taken across a model update silently compared two different subjects wearing
+  the same tier name. `candidate.tree` resolves under both rewrites, every
+  real-model executor invocation now passes an explicit `--model claude-opus-5`
+  instead of relying on an environment default, and a diff is drawn only between
+  runs whose tier, suite, and model all match. Summaries recorded before this
+  change carry no model at all and are documented as branch-local and
+  unattributed rather than backfilled.
+
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
 - docs: drop the hosted link from the cognitive-driven development design — the
@@ -12,6 +27,7 @@ summary: Chronological history of repository and skill changes.
   cannot guarantee stays reachable or in step. The committed
   `cognitive-driven-development.html` is the presentation copy, and it travels
   with the document in the same history and the same review.
+  (308b6212f5bf6b23854da340b25ee1d63320dad2)
 
 - docs: commit the presentation copy of the cognitive-driven development design
   and link it from the Markdown — the rendered brief existed only as a published
