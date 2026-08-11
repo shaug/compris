@@ -71,6 +71,19 @@ commit a later reader can resolve, and commit the summaries on top. A run
 recorded from a dirty tree — or from a commit later amended away — names a tree
 nobody else can retrieve, which is the one thing the record exists to supply.
 
+Each summary also carries `candidate.tree`, the committed content's
+`git rev-parse HEAD^{tree}`, and — for a real-model run — `model`, the exact
+`--model` the recorded command passed. `sha` names the commit, which rebase
+rewrites and squash-merge discards outright; `tree` names the content, which is
+identical under both, so it is `tree`, not `sha`, that a reader should expect to
+still resolve once a change has landed on `main`. `model` exists because a
+before/after pair taken across a model update compares two different subjects
+wearing the same tier name; a diff is drawn only when the compared runs' tier,
+suite, and model all match. A deterministic run records no model — there is none
+to name. Summaries recorded before this field existed carry no `model` at all
+and are branch-local and unattributed: no model can be recovered for them after
+the fact, and they are not backfilled.
+
 Summaries already written under `evals/results/` are the one exemption, and it
 is narrow by construction. Recording several skills in sequence writes a summary
 per skill, so without the exemption only the first run of a batch could report a

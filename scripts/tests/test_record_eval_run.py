@@ -347,6 +347,169 @@ class RecorderTests(unittest.TestCase):
         self.assertEqual(exit_code, 2)
         self.assertFalse((self.skills / "not-a-skill").exists())
 
+    # AC: a real-model summary names the model that produced it.
+    def test_recorded_summary_names_the_model_that_produced_it(self) -> None:
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "real-model",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]) + " --model model-a",
+            "--per-case-output-dir",
+        )
+
+        summary = self.read_only_summary("demo-skill")
+        self.assertEqual(summary["model"], "model-a")
+
+    # AC: a deterministic summary names none, even where the command line
+    # happens to carry no `--model` at all.
+    def test_recorded_deterministic_summary_names_no_model(self) -> None:
+        self.run_recorder(
+            "demo-skill",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]),
+            "--per-case-output-dir",
+        )
+
+        summary = self.read_only_summary("demo-skill")
+        self.assertIsNone(summary["model"])
+
+    # AC: a run is selected as another run's comparison only when tier, suite,
+    # and model all match — a before/after pair taken across a model update is
+    # two different subjects, not one subject over time.
+    def test_diff_selection_requires_a_matching_model(self) -> None:
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "real-model",
+            "--stage",
+            "before",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]) + " --model model-a",
+            "--per-case-output-dir",
+        )
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "real-model",
+            "--stage",
+            "after",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]) + " --model model-b",
+            "--per-case-output-dir",
+        )
+
+        files = self.results("demo-skill")
+        self.assertEqual(len(files), 2)
+        mismatched = json.loads(files[-1].read_text(encoding="utf-8"))
+        self.assertIsNone(mismatched["compared_to"])
+
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "real-model",
+            "--stage",
+            "after",
+            "--label",
+            "again",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]) + " --model model-b",
+            "--per-case-output-dir",
+        )
+
+        files = self.results("demo-skill")
+        self.assertEqual(len(files), 3)
+        matched = json.loads(files[-1].read_text(encoding="utf-8"))
+        self.assertEqual(matched["compared_to"], files[-2].name)
+
+    # AC: a summary with no recorded model — the shape of every summary
+    # committed before this change — is not chosen as the comparison for a
+    # model-pinned run.
+    def test_summary_with_no_recorded_model_is_not_selected_as_comparison(
+        self,
+    ) -> None:
+        directory = self.skills / "demo-skill" / "evals" / "results"
+        directory.mkdir(parents=True, exist_ok=True)
+        legacy = {
+            "schema": record_eval_run.SUMMARY_SCHEMA,
+            "suite": "forward",
+            "tier": "real-model",
+            "cases": {"alpha": "pass"},
+        }
+        (directory / "2026-01-01T000000Z-0001-baseline.json").write_text(
+            json.dumps(legacy), encoding="utf-8"
+        )
+
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "real-model",
+            "--stage",
+            "after",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]) + " --model model-a",
+            "--per-case-output-dir",
+        )
+
+        files = self.results("demo-skill")
+        self.assertEqual(len(files), 2)
+        summary = json.loads(files[-1].read_text(encoding="utf-8"))
+        self.assertIsNone(summary["compared_to"])
+
+    # AC: the recorded tree identifier still resolves to the evaluated content
+    # after the branch history that produced it is rewritten — first as a
+    # rebase would (a new parent), then as a squash-merge would (a brand new
+    # commit reusing the identical tree). `sha` cannot survive either; `tree`
+    # must survive both.
+    def test_candidate_tree_survives_rebase_and_squash(self) -> None:
+        repo = self.root / "git-repo"
+        repo.mkdir()
+
+        def git(*args: str, input: str | None = None) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                input=input,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "file.txt").write_text("v1", encoding="utf-8")
+        git("add", "file.txt")
+        git("commit", "-q", "-m", "first")
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            before_rewrite = record_eval_run.candidate_identity()
+
+        original_tree = before_rewrite["tree"]
+        self.assertTrue(original_tree)
+
+        # A rebase: the same tree, a new synthetic parent.
+        empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+        rebase_parent = git("commit-tree", empty_tree, "-m", "rebased-onto")
+        rebased = git(
+            "commit-tree", original_tree, "-p", rebase_parent, "-m", "rebased"
+        )
+        git("reset", "--hard", rebased)
+
+        # A squash-merge on top: yet another brand new commit, still the same
+        # tree, with no ancestry relationship to the original commit at all.
+        squashed = git("commit-tree", original_tree, "-m", "squashed")
+        git("reset", "--hard", squashed)
+
+        self.assertEqual((repo / "file.txt").read_text(encoding="utf-8"), "v1")
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            after_rewrite = record_eval_run.candidate_identity()
+
+        self.assertEqual(after_rewrite["tree"], original_tree)
+        self.assertNotEqual(after_rewrite["sha"], before_rewrite["sha"])
+
 
 class NormIsStatedTests(unittest.TestCase):
     """AC: the norm is written down where a contributor and a PR author read it."""
@@ -379,6 +542,31 @@ class NormIsStatedTests(unittest.TestCase):
         self.assertIn("run_forward.py", command)
         self.assertIn("--executor", command)
         self.assertIn("claude_executor.py", command)
+
+    # AC: a real-model run's own command carries an explicit model selection
+    # rather than relying on whatever `claude -p` defaults to in the
+    # environment that ran it.
+    def test_real_model_command_names_the_pinned_model(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            record_eval_run.main(
+                ["implement-ticket", "--tier", "real-model", "--dry-run"]
+            )
+
+        resolved = json.loads(stdout.getvalue())
+        self.assertEqual(resolved["model"], record_eval_run.RECORDED_MODEL)
+        self.assertIn("--model claude-opus-5", " ".join(resolved["command"]))
+
+    # AC: a deterministic summary names no model — there is no model to name.
+    def test_deterministic_run_names_no_model(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            record_eval_run.main(
+                ["implement-ticket", "--tier", "deterministic", "--dry-run"]
+            )
+
+        resolved = json.loads(stdout.getvalue())
+        self.assertIsNone(resolved["model"])
 
     def test_deterministic_only_skill_resolves_without_naming_a_tier(self) -> None:
         """A registry entry with no real-model command still runs, with its gap."""

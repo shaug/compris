@@ -47,6 +47,13 @@ STAGES = ("baseline", "before", "after")
 REAL_MODEL = "real-model"
 DETERMINISTIC = "deterministic"
 
+# The real-model subject is pinned rather than left to whatever `claude -p`
+# defaults to in a given environment on a given day: a before/after diff taken
+# across a model update must compare two runs of the same model, not two
+# different subjects wearing the same tier name. Changing the pin is a
+# one-line edit plus a re-baseline, not a schema change.
+RECORDED_MODEL = "claude-opus-5"
+
 _RUN_FORWARD = "skills/implement-ticket/scripts/evals/run_forward.py"
 _CLAUDE_EXECUTOR = "skills/implement-ticket/scripts/evals/claude_executor.py"
 
@@ -64,14 +71,18 @@ _CLAUDE_EXECUTOR = "skills/implement-ticket/scripts/evals/claude_executor.py"
 # skill directory.
 EVAL_TARGETS = {
     "implement-ticket": {
-        "real_model": [_RUN_FORWARD, "--executor", f"{{python}} {_CLAUDE_EXECUTOR}"],
+        "real_model": [
+            _RUN_FORWARD,
+            "--executor",
+            f"{{python}} {_CLAUDE_EXECUTOR} --model {RECORDED_MODEL}",
+        ],
         "deterministic": [_RUN_FORWARD],
     },
     "implement-epic": {
         "real_model": [
             _RUN_FORWARD,
             "--executor",
-            f"{{python}} {_CLAUDE_EXECUTOR}",
+            f"{{python}} {_CLAUDE_EXECUTOR} --model {RECORDED_MODEL}",
             "--target-skill",
             "implement-epic",
         ],
@@ -84,7 +95,8 @@ EVAL_TARGETS = {
         "real_model": [
             "skills/ready-ticket/scripts/evals/run_forward.py",
             "--executor",
-            "{python} skills/ready-ticket/scripts/evals/claude_executor.py",
+            f"{{python}} skills/ready-ticket/scripts/evals/claude_executor.py "
+            f"--model {RECORDED_MODEL}",
         ],
         "deterministic": ["skills/ready-ticket/scripts/evals/run_forward.py"],
     },
@@ -107,7 +119,7 @@ TRIGGERING_TARGETS = {
             "--skill",
             skill,
             "--executor",
-            f"{{python}} {_DESCRIPTION_EXECUTOR}",
+            f"{{python}} {_DESCRIPTION_EXECUTOR} --model {RECORDED_MODEL}",
         ],
         "deterministic": [_TRIGGERING_RUNNER, "--skill", skill],
     }
@@ -199,6 +211,31 @@ def resolve_command(
     return command, resolved_tier, gap_for(resolved_tier), True
 
 
+def model_for(command: list[str], tier: str) -> str | None:
+    """The model a real-model run's own command explicitly selects, if any.
+
+    Read from the resolved command rather than a separate parameter, so a
+    registered target and a `--command` override are named the same way: both
+    are trusted only insofar as the command they actually run carries an
+    explicit `--model`, never an environment default. A deterministic run
+    records no model — there is no model to name.
+
+    A registered target's `--model` normally lives inside its `--executor`
+    argument, one compound string rather than a separate command-list token
+    (`--executor "python3 claude_executor.py --model claude-opus-5"`), so each
+    token is re-split before the flag is searched for.
+    """
+    if tier != REAL_MODEL:
+        return None
+    flat: list[str] = []
+    for token in command:
+        flat.extend(shlex.split(token) if " " in token else [token])
+    for index, token in enumerate(flat):
+        if token == "--model" and index + 1 < len(flat):
+            return flat[index + 1]
+    return None
+
+
 def run_command(
     command: list[str], reports_per_case: bool
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, str], dict[str, dict | None]]:
@@ -264,7 +301,7 @@ def results_dir(skill: str) -> Path:
 
 
 def previous_run(
-    directory: Path, tier: str, cases: dict[str, str], suite: str
+    directory: Path, tier: str, cases: dict[str, str], suite: str, model: str | None
 ) -> dict | None:
     """The most recent run this one can honestly be compared against.
 
@@ -292,6 +329,12 @@ def previous_run(
         # a diff across them would report the change of question as behavioral
         # movement.
         if recorded.get("suite", FORWARD_SUITE) != suite:
+            continue
+        # A before/after pair taken across a model update is two different
+        # subjects, not one subject over time. A summary recorded before this
+        # field existed has no model at all and is equally unusable as a
+        # model-pinned comparison.
+        if recorded.get("model") != model:
             continue
         recorded["_filename"] = path.name
         return recorded
@@ -376,6 +419,7 @@ def candidate_identity() -> dict:
         ]
     return {
         "sha": git("rev-parse", "HEAD"),
+        "tree": git("rev-parse", "HEAD^{tree}"),
         "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
         "worktree_clean": None if relevant is None else not relevant,
     }
@@ -389,6 +433,7 @@ def build_summary(
     gap: str | None,
     note: str | None,
     suite: str,
+    model: str | None,
     command: list[str],
     completed: subprocess.CompletedProcess[str],
     cases: dict[str, str],
@@ -456,6 +501,7 @@ def build_summary(
         "suite": suite,
         "recorded_at": recorded_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tier": tier,
+        "model": model,
         # Deliberately keyed off the forward suite whatever suite is being
         # recorded: the field's recorded meaning is "this skill has a
         # real-model forward executor", and making it suite-relative made
@@ -516,6 +562,7 @@ def plan(
         "skill": skill,
         "suite": suite,
         "tier": resolved_tier,
+        "model": model_for(command, resolved_tier),
         "gap": gap,
         "command": command,
     }
@@ -535,6 +582,7 @@ def record(
     command, resolved_tier, gap, reports_per_case = resolve_command(
         skill, tier, override, per_case, suite
     )
+    model = model_for(command, resolved_tier)
     completed, cases, case_evidence = run_command(command, reports_per_case)
     recorded_at = utc_now()
     directory = results_dir(skill)
@@ -545,13 +593,14 @@ def record(
         gap=gap,
         note=note,
         suite=suite,
+        model=model,
         command=command,
         completed=completed,
         cases=cases,
         case_evidence=case_evidence,
         expects_summary=reports_per_case,
         recorded_at=recorded_at,
-        previous=previous_run(directory, resolved_tier, cases, suite),
+        previous=previous_run(directory, resolved_tier, cases, suite, model),
     )
 
     path = directory / summary_filename(directory, recorded_at, stage, label, suite)
