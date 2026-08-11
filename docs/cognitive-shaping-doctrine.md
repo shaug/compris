@@ -12,13 +12,28 @@ decisions that shaped it. This document is the statement itself.
 A unit of work is correctly shaped when a reviewer can construct an accurate
 mental model of the change and evaluate it independently.
 
-Line counts inform that judgment. They never decide it, and no threshold
-substitutes for it.
+Line counts inform that judgment. They never decide it.
 
-Recorded machine-generated evidence — committed eval results, generated
-fixtures, lockfiles — is excluded, because a reviewer builds no mental model of
-it. A change carrying 177 reviewable lines and 4,538 lines of recorded eval
-results is a 177-line change.
+## Scale
+
+A changeset is sized to be read in one sitting, and most that meet the standard
+run to a few hundred changed lines. Both figures are calibration, not a gate:
+they say where the standard usually lands, not where it is enforced.
+
+Three things move the number without moving the standard.
+
+- Deletion costs less than addition, once the reason for the removal and the
+  behavior replacing it are clear.
+- Mechanical change — a systematic rename, a codemod, a formatting pass — runs
+  much larger, because the reviewer verifies one transformation instead of
+  reading every line.
+- Recorded machine-generated evidence is excluded outright. Committed eval
+  results, generated fixtures, and lockfiles are part of the change and part of
+  nothing anyone reads. A change carrying 177 reviewable lines and 4,538 lines
+  of recorded eval results is a 177-line change.
+
+Falling outside the range is not itself a defect. It is where the standard's
+question stops being rhetorical and has to be asked deliberately.
 
 ## The breakdown rules
 

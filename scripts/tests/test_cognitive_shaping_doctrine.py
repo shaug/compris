@@ -41,14 +41,23 @@ BREAKDOWN_RULES = (
     "Create follow-up work when implementation or review reveals new scope",
 )
 
-# Threshold constructions, not the words "line count". The doctrine has to be
-# able to refuse a line-count gate; what it may not do is state one.
+# What the criterion forbids is a *gate*, not a number. The doctrine carries
+# calibration figures on purpose — an unanchored "can a reviewer understand
+# it?" collapses to always-yes — so these patterns match enforcement, the
+# bound and the verb that would make a figure pass/fail.
 NUMERIC_GATE_PATTERNS = (
-    r"(?:at most|no more than|fewer than|under|up to|a maximum of|a limit of)"
+    r"(?:at most|no more than|fewer than|up to|must not exceed|may not exceed"
+    r"|a maximum of|a limit of)"
     r"\s+[\d,]+\s+(?:new or changed |changed |added )?lines",
-    r"a few hundred (?:new or changed )?lines",
     r"[\d,]+[- ]line (?:limit|cap|threshold|maximum|budget|target)",
-    r"preferred range",
+    r"(?:reject|refuse|block|fail|gate)\w*\s+(?:\w+\s+){0,3}"
+    r"(?:over|above|beyond|exceeding)\s+[\d,]+",
+)
+
+# The calibration figures only stay non-binding while the document says so.
+NON_GATE_DISCLAIMERS = (
+    "Line counts inform that judgment. They never decide it.",
+    "calibration, not a gate",
 )
 
 
@@ -99,6 +108,11 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
                     re.search(pattern, self.doc, flags=re.IGNORECASE),
                     f"doctrine states a numeric size gate matching {pattern!r}",
                 )
+
+    def test_the_calibration_figures_are_marked_non_binding(self):
+        for disclaimer in NON_GATE_DISCLAIMERS:
+            with self.subTest(disclaimer=disclaimer):
+                self.assertIn(disclaimer, self.doc)
 
 
 if __name__ == "__main__":
