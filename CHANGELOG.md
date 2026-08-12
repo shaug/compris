@@ -4,9 +4,32 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-12 — Settled how the shaping doctrine gets its authority: a bundled synced contract, not a new skill
+## 2026-08-12 — Closed the last gap between what the eval harness asserts and what any skill's prose defines, and settled how the shaping doctrine gets its authority: a bundled synced contract, not a new skill
 
-- docs: decide the shaping authority mechanism — the design record told a reader
+- test: hold every eval corpus to the terminal states its skill's prose defines
+  — a corpus state no prose names is unreachable for a model given only the
+  skill prompt, so the case grades whichever deterministic stand-in was written
+  knowing the expected string rather than the prose the evaluation exists to
+  check. `implement-epic`'s own corpus carried eleven such labels
+  (`waiting_for_child_merge`, `epic_children_merged`, `closeout_blocked`,
+  `umbrella_open`, and seven more) as required terminal states, alongside two
+  the prose does define; `ready-ticket`'s corpus already drew only on its four
+  documented states, which is the shape the others now match. Each of the
+  fifteen affected cases maps through the rule "Report the epic result" already
+  states — a stop condition means `blocked`, otherwise `mixed_ticket_results` —
+  and the authorized-closeout case records `null`, because that section reports
+  a closeout through closeout evidence rather than a single-word label. No
+  scenario detail is lost: `required_actions` already carried it, and the
+  boundary each case protects is now pinned there instead of in a bespoke label.
+  A new repository-root test enforces the invariant across every skill's corpus,
+  the shared forward corpus attributed per target skill, the closed vocabulary
+  `claude_executor.py` shows the evaluated model, and every state
+  `fixture_executor.py` can emit. `mixed_ticket_results` itself, the state that
+  prompted this, was defined in `implement-epic`'s prose by #162; this is what
+  keeps the next one from reaching the harness undefined.
+
+- docs: decide the shaping authority mechanism
+  (0c2d94c9b027373cc42e6742654945a0eedbecfb) — the design record told a reader
   the cited-versus-called framing was contested and that Spec B "should not be
   built until that alternative is argued down or adopted," which left every
   downstream leaf waiting on a question nobody had answered. The bundled synced

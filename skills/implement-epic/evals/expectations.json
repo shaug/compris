@@ -1,17 +1,17 @@
 [
   {
     "case_id": "two-child-refresh-chain",
-    "workflow_state": "epic_children_merged",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["invoke G-101 once", "verify merged", "refresh the complete graph", "select G-102 only after refresh", "invoke G-102 once"]
   },
   {
     "case_id": "named-child-boundary",
-    "workflow_state": "requested_child_merged",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["invoke only G-111", "refresh and report ready work", "leave G-112 and G-110 open"]
   },
   {
     "case_id": "ready-pr-does-not-unblock",
-    "workflow_state": "waiting_for_child_merge",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["record G-121 ready_pr", "do not select G-122", "do not claim child or epic complete"]
   },
   {
@@ -21,7 +21,7 @@
   },
   {
     "case_id": "blocked-then-independent-ready",
-    "workflow_state": "partial_progress",
+    "workflow_state": "blocked",
     "required_actions": ["preserve G-141 blocked", "select independently ready G-142", "refresh after G-142 merge"]
   },
   {
@@ -31,7 +31,7 @@
   },
   {
     "case_id": "compatible-installed-implement-ticket",
-    "workflow_state": "waiting_for_child_merge",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["record the trusted distribution binding", "verify the complete terminal and authority contract", "select G-152", "invoke the installed implement-ticket exactly once", "record ready_pr without treating it as merged"]
   },
   {
@@ -61,27 +61,27 @@
   },
   {
     "case_id": "exclusive-delegated-worktree",
-    "workflow_state": "ticket_result_verified",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["verify exclusive ownership", "verify returned candidate and worktree", "reject ambiguous mutation state"]
   },
   {
     "case_id": "ticket-evidence-pass-through",
-    "workflow_state": "graph_refresh_required",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["verify ticket evidence without reproducing review rubrics", "verify merge and transition", "refresh graph"]
   },
   {
     "case_id": "late-feedback-blocks-closeout",
-    "workflow_state": "closeout_blocked",
+    "workflow_state": "blocked",
     "required_actions": ["keep G-180 open", "record the finding", "route authorized remediation through implement-ticket"]
   },
   {
     "case_id": "authorized-full-epic-closeout",
-    "workflow_state": "epic_closed",
+    "workflow_state": null,
     "required_actions": ["verify every child and parent acceptance ledger", "verify current-main and exact deployment identities", "close G-190", "report final graph and evidence"]
   },
   {
     "case_id": "umbrella-closeout-separately",
-    "workflow_state": "umbrella_open",
+    "workflow_state": "blocked",
     "required_actions": ["verify G-201 separately", "keep G-202 open", "keep G-200 open"]
   },
   {
@@ -91,12 +91,12 @@
   },
   {
     "case_id": "parallel-nonoverlap-required",
-    "workflow_state": "serial_execution_required",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["reject parallel mutation", "sequence shared-contract work", "recompute readiness after each result"]
   },
   {
     "case_id": "equivalent-isolated-context-profile",
-    "workflow_state": "epic_children_merged",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["accept equivalent isolated context terminology", "verify G-231 merged evidence", "refresh the complete graph", "preserve review ownership inside implement-ticket"]
   },
   {
@@ -121,17 +121,17 @@
   },
   {
     "case_id": "verify-stacked-child-result",
-    "workflow_state": "stack_child_verified",
+    "workflow_state": "mixed_ticket_results",
     "required_actions": ["verify stack topology and every PR gate", "verify all_merged and full-chain representation on base", "do not invoke carve-changesets directly", "refresh graph before considering G-282"]
   },
   {
     "case_id": "closed-children-missing-manual-browser",
-    "workflow_state": "closeout_blocked",
+    "workflow_state": "blocked",
     "required_actions": ["read the closed child ledger", "record manual browser evidence as missing", "keep G-290 open", "report delivery separately from acceptance"]
   },
   {
     "case_id": "reopened-correction-missing-journey-revalidation",
-    "workflow_state": "closeout_blocked",
+    "workflow_state": "blocked",
     "required_actions": ["preserve the corrective child result", "require full affected journey revalidation", "keep G-300 open", "do not impose unrelated full-system testing"]
   },
   {
