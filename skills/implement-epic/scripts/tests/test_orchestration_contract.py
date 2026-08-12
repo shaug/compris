@@ -120,7 +120,7 @@ class ImplementEpicContractTests(unittest.TestCase):
 
     def test_dependency_provenance_evals_are_paired_and_result_blind(self):
         expected_states = {
-            "compatible-installed-implement-ticket": "waiting_for_child_merge",
+            "compatible-installed-implement-ticket": "mixed_ticket_results",
             "missing-implement-ticket": "blocked",
             "third-party-same-name-implement-ticket": "blocked",
             "incompatible-repository-implement-ticket": "blocked",
@@ -235,43 +235,76 @@ class ImplementEpicContractTests(unittest.TestCase):
         self.assertTrue(self.cases)
         self.assertEqual(set(self.cases), set(self.expectations))
 
+    def test_eval_expectations_draw_only_on_documented_states(self):
+        # A corpus state this skill's prose never defines is unreachable for a
+        # model given only the prompt, so the case would grade a deterministic
+        # stand-in rather than the prose. `null` records the authorized-closeout
+        # case, which "Report the epic result" reports through closeout evidence
+        # rather than a single-word label. scripts/tests/
+        # test_terminal_state_prose_coverage.py enforces this across every skill.
+        for case_id, expectation in self.expectations.items():
+            with self.subTest(case=case_id):
+                self.assertIn(
+                    expectation["workflow_state"],
+                    ("blocked", "mixed_ticket_results", None),
+                )
+        unlabeled = {
+            case_id
+            for case_id, expectation in self.expectations.items()
+            if expectation["workflow_state"] is None
+        }
+        self.assertEqual({"authorized-full-epic-closeout"}, unlabeled)
+
     def test_eval_expectations_preserve_critical_boundaries(self):
-        self.assertEqual(
-            "waiting_for_child_merge",
-            self.expectations["ready-pr-does-not-unblock"]["workflow_state"],
-        )
-        self.assertEqual(
-            "blocked", self.expectations["missing-implement-ticket"]["workflow_state"]
-        )
-        self.assertEqual(
-            "closeout_blocked",
-            self.expectations["late-feedback-blocks-closeout"]["workflow_state"],
-        )
-        self.assertEqual(
-            "serial_execution_required",
-            self.expectations["parallel-nonoverlap-required"]["workflow_state"],
-        )
+        # Each documented state covers many scenarios, so the boundary a case
+        # exists to protect is pinned by its own required action rather than by
+        # a bespoke per-case label.
+        for case_id, state, boundary in (
+            (
+                "ready-pr-does-not-unblock",
+                "mixed_ticket_results",
+                "do not claim child or epic complete",
+            ),
+            (
+                "missing-implement-ticket",
+                "blocked",
+                "fail before child selection or mutation",
+            ),
+            ("late-feedback-blocks-closeout", "blocked", "keep G-180 open"),
+            (
+                "parallel-nonoverlap-required",
+                "mixed_ticket_results",
+                "reject parallel mutation",
+            ),
+            (
+                "verify-stacked-child-result",
+                "mixed_ticket_results",
+                "verify stack topology and every PR gate",
+            ),
+            (
+                "closed-children-missing-manual-browser",
+                "blocked",
+                "record manual browser evidence as missing",
+            ),
+            (
+                "reopened-correction-missing-journey-revalidation",
+                "blocked",
+                "require full affected journey revalidation",
+            ),
+            ("authorized-full-epic-closeout", None, "close G-190"),
+        ):
+            with self.subTest(case=case_id):
+                expectation = self.expectations[case_id]
+                self.assertEqual(state, expectation["workflow_state"])
+                self.assertIn(
+                    boundary, compact(" ".join(expectation["required_actions"]))
+                )
         for case_id in (
             "missing-review-dependency-through-ticket",
             "missing-isolation-capability",
             "missing-asynchronous-wait",
         ):
             self.assertEqual("blocked", self.expectations[case_id]["workflow_state"])
-        self.assertEqual(
-            "stack_child_verified",
-            self.expectations["verify-stacked-child-result"]["workflow_state"],
-        )
-        for case_id in (
-            "closed-children-missing-manual-browser",
-            "reopened-correction-missing-journey-revalidation",
-        ):
-            self.assertEqual(
-                "closeout_blocked", self.expectations[case_id]["workflow_state"]
-            )
-        self.assertEqual(
-            "epic_closed",
-            self.expectations["authorized-full-epic-closeout"]["workflow_state"],
-        )
 
     def test_verified_delivery_refreshes_graph_even_when_acceptance_blocks(self):
         self.assertIn(
