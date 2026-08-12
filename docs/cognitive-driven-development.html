@@ -499,7 +499,7 @@
       <li><a href="#custody">Ending shared custody</a></li>
       <li><a href="#shaper">The shaping skill</a></li>
       <li><a href="#program">Four specs</a></li>
-      <li><a href="#alts">Alternatives open</a></li>
+      <li><a href="#alts">Alternatives weighed</a></li>
       <li><a href="#decisions">Decisions on record</a></li>
       <li><a href="#status">What the evidence shows</a></li>
       <li><a href="#evidence">Verified evidence</a></li>
@@ -969,10 +969,10 @@
         <p>
           <b>The counterexample holds.</b> <code>review-suite/</code> distributes canonical
           normative text that <code>just sync-contracts</code> bundles verbatim into each consumer
-          and <code>just check-installed</code> drift-checks, with no skill involved. Three skills
-          consume it that way today. So <em>a document gets cited; a skill gets called</em> is a
-          false binary, and the mechanism that refutes it has been running in this tree the whole
-          time.
+          and a bundled-contract test drift-checks under <code>just test</code>, with no skill
+          involved. Three skills consume it that way today. So <em>a document gets cited; a skill
+          gets called</em> is a false binary, and the mechanism that refutes it has been running in
+          this tree the whole time.
         </p>
         <p>
           It also draws the line the brief needed. In <code>review-suite/</code> the synced text
@@ -1074,9 +1074,14 @@
         <p class="why">
           The stable contract every activated and re-cut leaf builds against is
           <code>docs/cognitive-shaping-doctrine.md</code>, and its stable distribution is
-          <code>just sync-contracts</code> with <code>just check-installed</code> as the drift
-          check — the same pair <code>review-suite/</code> already uses. One leaf has to be cut for
-          that distribution itself, since it does not exist yet and #192 and #193 both depend on it.
+          <code>just sync-contracts</code> with a bundled-contract test under
+          <code>just test</code> as the drift gate — the same pair <code>review-suite/</code>
+          already uses. Take that pairing literally: <code>just check-installed</code> compares the
+          separately <em>installed</em> snapshot under <code>~/.agents/skills</code> and is
+          deliberately excluded from <code>lint</code> and <code>check</code>, so it is a useful
+          operator check but cannot be the gate a downstream leaf relies on. One leaf has to be cut
+          for that distribution itself, since it does not exist yet and #192 and #193 both depend
+          on it.
         </p>
       </div>
 

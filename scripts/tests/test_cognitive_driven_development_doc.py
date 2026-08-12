@@ -95,8 +95,9 @@ COUNTEREXAMPLE_CLAIMS = (
     compact(
         """
         The counterexample holds. review-suite/ distributes canonical normative
-        text that just sync-contracts bundles verbatim into each consumer and
-        just check-installed drift-checks, with no skill involved.
+        text that just sync-contracts bundles verbatim into each consumer and a
+        bundled-contract test drift-checks under just test, with no skill
+        involved.
         """
     ),
     compact(
@@ -148,12 +149,19 @@ ENTRY_WINDOW = 100
 
 
 def strip_html(markup: str) -> str:
-    """Reduce the presentation copy to the prose a reader actually sees."""
+    """Reduce the presentation copy to the prose a reader actually sees.
+
+    Each tag becomes a space, since dropping it outright would weld the words
+    on either side together. That leaves a space before any punctuation that
+    followed a tag — `<code>just test</code>,` — which the rendered page does
+    not show, so it is closed again here.
+    """
     without_style = re.sub(
         r"<style\b.*?</style>", " ", markup, flags=re.DOTALL | re.IGNORECASE
     )
     without_comments = re.sub(r"<!--.*?-->", " ", without_style, flags=re.DOTALL)
-    return html_module.unescape(re.sub(r"<[^>]+>", " ", without_comments))
+    spaced = html_module.unescape(re.sub(r"<[^>]+>", " ", without_comments))
+    return re.sub(r"\s+([,.;:!?])", r"\1", spaced)
 
 
 def strip_markdown(source: str) -> str:

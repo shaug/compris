@@ -390,11 +390,11 @@ so no skill loads it today. That gap, not a new contract shape, is what Spec B
 now closes.
 
 **The counterexample holds.** `review-suite/` distributes canonical normative
-text that `just sync-contracts` bundles verbatim into each consumer and
-`just check-installed` drift-checks, with no skill involved. Three skills
-consume it that way today. So *a document gets cited; a skill gets called* is a
-false binary, and the mechanism that refutes it has been running in this tree
-the whole time.
+text that `just sync-contracts` bundles verbatim into each consumer and a
+bundled-contract test drift-checks under `just test`, with no skill involved.
+Three skills consume it that way today. So *a document gets cited; a skill gets
+called* is a false binary, and the mechanism that refutes it has been running in
+this tree the whole time.
 
 It also draws the line the brief needed. In `review-suite/` the synced text
 carries the contract and the skills carry the verdict. Each mechanism is doing
@@ -459,9 +459,13 @@ that follows this record; nothing here mutates the graph.
 
 The stable contract every activated and re-cut leaf builds against is
 `docs/cognitive-shaping-doctrine.md`, and its stable distribution is
-`just sync-contracts` with `just check-installed` as the drift check — the same
-pair `review-suite/` already uses. One leaf has to be cut for that distribution
-itself, since it does not exist yet and #192 and #193 both depend on it.
+`just sync-contracts` with a bundled-contract test under `just test` as the
+drift gate — the same pair `review-suite/` already uses. Take that pairing
+literally: `just check-installed` compares the separately *installed* snapshot
+under `~/.agents/skills` and is deliberately excluded from `lint` and `check`,
+so it is a useful operator check but cannot be the gate a downstream leaf relies
+on. One leaf has to be cut for that distribution itself, since it does not exist
+yet and #192 and #193 both depend on it.
 
 ### `plan-implementation` consumes an approved design; it does not produce one
 
