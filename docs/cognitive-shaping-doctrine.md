@@ -38,7 +38,7 @@ question stops being rhetorical and has to be asked deliberately.
 ## The breakdown rules
 
 - Keep an initiative executable as one ticket when it is already reviewable.
-- Avoid one-child decomposition without a real reason.
+- Never decompose to a single child.
 - Separate unrelated concern domains.
 - Prefer additive foundations before disruptive transitions.
 - Separate mechanical restructuring from behavioral change when that helps
@@ -47,9 +47,16 @@ question stops being rhetorical and has to be asked deliberately.
 - Identify re-split triggers before implementation.
 - Create follow-up work when implementation or review reveals new scope.
 
-One ticket is a legal outcome. The first two rules outrank the impulse to
-decompose: a breakdown that splits because splitting is what a breakdown does
-buys review overhead and nothing else.
+One ticket is a legal outcome, and it is the whole of the single-unit case. A
+leaf is a unit of work; a parent groups leaves into a milestone, a goal, or a
+larger initiative. A parent holding one child is neither — it represents nothing
+its child does not already represent, and it costs a level of indirection to say
+so. Where the work fits one ticket the first rule applies and no parent is
+created, which leaves the second nothing to permit.
+
+Both rules exist to outrank the impulse to decompose. A breakdown that splits
+because splitting is what a breakdown does buys review overhead and nothing
+else.
 
 Creating follow-up work is the one rule that applies downstream. It is
 discharged when implementation or review reveals the new scope, not when the

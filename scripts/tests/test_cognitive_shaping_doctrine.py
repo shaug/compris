@@ -32,7 +32,7 @@ MENTAL_MODEL_STANDARD = compact(
 # rule set quietly becomes a summary of itself.
 BREAKDOWN_RULES = (
     "Keep an initiative executable as one ticket when it is already reviewable",
-    "Avoid one-child decomposition without a real reason",
+    "Never decompose to a single child",
     "Separate unrelated concern domains",
     "Prefer additive foundations before disruptive transitions",
     "Separate mechanical restructuring from behavioral change when that helps review",
