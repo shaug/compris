@@ -4,10 +4,32 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-12 — Settled how the shaping doctrine gets its authority: a bundled synced contract, not a new skill
+
+- docs: decide the shaping authority mechanism — the design record told a reader
+  the cited-versus-called framing was contested and that Spec B "should not be
+  built until that alternative is argued down or adopted," which left every
+  downstream leaf waiting on a question nobody had answered. The bundled synced
+  contract is adopted: canonical doctrine text distributed by stable path and
+  mechanically drift-checked, with no new skill. The `review-suite`
+  counterexample holds and draws the line the brief missed — there, the synced
+  text carries the contract and the skills carry the verdict — so the question
+  was never which mechanism is legitimate but whether any caller has
+  demonstrated it needs a verdict, and none has. The publication size gate is
+  the strongest candidate and already runs the contract mechanism without
+  failing. The executable verdict and the fourth review lens are rejected with
+  reasons, the telemetry-first ordering is adopted alongside, Spec C's planner
+  alternative is left open, and every downstream leaf carries a disposition:
+  #190 and #191 superseded, #192 and #193 re-cut against the bundled doctrine,
+  #194 and #195 activated. The decision is reversible on the telemetry it keeps.
+  A new contract test holds all of it against both the canonical Markdown and
+  its HTML presentation copy, which is what makes their equivalence checkable.
+
 ## 2026-08-11 — Gave the cognitive-shaping doctrine a single canonical home in compris, and made recorded evidence reproducible by a later reader: named the tree and model an eval summary measured, and made the root test suite import under the invocation ticket bodies actually name
 
 - fix: make every `scripts/tests/` module import under the module-path
-  invocation, not only under discovery — each module took its sibling
+  invocation, not only under discovery
+  (e906fb92b9a2c1df56562c2b1ab71daf34063203) — each module took its sibling
   `helpers.py` on the `sys.path` entry `unittest discover` happens to supply, so
   `python3 -m unittest scripts.tests.test_skill_authoring_doc`, the form ticket
   bodies keep naming as required pre-merge verification (#186 did), errored with
@@ -20,7 +42,8 @@ summary: Chronological history of repository and skill changes.
   5431e75; `carve-changesets` and `review-fix-loop` carry the same defect and
   stay discovery-only for now.
 
-- docs: publish the canonical cognitive-shaping doctrine —
+- docs: publish the canonical cognitive-shaping doctrine
+  (5c45cd2b9b9137f985b9e5e9d343894553efc1cd) —
   `docs/cognitive-shaping-doctrine.md` is now the one place the standard that
   decides whether a unit of work is comprehensible is stated. It carries the
   mental-model test at its fixed wording, all eight breakdown rules, the

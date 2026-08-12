@@ -6,10 +6,9 @@ together with the vocabulary that carries it and the skill that enforces it.
 
 Nothing described here is built. This document records the direction, the
 decisions behind it, the evidence they rest on, the four specs it decomposes
-into, the alternatives not yet ruled out, and the one experiment still owed.
+into, the alternatives weighed against them, and the one experiment still owed.
 
-This Markdown is canonical for review.
-[`cognitive-driven-development.html`](cognitive-driven-development.html) is a
+This Markdown is canonical for review. [cognitive-driven-development.html] is a
 presentation copy of the same content, committed alongside it. When one changes,
 change both.
 
@@ -207,11 +206,12 @@ makes the doctrine enforceable rather than aspirational, and compris has the
 exact precedent — `review-code-change` does not implement its three lenses, it
 invokes them and reconciles typed verdicts.
 
-**That framing is contested, and the contest is unresolved.**
-Cited-versus-called is a false binary: `review-suite/` distributes canonical
-normative text by mechanical sync and drift check, with no skill involved. See
-[Alternatives not yet ruled out](#alternatives-not-yet-ruled-out). Spec B should
-not be built until that alternative is argued down or adopted.
+**That framing was contested, and the contest is now settled against it.**
+Cited-versus-called is a false binary, and
+[the shaping authority is a bundled synced contract, not a new skill] records
+why. The contract below is preserved as the design it would take, not as work
+that is authorized; read it as the rejected alternative's specification rather
+than a plan.
 
 | Facet               | Contract                                                                                                                                                                                                                                                  |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -273,14 +273,17 @@ it; atelier drops its section and points here.
 actually ends shared custody, and it is complete on its own. Ships on
 infrastructure that already exists.
 
-### Spec B — an executable shaping verdict
+### Spec B — the shaping authority
 
-The shaping skill and its contract, the shaping corpus, and the re-split
-telemetry. Two real callers exist on day one: `carve-changesets`, and
-`implement-ticket`'s size gate, which already loads a shape authority by stable
-name and is forbidden to substitute local heuristics.
+Originally *an executable shaping verdict*: the shaping skill and its contract,
+the shaping corpus, and the re-split telemetry.
 
-*Depends on A for the standard it enforces.* Does not depend on C.
+*Resolved.* The executable verdict is rejected and the spec is re-cut around the
+bundled synced contract plus the telemetry that would later justify a verdict.
+What survives is the doctrine's distribution, its two consumers, and the
+measurement; the skill, its corpus, and its three terminal states do not.
+
+*Depends on A for the standard it distributes.* Does not depend on C.
 
 ### Spec C — the planner
 
@@ -311,14 +314,18 @@ becomes `plan-implementation` under Spec C. `implement-ticket` does not mislead;
 it really does take one ticket, and `implement-epic` keeps a noun users say out
 loud. A big-bang rename buys nothing and costs routing.
 
-## Alternatives not yet ruled out
+## Alternatives the conversation never examined
 
 The shape above was reached by convergence over one long conversation, which is
 exactly the condition under which unexamined alternatives survive. Three were
 never put on the table. The first is the most serious, because it attacks Spec
 B's premise rather than offering a variation on it.
 
-### A bundled synced contract, with no new skill
+Three of the four have since been ruled on — see
+[the shaping authority decision]. They are kept here in the form they were
+argued in, because a decision read without the case against it is an assertion.
+
+### A bundled synced contract, with no new skill — **adopted**
 
 This brief argues that "a document gets cited; a skill gets called," and
 concludes that only a skill makes the doctrine enforceable. **That is a false
@@ -335,7 +342,7 @@ corpus.
 *Trades away:* nothing measures whether a given breakdown obeyed the doctrine,
 so there is no typed verdict at the size gate and no prediction-feedback loop.
 
-### Shape as a fourth review lens
+### Shape as a fourth review lens — **rejected**
 
 `review-code-change` already invokes three read-only lenses and reconciles typed
 verdicts against a shared schema. A shape lens would inherit the shared packet,
@@ -347,7 +354,7 @@ decompositions, so this cannot serve plan-time input. It covers two of the three
 named callers, which isolates the real question — whether the third caller alone
 justifies a new contract shape, three terminal states, and a new corpus.
 
-### Build only the missing edge
+### Build only the missing edge — **still open**
 
 Keep `ready-ticket` under its name and its per-item authority, and build the one
 thing it demonstrably cannot do: turning `decomposition_recommended` into a
@@ -360,7 +367,7 @@ Spec C bundles — is the value in the *graph output* or in the *breakdown
 method*? This delivers the first without buying the second, and the answer says
 whether Spec C needs to exist as written.
 
-### An ordering variant worth naming
+### An ordering variant worth naming — **adopted**
 
 This brief calls re-split telemetry "the real measure," and it appears nowhere
 in the program. Shipping it first — leaf tickets record a predicted shape, which
@@ -370,6 +377,95 @@ with zero prose changes, would produce the labeled data this whole program is
 justified by *before* the program is built.
 
 ## Decisions on record
+
+### The shaping authority is a bundled synced contract, not a new skill
+
+The selected mechanism is the bundled synced contract: canonical doctrine text,
+distributed by stable path and mechanically drift-checked, with no new skill.
+
+The text already exists. [cognitive-shaping-doctrine.md] is compris's statement
+of the standard, and Spec A shipped it. What is missing is only its
+*distribution* — nothing bundles it into a consumer and nothing drift-checks it,
+so no skill loads it today. That gap, not a new contract shape, is what Spec B
+now closes.
+
+**The counterexample holds.** `review-suite/` distributes canonical normative
+text that `just sync-contracts` bundles verbatim into each consumer and a
+bundled-contract test drift-checks under `just test`, with no skill involved.
+Three skills consume it that way today. So *a document gets cited; a skill gets
+called* is a false binary, and the mechanism that refutes it has been running in
+this tree the whole time.
+
+It also draws the line the brief needed. In `review-suite/` the synced text
+carries the contract and the skills carry the verdict. Each mechanism is doing
+what the other cannot, which means the question was never which one is
+legitimate. It is whether any caller has demonstrated it needs a verdict rather
+than a contract.
+
+**None has, and the strongest candidate is evidence against.** The publication
+size gate already runs the contract mechanism: it loads `carve-changesets` by
+stable name, reads its live guardrails, and is forbidden to substitute local
+heuristics. That is text loaded by stable name and judged in place, and it has
+not failed. It has also barely been asked — `carve-changesets` has never carved
+anything here — but an unexercised mechanism is a reason to measure it, not a
+reason to replace it with a larger one.
+
+That reading is the brief's own. It concedes the program is capability-driven
+rather than failure-driven, against `docs/skill-authoring.md:24`'s requirement
+that a change trace to an observed failure. A synced contract is the smallest
+mechanism that satisfies the capability; a skill, a contract, three terminal
+states, a trap-based corpus and a judge panel is the largest.
+
+- **Rejected: an executable shaping verdict.** No caller has demonstrated it
+  needs a verdict rather than a contract. Its distinctive value — a typed
+  judgment and the prediction-feedback loop — is real but unmeasurable until
+  something records predictions to compare against, which is the ordering
+  problem below rather than an argument for building it first.
+- **Rejected: shape as a fourth review lens.** It answers a question no caller
+  is asking, at the one moment the answer cannot be acted on. Lenses run on a
+  committed candidate, so a lens reports that a merged-shaped change was badly
+  shaped after the shaping is spent. It would also inherit
+  `review-code-change`'s aggregate verdict, making shape a review blocker in a
+  repository that has deliberately declined shape gating.
+- **Not ruled on: build only the missing edge.** It varies Spec C's planner
+  rather than Spec B's authority, and Spec C stays independent of this decision.
+  Deciding it here would settle a planner question under a mechanism ticket.
+- **Adopted alongside: the telemetry-first ordering.** It is the instrument that
+  would make a later executable verdict an evidence-driven choice rather than a
+  second convergence. It is buildable today against `git log` with zero prose
+  changes, and it already earned its keep once: the retrospective pass caught
+  the eval-results distortion on first contact.
+
+**This decision is reversible on evidence rather than on argument.** The
+executable verdict is rejected as unjustified now, not as wrong. The telemetry
+this spec keeps is what would justify it: once predicted shape and actual
+outcome are recorded against named re-split triggers, the question stops being
+which mechanism sounds enforceable and becomes whether the contract mechanism's
+predictions held. Re-open it on that data.
+
+#### Downstream disposition
+
+Every Spec B leaf, and what to do with it. Executing these is caller-owned work
+that follows this record; nothing here mutates the graph.
+
+| Leaf                                               | Disposition                                                                                                                                                           |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #190 — seam-based shaping corpus and evaluator     | **superseded** — it is the executable verdict's evaluation surface. Re-cut as the retrospective merged-history corpus, which grades shipped shape rather than a skill |
+| #191 — the typed, read-only shaping skill          | **superseded** — closed with no replacement. This is the leaf the decision rejects outright                                                                           |
+| #192 — `carve-changesets` shape delegation         | **re-cut** — retire its cognitive-load guardrails and decomposition-order sections in favor of the bundled doctrine, consumed by stable path rather than invoked      |
+| #193 — `implement-ticket` publication-size gate    | **re-cut** — read the bundled doctrine by stable path instead of `carve-changesets`' live guardrails. The gate keeps classifying; no typed verdict arrives            |
+| #194 — predicted shape and actual outcome          | **activated** — unchanged in substance, and its blocker on #193 drops, since it no longer waits on a verdict contract                                                 |
+| #195 — reviewability and operator-effort telemetry | **activated** — unchanged, still following #194                                                                                                                       |
+
+The stable contract every activated and re-cut leaf builds against is
+`docs/cognitive-shaping-doctrine.md`, and its stable distribution is
+`just sync-contracts` with a bundled-contract test under `just test` as the
+drift gate — the same pair `review-suite/` already uses. Take that pairing
+literally: `just check-installed` compares the separately *installed* snapshot
+under `~/.agents/skills` and is deliberately excluded from `lint` and `check`,
+so it is a useful operator check but cannot be the gate a downstream leaf relies
+on. One leaf has to be cut for that distribution itself, since it does not exist
+yet and #192 and #193 both depend on it.
 
 ### `plan-implementation` consumes an approved design; it does not produce one
 
@@ -622,3 +718,10 @@ surface-observable contract.
   house step. Preserves the binding; a translation step can lose or invent.
 - _Structure only_ — take the file map, task boundaries and sequencing; compris
   owns everything test-shaped. Cleanest boundary, least peer value.
+
+<!-- inline reference link definitions. please keep alphabetized -->
+
+[cognitive-driven-development.html]: cognitive-driven-development.html
+[cognitive-shaping-doctrine.md]: cognitive-shaping-doctrine.md
+[the shaping authority decision]: #the-shaping-authority-is-a-bundled-synced-contract-not-a-new-skill
+[the shaping authority is a bundled synced contract, not a new skill]: #the-shaping-authority-is-a-bundled-synced-contract-not-a-new-skill
