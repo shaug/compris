@@ -4,7 +4,21 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-11 — Gave the cognitive-shaping doctrine a single canonical home in compris, and named the tree and the model an eval summary measured
+## 2026-08-11 — Gave the cognitive-shaping doctrine a single canonical home in compris, and made recorded evidence reproducible by a later reader: named the tree and model an eval summary measured, and made the root test suite import under the invocation ticket bodies actually name
+
+- fix: make every `scripts/tests/` module import under the module-path
+  invocation, not only under discovery — each module took its sibling
+  `helpers.py` on the `sys.path` entry `unittest discover` happens to supply, so
+  `python3 -m unittest scripts.tests.test_skill_authoring_doc`, the form ticket
+  bodies keep naming as required pre-merge verification (#186 did), errored with
+  `ModuleNotFoundError: No module named 'helpers'` before any assertion ran, and
+  a later reader running the criterion verbatim could not reproduce the recorded
+  evidence. Each module now establishes its own `__file__`-relative entry, the
+  convention `review-suite/scripts/tests/` already used, and
+  `test_suite_invocation.py` holds the suite to it by importing every module
+  from the repository root with `PYTHONPATH` stripped. Pre-existing since
+  5431e75; `carve-changesets` and `review-fix-loop` carry the same defect and
+  stay discovery-only for now.
 
 - docs: publish the canonical cognitive-shaping doctrine —
   `docs/cognitive-shaping-doctrine.md` is now the one place the standard that
@@ -15,6 +29,7 @@ summary: Chronological history of repository and skill changes.
   machine-generated eval evidence from shape judgment. No numeric line-count
   gate is presented as correctness policy, and no skill behavior changes here —
   binding each consumer to it is tracked separately.
+  (5c45cd2b9b9137f985b9e5e9d343894553efc1cd)
 
 - fix: record the candidate's git tree hash and, for real-model runs, the pinned
   model name in every recorded eval summary — `candidate.sha` names a branch

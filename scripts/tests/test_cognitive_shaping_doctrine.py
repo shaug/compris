@@ -9,10 +9,15 @@ here rather than inside any one skill's test suite, exactly as
 from __future__ import annotations
 
 import re
+import sys
 import unittest
 from pathlib import Path
 
-from helpers import compact
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
+from helpers import compact  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
