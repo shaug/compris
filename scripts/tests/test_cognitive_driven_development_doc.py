@@ -125,27 +125,24 @@ REVERSIBILITY = compact(
     """
 )
 
-# Every downstream Spec B leaf, and the disposition it carries. `superseded`
-# and `re-cut` and `activated` are the closed vocabulary; a leaf missing from
-# this table is a leaf whose owner cannot tell whether to build it.
-DOWNSTREAM_DISPOSITIONS = {
-    "#190": "superseded",
-    "#191": "superseded",
-    "#192": "re-cut",
-    "#193": "re-cut",
-    "#194": "activated",
-    "#195": "activated",
-}
+# Every downstream Spec B leaf, named together with the disposition it carries.
+# `superseded`, `re-cut` and `activated` are the closed vocabulary; a leaf
+# missing from this table is a leaf whose owner cannot tell whether to build it.
+# Each phrase pairs the leaf with its verdict, so adjacency is asserted rather
+# than inferred — a bare leaf number would not do, since #192, #193 and #194 are
+# each mentioned again outside the table.
+DOWNSTREAM_DISPOSITIONS = (
+    "#190 — seam-based shaping corpus and evaluator superseded",
+    "#191 — the typed, read-only shaping skill superseded",
+    "#192 — carve-changesets shape delegation re-cut",
+    "#193 — implement-ticket publication-size gate re-cut",
+    "#194 — predicted shape and actual outcome activated",
+    "#195 — reviewability and operator-effort telemetry activated",
+)
 
 # The stable name the activated and re-cut work builds against. Without it the
 # disposition says what to do and not what to do it against.
 STABLE_CONTRACT_NAME = "docs/cognitive-shaping-doctrine.md"
-
-# A disposition belongs to the leaf it sits beside, so it is searched for in a
-# window narrower than one entry. Every disposition lands within about fifty
-# characters of its leaf, and no entry is anywhere near this short, so the
-# window cannot reach a neighbour's verdict.
-ENTRY_WINDOW = 100
 
 
 def strip_html(markup: str) -> str:
@@ -214,17 +211,9 @@ class ShapingAuthorityDecisionTests(unittest.TestCase):
         self.assert_in_both(REVERSIBILITY)
 
     def test_every_downstream_leaf_carries_a_disposition(self):
-        for leaf, disposition in DOWNSTREAM_DISPOSITIONS.items():
-            for copy_name, text in self.copies.items():
-                with self.subTest(copy=copy_name, leaf=leaf):
-                    start = text.find(leaf)
-                    self.assertNotEqual(start, -1, f"{leaf} is never mentioned")
-                    entry = text[start : start + ENTRY_WINDOW]
-                    self.assertIn(
-                        disposition,
-                        entry,
-                        f"{leaf} carries no {disposition!r} disposition",
-                    )
+        for disposition in DOWNSTREAM_DISPOSITIONS:
+            with self.subTest(leaf=disposition[:4]):
+                self.assert_in_both(disposition)
 
     def test_the_activated_work_names_its_stable_contract(self):
         self.assert_in_both(STABLE_CONTRACT_NAME)

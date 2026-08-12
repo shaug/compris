@@ -8,9 +8,9 @@ Nothing described here is built. This document records the direction, the
 decisions behind it, the evidence they rest on, the four specs it decomposes
 into, the alternatives weighed against them, and the one experiment still owed.
 
-This Markdown is canonical for review. [`cognitive-driven-development.html`] is
-a presentation copy of the same content, committed alongside it. When one
-changes, change both.
+This Markdown is canonical for review. [cognitive-driven-development.html] is a
+presentation copy of the same content, committed alongside it. When one changes,
+change both.
 
 ## The practice
 
@@ -383,8 +383,8 @@ justified by *before* the program is built.
 The selected mechanism is the bundled synced contract: canonical doctrine text,
 distributed by stable path and mechanically drift-checked, with no new skill.
 
-The text already exists. [`cognitive-shaping-doctrine.md`] is compris's
-statement of the standard, and Spec A shipped it. What is missing is only its
+The text already exists. [cognitive-shaping-doctrine.md] is compris's statement
+of the standard, and Spec A shipped it. What is missing is only its
 *distribution* — nothing bundles it into a consumer and nothing drift-checks it,
 so no skill loads it today. That gap, not a new contract shape, is what Spec B
 now closes.
@@ -721,7 +721,7 @@ surface-observable contract.
 
 <!-- inline reference link definitions. please keep alphabetized -->
 
+[cognitive-driven-development.html]: cognitive-driven-development.html
+[cognitive-shaping-doctrine.md]: cognitive-shaping-doctrine.md
 [the shaping authority decision]: #the-shaping-authority-is-a-bundled-synced-contract-not-a-new-skill
 [the shaping authority is a bundled synced contract, not a new skill]: #the-shaping-authority-is-a-bundled-synced-contract-not-a-new-skill
-[`cognitive-driven-development.html`]: cognitive-driven-development.html
-[`cognitive-shaping-doctrine.md`]: cognitive-shaping-doctrine.md
