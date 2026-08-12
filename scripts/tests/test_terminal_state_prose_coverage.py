@@ -18,6 +18,13 @@ named, so a skill that grows a corpus or an executor is covered on arrival:
 - each `scripts/evals/fixture_executor.py`, whose deterministic stand-in must
   emit nothing its skill's prose and its sibling vocabulary do not both allow.
 
+Those globs are rooted at `skills/*` and match the three shapes above, which is
+this module's scope boundary: the invariant binds a harness a skill owns, where
+that skill's own prose is what must define the state. Harnesses of another shape
+or another root are not reached — `review-suite/scripts/evals/`,
+`triggering/executors/`, and `review-fix-loop`'s corpus, which is a Python
+module rather than one of the JSON corpora named above.
+
 Corpora record an outcome under three different keys, and an unrecognized
 fourth would exempt a whole corpus while every assertion here still passed —
 so `corpus_outcomes` raises on a case it cannot read rather than returning
@@ -38,6 +45,7 @@ import ast
 import json
 import tempfile
 import unittest
+from collections.abc import Iterable
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -65,21 +73,15 @@ def skill_prose(skill: str) -> str:
     return "\n".join(path.read_text() for path in documents if path.is_file())
 
 
-def undefined_states(
-    claimed: dict[str, set[str]], prose: dict[str, str]
-) -> dict[str, set[str]]:
-    """Return, per skill, the claimed states that skill's own prose never defines.
+def undefined_states(states: Iterable[str], prose: str) -> set[str]:
+    """Return the claimed states the given prose never defines.
 
     A state counts as defined only in its backticked form, which is how every
     skill in this repository writes one. Bare-word matching would accept the
     English words "blocked" and "merged" wherever they appear as prose and
     report coverage a reader could not act on.
     """
-    return {
-        skill: missing
-        for skill, states in claimed.items()
-        if (missing := {s for s in states if f"`{s}`" not in prose.get(skill, "")})
-    }
+    return {state for state in states if f"`{state}`" not in prose}
 
 
 def corpora() -> list[Path]:
@@ -91,15 +93,19 @@ def corpora() -> list[Path]:
     )
 
 
-def corpus_outcomes(path: Path) -> dict[str, str | None]:
-    """One corpus's outcomes, attributed to the skill each case targets.
+def corpus_outcomes(path: Path) -> list[tuple[str, str, str | None]]:
+    """One corpus's `(target skill, case id, outcome)` triples, in file order.
+
+    A list rather than a mapping: keying by target and case id would silently
+    collapse a repeated pair into one entry, dropping a case from every
+    assertion below — the same invisible exemption this module exists to close.
 
     Raises on a case recording its outcome somewhere this function cannot read.
-    Returning `None` there instead would exempt the corpus silently, which is
-    the same invisible gap this module exists to close.
+    Returning `None` there instead would exempt the corpus silently, for the
+    same reason.
     """
     owner = path.parents[1].name
-    outcomes: dict[str, str | None] = {}
+    outcomes: list[tuple[str, str, str | None]] = []
     for case in json.loads(path.read_text()):
         target = case.get("target_skill", owner)
         for key in OUTCOME_KEYS:
@@ -118,7 +124,7 @@ def corpus_outcomes(path: Path) -> dict[str, str | None]:
                     )
                 nested = nested[key]
             outcome = nested
-        outcomes[f"{target}::{case['case_id']}"] = outcome
+        outcomes.append((target, case["case_id"], outcome))
     return outcomes
 
 
@@ -173,7 +179,7 @@ def executor_targets(executor: Path) -> list[str]:
     corpus = SKILLS_ROOT / owner / "evals" / "forward_expectations.json"
     if not corpus.is_file():
         return [owner]
-    return sorted({key.split("::", 1)[0] for key in corpus_outcomes(corpus)})
+    return sorted({target for target, _, _ in corpus_outcomes(corpus)})
 
 
 class TerminalStateProseCoverageTests(unittest.TestCase):
@@ -182,26 +188,26 @@ class TerminalStateProseCoverageTests(unittest.TestCase):
         # silently returned nothing — the exact shape of vacuous coverage this
         # file exists to prevent.
         self.assertEqual(
-            {"a-skill": {"invented_state"}},
+            {"invented_state"},
             undefined_states(
-                {"a-skill": {"documented_state", "invented_state"}},
-                {"a-skill": "ends in `documented_state` when the gate passes"},
+                {"documented_state", "invented_state"},
+                "ends in `documented_state` when the gate passes",
             ),
         )
         self.assertEqual(
-            {},
+            set(),
             undefined_states(
-                {"a-skill": {"documented_state"}},
-                {"a-skill": "ends in `documented_state` when the gate passes"},
+                {"documented_state"},
+                "ends in `documented_state` when the gate passes",
             ),
         )
 
     def test_the_detector_requires_the_backticked_form(self):
         self.assertEqual(
-            {"a-skill": {"merged"}},
+            {"merged"},
             undefined_states(
-                {"a-skill": {"merged"}},
-                {"a-skill": "the candidate is merged once every gate passes"},
+                {"merged"},
+                "the candidate is merged once every gate passes",
             ),
         )
 
@@ -228,13 +234,12 @@ class TerminalStateProseCoverageTests(unittest.TestCase):
             with self.subTest(corpus=display(corpus)):
                 outcomes = corpus_outcomes(corpus)
                 self.assertTrue(outcomes)
-                self.assertTrue([o for o in outcomes.values() if o is not None])
+                self.assertTrue([o for _, _, o in outcomes if o is not None])
 
     def test_every_corpus_outcome_is_defined_by_its_target_skill(self):
         for corpus in corpora():
             claimed: dict[str, set[str]] = {}
-            for key, outcome in corpus_outcomes(corpus).items():
-                target, case_id = key.split("::", 1)
+            for target, case_id, outcome in corpus_outcomes(corpus):
                 with self.subTest(corpus=corpus.parents[1].name, case=case_id):
                     self.assertIsInstance(
                         outcome,
@@ -243,42 +248,37 @@ class TerminalStateProseCoverageTests(unittest.TestCase):
                     )
                 if isinstance(outcome, str):
                     claimed.setdefault(target, set()).add(outcome)
-            with self.subTest(corpus=display(corpus)):
-                self.assertEqual(
-                    {},
-                    undefined_states(
-                        claimed, {skill: skill_prose(skill) for skill in claimed}
-                    ),
-                )
+            for target, states in sorted(claimed.items()):
+                with self.subTest(corpus=display(corpus), target=target):
+                    self.assertEqual(
+                        set(), undefined_states(states, skill_prose(target))
+                    )
 
     def test_every_declared_vocabulary_is_defined_across_its_targets(self):
         for executor in sorted(SKILLS_ROOT.glob("*/scripts/evals/claude_executor.py")):
             # The executor offers one vocabulary to every packet regardless of
             # target, so it is defined collectively rather than by any one skill.
             targets = executor_targets(executor)
-            collective = " and ".join(targets)
             with self.subTest(executor=display(executor)):
                 self.assertEqual(
-                    {},
+                    set(),
                     undefined_states(
-                        {collective: declared_vocabulary(executor)},
-                        {collective: "\n".join(skill_prose(s) for s in targets)},
+                        declared_vocabulary(executor),
+                        "\n".join(skill_prose(s) for s in targets),
                     ),
                 )
 
     def test_every_fixture_executor_stays_inside_its_skills_vocabulary(self):
         for executor in sorted(SKILLS_ROOT.glob("*/scripts/evals/fixture_executor.py")):
             targets = executor_targets(executor)
-            collective = " and ".join(targets)
             emitted = emitted_states(executor)
             sibling = executor.parent / "claude_executor.py"
             with self.subTest(executor=display(executor)):
                 self.assertTrue(emitted)
                 self.assertEqual(
-                    {},
+                    set(),
                     undefined_states(
-                        {collective: emitted},
-                        {collective: "\n".join(skill_prose(s) for s in targets)},
+                        emitted, "\n".join(skill_prose(s) for s in targets)
                     ),
                 )
                 if sibling.is_file():
@@ -299,7 +299,7 @@ class TerminalStateProseCoverageTests(unittest.TestCase):
                 continue
             claimed = {
                 outcome
-                for outcome in corpus_outcomes(corpus).values()
+                for _, _, outcome in corpus_outcomes(corpus)
                 if isinstance(outcome, str)
             }
             with self.subTest(corpus=display(corpus)):
