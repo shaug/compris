@@ -4,7 +4,17 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-11 — Named the tree and the model an eval summary measured, so both survive rebase and squash-merge
+## 2026-08-11 — Gave the cognitive-shaping doctrine a single canonical home in compris, and named the tree and the model an eval summary measured
+
+- docs: publish the canonical cognitive-shaping doctrine —
+  `docs/cognitive-shaping-doctrine.md` is now the one place the standard that
+  decides whether a unit of work is comprehensible is stated. It carries the
+  mental-model test at its fixed wording, all eight breakdown rules, the
+  logical-to-realized vocabulary, policy-controlled enforcement that separates
+  judging shape from gating on it, and the exclusion of recorded
+  machine-generated eval evidence from shape judgment. No numeric line-count
+  gate is presented as correctness policy, and no skill behavior changes here —
+  binding each consumer to it is tracked separately.
 
 - fix: record the candidate's git tree hash and, for real-model runs, the pinned
   model name in every recorded eval summary — `candidate.sha` names a branch
@@ -18,6 +28,7 @@ summary: Chronological history of repository and skill changes.
   runs whose tier, suite, and model all match. Summaries recorded before this
   change carry no model at all and are documented as branch-local and
   unattributed rather than backfilled.
+  (fc7cf9ba04f5b4781ee3db037fed57d55c4a77be)
 
 ## 2026-08-09 — Recorded the cognitive-driven development direction: compris takes sole ownership of the cognitive-shaping doctrine from atelier, moves the boundary from "planning is done" to "brainstorming is done", and renames ready-ticket to plan-implementation
 
