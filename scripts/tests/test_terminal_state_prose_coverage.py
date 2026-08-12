@@ -8,15 +8,21 @@ simulation rather than the prose the evaluation exists to check.
 
 This test spans every skill, so it lives in the repository-root suite rather
 than inside any one skill's, exactly as `test_suite_invocation.py` does for an
-invariant no single skill owns.
+invariant no single skill owns. Every surface is discovered by glob rather than
+named, so a skill that grows a corpus or an executor is covered on arrival:
 
-Two harness surfaces claim a terminal state, and both are covered:
+- each `evals/expectations.json` and `evals/forward_expectations.json`, whose
+  per-case outcome must be defined by the prose of the skill that case targets;
+- each `scripts/evals/claude_executor.py`, whose closed vocabulary is what a
+  real-model executor shows the evaluated model; and
+- each `scripts/evals/fixture_executor.py`, whose deterministic stand-in must
+  emit nothing its skill's prose and its sibling vocabulary do not both allow.
 
-- a skill's own `evals/expectations.json`, whose per-case state must be defined
-  by the prose of the skill that case targets; and
-- the shared forward harness under `skills/implement-ticket/scripts/evals/`,
-  whose closed vocabulary is what a real-model executor shows the evaluated
-  model, and whose deterministic stand-in must not emit anything outside it.
+Corpora record an outcome under three different keys, and an unrecognized
+fourth would exempt a whole corpus while every assertion here still passed —
+so `corpus_outcomes` raises on a case it cannot read rather than returning
+nothing, and `test_every_corpus_yields_outcomes` fails the suite on a corpus
+that yields none.
 
 One expectation value is deliberately not a string: `implement-epic` reports an
 authorized parent closeout through the closeout evidence its own reference
@@ -30,20 +36,26 @@ from __future__ import annotations
 
 import ast
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SKILLS_ROOT = REPOSITORY_ROOT / "skills"
-FORWARD_EVALS = SKILLS_ROOT / "implement-ticket" / "scripts" / "evals"
-FORWARD_CORPUS = (
-    SKILLS_ROOT / "implement-ticket" / "evals" / "forward_expectations.json"
-)
-CLAUDE_EXECUTOR = FORWARD_EVALS / "claude_executor.py"
-FIXTURE_EXECUTOR = FORWARD_EVALS / "fixture_executor.py"
 
-# The per-case key each corpus uses for the state its target skill must report.
-STATE_KEYS = ("terminal_state", "workflow_state")
+# The flat keys a corpus uses for the outcome its target skill must report.
+# `review-code-change` reports an aggregate verdict instead, nested one level
+# down, so the nested path is read as well.
+OUTCOME_KEYS = ("terminal_state", "workflow_state")
+NESTED_OUTCOME_PATH = ("result", "verdict")
+
+
+def display(path: Path) -> str:
+    """A repository-relative path when possible, so failures name one location."""
+    try:
+        return str(path.relative_to(REPOSITORY_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def skill_prose(skill: str) -> str:
@@ -70,47 +82,65 @@ def undefined_states(
     }
 
 
-def corpus_states() -> dict[Path, dict[str, object]]:
-    """Every `evals/expectations.json` case's claimed state, keyed by corpus."""
-    corpora = {}
-    for path in sorted(SKILLS_ROOT.glob("*/evals/expectations.json")):
-        cases = json.loads(path.read_text())
-        corpora[path] = {
-            case["case_id"]: next(
-                (case[key] for key in STATE_KEYS if key in case), None
-            )
-            for case in cases
-        }
-    return corpora
+def corpora() -> list[Path]:
+    """Every case corpus that records an expected outcome."""
+    return sorted(
+        path
+        for name in ("expectations.json", "forward_expectations.json")
+        for path in SKILLS_ROOT.glob(f"*/evals/{name}")
+    )
 
 
-def forward_corpus_states_by_target() -> dict[str, set[str]]:
-    """The shared forward corpus's states, attributed to the skill each targets."""
-    claimed: dict[str, set[str]] = {}
-    for case in json.loads(FORWARD_CORPUS.read_text()):
-        claimed.setdefault(case["target_skill"], set()).add(case["terminal_state"])
-    return claimed
+def corpus_outcomes(path: Path) -> dict[str, str | None]:
+    """One corpus's outcomes, attributed to the skill each case targets.
+
+    Raises on a case recording its outcome somewhere this function cannot read.
+    Returning `None` there instead would exempt the corpus silently, which is
+    the same invisible gap this module exists to close.
+    """
+    owner = path.parents[1].name
+    outcomes: dict[str, str | None] = {}
+    for case in json.loads(path.read_text()):
+        target = case.get("target_skill", owner)
+        for key in OUTCOME_KEYS:
+            if key in case:
+                outcome = case[key]
+                break
+        else:
+            nested = case
+            for key in NESTED_OUTCOME_PATH:
+                if not isinstance(nested, dict) or key not in nested:
+                    raise AssertionError(
+                        f"{display(path)}: case "
+                        f"{case['case_id']!r} records its outcome under no key "
+                        f"this test reads ({', '.join(OUTCOME_KEYS)}, or "
+                        f"{'.'.join(NESTED_OUTCOME_PATH)})"
+                    )
+                nested = nested[key]
+            outcome = nested
+        outcomes[f"{target}::{case['case_id']}"] = outcome
+    return outcomes
 
 
-def declared_vocabulary() -> set[str]:
-    """The closed terminal-state vocabulary `claude_executor.py` shows the model."""
-    module = ast.parse(CLAUDE_EXECUTOR.read_text())
+def declared_vocabulary(executor: Path) -> set[str]:
+    """The closed terminal-state vocabulary an executor shows the model."""
+    module = ast.parse(executor.read_text())
     for node in module.body:
         if isinstance(node, ast.Assign) and any(
             isinstance(target, ast.Name) and target.id == "TERMINAL_STATES"
             for target in node.targets
         ):
             return set(ast.literal_eval(node.value))
-    raise AssertionError(f"{CLAUDE_EXECUTOR} declares no TERMINAL_STATES vocabulary")
+    raise AssertionError(f"{display(executor)} declares no TERMINAL_STATES")
 
 
-def fixture_emitted_states() -> set[str]:
-    """Every terminal state `fixture_executor.py` can emit, read from its source.
+def emitted_states(executor: Path) -> set[str]:
+    """Every terminal state an executor can emit, read from its source.
 
     Reading the source rather than running it keeps the check exhaustive: a
     branch no packet reaches still has to draw from the shared vocabulary.
     """
-    module = ast.parse(FIXTURE_EXECUTOR.read_text())
+    module = ast.parse(executor.read_text())
     emitted: set[str] = set()
     for node in ast.walk(module):
         if isinstance(node, ast.Dict):
@@ -129,6 +159,21 @@ def fixture_emitted_states() -> set[str]:
             ):
                 emitted.add(node.value.value)
     return emitted
+
+
+def executor_targets(executor: Path) -> list[str]:
+    """Every skill an executor's packets may target.
+
+    A forward corpus is shared: `implement-ticket`'s targets `implement-epic`
+    too, so both executors there legitimately handle a state only the epic
+    skill's prose defines. Attributing them to the owning skill alone would
+    report that as an undefined state.
+    """
+    owner = executor.parents[2].name
+    corpus = SKILLS_ROOT / owner / "evals" / "forward_expectations.json"
+    if not corpus.is_file():
+        return [owner]
+    return sorted({key.split("::", 1)[0] for key in corpus_outcomes(corpus)})
 
 
 class TerminalStateProseCoverageTests(unittest.TestCase):
@@ -160,59 +205,105 @@ class TerminalStateProseCoverageTests(unittest.TestCase):
             ),
         )
 
-    def test_the_harness_surfaces_are_non_empty(self):
-        # A glob or parse that silently matched nothing would make the coverage
-        # assertions vacuous.
-        corpora = corpus_states()
-        self.assertGreater(len(corpora), 1)
-        for path, cases in corpora.items():
-            with self.subTest(corpus=path.relative_to(REPOSITORY_ROOT)):
-                self.assertTrue(cases)
-        self.assertTrue(forward_corpus_states_by_target())
-        self.assertTrue(declared_vocabulary())
-        self.assertTrue(fixture_emitted_states())
+    def test_an_unreadable_case_outcome_fails_rather_than_exempts(self):
+        corpus = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        path = corpus / "skills" / "a-skill" / "evals" / "expectations.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps([{"case_id": "renamed-key", "outcome": "blocked"}]))
+        with self.assertRaises(AssertionError) as raised:
+            corpus_outcomes(path)
+        self.assertIn("renamed-key", str(raised.exception))
 
-    def test_every_skill_corpus_state_is_defined_by_that_skill(self):
-        for path, cases in corpus_states().items():
-            skill = path.parents[1].name
-            states = set()
-            for case_id, state in cases.items():
-                with self.subTest(corpus=skill, case=case_id):
+    def test_every_harness_surface_is_discovered(self):
+        # A glob that silently matched nothing would make every coverage
+        # assertion below vacuous.
+        self.assertGreater(len(corpora()), 1)
+        self.assertTrue(sorted(SKILLS_ROOT.glob("*/scripts/evals/claude_executor.py")))
+        self.assertTrue(sorted(SKILLS_ROOT.glob("*/scripts/evals/fixture_executor.py")))
+
+    def test_every_corpus_yields_outcomes(self):
+        # A corpus whose every case read as `None` would pass the coverage
+        # assertion by having nothing to check.
+        for corpus in corpora():
+            with self.subTest(corpus=display(corpus)):
+                outcomes = corpus_outcomes(corpus)
+                self.assertTrue(outcomes)
+                self.assertTrue([o for o in outcomes.values() if o is not None])
+
+    def test_every_corpus_outcome_is_defined_by_its_target_skill(self):
+        for corpus in corpora():
+            claimed: dict[str, set[str]] = {}
+            for key, outcome in corpus_outcomes(corpus).items():
+                target, case_id = key.split("::", 1)
+                with self.subTest(corpus=corpus.parents[1].name, case=case_id):
                     self.assertIsInstance(
-                        state,
+                        outcome,
                         (str, type(None)),
-                        "an expected state is a documented label or null",
+                        "an expected outcome is a documented label or null",
                     )
-                if isinstance(state, str):
-                    states.add(state)
-            with self.subTest(corpus=skill):
+                if isinstance(outcome, str):
+                    claimed.setdefault(target, set()).add(outcome)
+            with self.subTest(corpus=display(corpus)):
                 self.assertEqual(
-                    {}, undefined_states({skill: states}, {skill: skill_prose(skill)})
+                    {},
+                    undefined_states(
+                        claimed, {skill: skill_prose(skill) for skill in claimed}
+                    ),
                 )
 
-    def test_every_forward_corpus_state_is_defined_by_its_target_skill(self):
-        claimed = forward_corpus_states_by_target()
-        prose = {skill: skill_prose(skill) for skill in claimed}
-        self.assertEqual({}, undefined_states(claimed, prose))
+    def test_every_declared_vocabulary_is_defined_across_its_targets(self):
+        for executor in sorted(SKILLS_ROOT.glob("*/scripts/evals/claude_executor.py")):
+            # The executor offers one vocabulary to every packet regardless of
+            # target, so it is defined collectively rather than by any one skill.
+            targets = executor_targets(executor)
+            collective = " and ".join(targets)
+            with self.subTest(executor=display(executor)):
+                self.assertEqual(
+                    {},
+                    undefined_states(
+                        {collective: declared_vocabulary(executor)},
+                        {collective: "\n".join(skill_prose(s) for s in targets)},
+                    ),
+                )
 
-    def test_the_shared_vocabulary_is_defined_across_the_targeted_skills(self):
-        # The executors offer one vocabulary to every packet regardless of
-        # target, so it is defined collectively rather than by any one skill.
-        targets = sorted(forward_corpus_states_by_target())
-        collective = " and ".join(targets)
-        self.assertEqual(
-            {},
-            undefined_states(
-                {collective: declared_vocabulary()},
-                {collective: "\n".join(skill_prose(skill) for skill in targets)},
-            ),
-        )
+    def test_every_fixture_executor_stays_inside_its_skills_vocabulary(self):
+        for executor in sorted(SKILLS_ROOT.glob("*/scripts/evals/fixture_executor.py")):
+            targets = executor_targets(executor)
+            collective = " and ".join(targets)
+            emitted = emitted_states(executor)
+            sibling = executor.parent / "claude_executor.py"
+            with self.subTest(executor=display(executor)):
+                self.assertTrue(emitted)
+                self.assertEqual(
+                    {},
+                    undefined_states(
+                        {collective: emitted},
+                        {collective: "\n".join(skill_prose(s) for s in targets)},
+                    ),
+                )
+                if sibling.is_file():
+                    # A state only the simulation can produce grades the
+                    # simulation: a real-model packet is never offered it.
+                    self.assertEqual(set(), emitted - declared_vocabulary(sibling))
 
-    def test_both_executors_and_the_forward_corpus_share_one_vocabulary(self):
-        vocabulary = declared_vocabulary()
-        corpus = set().union(*forward_corpus_states_by_target().values())
-        self.assertEqual(set(), corpus - vocabulary)
-        self.assertEqual(set(), fixture_emitted_states() - vocabulary)
+    def test_every_forward_corpus_stays_inside_its_declared_vocabulary(self):
+        for corpus in sorted(SKILLS_ROOT.glob("*/evals/forward_expectations.json")):
+            executor = (
+                SKILLS_ROOT
+                / corpus.parents[1].name
+                / "scripts"
+                / "evals"
+                / "claude_executor.py"
+            )
+            if not executor.is_file():
+                continue
+            claimed = {
+                outcome
+                for outcome in corpus_outcomes(corpus).values()
+                if isinstance(outcome, str)
+            }
+            with self.subTest(corpus=display(corpus)):
+                self.assertEqual(set(), claimed - declared_vocabulary(executor))
 
 
 if __name__ == "__main__":

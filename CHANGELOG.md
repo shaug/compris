@@ -21,12 +21,18 @@ summary: Chronological history of repository and skill changes.
   a closeout through closeout evidence rather than a single-word label. No
   scenario detail is lost: `required_actions` already carried it, and the
   boundary each case protects is now pinned there instead of in a bespoke label.
-  A new repository-root test enforces the invariant across every skill's corpus,
-  the shared forward corpus attributed per target skill, the closed vocabulary
-  `claude_executor.py` shows the evaluated model, and every state
-  `fixture_executor.py` can emit. `mixed_ticket_results` itself, the state that
-  prompted this, was defined in `implement-epic`'s prose by #162; this is what
-  keeps the next one from reaching the harness undefined.
+  A new repository-root test enforces the invariant over every harness surface
+  it discovers by glob rather than by name — all eight case corpora across six
+  skills, each attributed per target skill; both `claude_executor.py`
+  vocabularies, which are what a real-model run shows the evaluated model; and
+  all three `fixture_executor.py` deterministic stand-ins, whose emitted states
+  must stay inside the vocabulary a real packet is actually offered. A corpus
+  recording its outcome under a key the test cannot read fails the suite instead
+  of being silently exempt, which is what an earlier draft did to
+  `review-code-change`'s twelve nested `result.verdict` cases.
+  `mixed_ticket_results` itself, the state that prompted this, was defined in
+  `implement-epic`'s prose by #162; this is what keeps the next one from
+  reaching the harness undefined.
 
 - docs: decide the shaping authority mechanism
   (0c2d94c9b027373cc42e6742654945a0eedbecfb) — the design record told a reader
