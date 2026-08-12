@@ -68,14 +68,19 @@ items use the realized ones, because that is what people type.
 
 ## Enforcement
 
-Shape is always judged. Whether an oversized verdict gates anything is the
-consuming project's decision — judging is read-only, and acting on the verdict
-is policy.
+Shape is always judged. Whether the judgment gates anything is the consuming
+project's decision — judging is read-only, and acting on a verdict is policy.
 
-The invariant is a prediction: every leaf ticket is scoped to what is predicted
-to be one changeset, realized as one pull request. An authorized carved stack is
-that prediction recorded as falsified. Developers are bad at estimating; the
-answer is measurement, not accuracy.
+The obligation is asymmetric, deliberately. Planning always aims at a shaped
+plan: every leaf ticket is scoped to what is predicted to be one changeset,
+realized as one pull request. Correcting that prediction once implementation is
+under way is not required. Carving an oversized branch into a reviewable chain
+is available and never automatic — a decision the project makes deliberately or
+declines, never one taken silently on its behalf.
+
+So a carved stack is a falsified prediction, recorded. Developers are bad at
+estimating; the answer is measurement, not accuracy — and a project that
+measures without correcting still gets the measurement.
 
 ## Consumers
 

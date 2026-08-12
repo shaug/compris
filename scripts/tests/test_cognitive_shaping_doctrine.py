@@ -91,10 +91,18 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
     def test_enforcement_is_policy_controlled_and_separate_from_judgment(self):
         self.assertIn("Shape is always judged", self.doc)
         self.assertIn(
-            "Whether an oversized verdict gates anything is the consuming"
-            " project's decision",
+            "Whether the judgment gates anything is the consuming project's decision",
             self.doc,
         )
+
+    def test_mid_stream_correction_is_optional_while_planning_always_shapes(self):
+        self.assertIn("Planning always aims at a shaped plan", self.doc)
+        self.assertIn(
+            "Correcting that prediction once implementation is under way is not"
+            " required",
+            self.doc,
+        )
+        self.assertIn("available and never automatic", self.doc)
 
     def test_recorded_machine_generated_evidence_is_excluded_from_judgment(self):
         self.assertIn("Recorded machine-generated evidence", self.doc)
