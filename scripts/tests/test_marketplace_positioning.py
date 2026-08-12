@@ -9,10 +9,15 @@ carries the same "outer loop" / "compose with, not depend on" positioning.
 from __future__ import annotations
 
 import json
+import sys
 import unittest
 from pathlib import Path
 
-from helpers import compact
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
+from helpers import compact  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 README = REPOSITORY_ROOT / "README.md"

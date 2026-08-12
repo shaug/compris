@@ -114,9 +114,33 @@ said. Neither satisfies the other.
   micro-testing, the contractual layer, peer precedence, and context economy.
   Its testing doctrine reaches further than skill authoring: it governs test
   evidence for any change to this repository's code.
+
 - Skill root contains `SKILL.md` and optional `scripts/`, `references/`, and
   `assets/`.
+
 - Tests live under `scripts/tests/` and should use `unittest`.
+
+- A test module that imports a sibling helper establishes its own `sys.path`
+  entry from `__file__`, rather than relying on the one discovery happens to
+  supply:
+
+  ```python
+  TESTS_DIR = Path(__file__).resolve().parent
+  if str(TESTS_DIR) not in sys.path:
+      sys.path.insert(0, str(TESTS_DIR))
+
+  from helpers import compact  # noqa: E402
+  ```
+
+  Without it the module imports only under `unittest discover`, and the
+  module-path form ticket bodies name as required verification —
+  `python3 -m unittest scripts.tests.test_skill_authoring_doc` — errors with
+  `ModuleNotFoundError` before any assertion runs, so a later reader cannot
+  reproduce the recorded evidence. `scripts/tests/test_suite_invocation.py`
+  holds the root suite to this; `skills/carve-changesets/scripts/tests/` and
+  `skills/review-fix-loop/scripts/tests/` do not yet carry the shim and are
+  discovery-only.
+
 - Record intermediate record-keeping data under a skill-local dot directory (for
   example, `.skill-state/` or `.<skill-name>/`) and keep it out of git history
   via a skill-local `.gitignore`.

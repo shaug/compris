@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from helpers import REPOSITORY_ROOT, copy_fixture
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
+from helpers import REPOSITORY_ROOT, copy_fixture  # noqa: E402
 
 SPEC = importlib.util.spec_from_file_location(
     "validate_plugins", REPOSITORY_ROOT / "scripts" / "validate_plugins.py"
