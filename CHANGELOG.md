@@ -4,12 +4,35 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-13 — Corrected the eval-evidence norm's scope statement for the review-lens skills
+## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness, not the prose, and corrected the eval-evidence norm's scope statement for the review-lens skills
+
+- test(evals): triage the real-model forward-eval baseline and elicit the action
+  vocabulary as forced choice — the first real-model baseline (#145) passed 27
+  of 54 cases while the deterministic tier passed 54/54, and the 31
+  non-terminal-state failure lines behind that gap had never been classified.
+  All 31 now carry a classification and its evidence: 8 prose gaps, 12
+  expectation defects, 11 measurement artifacts. The headline is that after #162
+  landed, the baseline shows **no open prose gap in `implement-ticket` itself**
+  — its five confirmed gaps were all corrected there, confirmed by the eight
+  real-model runs recorded since, and the three that remain open belong to
+  `implement-epic`, filed as #214 and #215. The corpus defects are filed as
+  #216, #217, and #218. The measurement question #151 asked be settled first was
+  settled by a new `recognition_probe.py`, which re-presents a case's identical
+  packet and asks whether a named obligation applies, using that case's own
+  forbidden actions as controls: of fourteen probed missing-action failures, six
+  were recognized the instant the obligation was named. A single-variable rename
+  probe went further — presenting `caller_verifies_mainline_tracker_cleanup` as
+  `verify_mainline_tracker_cleanup` took recognition from 1 of 3 to 3 of 3 and
+  control rejection from 6 of 8 to 8 of 8, so one confusing term had been
+  degrading whole answers. Acting on that, `claude_executor.py` now elicits one
+  explicit boolean per vocabulary name instead of free recall of "every
+  applicable value", recorded as a before/after pair per the eval-evidence norm.
+  No skill prose is edited here, and no expectation is tuned.
 
 - docs: correct the eval-evidence norm's scope statement for the review-lens
-  skills — `AGENTS.md` told an author editing `review-code-change`,
-  `review-correctness`, `review-code-simplicity`, or
-  `review-solution-simplicity` that the skill had no corpus at all, when
+  skills (42b52102530563ead17a1c17db227f32d50954f7) — `AGENTS.md` told an author
+  editing `review-code-change`, `review-correctness`, `review-code-simplicity`,
+  or `review-solution-simplicity` that the skill had no corpus at all, when
   `review-suite/evals/` ships seven corpora (one under `corpus/`, six under
   `strata/`) naming `review-code-change`, `review-code-simplicity`, or
   `review-solution-simplicity` as `target_skill` — `review-correctness`'s prose
