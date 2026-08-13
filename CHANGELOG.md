@@ -4,32 +4,53 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-13 — Corrected the eval-evidence norm's scope statement for the review-lens skills
+
+- docs: correct the eval-evidence norm's scope statement for the review-lens
+  skills — `AGENTS.md` told an author editing `review-code-change`,
+  `review-correctness`, `review-code-simplicity`, or
+  `review-solution-simplicity` that the skill had no corpus at all, when
+  `review-suite/evals/` ships seven corpora (one under `corpus/`, six under
+  `strata/`) naming `review-code-change`, `review-code-simplicity`, or
+  `review-solution-simplicity` as `target_skill` — `review-correctness`'s prose
+  reaches the reviewer as a `target_skill_dependency` of the
+  `review-code-change`-targeted corpora rather than as a directly named target.
+  The recorder just can't drive any of them, because the runner's
+  `--artifact-dir`, `--attempts-out`, and `--report-out` don't match the
+  `--output-dir` interface `just eval-record` appends, and its exit codes report
+  evaluation integrity rather than case outcomes. The bullet now names that
+  interface gap instead of asserting a false absence, so a review-lens author is
+  told the accurate reason `just eval-record` can't record a run rather than
+  instructed to assert a corpus doesn't exist. Adapting the runner to the
+  recorder's interface remains unregistered follow-up work, not done here.
+
 ## 2026-08-12 — Ran the writing-plans altitude experiment and found the peer preserves surface altitude rather than translating it down, closed the last gap between what the eval harness asserts and what any skill's prose defines, and settled how the shaping doctrine gets its authority: a bundled synced contract, not a new skill
 
-- docs: record the writing-plans behavioral-altitude experiment — the design
-  document posted this run as owed rather than answered, and it is now answered
-  for one session at pin `44c9b2d6e889982ac18c27d05a19fefe335194e1`. Handed a
-  greenfield spec whose seven acceptance criteria are stated purely as exit
-  codes and stdout text, `superpowers:writing-plans` returned a 1,363-line plan
-  that misses the approved criterion, which is conjunctive: all six Interfaces
-  blocks name internal function signatures with parameter and return types. That
-  half is a fixed property of the skill's own task template, which specifies the
-  block as "exact function names, parameter and return types" for a subagent
-  executor that sees only its own task — so no better-written spec removes it.
-  The second half came back mixed, and the distinction carries the finding: 8 of
-  24 planned tests drive the installed console script through a subprocess and
-  16 call imported functions, but every one of the spec's seven criteria landed
-  in those 8, confirmed by a criterion-to-test table the plan's own self-review
-  produced. The peer did not translate the spec down to unit altitude; it
-  preserved that altitude and added a lower tier beneath it, which is the
-  hypothesis the design document recorded. The run was dispatched into a context
-  told nothing about the experiment or its criterion, because a context that
-  knows what is being measured returns confirmation rather than observation. The
-  spec and the full returned plan are committed beside the report: a rerun
-  re-tests the question but will not regenerate this artifact, so the claims are
-  auditable only against what actually returned. Take-it-as-is, post-process,
-  and structure-only remain unselected — one run does not decide between them,
-  and this ticket did not authorize the choice.
+- docs: record the writing-plans behavioral-altitude experiment
+  (60092411e2e5cf8edeea938a0077047e524d60be) — the design document posted this
+  run as owed rather than answered, and it is now answered for one session at
+  pin `44c9b2d6e889982ac18c27d05a19fefe335194e1`. Handed a greenfield spec whose
+  seven acceptance criteria are stated purely as exit codes and stdout text,
+  `superpowers:writing-plans` returned a 1,363-line plan that misses the
+  approved criterion, which is conjunctive: all six Interfaces blocks name
+  internal function signatures with parameter and return types. That half is a
+  fixed property of the skill's own task template, which specifies the block as
+  "exact function names, parameter and return types" for a subagent executor
+  that sees only its own task — so no better-written spec removes it. The second
+  half came back mixed, and the distinction carries the finding: 8 of 24 planned
+  tests drive the installed console script through a subprocess and 16 call
+  imported functions, but every one of the spec's seven criteria landed in those
+  8, confirmed by a criterion-to-test table the plan's own self-review produced.
+  The peer did not translate the spec down to unit altitude; it preserved that
+  altitude and added a lower tier beneath it, which is the hypothesis the design
+  document recorded. The run was dispatched into a context told nothing about
+  the experiment or its criterion, because a context that knows what is being
+  measured returns confirmation rather than observation. The spec and the full
+  returned plan are committed beside the report: a rerun re-tests the question
+  but will not regenerate this artifact, so the claims are auditable only
+  against what actually returned. Take-it-as-is, post-process, and
+  structure-only remain unselected — one run does not decide between them, and
+  this ticket did not authorize the choice.
 
 - test: hold every eval corpus to the terminal states its skill's prose defines
   (a78141587b923d140fa41c5ca3c876ca2d740861) — a corpus state no prose names is
