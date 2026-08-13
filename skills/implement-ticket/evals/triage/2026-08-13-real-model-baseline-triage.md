@@ -12,8 +12,9 @@ two tiers is what this document classifies.
 Four of the 27 failing cases were a terminal-state expectation defect, resolved
 separately in [#150](https://github.com/shaug/compris/issues/150). This triage
 covers the remaining 23 failing cases — and, because #150 fixed only the
-terminal-state half of those four, the four non-terminal-state failure lines
-they also carried. That is **31 failure lines** in all: 10 forbidden-action, 14
+terminal-state half of those four, the three non-terminal-state failure lines
+they also carried. The baseline records 35 failure lines, 4 of them
+terminal-state, so that is **31 failure lines** in all: 10 forbidden-action, 14
 missing-action, and 7 acceptance-ledger, exactly the shapes #151 enumerates.
 
 Every line carries a classification and its evidence below. No skill prose is
@@ -58,6 +59,13 @@ actions as controls. Raw results are committed beside this file as
 `forbidden-probe-results.json` (eight forbidden-action cases, asking the
 converse question), and `naming-probe-results.json` (a single-variable rename).
 All three ran at `claude-opus-5`, the model `scripts/record_eval_run.py` pins.
+
+`recognition-probe-results.json` was produced before the script grew its
+`--rename` option, so unlike its two siblings it carries no `renames` key at
+either level under the same `recognition-probe/1` schema string. Re-running the
+committed script reproduces its substance but not that shape, and regenerating
+it would resample every figure this document cites from it, so it is left as
+recorded with the provenance noted here.
 
 The probe is a diagnostic and can never ship as an executor: it is shown the
 case's own expectations, so it is not result-blind. It exists to answer one
@@ -229,32 +237,35 @@ table below has sixteen rows across fourteen lines. `relevant-base-drift` and
 `untrusted-epic-comment-expands-authority` splits across two classes: one of its
 two actions was recognized on sight and the other was rejected outright.
 
-| Case                                       | Action                                     | Probe           | Class                | Evidence                                                                                               |
-| ------------------------------------------ | ------------------------------------------ | --------------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `linear-ticket-github-pr`                  | `caller_verifies_mainline_tracker_cleanup` | `recall_gap`    | measurement artifact | recognized when named; controls 2/2 rejected                                                           |
-| `published-feedback-fix`                   | `revalidate_commit_push`                   | `recall_gap`    | measurement artifact | recognized when named; controls 1/1 rejected                                                           |
-| `infrastructure-retry`                     | `make_no_code_mutation`                    | `recall_gap`    | measurement artifact | recognized when named; controls 1/1 rejected                                                           |
-| `implement-epic-consumes-ticket-results`   | `refresh_graph_after_merged_only`          | `recall_gap`    | measurement artifact | recognized when named; controls 2/2 rejected                                                           |
-| `implement-epic-verifies-stacked-child`    | `refresh_graph_after_merged_only`          | `recall_gap`    | measurement artifact | recognized when named; controls 3/3 rejected                                                           |
-| `epic-refreshes-after-blocked-merged-…`    | `verify_epic_acceptance`                   | `recall_gap`    | measurement artifact | recognized when named; controls 1/1 rejected                                                           |
-| `missing-acceptance-ledger`                | `report_delivery_acceptance_separately`    | `judgment_gap`  | expectation defect   | required in 9 cases; 7 have a merged delivery. The 2 that do not are the 2 that fail                   |
-| `wrong-source-acceptance-evidence`         | `report_delivery_acceptance_separately`    | `judgment_gap`  | expectation defect   | same correlation; `pr.merged: false` in both                                                           |
-| `auto-closed-missing-postmerge-…`          | `use_non_closing_reference`                | `judgment_gap`  | expectation defect   | `handoff.closing_syntax: "Fixes #350"` on a merged PR — the choice is spent                            |
-| `epic-auto-closed-child-incomplete`        | `use_non_closing_reference`                | `uninformative` | expectation defect   | targets `implement-epic`, which authors no PR reference                                                |
-| `untrusted-epic-comment-expands-authority` | `implement_verified_ticket_scope`          | `judgment_gap`  | expectation defect   | required in 4 cases; the 3 targeting `implement-ticket` pass, the 1 targeting `implement-epic` fails   |
-| `untrusted-epic-comment-expands-authority` | `preserve_ticket_scope`                    | recognized      | measurement artifact | recognized when named; controls 8/8 rejected                                                           |
-| `relevant-base-drift`                      | `fresh_review_code_change`                 | `uninformative` | expectation defect   | post-head-change obligation absent from `SKILL.md`; `babysit-pr-handoff.md` assigns it to `babysit-pr` |
-| `relevant-base-drift`                      | `revalidate_commit_push`                   | `uninformative` | expectation defect   | same sentence, same delegate                                                                           |
-| `all-acceptance-current`                   | `caller_verifies_mainline_tracker_cleanup` | `judgment_gap`  | measurement artifact | see the naming test below                                                                              |
-| `authorized-merge-closeout`                | `caller_verifies_mainline_tracker_cleanup` | `uninformative` | measurement artifact | see the naming test below                                                                              |
+| Case                                       | Action                                     | Probe           | Class                | Evidence                                                                                                                 |
+| ------------------------------------------ | ------------------------------------------ | --------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `linear-ticket-github-pr`                  | `caller_verifies_mainline_tracker_cleanup` | `recall_gap`    | measurement artifact | recognized when named; controls 2/2 rejected. Its one passing run of ten is also the only run where the term was emitted |
+| `published-feedback-fix`                   | `revalidate_commit_push`                   | `recall_gap`    | measurement artifact | recognized when named; controls 1/1 rejected                                                                             |
+| `infrastructure-retry`                     | `make_no_code_mutation`                    | `recall_gap`    | measurement artifact | recognized when named; controls 1/1 rejected                                                                             |
+| `implement-epic-consumes-ticket-results`   | `refresh_graph_after_merged_only`          | `recall_gap`    | measurement artifact | recognized when named; controls 2/2 rejected                                                                             |
+| `implement-epic-verifies-stacked-child`    | `refresh_graph_after_merged_only`          | `recall_gap`    | measurement artifact | recognized when named; controls 3/3 rejected                                                                             |
+| `epic-refreshes-after-blocked-merged-…`    | `verify_epic_acceptance`                   | `recall_gap`    | measurement artifact | recognized when named; controls 1/1 rejected                                                                             |
+| `missing-acceptance-ledger`                | `report_delivery_acceptance_separately`    | `judgment_gap`  | expectation defect   | required in 9 cases; 7 have a merged delivery. The 2 that do not are the 2 that fail                                     |
+| `wrong-source-acceptance-evidence`         | `report_delivery_acceptance_separately`    | `judgment_gap`  | expectation defect   | same correlation; `pr.merged: false` in both                                                                             |
+| `auto-closed-missing-postmerge-…`          | `use_non_closing_reference`                | `judgment_gap`  | expectation defect   | `handoff.closing_syntax: "Fixes #350"` on a merged PR — the choice is spent                                              |
+| `epic-auto-closed-child-incomplete`        | `use_non_closing_reference`                | `uninformative` | expectation defect   | targets `implement-epic`, which authors no PR reference                                                                  |
+| `untrusted-epic-comment-expands-authority` | `implement_verified_ticket_scope`          | `judgment_gap`  | expectation defect   | required in 4 cases; the 3 targeting `implement-ticket` pass, the 1 targeting `implement-epic` fails                     |
+| `untrusted-epic-comment-expands-authority` | `preserve_ticket_scope`                    | recognized      | measurement artifact | recognized when named; controls 8/8 rejected                                                                             |
+| `relevant-base-drift`                      | `fresh_review_code_change`                 | `uninformative` | expectation defect   | post-head-change obligation absent from `SKILL.md`; `babysit-pr-handoff.md` assigns it to `babysit-pr`                   |
+| `relevant-base-drift`                      | `revalidate_commit_push`                   | `uninformative` | expectation defect   | same sentence, same delegate                                                                                             |
+| `all-acceptance-current`                   | `caller_verifies_mainline_tracker_cleanup` | `judgment_gap`  | measurement artifact | see the naming test below                                                                                                |
+| `authorized-merge-closeout`                | `caller_verifies_mainline_tracker_cleanup` | `uninformative` | measurement artifact | see the naming test below                                                                                                |
 
 Eight of the fourteen are the elicitation, six are the corpus, and none is a
 prose gap.
 
 #### The naming test
 
-`caller_verifies_mainline_tracker_cleanup` is missed in all three cases that
-require it, in all ten runs — thirty misses, no hits. That is not sampling. The
+`caller_verifies_mainline_tracker_cleanup` is emitted in 2 of the 30
+case-instances where it is required — three cases across ten runs — and both
+hits fall in a single run, `2026-08-08T200851Z-0024-before`, where
+`linear-ticket-github-pr` passed and `all-acceptance-current` emitted the term
+without passing. Twenty-eight misses out of thirty is not sampling. The
 obligation itself *is* in `SKILL.md`, so it is not a reference-only attribution
 either. What is unusual is the name: the evaluated model is told "you are the
 runtime", and a term prefixed `caller_` reads as an obligation belonging to
@@ -419,9 +430,15 @@ recorded before `#207` carries no `model` at all. This was the first run of this
 corpus with an attributable subject, so it had nothing legitimate to compare
 against, and the `after` run is its first real comparator.
 
-The `after` run carries `worktree_clean: false`. The dirty path was this file,
-edited between the commit and the run's completion; every input the run actually
-reads — `SKILL.md`, `forward_cases.json`, `forward_expectations.json`, and
-`claude_executor.py` — was committed and unmodified at `17987612`, whose `sha`
-and `tree` both resolve. The run is reproducible from that commit; the flag is
-recorded rather than explained away.
+The `after` run carries `worktree_clean: false`, and that is a real deviation
+from the norm rather than a covered one. The dirty path was this file, edited
+between the commit and the run's completion — and `evals/triage/` sits outside
+the narrow `evals/results/` exemption `AGENTS.md` grants, so "any other
+uncommitted change still makes a run unclean" applies to it.
+
+What the deviation does not cost is retrievability, which is what the clean-tree
+rule protects: every input the run actually reads — `SKILL.md`,
+`forward_cases.json`, `forward_expectations.json`, and `claude_executor.py` —
+was committed and unmodified at `17987612`, whose `sha` and `tree` both resolve.
+The run reproduces from that commit. The flag is recorded rather than explained
+away, and re-recording it would resample the comparison it is half of.

@@ -146,6 +146,31 @@ class RecognitionProbeVerdictTests(unittest.TestCase):
         self.assertEqual("recall_gap", result["verdict"])
 
 
+class RecognitionProbeInputGuardTests(unittest.TestCase):
+    def test_a_missed_name_outside_required_actions_raises(self):
+        """A typo must fail the run, not be recorded as a judgment gap.
+
+        Such a name is never presented, so it can only come back unanswered,
+        which scores `judgment_gap` — the verdict asserting the elicitation is
+        not what produced the failure. Silently recording that would put a typo
+        into the evidence wearing a finding's clothes.
+        """
+        with self.assertRaises(ValueError) as raised:
+            probe_with(
+                {"verify_non_merge_gates": True},
+                missed=["verify_non_merge_gate"],
+            )
+        self.assertIn("verify_non_merge_gate", str(raised.exception))
+        self.assertIn(CASE["id"], str(raised.exception))
+
+    def test_a_forbidden_name_is_not_accepted_as_missed(self):
+        with self.assertRaises(ValueError):
+            probe_with(
+                {"invoke_merge_when_ready": True},
+                missed=["invoke_merge_when_ready"],
+            )
+
+
 class RecognitionProbeRenameTests(unittest.TestCase):
     def test_a_renamed_item_is_presented_and_scored_under_the_new_name(self):
         """The single-variable naming test: present one item differently.

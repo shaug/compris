@@ -115,6 +115,19 @@ def probe_case(
     renames = renames or {}
     required = sorted(expectation.get("required_actions") or [])
     forbidden = sorted(expectation.get("forbidden_actions") or [])
+
+    # A missed name absent from required_actions is never presented, so it can
+    # only come back unanswered — which scores as `judgment_gap`, the verdict
+    # meaning "the elicitation is not what produced this failure". A typo would
+    # therefore read as a finding rather than as the mistake it is, in an
+    # instrument whose verdicts are the evidence. Fail on it, as an unknown case
+    # id already does.
+    unexpected = sorted(set(missed) - set(required))
+    if unexpected:
+        raise ValueError(
+            f"{case['id']}: missed actions absent from required_actions: "
+            + ", ".join(unexpected)
+        )
     items = [renames.get(name, name) for name in required + forbidden]
     random.Random(case["id"]).shuffle(items)
 
