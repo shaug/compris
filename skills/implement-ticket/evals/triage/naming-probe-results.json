@@ -1,0 +1,133 @@
+{
+  "cases": [
+    {
+      "answers": {
+        "allow_acceptance_completion": true,
+        "build_acceptance_ledger": true,
+        "invoke_merge_when_ready": false,
+        "keep_tracker_open": false,
+        "reject_missing_required_acceptance": false,
+        "verify_live_deployment_candidate_binding": true,
+        "verify_mainline_tracker_cleanup": true,
+        "verify_merge_live": true
+      },
+      "case_id": "all-acceptance-current",
+      "controls_accepted": [],
+      "controls_rejected": [
+        "invoke_merge_when_ready",
+        "keep_tracker_open",
+        "reject_missing_required_acceptance"
+      ],
+      "controls_total": 3,
+      "missed_recognized": [
+        "caller_verifies_mainline_tracker_cleanup"
+      ],
+      "missed_rejected": [],
+      "missed_under_free_recall": [
+        "caller_verifies_mainline_tracker_cleanup"
+      ],
+      "presented_items": [
+        "build_acceptance_ledger",
+        "keep_tracker_open",
+        "invoke_merge_when_ready",
+        "verify_merge_live",
+        "verify_mainline_tracker_cleanup",
+        "verify_live_deployment_candidate_binding",
+        "allow_acceptance_completion",
+        "reject_missing_required_acceptance"
+      ],
+      "renames": {
+        "caller_verifies_mainline_tracker_cleanup": "verify_mainline_tracker_cleanup"
+      },
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "recall_gap"
+    },
+    {
+      "answers": {
+        "fail_before_mutation": false,
+        "invoke_merge_when_ready": true,
+        "invoke_ready_to_merge": false,
+        "perform_no_mutation": false,
+        "verify_mainline_tracker_cleanup": true,
+        "verify_merge_live": true
+      },
+      "case_id": "authorized-merge-closeout",
+      "controls_accepted": [],
+      "controls_rejected": [
+        "fail_before_mutation",
+        "invoke_ready_to_merge",
+        "perform_no_mutation"
+      ],
+      "controls_total": 3,
+      "missed_recognized": [
+        "caller_verifies_mainline_tracker_cleanup"
+      ],
+      "missed_rejected": [],
+      "missed_under_free_recall": [
+        "caller_verifies_mainline_tracker_cleanup"
+      ],
+      "presented_items": [
+        "perform_no_mutation",
+        "invoke_ready_to_merge",
+        "verify_mainline_tracker_cleanup",
+        "invoke_merge_when_ready",
+        "verify_merge_live",
+        "fail_before_mutation"
+      ],
+      "renames": {
+        "caller_verifies_mainline_tracker_cleanup": "verify_mainline_tracker_cleanup"
+      },
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "recall_gap"
+    },
+    {
+      "answers": {
+        "invoke_merge_when_ready": true,
+        "invoke_ready_to_merge": false,
+        "perform_no_mutation": false,
+        "preserve_tracker_pr_host_separation": true,
+        "verify_mainline_tracker_cleanup": true
+      },
+      "case_id": "linear-ticket-github-pr",
+      "controls_accepted": [],
+      "controls_rejected": [
+        "invoke_ready_to_merge",
+        "perform_no_mutation"
+      ],
+      "controls_total": 2,
+      "missed_recognized": [
+        "caller_verifies_mainline_tracker_cleanup"
+      ],
+      "missed_rejected": [],
+      "missed_under_free_recall": [
+        "caller_verifies_mainline_tracker_cleanup"
+      ],
+      "presented_items": [
+        "preserve_tracker_pr_host_separation",
+        "verify_mainline_tracker_cleanup",
+        "invoke_ready_to_merge",
+        "perform_no_mutation",
+        "invoke_merge_when_ready"
+      ],
+      "renames": {
+        "caller_verifies_mainline_tracker_cleanup": "verify_mainline_tracker_cleanup"
+      },
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "recall_gap"
+    }
+  ],
+  "model": "claude-opus-5",
+  "renames": {
+    "caller_verifies_mainline_tracker_cleanup": "verify_mainline_tracker_cleanup"
+  },
+  "schema": "recognition-probe/1",
+  "totals": {
+    "controls_only": 0,
+    "judgment_gap": 0,
+    "recall_gap": 3,
+    "uninformative": 0
+  }
+}

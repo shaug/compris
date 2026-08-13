@@ -1,0 +1,16 @@
+{
+  "all-acceptance-current": ["caller_verifies_mainline_tracker_cleanup"],
+  "authorized-merge-closeout": ["caller_verifies_mainline_tracker_cleanup"],
+  "auto-closed-missing-postmerge-deployment": ["use_non_closing_reference"],
+  "epic-auto-closed-child-incomplete": ["use_non_closing_reference"],
+  "epic-refreshes-after-blocked-merged-delivery": ["verify_epic_acceptance"],
+  "implement-epic-consumes-ticket-results": ["refresh_graph_after_merged_only"],
+  "implement-epic-verifies-stacked-child": ["refresh_graph_after_merged_only"],
+  "infrastructure-retry": ["make_no_code_mutation"],
+  "linear-ticket-github-pr": ["caller_verifies_mainline_tracker_cleanup"],
+  "missing-acceptance-ledger": ["report_delivery_acceptance_separately"],
+  "published-feedback-fix": ["revalidate_commit_push"],
+  "relevant-base-drift": ["fresh_review_code_change", "revalidate_commit_push"],
+  "untrusted-epic-comment-expands-authority": ["implement_verified_ticket_scope", "preserve_ticket_scope"],
+  "wrong-source-acceptance-evidence": ["report_delivery_acceptance_separately"]
+}

@@ -1,0 +1,5 @@
+{
+  "all-acceptance-current": ["caller_verifies_mainline_tracker_cleanup"],
+  "authorized-merge-closeout": ["caller_verifies_mainline_tracker_cleanup"],
+  "linear-ticket-github-pr": ["caller_verifies_mainline_tracker_cleanup"]
+}

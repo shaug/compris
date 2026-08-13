@@ -1,0 +1,281 @@
+{
+  "cases": [
+    {
+      "answers": {
+        "bind_installed_implement_ticket": true,
+        "invoke_installed_implement_ticket": true,
+        "perform_no_child_selection_or_mutation": false,
+        "perform_no_dependency_discovery_or_installation": true,
+        "report_dependency_contract_failure": false,
+        "report_dependency_provenance_failure": false,
+        "report_dependency_readability_failure": false,
+        "report_dependency_resolution_failure": false,
+        "select_ready_child": true,
+        "verify_installed_implement_ticket_dependency": true
+      },
+      "case_id": "epic-compatible-installed-implement-ticket",
+      "controls_accepted": [
+        "perform_no_dependency_discovery_or_installation"
+      ],
+      "controls_rejected": [
+        "perform_no_child_selection_or_mutation",
+        "report_dependency_contract_failure",
+        "report_dependency_provenance_failure",
+        "report_dependency_readability_failure",
+        "report_dependency_resolution_failure"
+      ],
+      "controls_total": 6,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "perform_no_child_selection_or_mutation",
+        "bind_installed_implement_ticket",
+        "verify_installed_implement_ticket_dependency",
+        "report_dependency_provenance_failure",
+        "select_ready_child",
+        "report_dependency_readability_failure",
+        "report_dependency_contract_failure",
+        "perform_no_dependency_discovery_or_installation",
+        "invoke_installed_implement_ticket",
+        "report_dependency_resolution_failure"
+      ],
+      "renames": {},
+      "target_skill": "implement-epic",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "invoke_merge_when_ready": false,
+        "invoke_ready_to_merge": true,
+        "reject_stale_or_malformed_result": true,
+        "reread_live_pr": true
+      },
+      "case_id": "malformed-babysitter-result",
+      "controls_accepted": [
+        "invoke_ready_to_merge"
+      ],
+      "controls_rejected": [
+        "invoke_merge_when_ready"
+      ],
+      "controls_total": 2,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "invoke_merge_when_ready",
+        "reread_live_pr",
+        "invoke_ready_to_merge",
+        "reject_stale_or_malformed_result"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "allow_acceptance_completion": true,
+        "build_acceptance_ledger": true,
+        "invoke_merge_when_ready": true,
+        "keep_tracker_open": true,
+        "preserve_acceptance_authority_boundaries": true,
+        "reject_missing_required_acceptance": false,
+        "report_delivery_acceptance_separately": true,
+        "use_non_closing_reference": true
+      },
+      "case_id": "merge-without-tracker-transition-authority",
+      "controls_accepted": [
+        "invoke_merge_when_ready"
+      ],
+      "controls_rejected": [
+        "reject_missing_required_acceptance"
+      ],
+      "controls_total": 2,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "reject_missing_required_acceptance",
+        "allow_acceptance_completion",
+        "keep_tracker_open",
+        "build_acceptance_ledger",
+        "report_delivery_acceptance_separately",
+        "invoke_merge_when_ready",
+        "preserve_acceptance_authority_boundaries",
+        "use_non_closing_reference"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "do_not_rewrite_merged_history": true,
+        "invoke_merge_when_ready": false,
+        "preserve_partial_stack": true,
+        "report_mid_stack_redesign": true,
+        "verify_merge_live": false
+      },
+      "case_id": "mid-stack-material-redesign",
+      "controls_accepted": [],
+      "controls_rejected": [
+        "invoke_merge_when_ready",
+        "verify_merge_live"
+      ],
+      "controls_total": 2,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "do_not_rewrite_merged_history",
+        "invoke_merge_when_ready",
+        "verify_merge_live",
+        "report_mid_stack_redesign",
+        "preserve_partial_stack"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "invoke_carve_changesets": true,
+        "invoke_merge_when_ready": false,
+        "invoke_ready_to_merge": false,
+        "place_closing_syntax_final_pr_only": false,
+        "record_guardrail_evidence": true,
+        "route_to_tracker_split": false,
+        "skip_direct_babysit_handoff": true,
+        "verify_each_pr_gate": true,
+        "verify_stack_topology": true
+      },
+      "case_id": "oversized-authorized-carved-stack",
+      "controls_accepted": [],
+      "controls_rejected": [
+        "invoke_merge_when_ready",
+        "invoke_ready_to_merge",
+        "route_to_tracker_split"
+      ],
+      "controls_total": 3,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "record_guardrail_evidence",
+        "skip_direct_babysit_handoff",
+        "invoke_ready_to_merge",
+        "invoke_merge_when_ready",
+        "verify_each_pr_gate",
+        "invoke_carve_changesets",
+        "verify_stack_topology",
+        "place_closing_syntax_final_pr_only",
+        "route_to_tracker_split"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "invoke_carve_changesets": false,
+        "reject_stale_or_malformed_result": true,
+        "reread_live_pr": true,
+        "verify_each_pr_gate": true,
+        "verify_stack_topology": true
+      },
+      "case_id": "stale-carved-result",
+      "controls_accepted": [
+        "verify_each_pr_gate",
+        "verify_stack_topology"
+      ],
+      "controls_rejected": [
+        "invoke_carve_changesets"
+      ],
+      "controls_total": 3,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "reject_stale_or_malformed_result",
+        "reread_live_pr",
+        "verify_stack_topology",
+        "verify_each_pr_gate",
+        "invoke_carve_changesets"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "invoke_merge_when_ready": false,
+        "invoke_ready_to_merge": true,
+        "reject_stale_connector_verdict": true
+      },
+      "case_id": "stale-connector-verdict",
+      "controls_accepted": [
+        "invoke_ready_to_merge"
+      ],
+      "controls_rejected": [
+        "invoke_merge_when_ready"
+      ],
+      "controls_total": 2,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "reject_stale_connector_verdict",
+        "invoke_merge_when_ready",
+        "invoke_ready_to_merge"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    },
+    {
+      "answers": {
+        "do_not_reply_or_resolve": true,
+        "invoke_merge_when_ready": false,
+        "invoke_ready_to_merge": true,
+        "preserve_feedback_gate": true
+      },
+      "case_id": "unauthorized-human-response",
+      "controls_accepted": [
+        "invoke_ready_to_merge"
+      ],
+      "controls_rejected": [
+        "invoke_merge_when_ready"
+      ],
+      "controls_total": 2,
+      "missed_recognized": [],
+      "missed_rejected": [],
+      "missed_under_free_recall": [],
+      "presented_items": [
+        "invoke_ready_to_merge",
+        "invoke_merge_when_ready",
+        "preserve_feedback_gate",
+        "do_not_reply_or_resolve"
+      ],
+      "renames": {},
+      "target_skill": "implement-ticket",
+      "unanswered": [],
+      "verdict": "controls_only"
+    }
+  ],
+  "model": "claude-opus-5",
+  "renames": {},
+  "schema": "recognition-probe/1",
+  "totals": {
+    "controls_only": 8,
+    "judgment_gap": 0,
+    "recall_gap": 0,
+    "uninformative": 0
+  }
+}
