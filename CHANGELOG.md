@@ -10,8 +10,12 @@ summary: Chronological history of repository and skill changes.
   skills — `AGENTS.md` told an author editing `review-code-change`,
   `review-correctness`, `review-code-simplicity`, or
   `review-solution-simplicity` that the skill had no corpus at all, when
-  `review-suite/scripts/evals/` ships six corpora that load each of those skills
-  as `target_skill`; the recorder just can't drive them, because the runner's
+  `review-suite/evals/` ships seven corpora (one under `corpus/`, six under
+  `strata/`) naming `review-code-change`, `review-code-simplicity`, or
+  `review-solution-simplicity` as `target_skill` — `review-correctness`'s prose
+  reaches the reviewer as a `target_skill_dependency` of the
+  `review-code-change`-targeted corpora rather than as a directly named target.
+  The recorder just can't drive any of them, because the runner's
   `--artifact-dir`, `--attempts-out`, and `--report-out` don't match the
   `--output-dir` interface `just eval-record` appends, and its exit codes report
   evaluation integrity rather than case outcomes. The bullet now names that

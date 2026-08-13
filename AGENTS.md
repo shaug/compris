@@ -38,18 +38,20 @@ changes that alter no obligation do not.
   collected, not what the registry offers.
 - **Where `just eval-record <skill>` has no corpus registered for that target**,
   it says so instead of recording something — that gap describes what the
-  recorder can drive, not whether a corpus exists at all. `review-code-change`,
-  `review-correctness`, `review-code-simplicity`, and
-  `review-solution-simplicity` are the current example:
-  `review-suite/scripts/evals/` ships six corpora that load each of those
-  skills' `SKILL.md` as `target_skill`, but its runner exposes `--artifact-dir`,
+  recorder can drive, not whether a corpus exists at all. The review-lens skills
+  are the current example: `review-suite/evals/` ships seven corpora (one under
+  `corpus/`, six under `strata/`) that load `review-code-change`,
+  `review-code-simplicity`, or `review-solution-simplicity` as `target_skill` —
+  `review-correctness`'s prose reaches the reviewer as a
+  `target_skill_dependency` of the `review-code-change`-targeted corpora rather
+  than as a directly named target — but the runner exposes `--artifact-dir`,
   `--attempts-out`, and `--report-out` rather than the `--output-dir` the
   recorder appends, and its exit codes report evaluation integrity rather than
-  case outcomes — so `just eval-record` can't drive it until that interface is
-  adapted. State the gap in the pull request, naming the corpus that already
-  exists when one does rather than reporting it as absent. Do not substitute the
-  skill's unit tests: they cannot observe `SKILL.md` prose, so a summary built
-  from them would carry no cases, no totals, and no diff.
+  case outcomes, so `just eval-record` can't drive any of them until that
+  interface is adapted. State the gap in the pull request, naming the corpus
+  that already exists when one does rather than reporting it as absent. Do not
+  substitute the skill's unit tests: they cannot observe `SKILL.md` prose, so a
+  summary built from them would carry no cases, no totals, and no diff.
 
 Record a run with:
 
