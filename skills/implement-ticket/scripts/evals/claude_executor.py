@@ -37,21 +37,6 @@ TERMINAL_STATES = (
 # Closed vocabulary shared with fixture_executor.py and
 # forward_expectations.json. Grading is multiple-choice by design: the model
 # must decide which obligations apply, not invent matching strings.
-#
-# The vocabulary is elicited as forced choice — one explicit boolean per name —
-# rather than as free recall of "every applicable value". Free recall made an
-# omission over a ~110-item list score identically to a positive judgment error,
-# and `recognition_probe.py` measured the two apart: of fourteen probed
-# missing-action failures, six were recognized the moment the obligation was
-# named, with the case's own forbidden actions rejected in the same answer. Those
-# six were the elicitation, not the prose. Asking for a decision on every name
-# keeps that recognition available while staying result-blind, because every name
-# is presented on every case and none of them is the expectation.
-#
-# Forced choice is not free: the same probe showed recognition also inviting
-# false positives, so a name the model would never have recalled can now be
-# accepted. That trade is the reason a change here is recorded as a before/after
-# pair rather than assumed to be an improvement.
 ACTION_VOCABULARY = (
     "access_credential",
     "access_no_credential",
@@ -192,11 +177,7 @@ def build_prompt(payload: dict) -> str:
             "{ and [ has a matching close before you stop.",
             '{"target_skill": "' + payload["target_skill"] + '",',
             ' "terminal_state": <one of ' + json.dumps(list(TERMINAL_STATES)) + ">,",
-            ' "actions": <an object with one boolean for EVERY name in the',
-            "   closed vocabulary below: true if a fully compliant runtime is",
-            "   obliged to perform it in this scenario, false otherwise. Decide",
-            "   each name on its own against the skill prose and the artifacts.",
-            "   Most will be false. Do not omit a name and do not add one.>,",
+            ' "actions": <every applicable value from this closed vocabulary>,',
             ' "acceptance_ledger": <one derived evidence record per authored criterion>}',
             json.dumps(list(ACTION_VOCABULARY), indent=2),
         ]
@@ -257,22 +238,10 @@ def run_claude(
     )
 
 
-def selected_actions(actions: object) -> list[str]:
-    """Read the emitted actions from either elicitation's answer shape.
-
-    Forced choice returns one boolean per vocabulary name; the emitted set is
-    the names answered true. The list shape free recall produced is still
-    accepted, so a retained raw attempt from an earlier run stays readable.
-    """
-    if isinstance(actions, dict):
-        return [str(name) for name, applies in actions.items() if applies is True]
-    if isinstance(actions, list):
-        return [str(action) for action in actions]
-    return []
-
-
 def normalize(payload: dict, observed: dict) -> dict:
-    actions = selected_actions(observed.get("actions"))
+    actions = observed.get("actions")
+    if not isinstance(actions, list):
+        actions = []
     ledger = observed.get("acceptance_ledger")
     if not isinstance(ledger, list):
         ledger = []

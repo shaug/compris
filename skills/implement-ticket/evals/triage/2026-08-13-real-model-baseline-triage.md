@@ -27,7 +27,7 @@ case is tuned in this change.
 | -------------------- | ----: | -------------------------------------------------------------------------- |
 | prose gap            |     8 | 5 in `implement-ticket`, already fixed by #162; 3 open in `implement-epic` |
 | expectation defect   |    12 | the corpus asks for behavior the prose does not owe                        |
-| measurement artifact |    11 | free-recall loss, one role-relative term, two sampling                     |
+| measurement artifact |    11 | 9 the elicitation, 1 sampling noise, 1 a term true in both paired cases    |
 
 The headline is the first row. **After #162 landed, this baseline shows no open
 prose gap in `implement-ticket` itself.** Every one of its five confirmed prose
@@ -101,27 +101,38 @@ had emitted. Recognition raises recall and false positives together. That is the
 ordinary signal-detection trade, and it is why the executor change below is
 recorded as a before/after pair rather than assumed to be an improvement.
 
-### The elicitation change
+### The elicitation change, tried and reverted
 
-`claude_executor.py` now elicits **forced choice** — one explicit boolean per
-vocabulary name — instead of free recall of "every applicable value". This is
-the probe's recognition condition made result-blind: every name is presented on
-every case, so no name's presence discloses anything about the expectation.
+The obvious intervention is to make the graded elicitation match the probe's
+recognition condition while staying result-blind: ask for **forced choice** —
+one explicit boolean per vocabulary name — instead of free recall of "every
+applicable value". Every name is presented on every case, so no name's presence
+discloses anything about the expectation.
 
-The instruction also carries one calibration sentence, "Most will be false",
-because the probe showed recognition inviting exactly the yea-saying that would
-otherwise trade the missing-action class for the forbidden-action class. It is
-case-independent and true of every packet — a typical expectation requires two
-to six names out of roughly 110 — so it steers the base rate without steering
-any case.
+It was implemented, measured against the recorded before run, and **reverted.**
+It did not work. See "Recorded before/after" below for the numbers; the short
+version is that the corpus moved from 34/58 to 35/58, inside the 30–34 band the
+ten prior runs already occupied, and **two of the six lines the change was built
+for regressed from pass to fail while none improved.**
 
-Nothing else moves. The vocabulary, the artifacts, the grader, the corpus, and
-the recorded result shape are untouched, so the before/after diff attributes to
-the elicitation.
+That negative result is worth more than the change would have been, because it
+localizes the defect. Recognition works in the probe and not in the executor,
+and the two differ in exactly one way: the probe presents about five names and
+the executor presents about 110. The benefit was never the boolean response
+format — it was the **short list**. Over 110 items the per-item attention
+collapses back to roughly what free recall gave, and the forced-choice framing
+buys nothing.
 
-The before/after pair is recorded under `evals/results/`. See "Recorded
-before/after" at the end of this document for the measured outcome, including
-whether the forbidden-action class paid for the missing-action class.
+Which puts the real constraint in plain view. A shortlist would fix these six
+lines, and a shortlist cannot be built without knowing which names matter, which
+is the expectation. The corpus needs a scenario-relevant partition derived from
+the *packet* by a neutral rule — something that narrows the list without reading
+the answer. That is a corpus design question rather than a prompt tweak, and it
+is filed as [#219](https://github.com/shaug/compris/issues/219) rather than
+guessed at here.
+
+The reverted change is preserved in the recorded `after` run's candidate,
+`17987612`, so a later reader can diff exactly what was tried.
 
 ## Two structural defects the corpus has, beneath the individual lines
 
@@ -192,8 +203,8 @@ fixed**. At the baseline candidate `67ff0dbc`, `SKILL.md` contained no
 the authored command", "Currency and correctness are independent judgments", or
 "do not invent a placeholder ledger entry". All four landed in `b86bf98`
 ([#162](https://github.com/shaug/compris/issues/162)). Every one of those five
-ledger failures disappears from the run recorded 2026-08-05T15:57 and stays
-absent through the eight runs after it.
+ledger failures is present in the two runs recorded before that commit and
+absent from all eight recorded after it.
 
 | Case                                                | Line                             | Class     | Evidence                                                     |
 | --------------------------------------------------- | -------------------------------- | --------- | ------------------------------------------------------------ |
@@ -315,10 +326,12 @@ dependencies at all".
 
 ## Corrective tickets
 
-Two of the three open prose gaps and all three corpus defect classes are filed.
-The five already-corrected prose gaps get no new ticket: their corrective change
-is `b86bf98` (#162), which landed and is confirmed by eight subsequent runs. A
-ticket asking for a fix that already shipped would name no rule that is not
+Six tickets: the two open prose gaps, three corpus defect classes, and the
+elicitation question the reverted experiment left open.
+
+The five already-corrected prose gaps get no new ticket. Their corrective change
+is `b86bf98` (#162), which landed and is confirmed by eight subsequent runs, and
+a ticket asking for a fix that already shipped would name no rule that is not
 already defended.
 
 **Prose gaps** — each names the rule it defends:
@@ -332,24 +345,33 @@ already defended.
   missing. Defends "a closed state caused by automation is delivery state, not
   acceptance proof". Covers 1 line.
 
-**Corpus defects** — filed as corpus tickets, not prose tickets, and none of
-them is fixed here:
+**Corpus and harness defects** — filed as corpus tickets, not prose tickets, and
+none of them is fixed here:
 
 - [#216](https://github.com/shaug/compris/issues/216) — expectations require
   obligations across the delegation boundary. Covers 3 lines.
+
 - [#217](https://github.com/shaug/compris/issues/217) — packets do not disclose
   run phase, so expectations forbid actions they already show happening. Covers
   8 lines.
+
 - [#218](https://github.com/shaug/compris/issues/218) — three action terms carry
   no discriminating information, including the `caller_` rename the naming test
   measured. Covers 3 lines, and improves the answer quality on 3 more.
 
-**No ticket:** the 8 free-recall lines are addressed by the elicitation change
-in this same change. The 2 sampling lines (`oversized-authorized-carved-stack`,
-`mid-stack-material-redesign`) are noise that forced choice should reduce rather
-than a defect to file; both are rejected under recognition, and
-`mid-stack-material-redesign` already passes in 9 of the 9 runs after the
-baseline.
+- [#219](https://github.com/shaug/compris/issues/219) — recover the six
+  recall-lost obligations without showing the model an expectation. Filed
+  *because* the forced-choice attempt failed: the six are proven answerable and
+  still unrecovered, and the reverted experiment narrows the remaining solution
+  space to list length. Covers 6 lines.
+
+**No ticket** for the last 4 measurement artifacts. The 2
+`caller_verifies_mainline_tracker_cleanup` lines are covered by #218's rename
+rather than by any elicitation — a term that names the wrong actor stays wrong
+however it is elicited. And `oversized-authorized-carved-stack` and
+`mid-stack-material-redesign` are breadth and sampling rather than a defect to
+file: both are rejected under recognition, and `mid-stack-material-redesign`
+passes in all 9 runs after the baseline.
 
 ## Recorded before/after
 
@@ -357,17 +379,49 @@ Both runs are the full 58-case forward corpus at the real-model tier, pinned to
 `claude-opus-5`, recorded through `just eval-record`. The only difference
 between them is the elicitation.
 
-| Stage    | Summary                                         | Candidate   | Passed |
-| -------- | ----------------------------------------------- | ----------- | -----: |
-| `before` | `2026-08-13T175223Z-0026-before.json`           | `42b52102`  |  34/58 |
-| `after`  | recorded in the follow-up commit on this branch | this branch |      — |
+| Stage    | Summary                               | Candidate  | Passed |
+| -------- | ------------------------------------- | ---------- | -----: |
+| `before` | `2026-08-13T175223Z-0026-before.json` | `42b52102` |  34/58 |
+| `after`  | `2026-08-13T185942Z-0027-after.json`  | `17987612` |  35/58 |
+
+Five cases newly passed and four newly failed. Against the ten prior real-model
+runs — 27/54 once, then 30, 31, 31, 32, 33, 34, 34, 34, 34 of 58 — a single case
+of net movement is indistinguishable from resampling.
+
+The decisive part is not the total. It is what happened to the six lines the
+change existed to fix:
+
+| Line                                           | Before | After    |
+| ---------------------------------------------- | ------ | -------- |
+| `linear-ticket-github-pr`                      | fail   | fail     |
+| `published-feedback-fix`                       | fail   | fail     |
+| `infrastructure-retry`                         | fail   | fail     |
+| `implement-epic-consumes-ticket-results`       | pass   | pass     |
+| `implement-epic-verifies-stacked-child`        | pass   | **fail** |
+| `epic-refreshes-after-blocked-merged-delivery` | pass   | **fail** |
+
+None improved and two regressed, each on the exact obligation the probe had
+shown the model recognizing on sight. `malformed-babysitter-result` also newly
+failed on `forbidden actions: invoke_ready_to_merge` — the over-emission the
+probe warned forced choice could invite, arriving on schedule.
+
+So the change was reverted. `claude_executor.py` on this branch is
+byte-identical to `42b52102`'s, and the elicitation the corpus runs is
+unchanged.
+
+Two notes a later reader will want:
 
 The `before` run was recorded from a detached worktree at `42b52102`, the branch
-point, so its candidate is a commit and tree a later reader can resolve without
-this branch.
+point, so its candidate is a commit and tree resolvable without this branch. Its
+`compared_to` is `null`, which is correct rather than broken: `#207` scopes a
+diff to runs matching on tier, suite **and** model, and every real-model run
+recorded before `#207` carries no `model` at all. This was the first run of this
+corpus with an attributable subject, so it had nothing legitimate to compare
+against, and the `after` run is its first real comparator.
 
-Its `compared_to` is `null`, and that is expected rather than a defect: `#207`
-scopes a diff to runs matching on tier, suite **and** model, and every
-real-model run recorded before `#207` carries no `model` at all. This is the
-first run of this corpus with an attributable subject, so it has nothing
-legitimate to be compared against. The `after` run is its first real comparator.
+The `after` run carries `worktree_clean: false`. The dirty path was this file,
+edited between the commit and the run's completion; every input the run actually
+reads — `SKILL.md`, `forward_cases.json`, `forward_expectations.json`, and
+`claude_executor.py` — was committed and unmodified at `17987612`, whose `sha`
+and `tree` both resolve. The run is reproducible from that commit; the flag is
+recorded rather than explained away.

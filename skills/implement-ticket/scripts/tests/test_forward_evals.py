@@ -165,63 +165,6 @@ class ForwardEvaluationTests(unittest.TestCase):
                     f"{expected['case_id']} has no forbidden_actions teeth",
                 )
 
-    def test_claude_executor_reads_forced_choice_answers(self):
-        """Forced choice emits one boolean per name; only the true ones count.
-
-        The elicitation asks the model to decide every vocabulary name rather
-        than to recall the applicable ones, so a `false` is an answer, not an
-        omission, and must not reach the grader as an emitted action.
-        """
-        normalized = CLAUDE_EXECUTOR.normalize(
-            {"target_skill": "implement-ticket"},
-            {
-                "target_skill": "implement-ticket",
-                "terminal_state": "ready_pr",
-                "actions": {
-                    "invoke_ready_to_merge": True,
-                    "verify_non_merge_gates": True,
-                    "invoke_merge_when_ready": False,
-                    "perform_no_mutation": False,
-                    "not_a_vocabulary_name": True,
-                },
-            },
-        )
-        self.assertEqual(
-            ["invoke_ready_to_merge", "verify_non_merge_gates"],
-            normalized["actions"],
-        )
-
-    def test_claude_executor_still_reads_the_free_recall_list_shape(self):
-        """A retained raw attempt from a pre-forced-choice run stays readable."""
-        normalized = CLAUDE_EXECUTOR.normalize(
-            {"target_skill": "implement-ticket"},
-            {
-                "target_skill": "implement-ticket",
-                "terminal_state": "ready_pr",
-                "actions": ["verify_non_merge_gates", "not_a_vocabulary_name"],
-            },
-        )
-        self.assertEqual(["verify_non_merge_gates"], normalized["actions"])
-
-    def test_claude_executor_elicits_a_decision_on_every_vocabulary_name(self):
-        """The prompt must ask for a decision per name, not for applicable ones.
-
-        Free recall over the ~110-item vocabulary scored an omission and a
-        positive judgment error identically. `recognition_probe.py` measured
-        those apart, so the answer shape the prompt asks for is load-bearing
-        evidence about what the corpus is measuring, not presentation.
-        """
-        prompt = CLAUDE_EXECUTOR.build_prompt(
-            {
-                "target_skill": "implement-ticket",
-                "skill_prompt": "skill",
-                "request": "request",
-                "artifacts": {},
-            }
-        )
-        self.assertIn("one boolean for EVERY name", prompt)
-        self.assertNotIn("every applicable value", prompt)
-
     def test_claude_executor_reports_model_claims_verbatim(self):
         normalized = CLAUDE_EXECUTOR.normalize(
             {"target_skill": "implement-ticket"},

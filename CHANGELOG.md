@@ -4,30 +4,43 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness, not the prose, and corrected the eval-evidence norm's scope statement for the review-lens skills
+## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness rather than the prose, measured a fix for the elicitation and reverted it when it did not work, and corrected the eval-evidence norm's scope statement for the review-lens skills
 
-- test(evals): triage the real-model forward-eval baseline and elicit the action
-  vocabulary as forced choice — the first real-model baseline (#145) passed 27
-  of 54 cases while the deterministic tier passed 54/54, and the 31
-  non-terminal-state failure lines behind that gap had never been classified.
-  All 31 now carry a classification and its evidence: 8 prose gaps, 12
-  expectation defects, 11 measurement artifacts. The headline is that after #162
-  landed, the baseline shows **no open prose gap in `implement-ticket` itself**
-  — its five confirmed gaps were all corrected there, confirmed by the eight
-  real-model runs recorded since, and the three that remain open belong to
-  `implement-epic`, filed as #214 and #215. The corpus defects are filed as
-  #216, #217, and #218. The measurement question #151 asked be settled first was
-  settled by a new `recognition_probe.py`, which re-presents a case's identical
-  packet and asks whether a named obligation applies, using that case's own
+- test(evals): triage the real-model forward-eval baseline and record a reverted
+  elicitation experiment — the first real-model baseline (#145) passed 27 of 54
+  cases while the deterministic tier passed 54/54, and the 31 non-terminal-state
+  failure lines behind that gap had never been classified. All 31 now carry a
+  classification and its evidence: 8 prose gaps, 12 expectation defects, 11
+  measurement artifacts. The headline is that after #162 landed, the baseline
+  shows **no open prose gap in `implement-ticket` itself** — its five confirmed
+  gaps were all corrected there, confirmed by the eight real-model runs recorded
+  since, and the three that remain open belong to `implement-epic`, filed as
+  #214 and #215. The corpus defects are filed as #216, #217, and #218. The
+  measurement question #151 asked be settled first was settled by a new
+  `recognition_probe.py`, which re-presents a case's identical result-blind
+  packet and asks whether a *named* obligation applies, using that case's own
   forbidden actions as controls: of fourteen probed missing-action failures, six
-  were recognized the instant the obligation was named. A single-variable rename
-  probe went further — presenting `caller_verifies_mainline_tracker_cleanup` as
-  `verify_mainline_tracker_cleanup` took recognition from 1 of 3 to 3 of 3 and
-  control rejection from 6 of 8 to 8 of 8, so one confusing term had been
-  degrading whole answers. Acting on that, `claude_executor.py` now elicits one
-  explicit boolean per vocabulary name instead of free recall of "every
-  applicable value", recorded as a before/after pair per the eval-evidence norm.
-  No skill prose is edited here, and no expectation is tuned.
+  were recognized the instant the obligation was named, and the forbidden-action
+  class split the same way under the converse probe — in all three
+  `invoke_ready_to_merge` cases the model asserts the forbidden action applies
+  while rejecting `invoke_merge_when_ready`, so it is picking the exact policy
+  the handoff mapping assigns rather than over-emitting. A single-variable
+  rename probe was sharper still: presenting
+  `caller_verifies_mainline_tracker_cleanup` as
+  `verify_mainline_tracker_cleanup` and changing nothing else took recognition
+  from 1 of 3 to 3 of 3 and control rejection from 6 of 8 to 8 of 8, so one
+  confusing term had been degrading whole answers. Acting on that,
+  `claude_executor.py` was changed to elicit one explicit boolean per vocabulary
+  name instead of free recall of "every applicable value" — and the recorded
+  before/after pair says it did not work: 34/58 → 35/58, inside the 30–34 band
+  the ten prior runs already occupied, with two of the six targeted lines
+  regressing and none improving. The change is reverted and the negative result
+  is the finding, because it localizes the defect to list length rather than
+  response format: the probe presents about five names and the executor about
+  110, and that is the only difference between where recognition works and where
+  it does not. A shortlist would fix those six lines and cannot be built without
+  reading the expectation, so the corpus-design question is filed as #219 rather
+  than guessed at. No skill prose is edited here, and no expectation is tuned.
 
 - docs: correct the eval-evidence norm's scope statement for the review-lens
   skills (42b52102530563ead17a1c17db227f32d50954f7) — `AGENTS.md` told an author
