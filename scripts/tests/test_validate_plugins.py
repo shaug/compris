@@ -54,6 +54,25 @@ class ValidatePluginsTests(unittest.TestCase):
             ):
                 validate_plugins.validate(root)
 
+    def test_bundled_doctrine_cannot_disappear(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_fixture(root)
+            doctrine = (
+                root
+                / "skills"
+                / "review-solution-simplicity"
+                / "references"
+                / "cognitive-shaping-doctrine.md"
+            )
+            doctrine.unlink()
+
+            with self.assertRaisesRegex(
+                validate_plugins.PluginValidationError,
+                "missing the bundled cognitive-shaping-doctrine.md",
+            ):
+                validate_plugins.validate(root)
+
     def test_marketplace_entries_require_a_valid_version(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

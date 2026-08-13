@@ -19,10 +19,16 @@ caller.
    origin and the bundled copies are kept byte-identical to it.
 2. Read
    [the solution-simplicity rubric](references/solution-simplicity-rubric.md).
-3. Treat the canonical contract as authoritative for evidence, finding fields,
+3. Read
+   [the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md).
+   It is compris's canonical statement of when a unit of work is correctly
+   shaped, bundled here from the repository-root `docs/` copy and kept
+   byte-identical to it. Cite it for every reviewability judgment; this lens
+   does not restate, extend, or locally override the standard.
+4. Treat the canonical contract as authoritative for evidence, finding fields,
    severity, confidence, verdicts, candidate identity, and base drift.
-4. Return `blocked` with the missing dependency when the canonical contract is
-   unavailable. Do not invent or copy a local replacement.
+5. Return `blocked` with the missing dependency when the canonical contract or
+   the doctrine is unavailable. Do not invent or copy a local replacement.
 
 ## Establish the candidate
 
@@ -73,6 +79,21 @@ caller.
 Correctness, security, concurrency, migration, compatibility, rollout, and
 recovery requirements override simplicity. Treat the signals in the rubric as
 questions, not automatic findings.
+
+Where that comparison turns on whether the candidate can be reviewed at all, the
+doctrine's standard decides it: a unit of work is correctly shaped when a
+reviewer can construct an accurate mental model of the change and evaluate it
+independently. Size informs that judgment and never decides it, so name the
+concepts, states, and ownership a reviewer has to hold rather than a threshold
+the candidate crossed. The doctrine's own scale calibration says where shaped
+work usually lands, not where anything is enforced; cite it as calibration and
+never convert it into a gate.
+
+The doctrine's breakdown rules divide work before it is written. This lens
+reviews a candidate that already exists, so it consumes the standard and its
+calibration only. Do not apply the breakdown rules, propose a ticket split, or
+recommend carving a branch — a candidate too large to review is reported as what
+it is, and the decomposition decision belongs to the caller.
 
 ## Apply the finding threshold
 

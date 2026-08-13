@@ -8,9 +8,11 @@ md_targets := "."
 list-skills:
   @find {{skills_dir}} -mindepth 1 -maxdepth 1 -type d -print
 
-# Refresh the review-suite contract copies bundled into each review skill and
-# each caller that consumes a review-code-change result, so every skill stays
-# self-contained when installed outside this repository.
+# Refresh the canonical text bundled into each skill that consumes it — the
+# review-suite contract copies for each review skill and each caller of a
+# review-code-change result, and the cognitive-shaping doctrine for each lens
+# that judges shape — so every skill stays self-contained when installed
+# outside this repository.
 sync-contracts:
   @for skill in review-code-change review-correctness review-code-simplicity review-solution-simplicity review-fix-loop; do \
     dest="{{skills_dir}}/$skill/references/review-suite"; \
@@ -34,6 +36,12 @@ sync-contracts:
     cp review-suite/scripts/review_gate.py "$scripts_dest/review_gate.py"; \
     cp review-suite/scripts/tests/test_review_gate.py "$tests_dest/test_review_gate.py"; \
     echo "Synced $scripts_dest/review_gate.py and $tests_dest/test_review_gate.py"; \
+  done
+  @for skill in review-solution-simplicity; do \
+    dest="{{skills_dir}}/$skill/references"; \
+    mkdir -p "$dest"; \
+    cp docs/cognitive-shaping-doctrine.md "$dest/cognitive-shaping-doctrine.md"; \
+    echo "Synced $dest/cognitive-shaping-doctrine.md"; \
   done
   @for skill in implement-epic carve-changesets babysit-pr; do \
     scripts_dest="{{skills_dir}}/$skill/scripts"; \

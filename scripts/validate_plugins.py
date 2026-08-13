@@ -35,6 +35,10 @@ REVIEW_BUNDLE_FILES = {
     "review-result.schema.json",
     "validate.py",
 }
+# The lenses that judge shape load the canonical doctrine rather than restating
+# it, so a package that ships one without the other ships a dangling citation.
+DOCTRINE_BUNDLING_SKILLS = {"review-solution-simplicity"}
+DOCTRINE_NAME = "cognitive-shaping-doctrine.md"
 
 
 class PluginValidationError(ValueError):
@@ -175,6 +179,11 @@ def validate(root: Path) -> None:
         _require(
             not missing_bundle_files,
             f"{skill} review-suite bundle is missing: {', '.join(missing_bundle_files)}",
+        )
+    for skill in DOCTRINE_BUNDLING_SKILLS:
+        _require(
+            (root / "skills" / skill / "references" / DOCTRINE_NAME).is_file(),
+            f"{skill} is missing the bundled {DOCTRINE_NAME}",
         )
 
 

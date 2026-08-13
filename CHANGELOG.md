@@ -4,29 +4,48 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness rather than the prose, measured a fix for the elicitation and reverted it when it did not work, and corrected the eval-evidence norm's scope statement for the review-lens skills
+## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness rather than the prose, measured a fix for the elicitation and reverted it when it did not work, corrected the eval-evidence norm's scope statement for the review-lens skills, and bound the solution-simplicity lens to the canonical shaping doctrine instead of its own restatement of it
+
+- feat(review-solution-simplicity): bind the lens's reviewability judgment to
+  the canonical shaping doctrine — the lens judged whether a candidate could be
+  reviewed at all out of its own prose, while
+  `docs/cognitive-shaping-doctrine.md` was already compris's pinned statement of
+  that standard and nothing loaded it. The doctrine is now bundled into the
+  skill by `just sync-contracts` and drift-checked under `just test`, the same
+  distribution pair `review-suite/` has used all along, so the lens cites the
+  mental-model standard rather than restating it and fails closed when the
+  doctrine is missing. What it consumes is deliberately partial: the standard
+  and its scale calibration, never the breakdown rules — those divide work
+  before it is written, and this lens reads a candidate that already exists, so
+  importing them would turn a review lens into a decomposition tool. The result
+  shape, severity semantics, and read-only posture are untouched, and the
+  contract tests now hold the citation, the fail-closed load, the absent
+  breakdown rules, and the continued absence of any numeric size threshold. The
+  doctrine's one cross-reference became an absolute URL, because a
+  repository-relative link resolves in `docs/` and dangles in every bundled
+  copy.
 
 - test(evals): triage the real-model forward-eval baseline and record a reverted
-  elicitation experiment — the first real-model baseline (#145) passed 27 of 54
-  cases while the deterministic tier passed 54/54, and the 31 non-terminal-state
-  failure lines behind that gap had never been classified. All 31 now carry a
-  classification and its evidence: 8 prose gaps, 12 expectation defects, 11
-  measurement artifacts. The headline is that after #162 landed, the baseline
-  shows **no open prose gap in `implement-ticket` itself** — its five confirmed
-  gaps were all corrected there, confirmed by the eight real-model runs recorded
-  since, and the three that remain open belong to `implement-epic`, filed as
-  #214 and #215. The corpus defects are filed as #216, #217, and #218. The
-  measurement question #151 asked be settled first was settled by a new
-  `recognition_probe.py`, which re-presents a case's identical result-blind
-  packet and asks whether a *named* obligation applies, using that case's own
-  forbidden actions as controls: of fourteen probed missing-action failures, six
-  were recognized the instant the obligation was named, and the forbidden-action
-  class split the same way under the converse probe — in all three
-  `invoke_ready_to_merge` cases the model asserts the forbidden action applies
-  while rejecting `invoke_merge_when_ready`, so it is picking the exact policy
-  the handoff mapping assigns rather than over-emitting. A single-variable
-  rename probe was sharper still: presenting
-  `caller_verifies_mainline_tracker_cleanup` as
+  elicitation experiment (5405aab218db0f7e519667440392be33063a0ea5) — the first
+  real-model baseline (#145) passed 27 of 54 cases while the deterministic tier
+  passed 54/54, and the 31 non-terminal-state failure lines behind that gap had
+  never been classified. All 31 now carry a classification and its evidence: 8
+  prose gaps, 12 expectation defects, 11 measurement artifacts. The headline is
+  that after #162 landed, the baseline shows **no open prose gap in
+  `implement-ticket` itself** — its five confirmed gaps were all corrected
+  there, confirmed by the eight real-model runs recorded since, and the three
+  that remain open belong to `implement-epic`, filed as #214 and #215. The
+  corpus defects are filed as #216, #217, and #218. The measurement question
+  #151 asked be settled first was settled by a new `recognition_probe.py`, which
+  re-presents a case's identical result-blind packet and asks whether a *named*
+  obligation applies, using that case's own forbidden actions as controls: of
+  fourteen probed missing-action failures, six were recognized the instant the
+  obligation was named, and the forbidden-action class split the same way under
+  the converse probe — in all three `invoke_ready_to_merge` cases the model
+  asserts the forbidden action applies while rejecting
+  `invoke_merge_when_ready`, so it is picking the exact policy the handoff
+  mapping assigns rather than over-emitting. A single-variable rename probe was
+  sharper still: presenting `caller_verifies_mainline_tracker_cleanup` as
   `verify_mainline_tracker_cleanup` and changing nothing else took recognition
   from 1 of 3 to 3 of 3 and control rejection from 6 of 8 to 8 of 8, so one
   confusing term had been degrading whole answers. Acting on that,
