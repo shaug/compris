@@ -349,7 +349,7 @@ normalize it.
 
 Run: `python3 -m unittest scripts.tests.test_cognitive_prose_doc -v`
 
-Expected: PASS, 8 tests.
+Expected: PASS, 7 tests.
 
 If `test_the_contract_carries_no_section_beyond_the_promised_seven` fails, the
 document has a heading the test does not know about — either remove the heading
@@ -395,7 +395,7 @@ skill, so it has no dangling-link constraint.
 
 Run: `python3 -m unittest scripts.tests.test_cognitive_prose_doc -v`
 
-Expected: PASS, 8 tests — unchanged, confirming the `cognitive-debt.md` edit did
+Expected: PASS, 7 tests — unchanged, confirming the `cognitive-debt.md` edit did
 not disturb the contract.
 
 Run: `just test`
@@ -591,7 +591,7 @@ class BundledProseContractTests(unittest.TestCase):
 
 Run: `python3 -m unittest scripts.tests.test_cognitive_prose_doc -v`
 
-Expected: the 8 tests from Task 1 PASS.
+Expected: the 7 tests from Task 1 PASS.
 `test_every_consuming_skill_bundles_an_identical_copy` FAILS with
 `skills/implement-ticket/references/cognitive-prose.md is missing; run just sync-contracts`.
 `test_no_unlisted_skill_bundles_the_contract` FAILS comparing `set()` against
@@ -647,7 +647,7 @@ Synced skills/ready-ticket/references/cognitive-prose.md
 
 Run: `python3 -m unittest scripts.tests.test_cognitive_prose_doc -v`
 
-Expected: PASS, 11 tests.
+Expected: PASS, 10 tests.
 
 - [ ] **Step 6: Verify the drift test can actually fail**
 
@@ -668,7 +668,7 @@ just sync-contracts
 python3 -m unittest scripts.tests.test_cognitive_prose_doc -v
 ```
 
-Expected: PASS, 11 tests. Record this before/after in the pull request body — it
+Expected: PASS, 10 tests. Record this before/after in the pull request body — it
 is the change-demonstrating evidence for this task.
 
 - [ ] **Step 7: Confirm no skill loads the contract yet**
