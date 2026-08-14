@@ -6,9 +6,23 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, and specified the cognitive prose contract that answers its prose half
 
-- docs: publish the canonical cognitive prose contract — compris shaped what a
-  reviewer reads and said nothing about how it was written. The entire
-  pull-request-body obligation was a four-item content checklist at
+- build: distribute the cognitive prose contract to its consuming skills — the
+  contract landed with no way to reach a skill. `just sync-contracts` now copies
+  `docs/cognitive-prose.md` into `references/` for `implement-ticket`,
+  `carve-changesets`, and `ready-ticket`, and a drift test fails when a copy
+  diverges or when an unlisted skill carries one. The copies are deliberately
+  unreferenced: no `SKILL.md` loads them, so this commit changes no behavior and
+  leaves the consuming edits to be reviewed on their own. That also makes this
+  the first exercise of the doctrine-distribution mechanism Spec B of the
+  shaping program needs, on a document with no consumers and nothing to break.
+  The drift check was verified capable of failing: appending a line to the
+  `ready-ticket` copy turns it red naming that file, and `just sync-contracts`
+  restores green.
+
+- docs: publish the canonical cognitive prose contract
+  (2d19029f77045ecb5368856f557efb56a405de97) — compris shaped what a reviewer
+  reads and said nothing about how it was written. The entire pull-request-body
+  obligation was a four-item content checklist at
   `skills/implement-ticket/SKILL.md:669`, and `carve-changesets` inherited none
   at all, so an agent could satisfy the suite in full while emitting prose no
   reviewer could use. `docs/cognitive-prose.md` states the standard — prose is

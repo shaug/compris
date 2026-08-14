@@ -26,6 +26,7 @@ from helpers import compact  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL = REPOSITORY_ROOT / "docs" / "cognitive-prose.md"
+BUNDLING_SKILLS = ("implement-ticket", "carve-changesets", "ready-ticket")
 
 REQUIRED_SECTIONS = (
     "## The standard",
@@ -110,6 +111,55 @@ class CognitiveProseContractTests(unittest.TestCase):
             with self.subTest(target=target):
                 self.assertTrue(target.startswith("https://"))
         self.assertEqual(re.findall(r"\]\((?!https://)([^)]+)\)", text), [])
+
+
+class BundledProseContractTests(unittest.TestCase):
+    """`just sync-contracts` copies the contract into each consuming skill so
+    each stays self-contained when installed outside this repository. These
+    fail when a copy drifts from the canonical file."""
+
+    def test_every_consuming_skill_bundles_an_identical_copy(self) -> None:
+        for skill in BUNDLING_SKILLS:
+            bundled = (
+                REPOSITORY_ROOT / "skills" / skill / "references" / "cognitive-prose.md"
+            )
+            with self.subTest(skill=skill):
+                self.assertTrue(
+                    bundled.exists(),
+                    f"{bundled} is missing; run `just sync-contracts`",
+                )
+                self.assertEqual(
+                    CANONICAL.read_bytes(),
+                    bundled.read_bytes(),
+                    f"{bundled} drifted from {CANONICAL}; run `just sync-contracts`",
+                )
+
+    def test_no_bundled_copy_carries_a_link_it_cannot_resolve(self) -> None:
+        # The canonical file is already all-absolute by test_every_link_is_absolute.
+        # This asserts the property survives bundling, where nothing from this
+        # repository's layout sits beside the copy.
+        for skill in BUNDLING_SKILLS:
+            bundle = REPOSITORY_ROOT / "skills" / skill / "references"
+            text = (bundle / "cognitive-prose.md").read_text()
+            for target in re.findall(r"\]\(([^)#][^)]*)\)", text):
+                if target.startswith("https://"):
+                    continue
+                with self.subTest(skill=skill, target=target):
+                    self.assertTrue(
+                        (bundle / target).exists(),
+                        f"{skill} bundles a link to {target}, which it does not ship",
+                    )
+
+    def test_no_unlisted_skill_bundles_the_contract(self) -> None:
+        # A stray copy in a skill the recipe does not sync would drift silently
+        # the first time the canonical text changed.
+        found = {
+            path.parents[1].name
+            for path in (REPOSITORY_ROOT / "skills").glob(
+                "*/references/cognitive-prose.md"
+            )
+        }
+        self.assertEqual(found, set(BUNDLING_SKILLS))
 
 
 if __name__ == "__main__":
