@@ -1,0 +1,282 @@
+{
+  "adjudication_required": [
+    {
+      "candidate_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "case_id": "registry-client-layering",
+      "finding_id": "ss.queue-ops-repeats-root-cwd-threading",
+      "reason": "partial",
+      "run_number": 1
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "case_id": "registry-client-layering",
+      "finding_id": "queue-ops-duplicate-root-cwd-threading",
+      "reason": "partial",
+      "run_number": 2
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "case_id": "registry-client-layering",
+      "finding_id": "solsimp.duplicate-root-cwd-threading-client",
+      "reason": "partial",
+      "run_number": 3
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "case_id": "registry-client-layering",
+      "finding_id": "ss-queue-ops-duplicate-threading-client",
+      "reason": "partial",
+      "run_number": 4
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "case_id": "registry-client-layering",
+      "finding_id": "ss.duplicate-root-cwd-threading-client",
+      "reason": "partial",
+      "run_number": 5
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "case_id": "setup-service-path-gateway",
+      "finding_id": "ss.setup-dependency-bag-indirection",
+      "reason": "partial",
+      "run_number": 1
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "case_id": "setup-service-path-gateway",
+      "finding_id": "ss-setup-dependency-bag-indirection",
+      "reason": "partial",
+      "run_number": 2
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "case_id": "setup-service-path-gateway",
+      "finding_id": "ss.setup-gateway-indirection",
+      "reason": "partial",
+      "run_number": 3
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "case_id": "setup-service-path-gateway",
+      "finding_id": "ss-setup-gateway-indirection",
+      "reason": "partial",
+      "run_number": 4
+    },
+    {
+      "candidate_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "case_id": "setup-service-path-gateway",
+      "finding_id": "ss.setup-path-gateway-and-deps-bag-unjustified",
+      "reason": "partial",
+      "run_number": 5
+    }
+  ],
+  "attempts": 20,
+  "baseline_eligible": true,
+  "configuration": {
+    "cases": 4,
+    "corpus_version": "0.1-s2-populated",
+    "executor": null,
+    "grader_version": "1.1",
+    "regrade_note": "No executor process ran in this pass. Every non-grading attempt field is carried over unchanged from the source attempts file; only `grade` was recomputed, from the retained raw artifact, using the grader version above.",
+    "regraded": true,
+    "regraded_from_artifact_dir": "/private/tmp/claude-501/-Users-scott--claude-worktrees-compris-ticket-155-56158c/2b228fee-ac01-4a94-8a67-f4e0976b2f50/scratchpad/base-tree/review-suite/evals/artifacts/s2-solution-simplicity-lens/5405aab-0.1-s2-populated",
+    "regraded_from_attempts": "/private/tmp/claude-501/-Users-scott--claude-worktrees-compris-ticket-155-56158c/2b228fee-ac01-4a94-8a67-f4e0976b2f50/scratchpad/base-tree/review-suite/evals/artifacts/s2-solution-simplicity-lens/5405aab-0.1-s2-populated.attempts.jsonl",
+    "regraded_grader_version": "1.1",
+    "runs_per_case": 5,
+    "stratum": {
+      "grading_is_signal": true,
+      "ground_truth": "human-review",
+      "id": "s2-solution-simplicity-lens",
+      "purpose": "Whole-solution over-engineering and requirement-justified near-miss cases for the self-sufficient solution-simplicity lens. No executable oracle exists for this subject - 'over-engineered' and 'requirement-justified' are design judgements a runnable check cannot decide - so every case's second adjudication is `owner_confirmed`: the owner adjudicated all four directly, confirming every recommended disposition with no overturns. SCORED: both owner-gated inputs are satisfied, and every expectation stays `calibrated: false` permanently, per the owner-settled three-way grading method.",
+      "scored": true
+    },
+    "suite_commit": "5405aab218db0f7e519667440392be33063a0ea5",
+    "target_skill": "review-solution-simplicity",
+    "target_skill_dependencies": []
+  },
+  "failures": {
+    "blocked_rate": 0.0,
+    "malformed_output_rate": 0.0,
+    "output_too_large_rate": 0.0,
+    "protocol_mismatch_rate": 0.0,
+    "runtime_failure_rate": 0.0,
+    "spawn_failure_rate": 0.0,
+    "timeout_rate": 0.0
+  },
+  "graded_attempts": 20,
+  "grader_version": "1.1",
+  "latency": {
+    "count": 20,
+    "max_seconds": 52.16554691735655,
+    "mean_seconds": 23.943195843789727,
+    "min_seconds": 6.81181429233402,
+    "p50_seconds": 22.1197927496396
+  },
+  "per_case": [
+    {
+      "attempts": 5,
+      "case_id": "reconciliation-outcome-type",
+      "ever_referred_relevant_root_cause_ids": [],
+      "ever_referred_root_cause_ids": [],
+      "expected_root_cause_ids": [],
+      "false_alarm_attempts": 0,
+      "false_clean_attempts": 0,
+      "false_positive_attempts": 0,
+      "finding_stability": 1.0,
+      "graded_attempts": 5,
+      "intersection_root_cause_ids": [],
+      "mean_combined_recall": null,
+      "mean_recall": null,
+      "stability_denominator": 5,
+      "statuses": {
+        "review_result": 5
+      },
+      "union_root_cause_ids": [],
+      "verdict_stability": 1.0
+    },
+    {
+      "attempts": 5,
+      "case_id": "record-status-transition-guard",
+      "ever_referred_relevant_root_cause_ids": [],
+      "ever_referred_root_cause_ids": [],
+      "expected_root_cause_ids": [],
+      "false_alarm_attempts": 0,
+      "false_clean_attempts": 0,
+      "false_positive_attempts": 0,
+      "finding_stability": 1.0,
+      "graded_attempts": 5,
+      "intersection_root_cause_ids": [],
+      "mean_combined_recall": null,
+      "mean_recall": null,
+      "stability_denominator": 5,
+      "statuses": {
+        "review_result": 5
+      },
+      "union_root_cause_ids": [],
+      "verdict_stability": 1.0
+    },
+    {
+      "attempts": 5,
+      "case_id": "registry-client-layering",
+      "ever_referred_relevant_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "ever_referred_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "expected_root_cause_ids": [
+        "rc.three-client-concepts-duplicate-binding"
+      ],
+      "false_alarm_attempts": 0,
+      "false_clean_attempts": 0,
+      "false_positive_attempts": 0,
+      "finding_stability": 1.0,
+      "graded_attempts": 5,
+      "intersection_root_cause_ids": [],
+      "mean_combined_recall": 1.0,
+      "mean_recall": 0.0,
+      "stability_denominator": 5,
+      "statuses": {
+        "review_result": 5
+      },
+      "union_root_cause_ids": [],
+      "verdict_stability": 1.0
+    },
+    {
+      "attempts": 5,
+      "case_id": "setup-service-path-gateway",
+      "ever_referred_relevant_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "ever_referred_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "expected_root_cause_ids": [
+        "rc.gateway-abstracts-a-pure-function-with-one-implementation"
+      ],
+      "false_alarm_attempts": 0,
+      "false_clean_attempts": 0,
+      "false_positive_attempts": 0,
+      "finding_stability": 1.0,
+      "graded_attempts": 5,
+      "intersection_root_cause_ids": [],
+      "mean_combined_recall": 1.0,
+      "mean_recall": 0.0,
+      "stability_denominator": 5,
+      "statuses": {
+        "review_result": 5
+      },
+      "union_root_cause_ids": [],
+      "verdict_stability": 1.0
+    }
+  ],
+  "protocol_version": "1.0",
+  "quality": {
+    "false_alarm_denominator": 10,
+    "false_alarm_rate": 0.0,
+    "false_clean_denominator": 10,
+    "false_clean_rate": 0.0,
+    "false_positive_denominator": 20,
+    "false_positive_rate": 0.0,
+    "material_finding_recall": 0.0,
+    "recall_attempts": 10,
+    "referred_denominator": 20,
+    "referred_rate": 0.5,
+    "unique_finding_contribution": []
+  },
+  "report_version": "1.0",
+  "simulation": false,
+  "stability": {
+    "mean_finding_stability": 1.0,
+    "mean_verdict_stability": 1.0,
+    "per_case_finding_stability": {
+      "reconciliation-outcome-type": 1.0,
+      "record-status-transition-guard": 1.0,
+      "registry-client-layering": 1.0,
+      "setup-service-path-gateway": 1.0
+    },
+    "per_case_stability_denominator": {
+      "reconciliation-outcome-type": 5,
+      "record-status-transition-guard": 5,
+      "registry-client-layering": 5,
+      "setup-service-path-gateway": 5
+    },
+    "per_case_verdict_stability": {
+      "reconciliation-outcome-type": 1.0,
+      "record-status-transition-guard": 1.0,
+      "registry-client-layering": 1.0,
+      "setup-service-path-gateway": 1.0
+    },
+    "stability_denominator": 20
+  },
+  "usage": {
+    "available": true,
+    "reporting_attempts_cost_usd": 20,
+    "reporting_attempts_input_tokens": 20,
+    "reporting_attempts_output_tokens": 20,
+    "total_cost_usd": 8.227229999999999,
+    "total_input_tokens": 1123450.0,
+    "total_output_tokens": 26686.0
+  }
+}

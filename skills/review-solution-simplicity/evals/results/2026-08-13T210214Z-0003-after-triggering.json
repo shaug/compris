@@ -1,0 +1,67 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-188-319c64",
+    "sha": "6a44e1b665e05ba29cf8a95dea9b87a341dc13c4",
+    "tree": "63bf140b44bcc5ddc333c85dab78210a5d56ce26",
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "review-solution-simplicity-negative-plan": {
+      "agreement": 1.0,
+      "repetitions": 5,
+      "selected_skill": null,
+      "tier": "description",
+      "votes": {
+        "none": 5
+      }
+    },
+    "review-solution-simplicity-positive": {
+      "agreement": 1.0,
+      "repetitions": 5,
+      "selected_skill": "review-solution-simplicity",
+      "tier": "description",
+      "votes": {
+        "review-solution-simplicity": 5
+      }
+    }
+  },
+  "cases": {
+    "review-solution-simplicity-negative-plan": "pass",
+    "review-solution-simplicity-positive": "pass"
+  },
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "triggering/runner.py",
+    "--skill",
+    "review-solution-simplicity",
+    "--executor",
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3 triggering/executors/description_executor.py --model claude-opus-5"
+  ],
+  "compared_to": "2026-08-13T205155Z-0002-before-triggering.json",
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 2
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": false,
+  "gap": null,
+  "limitation": null,
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"passed\": 2,\n  \"tiers\": [\n    \"description\"\n  ],\n  \"total\": 2\n}",
+  "recorded_at": "2026-08-13T21:02:14Z",
+  "schema": "eval-run-summary/1",
+  "skill": "review-solution-simplicity",
+  "stage": "after",
+  "status": "completed",
+  "suite": "triggering",
+  "tier": "real-model",
+  "totals": {
+    "failed": 0,
+    "passed": 2,
+    "total": 2
+  }
+}

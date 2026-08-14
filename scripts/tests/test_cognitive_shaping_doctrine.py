@@ -3,7 +3,11 @@
 Checks stable identifiers in the doctrine's own normative text, not phrasing.
 The document is repository-wide rather than skill-scoped, so its own tests live
 here rather than inside any one skill's test suite, exactly as
-`test_skill_authoring_doc.py` does for the authoring standard.
+`test_skill_authoring_doc.py` does for the authoring standard. Its distribution
+is repository-wide for the same reason: a consuming skill bundles the doctrine
+so it stays self-contained when installed, and the drift check that keeps every
+bundled copy honest belongs beside the canonical text rather than inside one
+consumer.
 """
 
 from __future__ import annotations
@@ -21,6 +25,13 @@ from helpers import compact  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
+JUSTFILE = REPOSITORY_ROOT / "justfile"
+
+# Skills that load the doctrine rather than restating it. Each bundles the
+# canonical text so it still resolves when the skill is installed outside this
+# repository, exactly as `review-suite/` is bundled today.
+BUNDLING_SKILLS = ("review-solution-simplicity",)
+BUNDLED_NAME = "cognitive-shaping-doctrine.md"
 
 # The doctrine is compris's own claim. It names no upstream project, because
 # there is no external owner to attribute and a citation would imply one.
@@ -126,6 +137,44 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
         for disclaimer in NON_GATE_DISCLAIMERS:
             with self.subTest(disclaimer=disclaimer):
                 self.assertIn(disclaimer, self.doc)
+
+    def test_every_consuming_skill_bundles_an_identical_doctrine(self):
+        canonical = DOCTRINE.read_bytes()
+        for skill in BUNDLING_SKILLS:
+            bundled = REPOSITORY_ROOT / "skills" / skill / "references" / BUNDLED_NAME
+            with self.subTest(skill=skill):
+                self.assertTrue(
+                    bundled.exists(),
+                    f"{bundled} is missing; run `just sync-contracts`",
+                )
+                self.assertEqual(
+                    canonical,
+                    bundled.read_bytes(),
+                    f"{bundled} drifted from {DOCTRINE}; run `just sync-contracts`",
+                )
+
+    def test_the_sync_recipe_is_the_remedy_the_drift_check_names(self):
+        """The failure above tells a reader to run `just sync-contracts`; that
+        recipe has to actually refresh the copy, or the advice is a dead end."""
+        recipe = JUSTFILE.read_text()
+        self.assertIn(f"docs/{BUNDLED_NAME}", recipe)
+        for skill in BUNDLING_SKILLS:
+            with self.subTest(skill=skill):
+                self.assertIn(skill, recipe)
+
+    def test_the_doctrine_carries_no_link_a_bundle_cannot_resolve(self):
+        """A bundled skill ships the doctrine alone. A repository-relative link
+        resolves in `docs/` and dangles everywhere the doctrine is consumed."""
+        text = DOCTRINE.read_text()
+        targets = re.findall(r"\]\(([^)#][^)]*)\)", text)
+        targets += re.findall(r"^\[[^\]]+\]:\s*(\S+)", text, re.M)
+        for target in targets:
+            with self.subTest(target=target):
+                self.assertTrue(
+                    target.startswith(("http://", "https://")),
+                    f"the doctrine links to {target}, which a bundled copy"
+                    " does not ship",
+                )
 
 
 if __name__ == "__main__":
