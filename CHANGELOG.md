@@ -6,9 +6,29 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, and specified the cognitive prose contract that answers its prose half
 
-- docs: plan the cognitive prose contract — turns the spec into two executable
-  tasks split where a reviewer could accept one and reject the other: the
-  contract document with the invariants holding its content, then its
+- docs: publish the canonical cognitive prose contract — compris shaped what a
+  reviewer reads and said nothing about how it was written. The entire
+  pull-request-body obligation was a four-item content checklist at
+  `skills/implement-ticket/SKILL.md:669`, and `carve-changesets` inherited none
+  at all, so an agent could satisfy the suite in full while emitting prose no
+  reviewer could use. `docs/cognitive-prose.md` states the standard — prose is
+  written for the human accountable to the codebase, never merely efficient —
+  and splits its rules by failure shape per `docs/skill-authoring.md`: the
+  reader's question order is a positive contract, because a prohibition cannot
+  fix a shape problem, and the voice rules are prohibitions, each sourced to the
+  pull request where it was observed. #20 supplies three of the four and #60 the
+  last; #209 is the worked exemplar. The rationalization table ships unwritten
+  and says so, because the sourced material carries observed output rather than
+  the agent's own rationalizations, and inventing those rows is what
+  `skill-authoring.md:132` forbids. `cognitive-debt.md` gains prose as a fourth
+  commitment beside shape, publicity, and why-not-just-what. Nothing consumes
+  the contract yet — no `SKILL.md` is edited, so no skill's behavior changes and
+  the eval-evidence norm does not apply.
+
+- docs: plan the cognitive prose contract
+  (6ff0b2b2028eb6a442e0a4011ada514c820056a0) — turns the spec into two
+  executable tasks split where a reviewer could accept one and reject the other:
+  the contract document with the invariants holding its content, then its
   distribution with the invariants holding the copies. Planning surfaced a
   constraint the spec missed. Every link in `docs/cognitive-prose.md` has to be
   an absolute URL, because a relative one dangles the moment the file is copied

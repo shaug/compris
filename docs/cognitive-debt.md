@@ -81,7 +81,7 @@ fits a theory a human can hold, rather than producing changes that then need
 heroic explanation. The two interventions compose; they are not substitutes, and
 compris is the upstream one.
 
-Three commitments follow, and each is already load-bearing in the suite.
+Four commitments follow, and each is already load-bearing in the suite.
 
 - **Shape.** Work is broken apart by what a reviewer can understand, and that is
   the binding constraint rather than a nicety observed when there is time. The
@@ -98,6 +98,11 @@ Three commitments follow, and each is already load-bearing in the suite.
 - **Why, not just what.** Storey asks for the rationale to be recorded, not only
   the change. compris requires a design document for every ticket, scaled to the
   work, and its review lenses return reasoning rather than a verdict alone.
+
+- **Prose.** A theory nobody can read was not transferred. The artifacts compris
+  emits are written for the human accountable to the codebase rather than the
+  agent that will parse it, which is a separate discipline from shaping the work
+  and is stated in [cognitive-prose.md].
 
 `compris` is French for *understood* — what the suite claims at the moment work
 changes hands. The claim is the point of the name, and this document is what it
@@ -125,5 +130,6 @@ remaining distance is not a thing a skill suite closes.
 
 [cognitive debt]: https://margaretstorey.com/blog/2026/02/09/cognitive-debt/
 [cognitive-driven-development.md]: cognitive-driven-development.md
+[cognitive-prose.md]: cognitive-prose.md
 [cognitive-shaping-doctrine.md]: cognitive-shaping-doctrine.md
 [understanding is the new bottleneck]: https://www.geoffreylitt.com/2026/07/02/understanding-is-the-new-bottleneck
