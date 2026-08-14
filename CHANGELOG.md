@@ -6,35 +6,54 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, and specified the cognitive prose contract that answers its prose half
 
+- docs: plan the cognitive prose contract — turns the spec into two executable
+  tasks split where a reviewer could accept one and reject the other: the
+  contract document with the invariants holding its content, then its
+  distribution with the invariants holding the copies. Planning surfaced a
+  constraint the spec missed. Every link in `docs/cognitive-prose.md` has to be
+  an absolute URL, because a relative one dangles the moment the file is copied
+  into a skill's `references/` where none of this repository's layout sits
+  beside it — the reason
+  `review-suite/scripts/tests/test_bundled_contracts.py:147` exists. It is a
+  global constraint of the plan and a test enforces it. The plan's test code was
+  run against the real contract text rather than assumed: the section and table
+  helpers find seven headings in order and four prohibition rows each carrying a
+  `[#NNN]` source, and both survive the `mdformat --wrap 80` reflow
+  `just format` applies, which renumbers the ordered list and pads the table.
+  Task 2 requires the drift check be proven capable of failing before the task
+  is called done, since a drift check nobody has watched go red is a decoration.
+  Plan only; nothing is implemented.
+
 - docs: name cognitive debt as the problem compris solves, and spec the prose
-  contract answering its prose half — the suite had a standard without a stated
-  problem. `cognitive-shaping-doctrine.md` opened on the technique (work is
-  broken apart by what a reviewer can understand) and `README.md` led with what
-  the skills do, so the only answer to "why is this worth the review overhead"
-  was an appeal to tidiness. New `docs/cognitive-debt.md` states the problem:
-  cognitive debt, Margaret Storey's term for understanding that lives in
-  developers' minds rather than in the code and fragments, resting on Naur's
-  claim that a program is a theory held by the people who built it. It is not
-  technical debt renamed — technical debt is a property of the artifact and
-  cognitive debt is a property of the people, which is why editing code cannot
-  pay it down. Agents change the rate and the default: they generate correct
-  code faster than any human forms a theory of it, so under agentic
-  implementation the debt is what accrues when nobody intervenes, which is
-  Geoffrey Litt's *Understanding is the new bottleneck*. Two consequences are
-  recorded. Throughput is the wrong headline number for this suite, and the
-  three constraints that already exist — shape, tickets rather than local plan
-  files, recorded rationale — are restated as responses to one problem rather
-  than three independent preferences. compris's intervention is named as
-  structural and upstream of the presentational techniques (narrative diffs,
-  explorable models) that dominate this space, and the two are stated to compose
-  rather than substitute. The doctrine also gains the participation argument:
-  the mental model is what lets a reviewer approve the change in front of them
-  *and* direct the work that comes next, so it is the reason for the standard
-  rather than the receipt for it. A closing section states what the suite does
-  not claim — it does not measure cognitive debt, does not gate on
-  understanding, and has no speed regulator — so the diagnosis is not read as a
-  solved problem. Framing only: the shaping standard, its calibration, and its
-  breakdown rules are unchanged, and no skill's normative prose is edited.
+  contract answering its prose half (812769767ecdaa68c7b56c8ab87f60c4e0a6b9c7) —
+  the suite had a standard without a stated problem.
+  `cognitive-shaping-doctrine.md` opened on the technique (work is broken apart
+  by what a reviewer can understand) and `README.md` led with what the skills
+  do, so the only answer to "why is this worth the review overhead" was an
+  appeal to tidiness. New `docs/cognitive-debt.md` states the problem: cognitive
+  debt, Margaret Storey's term for understanding that lives in developers' minds
+  rather than in the code and fragments, resting on Naur's claim that a program
+  is a theory held by the people who built it. It is not technical debt renamed
+  — technical debt is a property of the artifact and cognitive debt is a
+  property of the people, which is why editing code cannot pay it down. Agents
+  change the rate and the default: they generate correct code faster than any
+  human forms a theory of it, so under agentic implementation the debt is what
+  accrues when nobody intervenes, which is Geoffrey Litt's *Understanding is the
+  new bottleneck*. Two consequences are recorded. Throughput is the wrong
+  headline number for this suite, and the three constraints that already exist —
+  shape, tickets rather than local plan files, recorded rationale — are restated
+  as responses to one problem rather than three independent preferences.
+  compris's intervention is named as structural and upstream of the
+  presentational techniques (narrative diffs, explorable models) that dominate
+  this space, and the two are stated to compose rather than substitute. The
+  doctrine also gains the participation argument: the mental model is what lets
+  a reviewer approve the change in front of them *and* direct the work that
+  comes next, so it is the reason for the standard rather than the receipt for
+  it. A closing section states what the suite does not claim — it does not
+  measure cognitive debt, does not gate on understanding, and has no speed
+  regulator — so the diagnosis is not read as a solved problem. Framing only:
+  the shaping standard, its calibration, and its breakdown rules are unchanged,
+  and no skill's normative prose is edited.
 
   The same commit specs the first response to that problem's prose half.
   `docs/superpowers/specs/2026-08-14-cognitive-prose-contract-design.md` designs
