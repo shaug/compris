@@ -1,0 +1,57 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-188-319c64",
+    "sha": "2f83f91354e6099cd8b32e36a4afc989426183e3",
+    "tree": "54e9b12d78efb56da23c5048458eef10d23b8760",
+    "worktree_clean": true
+  },
+  "case_evidence": {},
+  "cases": {},
+  "command": [
+    "python3",
+    "review-suite/scripts/evals/runner.py",
+    "--executor",
+    "python3 review-suite/scripts/evals/claude_executor.py --model claude-opus-5",
+    "--corpus",
+    "review-suite/evals/strata/s2-solution-simplicity-lens",
+    "--runs",
+    "5",
+    "--timeout",
+    "300",
+    "--artifact-dir",
+    "review-suite/evals/artifacts/s2-solution-simplicity-lens/2f83f91-0.1-s2-populated",
+    "--attempts-out",
+    "review-suite/evals/artifacts/s2-solution-simplicity-lens/2f83f91-0.1-s2-populated.attempts.jsonl"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 0,
+  "failures": [
+    "blocked_rate",
+    "malformed_output_rate",
+    "output_too_large_rate",
+    "protocol_mismatch_rate",
+    "runtime_failure_rate",
+    "spawn_failure_rate",
+    "timeout_rate"
+  ],
+  "forward_evals": false,
+  "gap": null,
+  "limitation": null,
+  "model": "claude-opus-5",
+  "note": "Forward-suite s2 stratum, driven directly because just eval-record cannot drive the review-suite runner interface",
+  "output_tail": "\u2026_cause_ids\": [\n        \"rc.gateway-abstracts-a-pure-function-with-one-implementation\"\n      ],\n      \"false_alarm_attempts\": 0,\n      \"false_clean_attempts\": 0,\n      \"false_positive_attempts\": 0,\n      \"finding_stability\": 1.0,\n      \"graded_attempts\": 5,\n      \"intersection_root_cause_ids\": [],\n      \"mean_combined_recall\": 1.0,\n      \"mean_recall\": 0.0,\n      \"stability_denominator\": 5,\n      \"statuses\": {\n        \"review_result\": 5\n      },\n      \"union_root_cause_ids\": [],\n      \"verdict_stability\": 1.0\n    }\n  ],\n  \"protocol_version\": \"1.0\",\n  \"quality\": {\n    \"false_alarm_denominator\": 10,\n    \"false_alarm_rate\": 0.0,\n    \"false_clean_denominator\": 10,\n    \"false_clean_rate\": 0.0,\n    \"false_positive_denominator\": 20,\n    \"false_positive_rate\": 0.0,\n    \"material_finding_recall\": 0.0,\n    \"recall_attempts\": 10,\n    \"referred_denominator\": 20,\n    \"referred_rate\": 0.5,\n    \"unique_finding_contribution\": []\n  },\n  \"report_version\": \"1.0\",\n  \"simulation\": false,\n  \"stability\": {\n    \"mean_finding_stability\": 1.0,\n    \"mean_verdict_stability\": 1.0,\n    \"per_case_finding_stability\": {\n      \"reconciliation-outcome-type\": 1.0,\n      \"record-status-transition-guard\": 1.0,\n      \"registry-client-layering\": 1.0,\n      \"setup-service-path-gateway\": 1.0\n    },\n    \"per_case_stability_denominator\": {\n      \"reconciliation-outcome-type\": 5,\n      \"record-status-transition-guard\": 5,\n      \"registry-client-layering\": 5,\n      \"setup-service-path-gateway\": 5\n    },\n    \"per_case_verdict_stability\": {\n      \"reconciliation-outcome-type\": 1.0,\n      \"record-status-transition-guard\": 1.0,\n      \"registry-client-layering\": 1.0,\n      \"setup-service-path-gateway\": 1.0\n    },\n    \"stability_denominator\": 20\n  },\n  \"usage\": {\n    \"available\": true,\n    \"reporting_attempts_cost_usd\": 20,\n    \"reporting_attempts_input_tokens\": 20,\n    \"reporting_attempts_output_tokens\": 20,\n    \"total_cost_usd\": 8.5091155,\n    \"total_input_tokens\": 1213919.0,\n    \"total_output_tokens\": 23522.0\n  }\n}",
+  "recorded_at": "2026-08-14T03:21:31Z",
+  "schema": "eval-run-summary/1",
+  "skill": "review-solution-simplicity",
+  "stage": "after",
+  "status": "completed",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": null
+}
