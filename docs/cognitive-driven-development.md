@@ -30,6 +30,30 @@ And the skill that performs it becomes the highest-leverage and highest-risk in
 the suite: everything downstream inherits its decomposition, and no amount of
 good implementation repairs a bad one.
 
+## The problem underneath
+
+The practice answers a named problem, and the name matters because it fixes what
+compris is optimizing.
+
+**Cognitive debt** is understanding that lives in developers' minds rather than
+in the code, and fragments — Margaret Storey's term, resting on Naur's claim
+that a program is a theory held by the people who built it. It is not technical
+debt: technical debt is a property of the artifact, and cognitive debt is a
+property of the people, which is why editing code cannot pay it down.
+
+Agents change the rate and the default. They generate correct code faster than
+any human forms a theory of it, so when agents are the primary vector of
+implementation, cognitive debt is what accrues if nobody intervenes. That makes
+throughput the wrong headline number for a suite like this one: shipping more
+merged pull requests per week while the humans lose the plot moves the cost
+somewhere the metric cannot see.
+
+[cognitive-debt.md] is the full statement, including what compris does not claim
+about it. The consequence for this document is narrow and load-bearing: the
+shaping skill is not a tidiness mechanism, and the invariant below is not an
+aesthetic preference about pull-request size. Both exist to keep the theory of
+the program in human minds while agents write the code.
+
 ## Why this exists
 
 compris is ticket-driven, and that is what separates it from a methodology
@@ -721,6 +745,7 @@ surface-observable contract.
 
 <!-- inline reference link definitions. please keep alphabetized -->
 
+[cognitive-debt.md]: cognitive-debt.md
 [cognitive-driven-development.html]: cognitive-driven-development.html
 [cognitive-shaping-doctrine.md]: cognitive-shaping-doctrine.md
 [the shaping authority decision]: #the-shaping-authority-is-a-bundled-synced-contract-not-a-new-skill

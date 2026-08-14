@@ -4,6 +4,64 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, and specified the cognitive prose contract that answers its prose half
+
+- docs: name cognitive debt as the problem compris solves, and spec the prose
+  contract answering its prose half — the suite had a standard without a stated
+  problem. `cognitive-shaping-doctrine.md` opened on the technique (work is
+  broken apart by what a reviewer can understand) and `README.md` led with what
+  the skills do, so the only answer to "why is this worth the review overhead"
+  was an appeal to tidiness. New `docs/cognitive-debt.md` states the problem:
+  cognitive debt, Margaret Storey's term for understanding that lives in
+  developers' minds rather than in the code and fragments, resting on Naur's
+  claim that a program is a theory held by the people who built it. It is not
+  technical debt renamed — technical debt is a property of the artifact and
+  cognitive debt is a property of the people, which is why editing code cannot
+  pay it down. Agents change the rate and the default: they generate correct
+  code faster than any human forms a theory of it, so under agentic
+  implementation the debt is what accrues when nobody intervenes, which is
+  Geoffrey Litt's *Understanding is the new bottleneck*. Two consequences are
+  recorded. Throughput is the wrong headline number for this suite, and the
+  three constraints that already exist — shape, tickets rather than local plan
+  files, recorded rationale — are restated as responses to one problem rather
+  than three independent preferences. compris's intervention is named as
+  structural and upstream of the presentational techniques (narrative diffs,
+  explorable models) that dominate this space, and the two are stated to compose
+  rather than substitute. The doctrine also gains the participation argument:
+  the mental model is what lets a reviewer approve the change in front of them
+  *and* direct the work that comes next, so it is the reason for the standard
+  rather than the receipt for it. A closing section states what the suite does
+  not claim — it does not measure cognitive debt, does not gate on
+  understanding, and has no speed regulator — so the diagnosis is not read as a
+  solved problem. Framing only: the shaping standard, its calibration, and its
+  breakdown rules are unchanged, and no skill's normative prose is edited.
+
+  The same commit specs the first response to that problem's prose half.
+  `docs/superpowers/specs/2026-08-14-cognitive-prose-contract-design.md` designs
+  a canonical prose contract for the artifacts compris emits, because the suite
+  shapes what a reviewer reads and says nothing about how it is written: the
+  entire pull-request-body obligation is one content checklist at
+  `skills/implement-ticket/SKILL.md:669`, and `carve-changesets` inherits none
+  at all. The gap is observable in this repository's own history — #20 opens on
+  "Adds `implement-ticket` as the reusable, runtime-neutral workflow…" with four
+  stacked modifiers and no statement of what was wrong, and summarizes itself in
+  five imperative-verb bullets that restate the diff, while #209 three weeks
+  later opens on the defect, argues from the ticket, and proves its new guard
+  was verified capable of failing. The voice improved in one person's head;
+  nothing in the suite would stop a fresh agent from regenerating #20's prose.
+  The design splits the fix by failure shape per `docs/skill-authoring.md`:
+  structure is wrong-shaped output and gets a positive contract, voice is a
+  discipline violation and gets prohibitions, each sourced to the pull request
+  it was observed in. The rationalization table ships deliberately unwritten and
+  says so about itself, because the sourced material carries observed output
+  rather than the agent's own rationalizations, and inventing those rows is what
+  `skill-authoring.md:132` forbids. Canonical text lives in `docs/` and syncs
+  into three consumers that do not yet reference it, which makes the piece a
+  zero-risk pilot of the doctrine-distribution mechanism Spec B of the shaping
+  program will need. Design only; nothing specified here is built, and the
+  remaining four pieces are recorded with their ordering rather than designed.
+
+
 ## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness rather than the prose, measured a fix for the elicitation and reverted it when it did not work, corrected the eval-evidence norm's scope statement for the review-lens skills, and bound the solution-simplicity lens to the canonical shaping doctrine instead of its own restatement of it
 
 - feat(review-solution-simplicity): bind the lens's reviewability judgment to

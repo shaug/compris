@@ -4,8 +4,10 @@ This is compris's doctrine of cognitive shaping: work is broken apart by what a
 reviewer can understand, and that is the binding constraint rather than a nicety
 observed when there is time.
 
-[cognitive-driven-development.md] records the program behind this and the
-decisions that shaped it. This document is the statement itself.
+[cognitive-debt.md] states the problem this answers — the theory of a program
+decaying out of human minds while agents write the code. This document is the
+statement of the standard itself, and [cognitive-driven-development.md] records
+the program behind it and the decisions that shaped it.
 
 ## The standard
 
@@ -13,6 +15,13 @@ A unit of work is correctly shaped when a reviewer can construct an accurate
 mental model of the change and evaluate it independently.
 
 Line counts inform that judgment. They never decide it.
+
+The mental model is the reason for the standard, not the receipt for it. It is
+what lets a reviewer approve the change in front of them, and it is also what
+lets them direct the work that comes next — a human without a current theory of
+the system can only accept or reject what is proposed to them. Shape is judged
+against the first use because that one is observable. It is worth having for
+both.
 
 ## Scale
 
@@ -99,4 +108,5 @@ This doctrine governs shape judgment in:
 
 <!-- inline reference link definitions. please keep alphabetized -->
 
+[cognitive-debt.md]: https://github.com/shaug/compris/blob/main/docs/cognitive-debt.md
 [cognitive-driven-development.md]: https://github.com/shaug/compris/blob/main/docs/cognitive-driven-development.md
