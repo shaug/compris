@@ -314,9 +314,10 @@ Same repository, same author, three weeks apart.
 
 [#20] is the failure. It opens on "Adds `implement-ticket` as the reusable,
 runtime-neutral workflow for implementing exactly one standalone ticket or named
-epic child through safe review and delivery gates" — four stacked modifiers, and
-no statement of what was wrong before it. Its summary restates the diff in five
-bullets.
+epic child through safe review and delivery gates" — two stacked adjectives
+ahead of the noun, the rest of the qualification trailing in prepositional
+phrases, and no statement of what was wrong before it. Its summary restates the
+diff in five bullets.
 
 [#209] is the standard. It opens on the defect: "Every module under
 `scripts/tests/` took its sibling `helpers.py` on the `sys.path` entry

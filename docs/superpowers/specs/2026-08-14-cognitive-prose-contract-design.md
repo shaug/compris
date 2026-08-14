@@ -28,10 +28,11 @@ The failure this permits is observable in this repository's own history.
 > implementing exactly one standalone ticket or named epic child through safe
 > review and delivery gates.
 
-Four stacked modifiers, and no statement of what was wrong before. Its `Summary`
-is five bullets that each open with an imperative verb — Extract, Establish,
-Keep, Preserve, Add — which is the diff restated in prose. One bullet is a
-five-item noun pile: "cross-system GitHub and Linear ownership, explicit
+Two stacked adjectives ahead of the noun, the rest of the qualification trailing
+in prepositional phrases, and no statement of what was wrong before. Its
+`Summary` is five bullets that each open with an imperative verb — Extract,
+Establish, Keep, Preserve, Add — which is the diff restated in prose. One bullet
+is a five-item noun pile: "cross-system GitHub and Linear ownership, explicit
 authority boundaries, current-candidate review gates, safe base-drift handling,
 and post-merge dependency refresh." A reviewer learns nothing from that sentence
 that `git diff --stat` would not have told them faster. [#60][pr60] opens the

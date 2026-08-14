@@ -73,8 +73,10 @@ the theory of the program in human minds while agents write the code.
 
 Most prescriptions in this space are presentational: they meet a mind with the
 change as produced, and work to explain it well — narrative diffs, interactive
-walkthroughs, explorable models. Litt's three techniques are all of this kind,
-and they are good.
+walkthroughs, explorable models. Litt's three techniques are largely of this
+kind, and they are good. His explanations technique is the exception: the quiz
+he embeds in it is a speed regulator rather than a presentation device, a
+mechanical check on whether the loop has outrun the reader's understanding.
 
 compris intervenes earlier. It constrains the shape of the work so the change
 fits a theory a human can hold, rather than producing changes that then need
@@ -119,8 +121,9 @@ be understood in one sitting, which is a precondition and not evidence.
 compris does not gate on understanding. Shape is always judged, and whether an
 `exceeds` verdict blocks anything is the consuming project's decision. There is
 deliberately no speed regulator — no mechanism that holds work until
-comprehension is demonstrated. That failure mode is diagnosed here and not yet
-answered.
+comprehension is demonstrated. Litt answers that failure mode with the embedded
+quiz; compris has not adopted it, so the mode is diagnosed here and unanswered
+by this suite rather than unanswered in general.
 
 And no structural intervention can make someone read. Shaping the work to fit a
 mind is necessary for the theory to survive. It is not sufficient, and the

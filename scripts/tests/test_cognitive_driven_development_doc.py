@@ -144,6 +144,52 @@ DOWNSTREAM_DISPOSITIONS = (
 # disposition says what to do and not what to do it against.
 STABLE_CONTRACT_NAME = "docs/cognitive-shaping-doctrine.md"
 
+# The problem the practice answers, stated in both copies. Everything the
+# document argues for rests on these: drop the definition and the shaping
+# invariant reads as a size preference, drop the agent claim and the urgency
+# goes with it. The lead-in to the last one is deliberately excluded — the
+# Markdown says "for this document" where the presentation copy says "for this
+# brief", which is a difference of voice rather than of claim.
+COGNITIVE_DEBT_CLAIMS = (
+    compact(
+        """
+        Cognitive debt is understanding that lives in developers' minds rather
+        than in the code, and fragments — Margaret Storey's term, resting on
+        Naur's claim that a program is a theory held by the people who built it.
+        """
+    ),
+    compact(
+        """
+        It is not technical debt: technical debt is a property of the artifact,
+        and cognitive debt is a property of the people, which is why editing
+        code cannot pay it down.
+        """
+    ),
+    compact(
+        """
+        Agents change the rate and the default. They generate correct code
+        faster than any human forms a theory of it, so when agents are the
+        primary vector of implementation, cognitive debt is what accrues if
+        nobody intervenes.
+        """
+    ),
+    compact(
+        """
+        That makes throughput the wrong headline number for a suite like this
+        one: shipping more merged pull requests per week while the humans lose
+        the plot moves the cost somewhere the metric cannot see.
+        """
+    ),
+    compact(
+        """
+        the shaping skill is not a tidiness mechanism, and the invariant below
+        is not an aesthetic preference about pull-request size. Both exist to
+        keep the theory of the program in human minds while agents write the
+        code.
+        """
+    ),
+)
+
 
 def strip_html(markup: str) -> str:
     """Reduce the presentation copy to the prose a reader actually sees.
@@ -217,6 +263,11 @@ class ShapingAuthorityDecisionTests(unittest.TestCase):
 
     def test_the_activated_work_names_its_stable_contract(self):
         self.assert_in_both(STABLE_CONTRACT_NAME)
+
+    def test_the_named_problem_is_stated_the_same_way_in_both_copies(self):
+        for claim in COGNITIVE_DEBT_CLAIMS:
+            with self.subTest(claim=claim[:48]):
+                self.assert_in_both(claim)
 
 
 if __name__ == "__main__":
