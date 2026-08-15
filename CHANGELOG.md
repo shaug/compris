@@ -18,8 +18,11 @@ summary: Chronological history of repository and skill changes.
   behavior rule with its PR-naming requirement, wide-refactor isolation,
   feature-flag policy, and the database-migration rules, none of which the
   doctrine carries because they constrain an ordered sequence of merges rather
-  than shape in general. Two of the doctrine's breakdown rules are scoped out as
-  planning-time rather than carving-time; the rest apply directly. The binding
+  than shape in general. Three of the doctrine's eight breakdown rules are
+  scoped out of boundary selection — two addressed to planning, and the one the
+  doctrine itself calls downstream, which a carve discharges by surfacing new
+  scope through its stop conditions rather than by mutating a tracker it has no
+  authority to touch — leaving five that govern boundaries directly. The binding
   reaches an evaluated run rather than stopping at prose: the eval runner now
   ships the doctrine as a contract document and the fixture gate requires its
   text, so a run that does not receive it blocks instead of carving to an
