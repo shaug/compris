@@ -294,6 +294,12 @@ class ReadyTicketContractTests(unittest.TestCase):
         )
         self.assertNotIn("architecture decision is unresolved", stop_conditions)
         self.assertIn("a residue item", stop_conditions)
+        self.assertIn("residue-shaped objection", stop_conditions)
+        self.assertIn(
+            "neither is an objection that rests on one: both return "
+            "`requires_brainstorming`",
+            self.contract,
+        )
 
     def test_a_falsified_assumption_is_returned_rather_than_re_decided(self):
         self.assertIn(

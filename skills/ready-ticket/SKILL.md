@@ -350,16 +350,16 @@ Return `blocked` when:
   pre-merge/post-merge stage — is unresolved and neither a requester nor a named
   document can resolve it in this run;
 - the live tracker item cannot be read and the request depends on it;
-- a requester's objection to the drafted body cannot be resolved into a ready
-  body; or
+- a requester's residue-shaped objection to the drafted body cannot be resolved
+  into a ready body; or
 - an authorized tracker write fails, or the reread stored body does not match
   the approved body, so `ticket_ready` cannot be claimed against live state.
   Report the mutation that did occur and the exact mismatch; a write that landed
   is delivery, and delivery is not the stored contract.
 
-A missing or insufficient approved design is not one of them: it returns
-`requires_brainstorming`, which names the gap and routes it, where `blocked`
-would only report it.
+A missing or insufficient approved design is not one of them, and neither is an
+objection that rests on one: both return `requires_brainstorming`, which names
+the gap and routes it, where `blocked` would only report it.
 
 A request that also asks for the work to be built is not a blocker. Author the
 body, terminate on it, and report that implementation was not performed and is
