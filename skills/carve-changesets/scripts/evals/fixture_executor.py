@@ -22,7 +22,10 @@ def action_result(payload: dict) -> dict:
     )
     required_contract = (
         "independently reviewable",
-        "mechanical refactors",
+        # Unique to the canonical doctrine. Shape and ordering rules live there
+        # now, so a payload without this fragment is a run carving to no
+        # standard at all — which must block rather than improvise one.
+        "line counts inform that judgment. they never decide it.",
         "not silently reordered or renumbered",
         "publish authority does not permit merging",
         "source is behind the base",

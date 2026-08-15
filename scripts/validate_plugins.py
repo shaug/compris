@@ -37,7 +37,7 @@ REVIEW_BUNDLE_FILES = {
 }
 # The lenses that judge shape load the canonical doctrine rather than restating
 # it, so a package that ships one without the other ships a dangling citation.
-DOCTRINE_BUNDLING_SKILLS = {"review-solution-simplicity"}
+DOCTRINE_BUNDLING_SKILLS = {"review-solution-simplicity", "carve-changesets"}
 DOCTRINE_NAME = "cognitive-shaping-doctrine.md"
 
 

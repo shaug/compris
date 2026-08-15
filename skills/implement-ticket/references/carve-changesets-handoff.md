@@ -37,10 +37,10 @@ close a parent, or perform caller-owned mainline and tracker closeout.
 ## Publication decision and authority gate
 
 Evaluate the exact clean candidate against the live
-[cognitive-load guardrails](../../carve-changesets/references/SPEC.md#cognitive-load-guardrails).
-Record the effective diff, semantic shape, mechanical exceptions, cohesive
-intent, and independent-reviewability evidence. Never reduce this decision to a
-duplicated numeric threshold.
+[changeset shape and decomposition order](../../carve-changesets/references/SPEC.md#changeset-shape-and-decomposition-order)
+rules. Record the effective diff, semantic shape, mechanical exceptions,
+cohesive intent, and independent-reviewability evidence. Never reduce this
+decision to a duplicated numeric threshold.
 
 When the candidate is oversized, recommend tracker-level ticket decomposition if
 its parts are independently valuable and trackable. Recommend branch carving

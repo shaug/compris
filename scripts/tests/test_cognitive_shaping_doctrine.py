@@ -30,7 +30,7 @@ JUSTFILE = REPOSITORY_ROOT / "justfile"
 # Skills that load the doctrine rather than restating it. Each bundles the
 # canonical text so it still resolves when the skill is installed outside this
 # repository, exactly as `review-suite/` is bundled today.
-BUNDLING_SKILLS = ("review-solution-simplicity",)
+BUNDLING_SKILLS = ("review-solution-simplicity", "carve-changesets")
 BUNDLED_NAME = "cognitive-shaping-doctrine.md"
 
 # The doctrine is compris's own claim. It names no upstream project, because
