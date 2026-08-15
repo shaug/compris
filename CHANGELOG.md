@@ -32,11 +32,13 @@ summary: Chronological history of repository and skill changes.
   `ready-ticket`, and a drift test fails when a copy diverges or when an
   unlisted skill carries one. The copies are deliberately unreferenced: no
   `SKILL.md` loads them, so this commit changes no behavior and leaves the
-  consuming edits to be reviewed on their own. That also makes this the first
-  exercise of the doctrine-distribution mechanism Spec B of the shaping program
-  needs, on a document with no consumers and nothing to break. The drift check
-  was verified capable of failing: appending a line to the `ready-ticket` copy
-  turns it red naming that file, and `just sync-contracts` restores green.
+  consuming edits to be reviewed on their own. This branch expected to be the
+  first exercise of the doctrine-distribution mechanism Spec B of the shaping
+  program needs; #221 landed the same mechanism concurrently for the shaping
+  doctrine, so the two arrived at one answer independently rather than one
+  piloting it for the other. The drift check was verified capable of failing:
+  appending a line to the `ready-ticket` copy turns it red naming that file, and
+  `just sync-contracts` restores green.
 
 - docs: correct the plan's expected test counts
   (2a8f84b309157dd486afb222bc4e41af3c16fd0b) — the plan for the cognitive prose
@@ -137,11 +139,11 @@ summary: Chronological history of repository and skill changes.
   material carries observed output rather than the agent's own rationalizations,
   and inventing those rows is what `skill-authoring.md:132` forbids. Canonical
   text lives in `docs/` and syncs into three consumers that do not yet reference
-  it, which makes the piece a zero-risk pilot of the doctrine-distribution
-  mechanism Spec B of the shaping program will need. Design only; nothing
+  it, which was expected to pilot the doctrine-distribution mechanism Spec B of
+  the shaping program will need — #221 has since landed that mechanism
+  concurrently, so the two converged independently instead. Design only; nothing
   specified here is built, and the remaining four pieces are recorded with their
   ordering rather than designed.
-
 
 ## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness rather than the prose, measured a fix for the elicitation and reverted it when it did not work, corrected the eval-evidence norm's scope statement for the review-lens skills, and bound the solution-simplicity lens to the canonical shaping doctrine instead of its own restatement of it
 

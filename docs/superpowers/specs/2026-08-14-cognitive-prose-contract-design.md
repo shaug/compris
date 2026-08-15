@@ -111,18 +111,27 @@ Doctrine in this repository lives in `docs/` —
 doctrine, not a schema, so a root-level `prose/` directory parallel to
 `review-suite/` would put the only doctrine in the repository outside `docs/`.
 
-This has a deliberate consequence. Spec B of the shaping program is precisely
-the job of bundling `docs/cognitive-shaping-doctrine.md` into consumers;
-[`cognitive-driven-development.md:412`][cdd] records that what is missing there
-is "only its *distribution* — nothing bundles it into a consumer and nothing
-drift-checks it." Syncing from `docs/` here builds that mechanism first, on a
-document with no consumers and nothing to break, so Spec B inherits a proven
-path instead of inventing one.
+This has a consequence that was predicted and has since been overtaken by
+events. Spec B of the shaping program is the job of bundling
+`docs/cognitive-shaping-doctrine.md` into consumers;
+[`cognitive-driven-development.md:412`][cdd] records that what was missing there
+was "only its *distribution* — nothing bundles it into a consumer and nothing
+drift-checks it." This design expected to build that mechanism first, on a
+document with no consumers and nothing to break, and to hand Spec B a proven
+path.
 
-The cost is that this piece settles a "how does `docs/` doctrine reach skills"
-question Spec B was scoped to answer. That is accepted knowingly: the
-lowest-risk possible pilot for a mechanism the repository has already committed
-to is worth more than keeping the two programs formally separate.
+It did not get there first. `main` landed the same mechanism concurrently, in
+[#221][pr221], bundling the shaping doctrine into `review-solution-simplicity`
+while this branch was in flight. So the two programs converged on one answer
+independently rather than one piloting it for the other — which is the stronger
+outcome, because the design's reasoning was confirmed by a separate application
+rather than merely asserted here.
+
+Both arrived at the same non-obvious constraint as well. #221 converted the
+doctrine's one cross-reference to an absolute URL for exactly the reason this
+design states: a repository-relative link resolves in `docs/` and dangles in
+every bundled copy. Two independent derivations of the same rule is evidence the
+rule is real.
 
 ### Why three skills get an unreferenced file
 
@@ -319,6 +328,7 @@ Recorded for ordering, not designed here.
 [implement-ticket]: ../../../skills/implement-ticket/SKILL.md
 [pr20]: https://github.com/shaug/compris/pull/20
 [pr209]: https://github.com/shaug/compris/pull/209
+[pr221]: https://github.com/shaug/compris/pull/221
 [pr60]: https://github.com/shaug/compris/pull/60
 [skill-authoring]: ../../skill-authoring.md
 [suitetest]: ../../../scripts/tests/test_suite_invocation.py

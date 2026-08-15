@@ -692,9 +692,12 @@ Backfill Task 1's full SHA onto its changelog entry first
   `carve-changesets`, and `ready-ticket`, and a drift test fails when a copy
   diverges or when an unlisted skill carries one. The copies are deliberately
   unreferenced: no `SKILL.md` loads them, so this commit changes no behavior and
-  leaves the consuming edits to be reviewed on their own. That also makes this
-  the first exercise of the doctrine-distribution mechanism Spec B of the
-  shaping program needs, on a document with no consumers and nothing to break.
+  leaves the consuming edits to be reviewed on their own. This branch expected
+  to be the first exercise of the doctrine-distribution mechanism Spec B of the
+  shaping program needs; #221 landed the same mechanism concurrently for the
+  shaping doctrine, so the two arrived at one answer independently — including
+  the same absolute-link constraint — rather than one piloting it for the
+  other.
   The drift check was verified capable of failing: appending a line to the
   `ready-ticket` copy turns it red naming that file, and `just sync-contracts`
   restores green.
@@ -738,9 +741,10 @@ consumption so a reviewer can accept the mechanism without also accepting a
 change to how any skill writes. The consuming edits are later work and will be
 reviewed on their own.
 
-This also makes the commit the first exercise of the doctrine-distribution
-mechanism Spec B of the shaping program needs, on a document with no consumers
-and nothing to break.
+This branch expected to be the first exercise of the doctrine-distribution
+mechanism Spec B of the shaping program needs. #221 landed the same mechanism
+concurrently for the shaping doctrine, so the two programs converged on one
+answer independently rather than one piloting it for the other.
 
 ## Reviewer notes
 
