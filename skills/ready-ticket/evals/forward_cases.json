@@ -93,7 +93,7 @@
     "artifacts": {
       "ticket": "none; no tracker item exists yet",
       "run_mode": "interactive; the requester answers questions in this run",
-      "authority": "ticket-management authority granted",
+      "authority": "ticket-management authority granted for the project's GitHub repository",
       "peers": "no peer skills in the session listing",
       "design": "the request is the whole design: it carries the requirement, the acceptance criterion, and the goal, and a one-line bugfix warrants no separate non-goal, stakeholder, or deadline",
       "elicitation": "the requester names the request-level check that would demonstrate the fix and says it runs before merge"

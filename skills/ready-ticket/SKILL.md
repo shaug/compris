@@ -320,10 +320,13 @@ be claimed, and the caller verifies the evidence rather than the label.
   separately trackable subsystems; the rationale names each part and its
   boundary; no ticket, parent, child, or relationship was created or modified.
 - `requires_brainstorming` — the approved design is missing at least one of its
-  four parts. The result names which part is absent and what it is absent about,
-  no question was asked to close the gap, nothing was inferred to fill it, and
-  no ticket, parent, child, or relationship was created or modified. The caller
-  decides whether to go get the design; this skill never does.
+  four parts. The result names which part is absent, what it is absent about,
+  and one next action; no question was asked to close the gap; nothing was
+  inferred to fill it; and no ticket, parent, child, or relationship was created
+  or modified. The caller decides whether to go get the design; this skill never
+  does. Naming the gap without naming the next action leaves the caller holding
+  a diagnosis rather than a route, which is the difference between this result
+  and the `blocked` it replaces for a design-owned gap.
 - `blocked` — the honest fallback. Give one concrete blocking reason and one
   next action. Use it for exactly the conditions listed under
   [Stop conditions](#stop-conditions). Absent ticket-management authority is not

@@ -76,7 +76,8 @@
     "required_actions": [
       "name the undecided pricing dependency as the missing design part",
       "make no pricing decision on the requester's behalf",
-      "claim no readiness while the cadence decision is open"
+      "claim no readiness while the cadence decision is open",
+      "give one next action"
     ]
   },
   {
@@ -161,7 +162,8 @@
     "required_actions": [
       "name the falsified write-volume assumption as the unsettled design part",
       "choose no replacement storage approach here",
-      "record the verification result and its source"
+      "record the verification result and its source",
+      "give one next action"
     ]
   },
   {
@@ -250,7 +252,8 @@
       "name the absent requirements — trigger, contents, and recipient — as the missing design part",
       "gather no missing design part",
       "infer no missing design part from the rest of the request",
-      "create or modify no ticket"
+      "create or modify no ticket",
+      "give one next action"
     ]
   },
   {

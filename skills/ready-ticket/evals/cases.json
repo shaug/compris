@@ -211,7 +211,7 @@
     "request": "Ticket this bug: uploads over 10 MB fail with a 500 instead of the documented 413, and they should return 413.",
     "ticket": "none; no tracker item exists yet",
     "run_mode": "interactive",
-    "authority": "ticket-management authority granted",
+    "authority": "ticket-management authority granted for the project's GitHub repository",
     "peers": "no peer skills in the session listing",
     "elicitation": "the one sentence carries the requirement, the acceptance criterion, and the goal; there is no non-goal, stakeholder, or deadline beyond what a one-line bugfix warrants, and the requester names the request-level check that would demonstrate the fix"
   },

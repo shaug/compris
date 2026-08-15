@@ -231,6 +231,27 @@ class ReadyTicketContractTests(unittest.TestCase):
             )
             self.assertIn("as the missing design part", self.actions(case_id), case_id)
 
+    def test_a_named_gap_is_paired_with_a_next_action(self):
+        """A diagnosis without a route is what `blocked` already produced."""
+        self.assertIn(
+            "The result names which part is absent, what it is absent about, and "
+            "one next action",
+            self.contract,
+        )
+        self.assertIn(
+            "Naming the gap without naming the next action leaves the caller "
+            "holding a diagnosis rather than a route",
+            self.contract,
+        )
+        routed = [
+            case_id
+            for case_id, item in self.expectations.items()
+            if item["workflow_state"] == "requires_brainstorming"
+        ]
+        self.assertTrue(routed)
+        for case_id in routed:
+            self.assertIn("give one next action", self.actions(case_id), case_id)
+
     def test_the_endpoint_never_gathers_or_infers_the_missing_design(self):
         """AC: the endpoint never gathers the missing design itself."""
         for clause in (

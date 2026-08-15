@@ -21,11 +21,16 @@ summary: Chronological history of repository and skill changes.
   restated as an observable public-surface behavior, the check that would
   demonstrate it, and whether that check runs before or after merge. A missing
   part becomes a routable fifth terminal result, `requires_brainstorming`,
-  naming which of the four is absent and what it is absent about. It is never
-  gathered and never inferred: an inferred requirement lands in the body as
-  decided, and the next reader never learns that nobody decided it. Three
-  existing corpus expectations change answer rather than grade, because the new
-  contract routes what the old one could only report — the unresolved
+  naming which of the four is absent, what it is absent about, and one next
+  action. That last obligation was recorded behavior rather than foresight: the
+  first post-change real-model run routed correctly and then stopped at the
+  diagnosis on three cases, because the bullet asked for a next action only
+  under `blocked`. A gap named without a route is what `blocked` already
+  produced, so the prose gained the obligation rather than the corpus losing it.
+  The gap is never gathered and never inferred: an inferred requirement lands in
+  the body as decided, and the next reader never learns that nobody decided it.
+  Three existing corpus expectations change answer rather than grade, because
+  the new contract routes what the old one could only report — the unresolved
   retry-idempotency case, the objection resting on an unmade pricing decision,
   and the falsified load-bearing assumption whose replacement is design work.
   Two forward cases move the same way, so their before/after movement is not
