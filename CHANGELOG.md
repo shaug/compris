@@ -26,7 +26,13 @@ summary: Chronological history of repository and skill changes.
   improvised standard — verified by driving the executor with and without it.
   Two provisions the local guardrails never had now apply to carving: mechanical
   change runs much larger, and recorded machine-generated evidence is excluded
-  from the size judgment outright.
+  from the size judgment outright. Retiring the section also retired its anchor,
+  and `implement-ticket`'s carve handoff was the one place in the tree linking
+  to it; that link is retargeted here rather than left dangling until the
+  publication-size-gate leaf rewrites the paragraph. The obligation it states is
+  unchanged, so the edit is editorial and carries no eval evidence of its own.
+  `implement-ticket`'s two remaining prose mentions of the old section name are
+  descriptions rather than links and are left to that leaf.
 
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, then specified, published, and distributed the cognitive prose contract that answers its prose half
 
