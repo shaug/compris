@@ -6,23 +6,37 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
-- fix(ready-ticket): keep one unusable sample from ending a recorded eval run —
-  review of the change below found that the new majority-vote executor keyed its
-  terminal-state counts by the raw sample value, so a well-formed response that
-  simply omitted `terminal_state` put `None` beside string keys in the emitted
-  object and `json.dump(..., sort_keys=True)` raised `TypeError`. The harness
-  reads that as a non-zero executor exit and ends the corpus mid-run, discarding
-  every case already sampled and leaving the recorder to file the loss as
-  `attempted` — the status reserved for an environment with no model access —
-  rather than as the harness defect it is. That is the exact failure the retry
-  loop was added to prevent, and it was a regression against the previous
-  executor, which degraded to a single graded mismatch. The absent state now
-  votes under a `none` sentinel the way
-  `triggering/executors/description_executor.py` already votes an absent answer,
-  while the graded value stays `None` and still grades as a mismatch. The same
-  review found the corpus README restating a case count that this change made
-  false — the failure mode the prose below names, one directory away — so it now
-  points at `forward_cases.json` instead of counting it.
+- test(ready-ticket): re-record the after-stage run at the shipping head — the
+  first after-stage run was taken before the executor fix below, so the tree
+  that produced the evidence was not the tree that ships the instrument. Review
+  named that gap, and closing it also settled the open question about the one
+  case that had gone red. The rerun is `completed`, 13 of 13, with the target
+  case still citing the volatile collection by location 5/5 and
+  `autonomous-unresolvable-rate-limit` back at 4/5 on
+  `choose_no_answer_on_requesters_behalf`. Three post-change measurements of
+  that term now read 1/5, 2/5, and 4/5, and its sibling case moved 5/5 to 3/5
+  while still passing: the term is an unstable self-report rather than an
+  obligation the new prose suppressed, and no prose change was needed to recover
+  it. Recorded rather than asserted, because two samples had looked like a
+  reproduction and the third is what distinguished variance from a regression.
+
+- fix(ready-ticket): keep one unusable sample from ending a recorded eval run
+  (75cf01e09e740f7321f3a80f433951a7840b8065) — review of the change below found
+  that the new majority-vote executor keyed its terminal-state counts by the raw
+  sample value, so a well-formed response that simply omitted `terminal_state`
+  put `None` beside string keys in the emitted object and
+  `json.dump(..., sort_keys=True)` raised `TypeError`. The harness reads that as
+  a non-zero executor exit and ends the corpus mid-run, discarding every case
+  already sampled and leaving the recorder to file the loss as `attempted` — the
+  status reserved for an environment with no model access — rather than as the
+  harness defect it is. That is the exact failure the retry loop was added to
+  prevent, and it was a regression against the previous executor, which degraded
+  to a single graded mismatch. The absent state now votes under a `none`
+  sentinel the way `triggering/executors/description_executor.py` already votes
+  an absent answer, while the graded value stays `None` and still grades as a
+  mismatch. The same review found the corpus README restating a case count that
+  this change made false — the failure mode the prose below names, one directory
+  away — so it now points at `forward_cases.json` instead of counting it.
 
 - test(ready-ticket): record the post-change forward-eval measurement
   (f888b12b6e8c22bf9bd0efc0e2ab70825059e88c) — the target case flips the way the
@@ -32,14 +46,12 @@ summary: Chronological history of repository and skill changes.
   `failed` rather than `completed`, because one pre-existing case,
   `autonomous-unresolvable-rate-limit`, went from selecting
   `choose_no_answer_on_requesters_behalf` 5/5 to 1/5 and dropped below the
-  majority. That movement is real and reproduces — a follow-up five-sample probe
-  at the same tree read 2/5 — but it is confined to that one scenario's
-  self-report: the case still returns `requires_brainstorming` 5/5, still asks
-  no question, names the absent design part, gives a next action, and mutates
-  nothing at 5/5, and the sibling case carrying the identical obligation reads
-  5/5 both before and after. Recorded as it stands rather than tuned away, since
-  shortening correct prose to recover one incidental self-report would be
-  fitting the rule to the instrument.
+  majority. The case's substance held throughout — it still returns
+  `requires_brainstorming` 5/5, still asks no question, names the absent design
+  part, gives a next action, and mutates nothing at 5/5 — and the sibling case
+  carrying the identical obligation read 5/5 on both sides. The run is committed
+  as recorded rather than tuned away; the entry above resolves what the movement
+  was.
 
 - feat(ready-ticket): cite repository state in a form that fails loudly when it
   goes stale (94b9ae8ce43322a97c510c7f0c4ff16da586ad6d) — a ticket body that
