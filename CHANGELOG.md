@@ -6,24 +6,33 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
+- test(ready-ticket): record the pre-change measurement — the real-model forward
+  run at the tree carrying the case but not the rule: 12 of 13 pass, and the new
+  case fails. Across five independent samples the run cited the volatile
+  collection by location once and restated its membership as a value four times,
+  while quoting cited text 5/5 and restating the architectural fact 5/5. So one
+  of the three rules is where the behavior actually is, and the other two were
+  already the model's default — a distinction the pre-change run exists to make,
+  and one a single sample could not have made.
+
 - test(ready-ticket): grade how a ticket body cites repository state, before the
-  rule exists — the forward corpus gains one case whose scenario names three
-  repository facts (a line of a file, which lenses a skill loads, what the eval
-  recorder emits) and grades which of them the run quotes, cites by location, or
-  restates as a value. The case lands ahead of the prose it measures, so
-  `just eval-record` has a term to grade at `--stage before`. Two harness
-  changes make that measurement trustworthy rather than anecdotal: the
-  real-model executor now takes `--repetitions` (default 5) and majority-votes
-  independent samples the way `triggering/executors/description_executor.py`
-  already does, recording the per-sample counts so a 3/5 answer is never filed
-  as 5/5, and it retries a malformed response three times the way
-  implement-ticket's executor does, because one flaky sample must not sink a run
-  that is now five times longer. A first draft of the scenario described the
-  lens set as one that "gains a member whenever a lens is added"; a fresh model
-  given that phrasing answered correctly against the unchanged prose, so the
-  case was grading the hint rather than the skill. The committed scenario states
-  the three facts and leaves their classification to the prose, and a test
-  guards the leak from coming back.
+  rule exists (5bd36f550cd7c55251e47c947c102788a13e049b) — the forward corpus
+  gains one case whose scenario names three repository facts (a line of a file,
+  which lenses a skill loads, what the eval recorder emits) and grades which of
+  them the run quotes, cites by location, or restates as a value. The case lands
+  ahead of the prose it measures, so `just eval-record` has a term to grade at
+  `--stage before`. Two harness changes make that measurement trustworthy rather
+  than anecdotal: the real-model executor now takes `--repetitions` (default 5)
+  and majority-votes independent samples the way
+  `triggering/executors/description_executor.py` already does, recording the
+  per-sample counts so a 3/5 answer is never filed as 5/5, and it retries a
+  malformed response three times the way implement-ticket's executor does,
+  because one flaky sample must not sink a run that is now five times longer. A
+  first draft of the scenario described the lens set as one that "gains a member
+  whenever a lens is added"; a fresh model given that phrasing answered
+  correctly against the unchanged prose, so the case was grading the hint rather
+  than the skill. The committed scenario states the three facts and leaves their
+  classification to the prose, and a test guards the leak from coming back.
 
 - feat(ready-ticket): make an approved design a fail-closed planner input
   (46c35a7a1c16d8a7afb3ab3468ab94d75d2e2305) — `ready-ticket` approximated
