@@ -32,6 +32,9 @@ import subprocess
 import sys
 from collections import Counter
 
+# How a sample with no usable terminal state votes. Never a real answer.
+NO_TERMINAL_STATE = "none"
+
 TERMINAL_STATES = (
     "ticket_ready",
     "draft_ready",
@@ -186,14 +189,26 @@ def combine(samples: list[tuple[str | None, frozenset[str]]]) -> dict:
     behavior, and reporting it either way would make a coin flip look
     decided. `votes` keeps every count so the variance stays legible after
     the majority has collapsed it.
+
+    A sample carrying no usable terminal state votes under `NO_TERMINAL_STATE`
+    rather than under `None`, exactly as
+    `triggering/executors/description_executor.py` already votes an absent
+    answer. The counts become dict keys, and `json.dump(..., sort_keys=True)`
+    cannot order `None` against a string: keying it raw turns one unusable
+    sample into a crash that ends the whole corpus run, where the graded
+    `terminal_state` below still reports `None` and grades as the single-case
+    mismatch it is. No real terminal state spells `none`, so the sentinel is
+    unambiguous.
     """
     repetitions = len(samples)
-    state_votes = Counter(state for state, _ in samples)
+    state_votes = Counter(state or NO_TERMINAL_STATE for state, _ in samples)
     winning_state, agreement = state_votes.most_common(1)[0]
     action_votes = Counter(action for _, actions in samples for action in actions)
     majority = repetitions // 2 + 1
     return {
-        "terminal_state": winning_state,
+        "terminal_state": (
+            None if winning_state == NO_TERMINAL_STATE else winning_state
+        ),
         "actions": sorted(
             action for action, count in action_votes.items() if count >= majority
         ),

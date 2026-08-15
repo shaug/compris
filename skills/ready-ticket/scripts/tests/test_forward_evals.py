@@ -297,6 +297,40 @@ class RepetitionTests(unittest.TestCase):
             combined["votes"]["actions"],
         )
 
+    def test_a_sample_without_a_terminal_state_still_serializes(self) -> None:
+        """One unusable sample grades as a mismatch; it does not end the run.
+
+        The vote counts become JSON object keys, and
+        `json.dump(..., sort_keys=True)` cannot order `None` against a string.
+        Keying an absent state raw raised `TypeError` at output time, which
+        `run_forward.py` surfaces as a non-zero executor exit — ending the
+        whole corpus mid-run, discarding every case already sampled, and
+        leaving `record_eval_run.py` to file the loss as `attempted`, the
+        status reserved for an environment without model access.
+        """
+        combined = claude_executor.combine(
+            [
+                claude_executor.sample({"terminal_state": "ticket_ready"}),
+                claude_executor.sample({"actions": []}),
+            ]
+        )
+
+        json.dumps(combined, sort_keys=True)
+        self.assertEqual(
+            {"ticket_ready": 1, "none": 1}, combined["votes"]["terminal_state"]
+        )
+
+    def test_an_all_unusable_run_reports_no_terminal_state_rather_than_the_sentinel(
+        self,
+    ) -> None:
+        """The sentinel is a vote key, never a graded answer."""
+        combined = claude_executor.combine(
+            [claude_executor.sample({"actions": []}) for _ in range(3)]
+        )
+
+        self.assertIsNone(combined["terminal_state"])
+        self.assertEqual({"none": 3}, combined["votes"]["terminal_state"])
+
     def test_a_term_outside_the_vocabulary_is_discarded(self) -> None:
         combined = self.combine(("ticket_ready", ["not_a_real_action"]))
 

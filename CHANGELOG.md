@@ -6,11 +6,30 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
-- test(ready-ticket): record the post-change measurement — the target case flips
-  the way the rule predicts: citing the volatile collection by location goes 1/5
-  to 5/5 and restating its membership as a value goes 4/5 to 0/5, with the
-  architectural fact still restated 5/5 and cited text still quoted 5/5. The run
-  is recorded `failed` rather than `completed`, because one pre-existing case,
+- fix(ready-ticket): keep one unusable sample from ending a recorded eval run —
+  review of the change below found that the new majority-vote executor keyed its
+  terminal-state counts by the raw sample value, so a well-formed response that
+  simply omitted `terminal_state` put `None` beside string keys in the emitted
+  object and `json.dump(..., sort_keys=True)` raised `TypeError`. The harness
+  reads that as a non-zero executor exit and ends the corpus mid-run, discarding
+  every case already sampled and leaving the recorder to file the loss as
+  `attempted` — the status reserved for an environment with no model access —
+  rather than as the harness defect it is. That is the exact failure the retry
+  loop was added to prevent, and it was a regression against the previous
+  executor, which degraded to a single graded mismatch. The absent state now
+  votes under a `none` sentinel the way
+  `triggering/executors/description_executor.py` already votes an absent answer,
+  while the graded value stays `None` and still grades as a mismatch. The same
+  review found the corpus README restating a case count that this change made
+  false — the failure mode the prose below names, one directory away — so it now
+  points at `forward_cases.json` instead of counting it.
+
+- test(ready-ticket): record the post-change forward-eval measurement
+  (f888b12b6e8c22bf9bd0efc0e2ab70825059e88c) — the target case flips the way the
+  rule predicts: citing the volatile collection by location goes 1/5 to 5/5 and
+  restating its membership as a value goes 4/5 to 0/5, with the architectural
+  fact still restated 5/5 and cited text still quoted 5/5. The run is recorded
+  `failed` rather than `completed`, because one pre-existing case,
   `autonomous-unresolvable-rate-limit`, went from selecting
   `choose_no_answer_on_requesters_behalf` 5/5 to 1/5 and dropped below the
   majority. That movement is real and reproduces — a follow-up five-sample probe
