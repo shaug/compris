@@ -8,6 +8,7 @@ the suite is free to run in CI.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -17,6 +18,23 @@ from pathlib import Path
 SKILL_ROOT = Path(__file__).resolve().parents[2]
 EVALS = SKILL_ROOT / "evals"
 RUN_FORWARD = SKILL_ROOT / "scripts" / "evals" / "run_forward.py"
+CLAUDE_EXECUTOR = SKILL_ROOT / "scripts" / "evals" / "claude_executor.py"
+
+
+def load_module(path: Path, name: str):
+    """Import an eval script by file path.
+
+    `scripts/evals/` is not a package, and both this skill and
+    implement-ticket ship a `claude_executor.py`; importing by path keeps the
+    two from colliding on a shared `sys.path` entry.
+    """
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+claude_executor = load_module(CLAUDE_EXECUTOR, "ready_ticket_claude_executor")
 
 CASES = json.loads((EVALS / "forward_cases.json").read_text())
 EXPECTATIONS = {
@@ -106,6 +124,46 @@ class CorpusShapeTests(unittest.TestCase):
             self.assertNotIn("required_actions", case)
             self.assertNotIn("workflow_state", case)
 
+    def test_a_case_grades_how_repository_state_is_cited(self) -> None:
+        """AC: a case grades quoting, location-citing, and value-restating."""
+        expectation = EXPECTATIONS["repository-citation-quotes-and-locates"]
+
+        self.assertEqual("ticket_ready", expectation["terminal_state"])
+        required = set(expectation["required_actions"])
+        forbidden = set(expectation["forbidden_actions"])
+        self.assertIn("quote_cited_repository_text", required)
+        self.assertIn("cite_volatile_collection_by_location", required)
+        self.assertIn("restate_architectural_fact_as_value", required)
+        self.assertIn("cite_bare_file_line_without_quoted_text", forbidden)
+        self.assertIn("restate_volatile_collection_membership_as_value", forbidden)
+        self.assertFalse(required & forbidden)
+
+    def test_the_citation_case_names_its_facts_without_classifying_them(self) -> None:
+        """The scenario must state the facts and leave the rule to the prose.
+
+        An earlier draft described the lens set as one that "gains a member
+        whenever a lens is added" and the recorder's output as changing "only
+        when someone decides to change it". Both phrasings are the answer
+        rather than the scenario: a fresh model given them chose correctly at
+        the pre-change tree, so the case graded the hint instead of the prose.
+        """
+        case = next(
+            item
+            for item in CASES
+            if item["id"] == "repository-citation-quotes-and-locates"
+        )
+        repository = case["artifacts"]["repository"]
+
+        self.assertIn("line 251 of", repository)
+        self.assertIn("which review lenses", repository)
+        self.assertIn("what the eval recorder emits", repository)
+        for classification in (
+            "gains a member",
+            "only when someone decides",
+            "volatile",
+        ):
+            self.assertNotIn(classification, repository)
+
     def test_two_cases_are_the_strongest_baseline_scenarios(self) -> None:
         """AC: the strongest scenarios from the baseline pressure test are here."""
         requests = {case["request"] for case in CASES}
@@ -178,6 +236,102 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(
             any("forbidden actions" in failure for failure in summary["failures"])
         )
+
+    def test_every_fixture_answer_uses_the_closed_vocabulary(self) -> None:
+        """A corpus term absent from the executor's list is ungradable."""
+        fixture = load_module(
+            SKILL_ROOT / "scripts" / "evals" / "fixture_executor.py",
+            "ready_ticket_fixture_executor",
+        )
+        vocabulary = set(claude_executor.ACTION_VOCABULARY)
+
+        self.assertEqual(set(fixture.ANSWERS), {case["request"] for case in CASES})
+        for request, answer in fixture.ANSWERS.items():
+            self.assertLessEqual(set(answer["actions"]), vocabulary, request)
+        for case_id, expectation in EXPECTATIONS.items():
+            self.assertLessEqual(
+                set(expectation["required_actions"])
+                | set(expectation["forbidden_actions"]),
+                vocabulary,
+                case_id,
+            )
+
+
+class RepetitionTests(unittest.TestCase):
+    """AC: the real-model tier records how many repetitions agreed."""
+
+    def combine(self, *samples: tuple[str, list[str]]) -> dict:
+        return claude_executor.combine(
+            [
+                claude_executor.sample({"terminal_state": state, "actions": actions})
+                for state, actions in samples
+            ]
+        )
+
+    def test_the_majority_terminal_state_wins_and_its_agreement_is_recorded(
+        self,
+    ) -> None:
+        combined = self.combine(
+            ("ticket_ready", []),
+            ("ticket_ready", []),
+            ("blocked", []),
+        )
+
+        self.assertEqual("ticket_ready", combined["terminal_state"])
+        self.assertEqual(3, combined["repetitions"])
+        self.assertAlmostEqual(2 / 3, combined["agreement"])
+        self.assertEqual(
+            {"ticket_ready": 2, "blocked": 1}, combined["votes"]["terminal_state"]
+        )
+
+    def test_an_action_is_reported_only_on_a_strict_majority(self) -> None:
+        combined = self.combine(
+            ("ticket_ready", ["quote_cited_repository_text"]),
+            ("ticket_ready", ["quote_cited_repository_text"]),
+            ("ticket_ready", ["invent_unrequested_requirement"]),
+        )
+
+        self.assertEqual(["quote_cited_repository_text"], combined["actions"])
+        self.assertEqual(
+            {"quote_cited_repository_text": 2, "invent_unrequested_requirement": 1},
+            combined["votes"]["actions"],
+        )
+
+    def test_a_term_outside_the_vocabulary_is_discarded(self) -> None:
+        combined = self.combine(("ticket_ready", ["not_a_real_action"]))
+
+        self.assertEqual([], combined["actions"])
+        self.assertEqual({}, combined["votes"]["actions"])
+
+    def test_a_malformed_sample_is_retried_rather_than_sinking_the_run(self) -> None:
+        """One flaky response must not end a run of many sequential samples."""
+        attempts: list[str] = []
+
+        def flaky(**_kwargs):
+            attempts.append("call")
+            if len(attempts) < 3:
+                return SimpleCompleted('{"terminal_state": "ticket_ready"')
+            return SimpleCompleted('{"terminal_state": "ticket_ready", "actions": []}')
+
+        original = claude_executor.subprocess.run
+        claude_executor.subprocess.run = lambda *args, **kwargs: flaky(**kwargs)
+        try:
+            observed = claude_executor.run_claude("prompt", "claude", None)
+        finally:
+            claude_executor.subprocess.run = original
+
+        self.assertEqual("ticket_ready", observed["terminal_state"])
+        self.assertEqual(3, len(attempts))
+
+
+class SimpleCompleted:
+    """The two fields `run_claude` reads off a completed `claude -p` process."""
+
+    returncode = 0
+    stderr = ""
+
+    def __init__(self, result_text: str) -> None:
+        self.stdout = json.dumps({"result": result_text})
 
 
 if __name__ == "__main__":

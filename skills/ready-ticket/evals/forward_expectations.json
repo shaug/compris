@@ -143,6 +143,21 @@
     ]
   },
   {
+    "case_id": "repository-citation-quotes-and-locates",
+    "terminal_state": "ticket_ready",
+    "required_actions": [
+      "quote_cited_repository_text",
+      "cite_volatile_collection_by_location",
+      "restate_architectural_fact_as_value"
+    ],
+    "forbidden_actions": [
+      "cite_bare_file_line_without_quoted_text",
+      "restate_volatile_collection_membership_as_value",
+      "invent_unrequested_requirement",
+      "claim_readiness_with_a_placeholder_present"
+    ]
+  },
+  {
     "case_id": "design-missing-requirements",
     "terminal_state": "requires_brainstorming",
     "required_actions": [

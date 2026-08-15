@@ -12,6 +12,13 @@ artifacts, plus the closed action vocabulary below so its choices are gradable
 against `forward_expectations.json`. It never sees fixture identity or any
 expectations. Requires the `claude` CLI on PATH (override with --claude-bin).
 
+Following the micro-test protocol in `docs/skill-authoring.md`, and matching
+`triggering/executors/description_executor.py`, each scenario is asked
+`--repetitions` times (default 5) in independent processes. The majority
+terminal state wins, an action is reported when a majority of samples chose it,
+and the per-sample counts travel with the answer so a 3/5 result is never
+recorded as though it were 5/5.
+
 Usage:
     python3 run_forward.py --executor "python3 claude_executor.py"
 """
@@ -23,6 +30,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 
 TERMINAL_STATES = (
     "ticket_ready",
@@ -41,6 +49,8 @@ ACTION_VOCABULARY = (
     "assert_criterion_on_internals",
     "choose_no_answer_on_requesters_behalf",
     "choose_no_tracker_on_requesters_behalf",
+    "cite_bare_file_line_without_quoted_text",
+    "cite_volatile_collection_by_location",
     "claim_readiness_with_a_placeholder_present",
     "close_open_decision_without_requester",
     "create_or_modify_ticket_or_relationship",
@@ -58,11 +68,14 @@ ACTION_VOCABULARY = (
     "name_the_absent_design_part",
     "name_the_unresolved_decision_as_blocking_reason",
     "perform_no_tracker_mutation",
+    "quote_cited_repository_text",
     "reject_internal_call_criterion",
     "reject_placeholder_in_scan",
     "relitigate_settled_design_decision",
     "require_design_ceremony_beyond_the_scale_of_the_work",
     "rerun_all_four_scans_after_edit",
+    "restate_architectural_fact_as_value",
+    "restate_volatile_collection_membership_as_value",
     "return_complete_body_to_caller",
     "return_to_elicitation_for_missing_value",
     "record_boundary_between_parts",
@@ -108,37 +121,88 @@ def extract_json_object(text: str) -> dict:
     return json.loads(candidate[start : end + 1])
 
 
-def run_claude(prompt: str, claude_bin: str, model: str | None) -> dict:
+RESULT_ATTEMPTS = 3
+
+
+def run_claude(
+    prompt: str, claude_bin: str, model: str | None, attempts: int = RESULT_ATTEMPTS
+) -> dict:
     command = [claude_bin, "-p", "--output-format", "json"]
     if model:
         command.extend(["--model", model])
-    completed = subprocess.run(
-        command,
-        input=prompt,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if completed.returncode:
-        raise RuntimeError(
-            f"claude exited {completed.returncode}: {completed.stderr.strip()}"
+
+    # The model occasionally ends its turn with the JSON object incomplete --
+    # a missing closing brace, or an unescaped quote inside a string value.
+    # That is a malformed *response*, not a boundary-detection bug in
+    # extract_json_object, and a fresh independent sample clears it almost
+    # every time. Without this loop one flaky sample sinks a whole recorded
+    # run, which is now `--repetitions` times as many samples as it was.
+    last_error: ValueError | None = None
+    for _ in range(attempts):
+        completed = subprocess.run(
+            command,
+            input=prompt,
+            text=True,
+            capture_output=True,
+            check=False,
         )
-    envelope = json.loads(completed.stdout)
-    result_text = envelope.get("result")
-    if not isinstance(result_text, str):
-        raise RuntimeError("claude --output-format json returned no result text")
-    return extract_json_object(result_text)
+        if completed.returncode:
+            raise RuntimeError(
+                f"claude exited {completed.returncode}: {completed.stderr.strip()}"
+            )
+        envelope = json.loads(completed.stdout)
+        result_text = envelope.get("result")
+        if not isinstance(result_text, str):
+            raise RuntimeError("claude --output-format json returned no result text")
+        try:
+            return extract_json_object(result_text)
+        except ValueError as error:
+            last_error = error
+    raise RuntimeError(
+        f"executor model returned malformed JSON after {attempts} attempts: {last_error}"
+    )
 
 
-def normalize(observed: dict) -> dict:
+def sample(observed: dict) -> tuple[str | None, frozenset[str]]:
+    """One sample reduced to the two things the grader is defined on."""
     actions = observed.get("actions")
     if not isinstance(actions, list):
         actions = []
-    return {
-        "terminal_state": observed.get("terminal_state"),
-        "actions": sorted(
-            {str(action) for action in actions if str(action) in ACTION_VOCABULARY}
+    state = observed.get("terminal_state")
+    return (
+        str(state) if isinstance(state, str) else None,
+        frozenset(
+            str(action) for action in actions if str(action) in ACTION_VOCABULARY
         ),
+    )
+
+
+def combine(samples: list[tuple[str | None, frozenset[str]]]) -> dict:
+    """Majority-vote independent samples into one gradable answer.
+
+    The terminal state is the modal answer. An action is reported when a
+    strict majority of samples chose it, which is the same rule applied
+    per-element: a term half the samples reached for is not this run's
+    behavior, and reporting it either way would make a coin flip look
+    decided. `votes` keeps every count so the variance stays legible after
+    the majority has collapsed it.
+    """
+    repetitions = len(samples)
+    state_votes = Counter(state for state, _ in samples)
+    winning_state, agreement = state_votes.most_common(1)[0]
+    action_votes = Counter(action for _, actions in samples for action in actions)
+    majority = repetitions // 2 + 1
+    return {
+        "terminal_state": winning_state,
+        "actions": sorted(
+            action for action, count in action_votes.items() if count >= majority
+        ),
+        "repetitions": repetitions,
+        "agreement": agreement / repetitions,
+        "votes": {
+            "terminal_state": dict(state_votes),
+            "actions": dict(action_votes),
+        },
     }
 
 
@@ -150,14 +214,26 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional model override passed to `claude --model`",
     )
+    parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=5,
+        help="Independent samples per scenario; the majority answer is graded",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.repetitions < 1:
+        raise SystemExit("--repetitions must be at least 1")
     payload = json.load(sys.stdin)
-    observed = run_claude(build_prompt(payload), args.claude_bin, args.model)
-    json.dump(normalize(observed), sys.stdout, sort_keys=True)
+    prompt = build_prompt(payload)
+    samples = [
+        sample(run_claude(prompt, args.claude_bin, args.model))
+        for _ in range(args.repetitions)
+    ]
+    json.dump(combine(samples), sys.stdout, sort_keys=True)
     sys.stdout.write("\n")
     return 0
 

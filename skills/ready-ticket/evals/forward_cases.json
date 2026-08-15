@@ -112,6 +112,19 @@
     }
   },
   {
+    "id": "repository-citation-quotes-and-locates",
+    "request": "Make GH-512 ready — the linked design was approved.",
+    "artifacts": {
+      "ticket": "GH-512 links an approved design document",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted",
+      "peers": "no peer skills in the session listing",
+      "design": "the approved document captures the requirements and acceptance criteria, states the goals and non-goals, and identifies the stakeholders and the launch deadline",
+      "repository": "the body records three facts about this repository: what line 251 of skills/carve-changesets/references/SPEC.md says; which review lenses review-code-change loads; and what the eval recorder emits for a deterministic run",
+      "elicitation": "the requester answers only which observable behavior each criterion names, which command demonstrates it, and whether it runs before or after merge"
+    }
+  },
+  {
     "id": "design-missing-requirements",
     "request": "Write a ticket for the new notifications feature.",
     "artifacts": {
