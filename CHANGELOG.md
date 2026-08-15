@@ -6,8 +6,28 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, then specified, published, and distributed the cognitive prose contract that answers its prose half
 
+- docs: complete the changelog's record of its own repair — the previous commit
+  added the missing entry for the reconciliation commit and then reproduced the
+  defect it was fixing: it left that entry SHA-less and added none for itself,
+  so the SHA-less top entry named `HEAD~1` again. A commit that retroactively
+  records a past commit has to do three things, and the branch's own earlier
+  repair did all three — stamp the past commit's entry with its SHA, backfill
+  the entry below it, and add itself SHA-less. Doing only the first two
+  recurses. Found by the scoped re-review of the previous fix, which checked
+  whether the fix had recreated the defect one commit later rather than only
+  whether the reported symptom was gone.
+
+- docs: record the reconciliation commit in the changelog
+  (2be7f1c37bec0509f26235d61826b00eb63cb5a7) — the reconciliation commit landed
+  without an entry, so the changelog's SHA-less top entry named `HEAD~1`. Six of
+  the branch's seven commits carried an entry and only the head did not. Found
+  by the repository review of the published candidate, which is the review that
+  commit had skipped by being authored directly rather than through the branch's
+  normal path.
+
 - docs: reconcile the prose contract with the concurrently landed shaping
-  distribution — #221 landed on `main` while this branch was in flight, bundling
+  distribution (100707ba795546ff5857eeed88c44a684bd3c65c) — #221 landed on
+  `main` while this branch was in flight, bundling
   `docs/cognitive-shaping-doctrine.md` into `review-solution-simplicity` and
   drift-checking the copy. Rebasing onto it exposed a real defect rather than a
   textual conflict: this branch had added
