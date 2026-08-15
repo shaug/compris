@@ -113,6 +113,11 @@ between them surfaces in the body, not at the door.
   four parts is absent and what it is absent about. Do not gather it, and do not
   infer it from the parts that are present.
 
+A part that passes this gate can still stop being settled later, when
+verification falsifies what the design rested on. That returns the same result
+in its second shape; see
+[Recommend load-bearing verification when the cost is high](#recommend-load-bearing-verification-when-the-cost-is-high).
+
 The boundary is hard in both directions. Left of it, a human decides what the
 work is. Right of it, this skill decides how that becomes a ticket.
 
@@ -201,7 +206,8 @@ Never invoke it without the user's explicit assent. When the peer is not in the
 listing, say nothing: no offer, no caveat, and no mention in the result.
 
 A falsified assumption unsettles something the design had settled, so it returns
-`requires_brainstorming` naming the falsified assumption; choosing the
+`requires_brainstorming` naming the falsified assumption — that result's second
+shape, unsettled after the gate rather than absent at it. Choosing the
 replacement is design work and does not happen here. Record a verified fact, and
 any residual risk the requester accepted, in the body's `Verified assumptions`
 slot.
@@ -328,14 +334,16 @@ be claimed, and the caller verifies the evidence rather than the label.
 - `decomposition_recommended` — the work spans multiple independently valuable,
   separately trackable subsystems; the rationale names each part and its
   boundary; no ticket, parent, child, or relationship was created or modified.
-- `requires_brainstorming` — the approved design is missing at least one of its
-  four parts. The result names which part is absent, what it is absent about,
-  and one next action; no question was asked to close the gap; nothing was
-  inferred to fill it; and no ticket, parent, child, or relationship was created
-  or modified. The caller decides whether to go get the design; this skill never
-  does. Naming the gap without naming the next action leaves the caller holding
-  a diagnosis rather than a route, which is the difference between this result
-  and the `blocked` it replaces for a design-owned gap.
+- `requires_brainstorming` — one of the approved design's four parts is not
+  settled, in either of two shapes: it was **absent at the gate**, or it was
+  **unsettled after the gate** by a verification that falsified what the design
+  rested on. The result names which part, what is unsettled about it, which
+  shape it is, and one next action; no question was asked to close the gap;
+  nothing was inferred to fill it; and no ticket, parent, child, or relationship
+  was created or modified. The caller decides whether to go get the design; this
+  skill never does. Naming the gap without naming the next action leaves the
+  caller holding a diagnosis rather than a route, which is the difference
+  between this result and the `blocked` it replaces for a design-owned gap.
 - `blocked` — the honest fallback. Give one concrete blocking reason and one
   next action. Use it for exactly the conditions listed under
   [Stop conditions](#stop-conditions). Absent ticket-management authority is not
@@ -344,12 +352,13 @@ be claimed, and the caller verifies the evidence rather than the label.
   something was ready.
 
 Report with the result: run mode, owning tracker and ticket identity or its
-absence, ticket-management authority granted or absent, the design-gate finding
-— sufficient, or the part that was absent and what it was absent about — the
-complete body for `draft_ready`, the self-review outcome per scan, requester
-approval or its recorded unavailability, and the load-bearing disposition —
-offered and accepted, offered and declined, recorded as a recommendation, or not
-applicable. Never report a peer's absence as a caveat.
+absence, ticket-management authority granted or absent, the design finding —
+sufficient, or which part is unsettled, what is unsettled about it, and whether
+it was absent at the gate or unsettled after it — the complete body for
+`draft_ready`, the self-review outcome per scan, requester approval or its
+recorded unavailability, and the load-bearing disposition — offered and
+accepted, offered and declined, recorded as a recommendation, or not applicable.
+Never report a peer's absence as a caveat.
 
 ## Stop conditions
 

@@ -249,8 +249,8 @@ class ReadyTicketContractTests(unittest.TestCase):
     def test_a_named_gap_is_paired_with_a_next_action(self):
         """A diagnosis without a route is what `blocked` already produced."""
         self.assertIn(
-            "The result names which part is absent, what it is absent about, and "
-            "one next action",
+            "The result names which part, what is unsettled about it, which shape "
+            "it is, and one next action",
             self.contract,
         )
         self.assertIn(
@@ -258,6 +258,17 @@ class ReadyTicketContractTests(unittest.TestCase):
             "holding a diagnosis rather than a route",
             self.contract,
         )
+        # Both shapes reach the same result, so its precondition has to admit
+        # both: a part absent at the gate, and a part unsettled after it.
+        for shape in (
+            "it was **absent at the gate**, or it was **unsettled after the gate**",
+            "A part that passes this gate can still stop being settled later",
+        ):
+            self.assertIn(shape, self.contract)
+        self.assertIn(
+            "whether it was absent at the gate or unsettled after it", self.contract
+        )
+
         routed = [
             case_id
             for case_id, item in self.expectations.items()
@@ -319,8 +330,10 @@ class ReadyTicketContractTests(unittest.TestCase):
     def test_a_falsified_assumption_is_returned_rather_than_re_decided(self):
         self.assertIn(
             "A falsified assumption unsettles something the design had settled, so "
-            "it returns `requires_brainstorming` naming the falsified assumption; "
-            "choosing the replacement is design work and does not happen here",
+            "it returns `requires_brainstorming` naming the falsified assumption — "
+            "that result's second shape, unsettled after the gate rather than "
+            "absent at it. Choosing the replacement is design work and does not "
+            "happen here",
             self.contract,
         )
         case_id = "falsified-assumption-returns-to-elicitation"
