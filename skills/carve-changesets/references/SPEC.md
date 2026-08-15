@@ -94,12 +94,18 @@ machine-generated evidence is excluded outright, so a changeset carrying
 committed eval results, generated fixtures, or lockfiles is measured by its
 reviewable remainder.
 
-Two of its breakdown rules are addressed to planning rather than to carving:
-identifying re-split triggers before implementation, and keeping an initiative
-executable as one ticket when it is already reviewable. A carve begins after
-both were decided upstream. Every other rule governs changeset boundaries
-directly, and never decomposing to a single child is the floor for a chain — a
-one-changeset chain is not a decomposition.
+Three of its breakdown rules are not boundary-selection rules here. Identifying
+re-split triggers before implementation and keeping an initiative executable as
+one ticket when it is already reviewable are addressed to planning, and a carve
+begins after both were decided upstream. Creating follow-up work when
+implementation or review reveals new scope is the doctrine's one downstream
+rule: a carve discharges it by surfacing the new scope through the stop
+conditions below, never by creating or editing tracker work, which no authority
+level in this contract permits.
+
+The remaining five govern changeset boundaries directly, and never decomposing
+to a single child is the floor for a chain — a one-changeset chain is not a
+decomposition.
 
 The rest of this section is carving-specific. It constrains an ordered sequence
 of merges rather than shape in general, so it has no canonical home elsewhere.

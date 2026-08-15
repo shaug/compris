@@ -174,6 +174,22 @@ class CarveChangesetsContractTests(unittest.TestCase):
             with self.subTest(constraint=constraint):
                 self.assertIn(constraint, self.spec)
 
+    def test_the_downstream_breakdown_rule_is_not_scoped_into_boundary_choice(self):
+        """The doctrine calls creating follow-up work its one downstream rule.
+        Sweeping it in with the boundary rules both contradicts the bundled
+        text and points a carve at a tracker mutation no authority level here
+        grants."""
+        doctrine = (SKILL_ROOT / "references" / DOCTRINE_NAME).read_text()
+        self.assertIn(
+            "Creating follow-up work is the one rule that applies downstream",
+            compact(doctrine),
+        )
+        self.assertIn("the doctrine's one downstream rule", self.spec)
+        self.assertIn("never by creating or editing tracker work", self.spec)
+        self.assertNotIn(
+            "Every other rule governs changeset boundaries directly", self.spec
+        )
+
     def test_an_evaluated_run_receives_the_doctrine_as_a_contract_document(self):
         """A citation the run never loads is not a binding. The eval harness is
         where 'a run applies the doctrine' becomes observable."""
