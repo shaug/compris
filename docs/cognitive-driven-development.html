@@ -493,6 +493,7 @@
     <p>Contents</p>
     <ol>
       <li><a href="#practice">The practice</a></li>
+      <li><a href="#debt">The problem underneath</a></li>
       <li><a href="#thesis">The thesis</a></li>
       <li><a href="#boundary">Where the line falls</a></li>
       <li><a href="#invariant">The invariant</a></li>
@@ -526,6 +527,32 @@
         broken down. And the skill that performs it becomes the highest-leverage and highest-risk
         in the suite: everything downstream inherits its decomposition, and no amount of good
         implementation repairs a bad one.
+      </p>
+    </section>
+
+    <section id="debt">
+      <p class="kicker">The problem underneath</p>
+      <h2>Cognitive debt is what accrues when nobody intervenes</h2>
+      <p>
+        The practice answers a named problem, and the name matters because it fixes what compris
+        is optimizing. <strong>Cognitive debt</strong> is understanding that lives in developers'
+        minds rather than in the code, and fragments — Margaret Storey's term, resting on Naur's
+        claim that a program is a theory held by the people who built it. It is not technical debt:
+        technical debt is a property of the artifact, and cognitive debt is a property of the
+        people, which is why editing code cannot pay it down.
+      </p>
+      <p>
+        Agents change the rate and the default. They generate correct code faster than any human
+        forms a theory of it, so when agents are the primary vector of implementation, cognitive
+        debt is what accrues if nobody intervenes. That makes throughput the wrong headline number
+        for a suite like this one: shipping more merged pull requests per week while the humans
+        lose the plot moves the cost somewhere the metric cannot see.
+      </p>
+      <p>
+        The consequence for this brief is narrow and load-bearing: the shaping skill is not a
+        tidiness mechanism, and the invariant below is not an aesthetic preference about
+        pull-request size. Both exist to keep the theory of the program in human minds while
+        agents write the code.
       </p>
     </section>
 

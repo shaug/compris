@@ -4,6 +4,198 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, then specified, published, and distributed the cognitive prose contract that answers its prose half
+
+- test: bind the prose contract's sync recipe to the skills its drift check
+  names — every drift failure tells a reader to run `just sync-contracts`, and
+  nothing held that recipe to the skill list the check asserts, so dropping a
+  skill from it left a stale bundled copy no test would catch. The new assertion
+  is scoped to the block that copies `docs/cognitive-prose.md` rather than
+  searching the whole recipe, because every bundling skill is named in other
+  blocks too: a whole-file substring check — the form the sibling
+  `test_cognitive_shaping_doctrine.py` uses — still passes after a skill is
+  dropped from the prose block, which was verified rather than assumed. The
+  guard was verified capable of failing on that exact mutation. The sibling
+  module carries the same latent weakness; it is not touched here.
+
+- docs: complete the changelog's record of its own repair
+  (e9c8cc59cc288103f308b1da54cc630dae4d19f3) — the previous commit added the
+  missing entry for the reconciliation commit and then reproduced the defect it
+  was fixing: it left that entry SHA-less and added none for itself, so the
+  SHA-less top entry named `HEAD~1` again. A commit that retroactively records a
+  past commit has to do three things, and the branch's own earlier repair did
+  all three — stamp the past commit's entry with its SHA, backfill the entry
+  below it, and add itself SHA-less. Doing only the first two recurses. Found by
+  the scoped re-review of the previous fix, which checked whether the fix had
+  recreated the defect one commit later rather than only whether the reported
+  symptom was gone.
+
+- docs: record the reconciliation commit in the changelog
+  (2be7f1c37bec0509f26235d61826b00eb63cb5a7) — the reconciliation commit landed
+  without an entry, so the changelog's SHA-less top entry named `HEAD~1`. Six of
+  the branch's seven commits carried an entry and only the head did not. Found
+  by the repository review of the published candidate, which is the review that
+  commit had skipped by being authored directly rather than through the branch's
+  normal path.
+
+- docs: reconcile the prose contract with the concurrently landed shaping
+  distribution (100707ba795546ff5857eeed88c44a684bd3c65c) — #221 landed on
+  `main` while this branch was in flight, bundling
+  `docs/cognitive-shaping-doctrine.md` into `review-solution-simplicity` and
+  drift-checking the copy. Rebasing onto it exposed a real defect rather than a
+  textual conflict: this branch had added
+  `[cognitive-debt.md]: cognitive-debt.md` to the doctrine when nothing bundled
+  that file and a relative link was correct, and a repository-relative link
+  resolves to nothing inside a bundled copy. That link is now absolute, which is
+  the same correction #221 made to the doctrine's other cross-reference for the
+  same reason. Both branches also rewrote the `sync-contracts` doc comment
+  without knowing about the other's block, so the merged comment names all three
+  bundled texts. The spec, the plan, and the changelog had each claimed this
+  branch would be the first exercise of the doctrine-distribution mechanism Spec
+  B needs; #221 got there first, so they now record that the two programs
+  converged on one answer independently — including the same non-obvious
+  absolute-link constraint — rather than one piloting it for the other.
+
+- docs: apply the whole-branch review's fixes to the cognitive documents
+  (da33e017ae5e89f82b489c5475cfd0f8c9471cfa) — the branch's final review found
+  the day's documents misrepresenting a source they lean on and overstating a
+  count in the document whose thesis is precision. `cognitive-debt.md` had
+  classified all three of Litt's techniques as presentational while also
+  claiming the speed-regulator failure mode was unanswered; the quiz his
+  explanations technique embeds is a speed regulator, so both passages now say
+  so and the limit is stated as unanswered *by compris* rather than unanswered
+  in general. `cognitive-prose.md`'s fourth reader question asked how a change
+  "was verified," which a ticket body cannot answer prospectively, so it now
+  names what each of its two governed surfaces owes. The exemplar's "four
+  stacked modifiers" is corrected to what #20's opening actually carries — two
+  stacked adjectives ahead of the noun, with the rest trailing in prepositional
+  phrases — everywhere the phrase appears, with the bundled copies regenerated
+  by `just sync-contracts` rather than hand-edited. The new "The problem
+  underneath" section of `cognitive-driven-development.md` and its HTML
+  presentation copy had landed unguarded, so its five load-bearing claims are
+  now registered with the module's existing `assert_in_both` parity mechanism.
+  And `2a8f84b`, which landed without one, gains its changelog entry.
+
+- build: distribute the cognitive prose contract to its consuming skills
+  (8bc06c66abc7faa6d7932cec10007d3131cbd4c1) — the contract landed with no way
+  to reach a skill. `just sync-contracts` now copies `docs/cognitive-prose.md`
+  into `references/` for `implement-ticket`, `carve-changesets`, and
+  `ready-ticket`, and a drift test fails when a copy diverges or when an
+  unlisted skill carries one. The copies are deliberately unreferenced: no
+  `SKILL.md` loads them, so this commit changes no behavior and leaves the
+  consuming edits to be reviewed on their own. This branch expected to be the
+  first exercise of the doctrine-distribution mechanism Spec B of the shaping
+  program needs; #221 landed the same mechanism concurrently for the shaping
+  doctrine, so the two arrived at one answer independently rather than one
+  piloting it for the other. The drift check was verified capable of failing:
+  appending a line to the `ready-ticket` copy turns it red naming that file, and
+  `just sync-contracts` restores green.
+
+- docs: correct the plan's expected test counts
+  (2a8f84b309157dd486afb222bc4e41af3c16fd0b) — the plan for the cognitive prose
+  contract told its executor to expect 8 tests from Task 1 where the task's own
+  code block defined 7, and Task 2 inherited the off-by-one as 11 where 7 + 3 is
+  10\. The counts now match the code the plan ships, so an executor checking its
+  work against them is not chasing a test that was never specified.
+
+- docs: publish the canonical cognitive prose contract
+  (2d19029f77045ecb5368856f557efb56a405de97) — compris shaped what a reviewer
+  reads and said nothing about how it was written. The entire pull-request-body
+  obligation was a four-item content checklist at
+  `skills/implement-ticket/SKILL.md:669`, and `carve-changesets` inherited none
+  at all, so an agent could satisfy the suite in full while emitting prose no
+  reviewer could use. `docs/cognitive-prose.md` states the standard — prose is
+  written for the human accountable to the codebase, never merely efficient —
+  and splits its rules by failure shape per `docs/skill-authoring.md`: the
+  reader's question order is a positive contract, because a prohibition cannot
+  fix a shape problem, and the voice rules are prohibitions, each sourced to the
+  pull request where it was observed. #20 supplies three of the four and #60 the
+  last; #209 is the worked exemplar. The rationalization table ships unwritten
+  and says so, because the sourced material carries observed output rather than
+  the agent's own rationalizations, and inventing those rows is what
+  `skill-authoring.md:132` forbids. `cognitive-debt.md` gains prose as a fourth
+  commitment beside shape, publicity, and why-not-just-what. Nothing consumes
+  the contract yet — no `SKILL.md` is edited, so no skill's behavior changes and
+  the eval-evidence norm does not apply.
+
+- docs: plan the cognitive prose contract
+  (6ff0b2b2028eb6a442e0a4011ada514c820056a0) — turns the spec into two
+  executable tasks split where a reviewer could accept one and reject the other:
+  the contract document with the invariants holding its content, then its
+  distribution with the invariants holding the copies. Planning surfaced a
+  constraint the spec missed. Every link in `docs/cognitive-prose.md` has to be
+  an absolute URL, because a relative one dangles the moment the file is copied
+  into a skill's `references/` where none of this repository's layout sits
+  beside it — the reason
+  `review-suite/scripts/tests/test_bundled_contracts.py:147` exists. It is a
+  global constraint of the plan and a test enforces it. The plan's test code was
+  run against the real contract text rather than assumed: the section and table
+  helpers find seven headings in order and four prohibition rows each carrying a
+  `[#NNN]` source, and both survive the `mdformat --wrap 80` reflow
+  `just format` applies, which renumbers the ordered list and pads the table.
+  Task 2 requires the drift check be proven capable of failing before the task
+  is called done, since a drift check nobody has watched go red is a decoration.
+  Plan only; nothing is implemented.
+
+- docs: name cognitive debt as the problem compris solves, and spec the prose
+  contract answering its prose half (812769767ecdaa68c7b56c8ab87f60c4e0a6b9c7) —
+  the suite had a standard without a stated problem.
+  `cognitive-shaping-doctrine.md` opened on the technique (work is broken apart
+  by what a reviewer can understand) and `README.md` led with what the skills
+  do, so the only answer to "why is this worth the review overhead" was an
+  appeal to tidiness. New `docs/cognitive-debt.md` states the problem: cognitive
+  debt, Margaret Storey's term for understanding that lives in developers' minds
+  rather than in the code and fragments, resting on Naur's claim that a program
+  is a theory held by the people who built it. It is not technical debt renamed
+  — technical debt is a property of the artifact and cognitive debt is a
+  property of the people, which is why editing code cannot pay it down. Agents
+  change the rate and the default: they generate correct code faster than any
+  human forms a theory of it, so under agentic implementation the debt is what
+  accrues when nobody intervenes, which is Geoffrey Litt's *Understanding is the
+  new bottleneck*. Two consequences are recorded. Throughput is the wrong
+  headline number for this suite, and the three constraints that already exist —
+  shape, tickets rather than local plan files, recorded rationale — are restated
+  as responses to one problem rather than three independent preferences.
+  compris's intervention is named as structural and upstream of the
+  presentational techniques (narrative diffs, explorable models) that dominate
+  this space, and the two are stated to compose rather than substitute. The
+  doctrine also gains the participation argument: the mental model is what lets
+  a reviewer approve the change in front of them *and* direct the work that
+  comes next, so it is the reason for the standard rather than the receipt for
+  it. A closing section states what the suite does not claim — it does not
+  measure cognitive debt, does not gate on understanding, and has no speed
+  regulator — so the diagnosis is not read as a solved problem. Framing only:
+  the shaping standard, its calibration, and its breakdown rules are unchanged,
+  and no skill's normative prose is edited.
+
+  The same commit specs the first response to that problem's prose half.
+  `docs/superpowers/specs/2026-08-14-cognitive-prose-contract-design.md` designs
+  a canonical prose contract for the artifacts compris emits, because the suite
+  shapes what a reviewer reads and says nothing about how it is written: the
+  entire pull-request-body obligation is one content checklist at
+  `skills/implement-ticket/SKILL.md:669`, and `carve-changesets` inherits none
+  at all. The gap is observable in this repository's own history — #20 opens on
+  "Adds `implement-ticket` as the reusable, runtime-neutral workflow…" with two
+  stacked adjectives ahead of the noun, the rest of its qualification trailing
+  in prepositional phrases, and no statement of what was wrong, and summarizes
+  itself in five imperative-verb bullets that restate the diff, while #209 three
+  weeks later opens on the defect, argues from the ticket, and proves its new
+  guard was verified capable of failing. The voice improved in one person's
+  head; nothing in the suite would stop a fresh agent from regenerating #20's
+  prose. The design splits the fix by failure shape per
+  `docs/skill-authoring.md`: structure is wrong-shaped output and gets a
+  positive contract, voice is a discipline violation and gets prohibitions, each
+  sourced to the pull request it was observed in. The rationalization table
+  ships deliberately unwritten and says so about itself, because the sourced
+  material carries observed output rather than the agent's own rationalizations,
+  and inventing those rows is what `skill-authoring.md:132` forbids. Canonical
+  text lives in `docs/` and syncs into three consumers that do not yet reference
+  it, which was expected to pilot the doctrine-distribution mechanism Spec B of
+  the shaping program will need — #221 has since landed that mechanism
+  concurrently, so the two converged independently instead. Design only; nothing
+  specified here is built, and the remaining four pieces are recorded with their
+  ordering rather than designed.
+
 ## 2026-08-13 — Triaged the real-model forward-eval baseline and found most of it was measuring the harness rather than the prose, measured a fix for the elicitation and reverted it when it did not work, corrected the eval-evidence norm's scope statement for the review-lens skills, and bound the solution-simplicity lens to the canonical shaping doctrine instead of its own restatement of it
 
 - feat(review-solution-simplicity): bind the lens's reviewability judgment to

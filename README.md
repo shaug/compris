@@ -12,6 +12,20 @@ traverses a live epic graph and drives the same path for each ready child.
 `compris` is French for *understood* — what the suite claims at the moment work
 changes hands.
 
+**Why it exists.** Not to write code faster. Agents already generate correct
+code faster than any human forms a theory of what it does, and the cost of that
+shows up as **cognitive debt** — understanding that lives in developers' minds
+rather than in the code, and fragments. It is not technical debt under another
+name: technical debt is a property of the artifact, and cognitive debt is a
+property of the people, which is why editing code cannot pay it down. When
+agents are the primary vector of implementation, that debt is what accrues if
+nobody intervenes. So throughput is the wrong headline number here. Every
+constraint in this suite — work shaped to what a reviewer can hold, tickets
+rather than local plan files, recorded rationale rather than a bare diff —
+exists to keep the theory of the program in human minds while agents write the
+code. [docs/cognitive-debt.md](docs/cognitive-debt.md) is the full statement,
+including what the suite does not claim.
+
 **Where it starts.** Not at the idea. Peer methodology libraries own the
 thinking-it-through phase, and `ready-ticket` stops at an implementation-ready
 ticket body without crossing into implementation. Compris begins once the ticket

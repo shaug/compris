@@ -8,11 +8,12 @@ md_targets := "."
 list-skills:
   @find {{skills_dir}} -mindepth 1 -maxdepth 1 -type d -print
 
-# Refresh the canonical text bundled into each skill that consumes it — the
+# Refresh the canonical text bundled into each skill that consumes it, so every
+# skill stays self-contained when installed outside this repository: the
 # review-suite contract copies for each review skill and each caller of a
-# review-code-change result, and the cognitive-shaping doctrine for each lens
-# that judges shape — so every skill stays self-contained when installed
-# outside this repository.
+# review-code-change result, the cognitive-shaping doctrine for each lens that
+# judges shape, and the cognitive prose contract for each skill that emits
+# reader-facing prose.
 sync-contracts:
   @for skill in review-code-change review-correctness review-code-simplicity review-solution-simplicity review-fix-loop; do \
     dest="{{skills_dir}}/$skill/references/review-suite"; \
@@ -48,6 +49,12 @@ sync-contracts:
     mkdir -p "$scripts_dest"; \
     cp ledger/core.py "$scripts_dest/ledger_core.py"; \
     echo "Synced $scripts_dest/ledger_core.py"; \
+  done
+  @for skill in implement-ticket carve-changesets ready-ticket; do \
+    dest="{{skills_dir}}/$skill/references"; \
+    mkdir -p "$dest"; \
+    cp docs/cognitive-prose.md "$dest/cognitive-prose.md"; \
+    echo "Synced $dest/cognitive-prose.md"; \
   done
 
 # Compare the separately installed skill copies under ~/.agents/skills against
