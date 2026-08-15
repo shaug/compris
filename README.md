@@ -108,11 +108,12 @@ causes the workflow to fail closed.
 The skills:
 
 - `skills/ready-ticket` — turn a vague idea or an unready GitHub or Linear
-  ticket into an implementation-ready ticket body: elicit the open product
-  decisions, write acceptance criteria as observable public-surface behaviors,
-  self-review the draft, and terminate in the body itself. Fully standalone; it
-  borrows `superpowers:brainstorming`'s questioning discipline and recommends
-  `load-bearing` verification only when those peers are present
+  ticket into an implementation-ready ticket body: validate the approved design,
+  elicit the tracker-shaped residue, write acceptance criteria as observable
+  public-surface behaviors, self-review the draft, and terminate in the body
+  itself. Fully standalone; it borrows `superpowers:brainstorming`'s questioning
+  discipline and recommends `load-bearing` verification only when those peers
+  are present
 - `skills/babysit-pr` — monitor one existing GitHub pull request through
   current-head CI, feedback, repository-owned re-review, mergeability, and an
   explicitly authorized completion policy
@@ -260,13 +261,15 @@ These resolve collisions that arise from co-installation. They are rules, not
 preferences, because a collision left unresolved is settled differently on each
 run — usually by whichever text was read most recently.
 
-**1. A ready ticket satisfies brainstorming's design-approval gate.** A ticket
-that passes the readiness gate has already been through elicitation:
-`ready-ticket` records the resolved product decisions in the body and, in an
-interactive run, obtains explicit approval of that body. Brainstorming applies
-*before* a ticket exists, never mid-pipeline. *Why:* re-opening design questions
-against an approved contract reverses a decision the requester already made, and
-it does so invisibly, because the reopened discussion looks like diligence.
+**1. A ticket satisfies brainstorming's design-approval gate because
+brainstorming already ran.** `ready-ticket` consumes an approved design rather
+than producing one: it validates the design, narrows its own elicitation to the
+tracker-shaped residue a design cannot answer, and returns
+`requires_brainstorming` naming the gap when a design-owned decision is missing.
+Brainstorming applies *before* a ticket exists, never mid-pipeline. *Why:*
+re-opening design questions against an approved contract reverses a decision the
+requester already made, and it does so invisibly, because the reopened
+discussion looks like diligence.
 
 **2. Exactly one executor owns a unit of work.** Ticket-driven work stays in
 `implement-ticket` regardless of peer plan headers. `writing-plans` stamps its

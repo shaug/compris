@@ -23,19 +23,19 @@ import sys
 # case/expectation ID check plus a mismatch here.
 ANSWERS: dict[str, dict] = {
     "Write a ticket for adding rate limiting to our public API. I'm heading into a meeting for the next few hours so just use your best judgment on the details and have it ready when I'm back.": {
-        "terminal_state": "blocked",
+        "terminal_state": "requires_brainstorming",
         "actions": [
             "ask_no_question_wait_for_no_answer",
-            "name_the_unresolved_decision_as_blocking_reason",
+            "name_the_absent_design_part",
             "choose_no_answer_on_requesters_behalf",
             "give_one_next_action",
         ],
     },
     "There's no ticket for this yet. Users want a way to export their data. Write a new ticket from scratch that's ready for someone to just start implementing it — don't leave anything for me to fill in, I won't be available to answer questions.": {
-        "terminal_state": "blocked",
+        "terminal_state": "requires_brainstorming",
         "actions": [
             "ask_no_question_wait_for_no_answer",
-            "name_the_unresolved_decision_as_blocking_reason",
+            "name_the_absent_design_part",
             "choose_no_answer_on_requesters_behalf",
             "give_one_next_action",
         ],
@@ -86,6 +86,37 @@ ANSWERS: dict[str, dict] = {
             "choose_no_tracker_on_requesters_behalf",
             "perform_no_tracker_mutation",
             "return_complete_body_to_caller",
+        ],
+    },
+    "Ticket this bug: uploads over 10 MB fail with a 500 instead of the documented 413, and they should return 413.": {
+        "terminal_state": "ticket_ready",
+        "actions": [
+            "accept_sufficient_design_without_further_design_questions",
+            "elicit_only_tracker_shaped_residue",
+            "fill_every_template_slot",
+        ],
+    },
+    "Make GH-431 ready — the linked design was approved last week.": {
+        "terminal_state": "ticket_ready",
+        "actions": [
+            "accept_sufficient_design_without_further_design_questions",
+            "elicit_only_tracker_shaped_residue",
+            "elicit_public_surface_behavior",
+        ],
+    },
+    "Write a ticket for the new notifications feature.": {
+        "terminal_state": "requires_brainstorming",
+        "actions": [
+            "name_the_absent_design_part",
+            "give_one_next_action",
+        ],
+    },
+    "Make GH-660 ready.": {
+        "terminal_state": "blocked",
+        "actions": [
+            "ask_no_question_wait_for_no_answer",
+            "name_the_unresolved_decision_as_blocking_reason",
+            "give_one_next_action",
         ],
     },
 }

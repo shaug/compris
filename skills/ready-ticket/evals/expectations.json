@@ -61,20 +61,21 @@
   },
   {
     "case_id": "autonomous-unresolved-product-decision",
-    "workflow_state": "blocked",
+    "workflow_state": "requires_brainstorming",
     "required_actions": [
       "ask no question and wait for no answer",
-      "name the unresolved idempotency decision as the blocking reason",
-      "choose no answer on the requester's behalf",
+      "name the absent requirement — whether a retry is idempotent — as the missing design part",
+      "gather no missing design part",
+      "infer no missing design part from the rest of the ticket",
       "give one next action"
     ]
   },
   {
     "case_id": "requester-objection-unresolved",
-    "workflow_state": "blocked",
+    "workflow_state": "requires_brainstorming",
     "required_actions": [
-      "return the objection to elicitation as the next open decision",
-      "name the undecided pricing dependency as the blocking reason",
+      "name the undecided pricing dependency as the missing design part",
+      "make no pricing decision on the requester's behalf",
       "claim no readiness while the cadence decision is open"
     ]
   },
@@ -156,11 +157,11 @@
   },
   {
     "case_id": "falsified-assumption-returns-to-elicitation",
-    "workflow_state": "ticket_ready",
+    "workflow_state": "requires_brainstorming",
     "required_actions": [
-      "return the falsified assumption to elicitation as an open product decision",
-      "record the requester's replacement decision in the body",
-      "re-run all four self-review scans after the edit"
+      "name the falsified write-volume assumption as the unsettled design part",
+      "choose no replacement storage approach here",
+      "record the verification result and its source"
     ]
   },
   {
@@ -220,6 +221,36 @@
       "detect the conflict in the contradiction check",
       "raise it rather than resolve it silently",
       "record the requester's decision in Scope and Non-goals consistently"
+    ]
+  },
+  {
+    "case_id": "one-sentence-bug-design-sufficient",
+    "workflow_state": "ticket_ready",
+    "required_actions": [
+      "accept the one-sentence design as sufficient at the scale the work warrants",
+      "ask no further design question",
+      "elicit only the tracker-shaped residue",
+      "obtain explicit requester approval of the body before claiming ready"
+    ]
+  },
+  {
+    "case_id": "full-design-document-not-relitigated",
+    "workflow_state": "ticket_ready",
+    "required_actions": [
+      "accept the approved design as sufficient without reopening it",
+      "reopen no decision the design already settles",
+      "elicit only the tracker-shaped residue",
+      "write acceptance criteria as observable public-surface behaviors"
+    ]
+  },
+  {
+    "case_id": "design-missing-requirements",
+    "workflow_state": "requires_brainstorming",
+    "required_actions": [
+      "name the absent requirements — trigger, contents, and recipient — as the missing design part",
+      "gather no missing design part",
+      "infer no missing design part from the rest of the request",
+      "create or modify no ticket"
     ]
   },
   {

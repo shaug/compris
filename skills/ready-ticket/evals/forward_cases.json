@@ -86,5 +86,53 @@
       "peers": "no peer skills in the session listing",
       "elicitation": "the repository's connection-pool design document and existing tests resolve every product decision in the body"
     }
+  },
+  {
+    "id": "one-sentence-bug-design-proceeds",
+    "request": "Ticket this bug: uploads over 10 MB fail with a 500 instead of the documented 413, and they should return 413.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted",
+      "peers": "no peer skills in the session listing",
+      "design": "the request is the whole design: it carries the requirement, the acceptance criterion, and the goal, and a one-line bugfix warrants no separate non-goal, stakeholder, or deadline",
+      "elicitation": "the requester names the request-level check that would demonstrate the fix and says it runs before merge"
+    }
+  },
+  {
+    "id": "full-design-document-proceeds",
+    "request": "Make GH-431 ready — the linked design was approved last week.",
+    "artifacts": {
+      "ticket": "GH-431 links an approved design document",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted",
+      "peers": "no peer skills in the session listing",
+      "design": "the approved document captures the requirements and acceptance criteria, states the goals and non-goals, and identifies the stakeholders and the launch deadline",
+      "elicitation": "the requester answers only which observable behavior each criterion names, which command demonstrates it, and whether it runs before or after merge"
+    }
+  },
+  {
+    "id": "design-missing-requirements",
+    "request": "Write a ticket for the new notifications feature.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted",
+      "peers": "no peer skills in the session listing",
+      "design": "nothing states what triggers a notification, what it contains, or who receives it, and no named document or repository contract supplies them",
+      "elicitation": "the requester is reachable and would answer a design question if one were asked"
+    }
+  },
+  {
+    "id": "autonomous-residue-unresolved-verification",
+    "request": "Make GH-660 ready.",
+    "artifacts": {
+      "ticket": "GH-660 carries an approved one-paragraph design",
+      "run_mode": "autonomous; no requester is reachable in this run",
+      "authority": "ticket-management authority granted",
+      "peers": "no peer skills in the session listing",
+      "design": "the paragraph states the requirements and acceptance criteria, the goals and non-goals, and the stakeholders and deadline",
+      "elicitation": "no named document, repository contract, or existing test says which command would demonstrate the third criterion or whether it can run before merge"
+    }
   }
 ]

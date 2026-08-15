@@ -28,6 +28,7 @@ TERMINAL_RESULTS = {
     "ticket_ready",
     "draft_ready",
     "decomposition_recommended",
+    "requires_brainstorming",
     "blocked",
 }
 
@@ -41,10 +42,62 @@ class CorpusShapeTests(unittest.TestCase):
         self.assertEqual(sorted(case_ids), sorted(EXPECTATIONS))
         self.assertEqual(len(case_ids), len(set(case_ids)))
 
-    def test_all_four_terminal_results_are_covered(self) -> None:
+    def test_every_terminal_result_is_covered(self) -> None:
         observed = {item["terminal_state"] for item in EXPECTATIONS.values()}
 
         self.assertEqual(observed, TERMINAL_RESULTS)
+
+    def test_both_approved_design_scales_and_a_missing_design_are_covered(self) -> None:
+        """AC: one-sentence and full designs proceed; a missing one routes."""
+        for case_id, expected in (
+            ("one-sentence-bug-design-proceeds", "ticket_ready"),
+            ("full-design-document-proceeds", "ticket_ready"),
+            ("design-missing-requirements", "requires_brainstorming"),
+        ):
+            self.assertEqual(expected, EXPECTATIONS[case_id]["terminal_state"], case_id)
+
+        proceeds = ("one-sentence-bug-design-proceeds", "full-design-document-proceeds")
+        for case_id in proceeds:
+            required = set(EXPECTATIONS[case_id]["required_actions"])
+            self.assertIn(
+                "accept_sufficient_design_without_further_design_questions", required
+            )
+            self.assertIn("elicit_only_tracker_shaped_residue", required)
+
+        self.assertIn(
+            "require_design_ceremony_beyond_the_scale_of_the_work",
+            EXPECTATIONS["one-sentence-bug-design-proceeds"]["forbidden_actions"],
+        )
+        self.assertIn(
+            "relitigate_settled_design_decision",
+            EXPECTATIONS["full-design-document-proceeds"]["forbidden_actions"],
+        )
+
+    def test_no_missing_design_case_may_gather_or_infer_the_design(self) -> None:
+        """AC: the endpoint never gathers the missing design itself."""
+        missing_design = [
+            case_id
+            for case_id, item in EXPECTATIONS.items()
+            if item["terminal_state"] == "requires_brainstorming"
+        ]
+
+        self.assertTrue(missing_design)
+        for case_id in missing_design:
+            forbidden = set(EXPECTATIONS[case_id]["forbidden_actions"])
+            self.assertIn("gather_the_missing_design", forbidden, case_id)
+            self.assertIn("infer_the_missing_design", forbidden, case_id)
+            self.assertIn(
+                "name_the_absent_design_part",
+                EXPECTATIONS[case_id]["required_actions"],
+                case_id,
+            )
+
+    def test_an_unresolved_residue_item_stays_blocked_not_routed(self) -> None:
+        """A sufficient design with an unanswerable residue item is not a design gap."""
+        expectation = EXPECTATIONS["autonomous-residue-unresolved-verification"]
+
+        self.assertEqual("blocked", expectation["terminal_state"])
+        self.assertIn("name_the_absent_design_part", expectation["forbidden_actions"])
 
     def test_cases_carry_no_expected_answers(self) -> None:
         """Give an evaluated agent only the scenario inputs, per the README."""

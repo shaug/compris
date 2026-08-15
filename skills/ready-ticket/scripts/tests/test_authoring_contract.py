@@ -1,9 +1,10 @@
 """Load-bearing contract invariants for the ready-ticket skill.
 
-These tests check stable identifiers — the skill name, its four terminal
-results, the readiness target it inherits from implement-ticket, the recorded
-peer bounds, and the result-blind fixture pairing — not prose phrasing.
-Scenario coverage lives in the evaluation data under evals/.
+These tests check stable identifiers — the skill name, its five terminal
+results, the approved-design input gate, the readiness target it inherits from
+implement-ticket, the recorded peer bounds, and the result-blind fixture
+pairing — not prose phrasing. Scenario coverage lives in the evaluation data
+under evals/.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ TERMINAL_RESULTS = (
     "ticket_ready",
     "draft_ready",
     "decomposition_recommended",
+    "requires_brainstorming",
     "blocked",
 )
 
@@ -70,7 +72,7 @@ class ReadyTicketContractTests(unittest.TestCase):
 
     # --- Terminal results -------------------------------------------------
 
-    def test_four_terminal_results_are_exhaustive_and_documented(self):
+    def test_terminal_results_are_exhaustive_and_documented(self):
         for state in TERMINAL_RESULTS:
             self.assertIn(f"`{state}`", self.skill)
         self.assertIn("Return exactly one state", self.skill)
@@ -171,6 +173,121 @@ class ReadyTicketContractTests(unittest.TestCase):
             "`file this`, `write it up`, or `get it ready`",
         ):
             self.assertIn(required, self.contract)
+
+    # --- The approved-design input gate -----------------------------------
+
+    def test_a_one_sentence_design_is_sufficient_at_its_own_scale(self):
+        """AC: a sufficient one-sentence bug design proceeds without ceremony."""
+        for clause in (
+            "For a one-line bugfix, the sentence is the design",
+            "Scale is not a threshold to adjudicate, and there is no second door "
+            "for bug reports",
+            "Ask for no design ceremony the work does not warrant",
+        ):
+            self.assertIn(clause, self.contract)
+
+        case_id = "one-sentence-bug-design-sufficient"
+        self.assertEqual("ticket_ready", self.expectations[case_id]["workflow_state"])
+        actions = self.actions(case_id)
+        self.assertIn("accept the one-sentence design as sufficient", actions)
+        self.assertIn("ask no further design question", actions)
+
+    def test_a_sufficient_full_design_is_not_relitigated(self):
+        """AC: a sufficient full design proceeds without re-litigating it."""
+        for clause in (
+            "A one-sentence bug design and a design document representing months "
+            "of work are both legal inputs, checked against the same four parts",
+            "reopen no decision the design already settles",
+            "Reopening reverses a choice the requester already made",
+        ):
+            self.assertIn(clause, self.contract)
+
+        case_id = "full-design-document-not-relitigated"
+        self.assertEqual("ticket_ready", self.expectations[case_id]["workflow_state"])
+        self.assertIn(
+            "reopen no decision the design already settles", self.actions(case_id)
+        )
+
+    def test_a_missing_design_part_returns_requires_brainstorming_naming_the_gap(self):
+        """AC: a missing design part names the gap in a routable typed result."""
+        for clause in (
+            "A design is sufficient when it captures the requirements and "
+            "acceptance criteria, states the goals and non-goals, and identifies "
+            "the stakeholders and deadlines",
+            "return `requires_brainstorming`, naming which of the four is absent "
+            "and what it is absent about",
+        ):
+            self.assertIn(clause, self.contract)
+
+        for case_id in (
+            "design-missing-requirements",
+            "autonomous-unresolved-product-decision",
+            "requester-objection-unresolved",
+        ):
+            self.assertEqual(
+                "requires_brainstorming",
+                self.expectations[case_id]["workflow_state"],
+                case_id,
+            )
+            self.assertIn("as the missing design part", self.actions(case_id), case_id)
+
+    def test_the_endpoint_never_gathers_or_infers_the_missing_design(self):
+        """AC: the endpoint never gathers the missing design itself."""
+        for clause in (
+            "Do not gather it, and do not infer it from the parts that are present",
+            "Inference is gathering under another name",
+            "A question that would settle a design-owned decision is out of bounds "
+            "here",
+            "The caller decides whether to go get the design; this skill never does",
+        ):
+            self.assertIn(clause, self.contract)
+
+        for case_id in (
+            "design-missing-requirements",
+            "autonomous-unresolved-product-decision",
+        ):
+            actions = self.actions(case_id)
+            self.assertIn("gather no missing design part", actions, case_id)
+            self.assertIn("infer no missing design part", actions, case_id)
+
+    def test_elicitation_narrows_to_the_tracker_shaped_residue(self):
+        for clause in (
+            "The residue is what an approved design cannot answer",
+            "- each acceptance criterion restated as an observable behavior of the "
+            "public surface;",
+            "- whether each verification item applies pre-merge or post-merge.",
+            "Keep asking until every residue item has an answer",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_a_missing_design_is_not_also_a_blocked_condition(self):
+        """`requires_brainstorming` and `blocked` must not claim the same input."""
+        self.assertIn(
+            "A missing or insufficient approved design is not one of them",
+            self.contract,
+        )
+        stop_conditions = compact(
+            self.skill.split("## Stop conditions", 1)[1].split(
+                "A missing or insufficient", 1
+            )[0]
+        )
+        self.assertNotIn("architecture decision is unresolved", stop_conditions)
+        self.assertIn("a residue item", stop_conditions)
+
+    def test_a_falsified_assumption_is_returned_rather_than_re_decided(self):
+        self.assertIn(
+            "A falsified assumption unsettles something the design had settled, so "
+            "it returns `requires_brainstorming` naming the falsified assumption; "
+            "choosing the replacement is design work and does not happen here",
+            self.contract,
+        )
+        case_id = "falsified-assumption-returns-to-elicitation"
+        self.assertEqual(
+            "requires_brainstorming", self.expectations[case_id]["workflow_state"]
+        )
+        self.assertIn(
+            "choose no replacement storage approach here", self.actions(case_id)
+        )
 
     # --- Readiness target -------------------------------------------------
 
@@ -388,7 +505,7 @@ class ReadyTicketContractTests(unittest.TestCase):
             self.expectations["autonomous-approval-not-obtainable"]["workflow_state"],
         )
         self.assertEqual(
-            "blocked",
+            "requires_brainstorming",
             self.expectations["autonomous-unresolved-product-decision"][
                 "workflow_state"
             ],

@@ -207,6 +207,33 @@
     "elicitation": "the requester's answers put log retention changes in scope and also name 'no change to retention policy' as a non-goal; when the conflict is raised they keep retention out of scope"
   },
   {
+    "id": "one-sentence-bug-design-sufficient",
+    "request": "Ticket this bug: uploads over 10 MB fail with a 500 instead of the documented 413, and they should return 413.",
+    "ticket": "none; no tracker item exists yet",
+    "run_mode": "interactive",
+    "authority": "ticket-management authority granted",
+    "peers": "no peer skills in the session listing",
+    "elicitation": "the one sentence carries the requirement, the acceptance criterion, and the goal; there is no non-goal, stakeholder, or deadline beyond what a one-line bugfix warrants, and the requester names the request-level check that would demonstrate the fix"
+  },
+  {
+    "id": "full-design-document-not-relitigated",
+    "request": "Make GH-431 ready — the linked design was approved last week.",
+    "ticket": "GH-431 links an approved design document that captures the requirements and acceptance criteria, states the goals and non-goals, and identifies the stakeholders and the launch deadline",
+    "run_mode": "interactive",
+    "authority": "ticket-management authority granted",
+    "peers": "no peer skills in the session listing",
+    "elicitation": "the requester answers only which observable behavior each criterion names, which command demonstrates it, and whether it runs before or after merge"
+  },
+  {
+    "id": "design-missing-requirements",
+    "request": "Write a ticket for the new notifications feature.",
+    "ticket": "none; no tracker item exists yet",
+    "run_mode": "interactive",
+    "authority": "ticket-management authority granted",
+    "peers": "no peer skills in the session listing",
+    "elicitation": "nothing in the request, a named document, or a repository contract says what triggers a notification, what it contains, or who receives it"
+  },
+  {
     "id": "request-to-implement-instead",
     "request": "Write the ticket for the CSV export and then go ahead and build it.",
     "ticket": "none",
