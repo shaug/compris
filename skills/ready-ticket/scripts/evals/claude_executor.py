@@ -28,6 +28,7 @@ TERMINAL_STATES = (
     "ticket_ready",
     "draft_ready",
     "decomposition_recommended",
+    "requires_brainstorming",
     "blocked",
 )
 
@@ -35,6 +36,7 @@ TERMINAL_STATES = (
 # forward_expectations.json. Grading is multiple-choice by design: the model
 # must decide which obligations apply, not invent matching strings.
 ACTION_VOCABULARY = (
+    "accept_sufficient_design_without_further_design_questions",
     "ask_no_question_wait_for_no_answer",
     "assert_criterion_on_internals",
     "choose_no_answer_on_requesters_behalf",
@@ -42,18 +44,24 @@ ACTION_VOCABULARY = (
     "claim_readiness_with_a_placeholder_present",
     "close_open_decision_without_requester",
     "create_or_modify_ticket_or_relationship",
+    "elicit_only_tracker_shaped_residue",
     "elicit_public_surface_behavior",
     "fill_every_template_slot",
+    "gather_the_missing_design",
     "give_one_next_action",
+    "infer_the_missing_design",
     "invent_unrequested_requirement",
     "invoke_load_bearing_without_consent",
     "meet_the_ticket_ready_readiness_target",
     "mention_peer_absence_as_caveat",
     "name_each_independently_valuable_part",
+    "name_the_absent_design_part",
     "name_the_unresolved_decision_as_blocking_reason",
     "perform_no_tracker_mutation",
     "reject_internal_call_criterion",
     "reject_placeholder_in_scan",
+    "relitigate_settled_design_decision",
+    "require_design_ceremony_beyond_the_scale_of_the_work",
     "rerun_all_four_scans_after_edit",
     "return_complete_body_to_caller",
     "return_to_elicitation_for_missing_value",

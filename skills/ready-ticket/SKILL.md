@@ -1,6 +1,6 @@
 ---
 name: ready-ticket
-description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and that has to be resolved before the work is scheduled. Produces acceptance criteria as observable behaviors of the product's public surface, so each one is directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body is handed back to the caller. Returns exactly one of four typed terminal results with evidence, and hands multi-subsystem work back to the operator instead of authoring an epic.
+description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and that has to be resolved before the work is scheduled. Produces acceptance criteria as observable behaviors of the product's public surface, so each one is directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body is handed back to the caller. Validates an approved design as its input, at any scale, rather than gathering one. Returns exactly one of five typed terminal results with evidence, and hands multi-subsystem work back to the operator instead of authoring an epic.
 ---
 
 # Ready Ticket
@@ -16,8 +16,8 @@ required verification, in enough detail to classify each verification item as
 pre-merge or post-merge, and when it contains no unresolved product, data,
 authorization, migration, destructive, or architecture decision.
 
-This skill authors that body. It does not schedule the work, select an
-implementer, or begin it.
+This skill authors that body from an approved design. It does not produce the
+design, schedule the work, select an implementer, or begin it.
 
 ## Load the applicable references
 
@@ -63,6 +63,8 @@ Before the first question, establish and record:
 
 - the request and, when one exists, the live ticket identity, body, state, and
   native parent, sub-issue, and blocker relationships;
+- the **approved design** this run authors from, and where it lives — the
+  request itself, the ticket body, or a named document;
 - the owning tracker, or that no tracker owns the request yet. The requester
   chooses it when none does; never pick one for them. In an autonomous run with
   no tracker chosen, terminate in `draft_ready`;
@@ -82,20 +84,80 @@ Authority to author a ticket never implies authority to implement it, to change
 its native relationships, to close or reprioritize a sibling, or to create
 additional tracker items.
 
-## Elicit one question at a time
+## Require an approved design
+
+This skill starts where the design work ends. The design is an input it
+validates, never an output it produces.
+
+A design is sufficient when all four of its parts are present, each at the scale
+the work warrants:
+
+1. the **requirements** — what the work has to do;
+2. the **acceptance criteria** — how anyone can tell that it did;
+3. the **goals and non-goals** — what the work is for, and what it deliberately
+   is not; and
+4. the **stakeholders and deadlines** — who it is for, and by when.
+
+For a one-line bugfix, the sentence is the design: one sentence can carry all
+four.
+
+Scale is not a threshold to adjudicate, and there is no second door for bug
+reports. A one-sentence bug design and a design document representing months of
+work are both legal inputs, checked against the same four parts. The difference
+between them surfaces in the body, not at the door.
+
+- **Sufficient at any scale** — proceed to the residue. Ask for no design
+  ceremony the work does not warrant, and reopen no decision the design already
+  settles.
+- **Missing any part** — return `requires_brainstorming`, naming which of the
+  four parts is absent and what it is absent about. Do not gather it, and do not
+  infer it from the parts that are present.
+
+A part that passes this gate can still stop being settled later, when
+verification falsifies what the design rested on. That returns the same result
+in its second shape; see
+[Recommend load-bearing verification when the cost is high](#recommend-load-bearing-verification-when-the-cost-is-high).
+
+The boundary is hard in both directions. Left of it, a human decides what the
+work is. Right of it, this skill decides how that becomes a ticket.
+
+Three moves cross it while looking like the opposite. Inference is gathering
+under another name: the inferred requirement lands in the body as decided, and
+the next reader never learns that nobody decided it. Asking one more question
+because one more question would close the gap is doing the design work — it
+moves the boundary rather than reaching it, and a boundary that moves once moves
+again, because the next question is also only one more. And reopening a settled
+decision reverses a choice the requester already made, invisibly, because the
+reopened discussion looks like diligence; a design believed wrong is returned
+with that objection named, never quietly re-decided in a body.
+
+## Elicit only the tracker-shaped residue
+
+The residue is what an approved design cannot answer, because it is
+tracker-shaped rather than product-shaped:
+
+- each acceptance criterion restated as an observable behavior of the public
+  surface;
+- the command, check, or observation that would demonstrate each criterion; and
+- whether each verification item applies pre-merge or post-merge.
+
+That is the whole of it. A question that would settle a design-owned decision is
+out of bounds here, however naturally it follows from the last answer; return
+`requires_brainstorming` instead.
 
 Ask exactly one question per turn, and establish intent before construction:
-what observable change the requester wants and why, before how it is built. Take
-the requester's answer as the decision; do not resolve a product question by
-choosing the most convenient reading.
+which observable behavior a criterion names, before which command would
+demonstrate it. Take the requester's answer as the decision; do not resolve an
+open question by choosing the most convenient reading.
 
 When `superpowers:brainstorming` is available in the session skill listing,
 borrow its questioning discipline for this phase. The borrow is bounded and the
 bound is part of the contract:
 
 - borrow the questioning discipline only — one question at a time, intent before
-  construction;
-- stop at design approval. Its later steps hand off to `writing-plans`, and
+  construction — and apply it to the residue, never to the design;
+- stop at design approval. Design approval happens before this skill runs, so
+  the borrow never reaches it. Its later steps hand off to `writing-plans`, and
   ticket authoring is house-owned, so the borrow ends at that handoff;
 - never create a spec file, a plan file, or any artifact other than the ticket
   body; and
@@ -108,9 +170,8 @@ When the peer is not in the listing, run the same discipline from this section
 without comment. The questioning method above is complete on its own; peer
 absence changes nothing about what this skill produces.
 
-Keep asking until every unresolved product, data, authorization, migration,
-destructive, and architecture decision named in the readiness target has an
-answer. In an autonomous run, no question can be asked: see
+Keep asking until every residue item has an answer. In an autonomous run, no
+question can be asked: see
 [Run autonomously without a requester](#run-autonomously-without-a-requester).
 
 ### Rationalizations that precede an unready body
@@ -144,9 +205,12 @@ holds:
 Never invoke it without the user's explicit assent. When the peer is not in the
 listing, say nothing: no offer, no caveat, and no mention in the result.
 
-A falsified assumption returns to elicitation as an open product decision.
-Record a verified fact, and any residual risk the requester accepted, in the
-body's `Verified assumptions` slot.
+A falsified assumption unsettles something the design had settled, so it returns
+`requires_brainstorming` naming the falsified assumption — that result's second
+shape, unsettled after the gate rather than absent at it. Choosing the
+replacement is design work and does not happen here. Record a verified fact, and
+any residual risk the requester accepted, in the body's `Verified assumptions`
+slot.
 
 ## Draft the body into every slot
 
@@ -222,8 +286,10 @@ explicit approval before `ticket_ready`. Approval is of the body as written, not
 of the idea.
 
 A requester who rejects the body returns the run to elicitation with their
-objection as the next open decision. Return `blocked` when their objection
-cannot be resolved into a ready body in this run.
+objection as the next open decision. Return `blocked` when a residue-shaped
+objection cannot be resolved into a ready body in this run, and
+`requires_brainstorming` when the objection rests on a design-owned decision
+nobody has made.
 
 ### Run autonomously without a requester
 
@@ -231,9 +297,10 @@ In an autonomous run, ask no question and wait for no answer. Resolve what the
 live ticket, named documents, and repository contracts already decide. Record in
 the result evidence that body approval was not obtainable.
 
-Any decision that remains genuinely open after those sources is a `blocked`
-result naming the decision. Do not close an open product decision by choosing
-for the requester.
+A design-owned decision that remains open after those sources is
+`requires_brainstorming` naming the missing part; a residue item that remains
+open is a `blocked` result naming the item. Do not close an open product
+decision by choosing for the requester.
 
 ## Hand multi-subsystem work back
 
@@ -267,6 +334,16 @@ be claimed, and the caller verifies the evidence rather than the label.
 - `decomposition_recommended` — the work spans multiple independently valuable,
   separately trackable subsystems; the rationale names each part and its
   boundary; no ticket, parent, child, or relationship was created or modified.
+- `requires_brainstorming` — one of the approved design's four parts is not
+  settled, in either of two shapes: it was **absent at the gate**, or it was
+  **unsettled after the gate** by a verification that falsified what the design
+  rested on. The result names which part, what is unsettled about it, which
+  shape it is, and one next action; no question was asked to close the gap;
+  nothing was inferred to fill it; and no ticket, parent, child, or relationship
+  was created or modified. The caller decides whether to go get the design; this
+  skill never does. Naming the gap without naming the next action leaves the
+  caller holding a diagnosis rather than a route, which is the difference
+  between this result and the `blocked` it replaces for a design-owned gap.
 - `blocked` — the honest fallback. Give one concrete blocking reason and one
   next action. Use it for exactly the conditions listed under
   [Stop conditions](#stop-conditions). Absent ticket-management authority is not
@@ -275,7 +352,9 @@ be claimed, and the caller verifies the evidence rather than the label.
   something was ready.
 
 Report with the result: run mode, owning tracker and ticket identity or its
-absence, ticket-management authority granted or absent, the complete body for
+absence, ticket-management authority granted or absent, the design finding —
+sufficient, or which part is unsettled, what is unsettled about it, and whether
+it was absent at the gate or unsettled after it — the complete body for
 `draft_ready`, the self-review outcome per scan, requester approval or its
 recorded unavailability, and the load-bearing disposition — offered and
 accepted, offered and declined, recorded as a recommendation, or not applicable.
@@ -285,15 +364,20 @@ Never report a peer's absence as a caveat.
 
 Return `blocked` when:
 
-- a product, data, authorization, migration, destructive, or architecture
-  decision is unresolved and no requester can resolve it in this run;
+- a residue item — a criterion's observable form, its verification, or its
+  pre-merge/post-merge stage — is unresolved and neither a requester nor a named
+  document can resolve it in this run;
 - the live tracker item cannot be read and the request depends on it;
-- a requester's objection to the drafted body cannot be resolved into a ready
-  body; or
+- a requester's residue-shaped objection to the drafted body cannot be resolved
+  into a ready body; or
 - an authorized tracker write fails, or the reread stored body does not match
   the approved body, so `ticket_ready` cannot be claimed against live state.
   Report the mutation that did occur and the exact mismatch; a write that landed
   is delivery, and delivery is not the stored contract.
+
+A missing or insufficient approved design is not one of them, and neither is an
+objection that rests on one: both return `requires_brainstorming`, which names
+the gap and routes it, where `blocked` would only report it.
 
 A request that also asks for the work to be built is not a blocker. Author the
 body, terminate on it, and report that implementation was not performed and is

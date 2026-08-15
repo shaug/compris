@@ -8,9 +8,10 @@ only the scenario inputs; never show it the expectations.
 
 Every case is result-blind: no case carries a `workflow_state` or a
 `required_actions` field, and no case narrates the outcome its scenario is meant
-to produce. The four terminal results — `ticket_ready`, `draft_ready`,
-`decomposition_recommended`, and `blocked` — are each covered, and the contract
-test fails if the expectation set ever drifts from exactly those four.
+to produce. The five terminal results — `ticket_ready`, `draft_ready`,
+`decomposition_recommended`, `requires_brainstorming`, and `blocked` — are each
+covered, and the contract test fails if the expectation set ever drifts from
+exactly those five.
 
 ## Baseline pressure test and forward evals
 
@@ -23,5 +24,13 @@ table, and a paired before/after comparison. See
 cases in the shape `../implement-ticket/evals/forward_cases.json` established,
 run through `scripts/evals/run_forward.py` with a real-model or
 deterministic-fixture executor and recorded per the #135 eval-evidence
-convention. Two of the eight cases are the strongest scenarios from the baseline
-pressure test; the rest round out coverage of all four terminal results.
+convention. Two of the twelve cases are the strongest scenarios from the
+baseline pressure test; the rest round out coverage of all five terminal
+results, including both approved-design scales, a missing design, and a
+sufficient design whose residue cannot be resolved.
+
+Those two baseline scenarios changed answer with #197 rather than changing
+grade: both are missing-design scenarios, so the approved-design boundary routes
+them to `requires_brainstorming` where they were previously only `blocked`. A
+before/after diff across that commit compares two different questions for them,
+and their movement is not evidence about the prose either way.

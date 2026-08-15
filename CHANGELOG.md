@@ -4,16 +4,54 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-15 — Retired carve-changesets' duplicate shaping rules in favor of the canonical doctrine
+## 2026-08-15 — Moved the design boundary to a checkable place, and retired carve-changesets' duplicate shaping rules
 
+- feat(ready-ticket): make an approved design a fail-closed planner input —
+  `ready-ticket` approximated brainstorming's questioning: it elicited the open
+  product decisions itself, so the design boundary sat wherever a given run
+  happened to stop asking. `docs/cognitive-driven-development.md` moves that
+  boundary somewhere checkable — brainstorming is done when the requirements and
+  acceptance criteria are captured, the goals and non-goals are known, and the
+  stakeholders and deadlines are identified, each at the scale the work warrants
+  — and this change binds the skill to it. The design becomes an input validated
+  against those four parts at any scale: a one-sentence bug design and a
+  document representing months of work are both legal inputs, checked the same
+  way, and neither earns extra ceremony nor gets re-litigated. Elicitation
+  narrows to the tracker-shaped residue a design cannot answer — each criterion
+  restated as an observable public-surface behavior, the check that would
+  demonstrate it, and whether that check runs before or after merge. A missing
+  part becomes a routable fifth terminal result, `requires_brainstorming`,
+  naming which part is unsettled, what is unsettled about it, which of the
+  result's two shapes it is — absent at the gate, or unsettled after the gate by
+  a verification that falsified what the design rested on — and one next action.
+  That last obligation was recorded behavior rather than foresight: the first
+  post-change real-model run routed correctly and then stopped at the diagnosis
+  on three cases, because the bullet asked for a next action only under
+  `blocked`. A gap named without a route is what `blocked` already produced, so
+  the prose gained the obligation rather than the corpus losing it. The gap is
+  never gathered and never inferred: an inferred requirement lands in the body
+  as decided, and the next reader never learns that nobody decided it. Three
+  existing corpus expectations change answer rather than grade, because the new
+  contract routes what the old one could only report — the unresolved
+  retry-idempotency case, the objection resting on an unmade pricing decision,
+  and the falsified load-bearing assumption whose replacement is design work.
+  Two forward cases move the same way, so their before/after movement is not
+  evidence about the prose in either direction, and `evals/README.md` says so
+  rather than leaving a reader to infer a win. A sufficient design whose residue
+  nobody can resolve still stops at `blocked`, and a new forward case holds that
+  line so the two results cannot collapse into one. README composition rule 1
+  asserted the gate was satisfied *because* `ready-ticket` ran elicitation and
+  obtained approval of the body; that mechanism is exactly what this change
+  removes, so the rule now rests on brainstorming having run.
 - feat(carve-changesets): bind changeset shape and ordering to the canonical
-  doctrine — `references/SPEC.md` carried its own cognitive-load guardrails and
-  decomposition-order list, a second codification of rules
-  `docs/cognitive-shaping-doctrine.md` already owns, and a doctrine with two
-  homes has no home. Both sections retire in favor of the bundled doctrine,
-  distributed by `just sync-contracts` and drift-checked byte-for-byte under
-  `just test` — the same mechanism `review-solution-simplicity` adopted, and the
-  one `docs/cognitive-driven-development.md` records as the selected shaping
+  doctrine (1ce41875782ac2a8de04b70d39619493e919d1d5) — `references/SPEC.md`
+  carried its own cognitive-load guardrails and decomposition-order list, a
+  second codification of rules `docs/cognitive-shaping-doctrine.md` already
+  owns, and a doctrine with two homes has no home. Both sections retire in favor
+  of the bundled doctrine, distributed by `just sync-contracts` and
+  drift-checked byte-for-byte under `just test` — the same mechanism
+  `review-solution-simplicity` adopted, and the one
+  `docs/cognitive-driven-development.md` records as the selected shaping
   authority. What survives locally is carving-specific: the rename-accompanies-
   behavior rule with its PR-naming requirement, wide-refactor isolation,
   feature-flag policy, and the database-migration rules, none of which the

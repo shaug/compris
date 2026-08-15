@@ -1,0 +1,149 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-197-975284",
+    "sha": "1ce41875782ac2a8de04b70d39619493e919d1d5",
+    "tree": "ed225d3a4d9022de7332b8798bc8ddec3297f992",
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "autonomous-explicit-no-fill-in-export": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "give_one_next_action",
+        "name_the_unresolved_decision_as_blocking_reason",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "blocked"
+    },
+    "autonomous-tracker-unchosen": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target",
+        "perform_no_tracker_mutation",
+        "reject_internal_call_criterion",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "return_complete_body_to_caller"
+      ],
+      "terminal_state": "draft_ready"
+    },
+    "autonomous-unresolvable-rate-limit": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "give_one_next_action",
+        "name_the_unresolved_decision_as_blocking_reason",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "blocked"
+    },
+    "internal-criterion-rejected": {
+      "actions": [
+        "create_or_modify_ticket_or_relationship",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_internal_call_criterion",
+        "rerun_all_four_scans_after_edit"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "multi-subsystem-decomposition": {
+      "actions": [
+        "choose_no_tracker_on_requesters_behalf",
+        "hand_recommendation_back_to_operator",
+        "name_each_independently_valuable_part",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable"
+      ],
+      "terminal_state": "decomposition_recommended"
+    },
+    "no-authority-draft-ready": {
+      "actions": [
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target",
+        "perform_no_tracker_mutation",
+        "reject_internal_call_criterion",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "return_complete_body_to_caller",
+        "return_to_elicitation_for_missing_value"
+      ],
+      "terminal_state": "draft_ready"
+    },
+    "placeholder-scan-catches-first-draft": {
+      "actions": [
+        "create_or_modify_ticket_or_relationship",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "return_to_elicitation_for_missing_value"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "vague-idea-resolved-elicitation": {
+      "actions": [
+        "create_or_modify_ticket_or_relationship",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target"
+      ],
+      "terminal_state": "ticket_ready"
+    }
+  },
+  "cases": {
+    "autonomous-explicit-no-fill-in-export": "fail",
+    "autonomous-tracker-unchosen": "pass",
+    "autonomous-unresolvable-rate-limit": "fail",
+    "internal-criterion-rejected": "pass",
+    "multi-subsystem-decomposition": "pass",
+    "no-authority-draft-ready": "pass",
+    "placeholder-scan-catches-first-draft": "pass",
+    "vague-idea-resolved-elicitation": "pass"
+  },
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "skills/ready-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3 skills/ready-ticket/scripts/evals/claude_executor.py --model claude-opus-5"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [
+      "autonomous-explicit-no-fill-in-export",
+      "autonomous-unresolvable-rate-limit"
+    ],
+    "unchanged": 0
+  },
+  "exit_code": 1,
+  "failures": [
+    "autonomous-unresolvable-rate-limit: missing actions: choose_no_answer_on_requesters_behalf",
+    "autonomous-explicit-no-fill-in-export: missing actions: choose_no_answer_on_requesters_behalf"
+  ],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": null,
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "{\n  \"failed\": 2,\n  \"failures\": [\n    \"autonomous-unresolvable-rate-limit: missing actions: choose_no_answer_on_requesters_behalf\",\n    \"autonomous-explicit-no-fill-in-export: missing actions: choose_no_answer_on_requesters_behalf\"\n  ],\n  \"passed\": 6,\n  \"total\": 8\n}",
+  "recorded_at": "2026-08-15T17:31:18Z",
+  "schema": "eval-run-summary/1",
+  "skill": "ready-ticket",
+  "stage": "before",
+  "status": "failed",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": {
+    "failed": 2,
+    "passed": 6,
+    "total": 8
+  }
+}

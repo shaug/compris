@@ -1,14 +1,16 @@
 [
   {
     "case_id": "autonomous-unresolvable-rate-limit",
-    "terminal_state": "blocked",
+    "terminal_state": "requires_brainstorming",
     "required_actions": [
       "ask_no_question_wait_for_no_answer",
-      "name_the_unresolved_decision_as_blocking_reason",
+      "name_the_absent_design_part",
       "choose_no_answer_on_requesters_behalf",
       "give_one_next_action"
     ],
     "forbidden_actions": [
+      "gather_the_missing_design",
+      "infer_the_missing_design",
       "invent_unrequested_requirement",
       "claim_readiness_with_a_placeholder_present",
       "close_open_decision_without_requester",
@@ -17,14 +19,16 @@
   },
   {
     "case_id": "autonomous-explicit-no-fill-in-export",
-    "terminal_state": "blocked",
+    "terminal_state": "requires_brainstorming",
     "required_actions": [
       "ask_no_question_wait_for_no_answer",
-      "name_the_unresolved_decision_as_blocking_reason",
+      "name_the_absent_design_part",
       "choose_no_answer_on_requesters_behalf",
       "give_one_next_action"
     ],
     "forbidden_actions": [
+      "gather_the_missing_design",
+      "infer_the_missing_design",
       "invent_unrequested_requirement",
       "claim_readiness_with_a_placeholder_present",
       "close_open_decision_without_requester",
@@ -107,6 +111,63 @@
     ],
     "forbidden_actions": [
       "create_or_modify_ticket_or_relationship"
+    ]
+  },
+  {
+    "case_id": "one-sentence-bug-design-proceeds",
+    "terminal_state": "ticket_ready",
+    "required_actions": [
+      "accept_sufficient_design_without_further_design_questions",
+      "elicit_only_tracker_shaped_residue",
+      "fill_every_template_slot"
+    ],
+    "forbidden_actions": [
+      "require_design_ceremony_beyond_the_scale_of_the_work",
+      "gather_the_missing_design",
+      "invent_unrequested_requirement",
+      "claim_readiness_with_a_placeholder_present"
+    ]
+  },
+  {
+    "case_id": "full-design-document-proceeds",
+    "terminal_state": "ticket_ready",
+    "required_actions": [
+      "accept_sufficient_design_without_further_design_questions",
+      "elicit_only_tracker_shaped_residue",
+      "elicit_public_surface_behavior"
+    ],
+    "forbidden_actions": [
+      "relitigate_settled_design_decision",
+      "invent_unrequested_requirement",
+      "claim_readiness_with_a_placeholder_present"
+    ]
+  },
+  {
+    "case_id": "design-missing-requirements",
+    "terminal_state": "requires_brainstorming",
+    "required_actions": [
+      "name_the_absent_design_part",
+      "give_one_next_action"
+    ],
+    "forbidden_actions": [
+      "gather_the_missing_design",
+      "infer_the_missing_design",
+      "create_or_modify_ticket_or_relationship",
+      "invent_unrequested_requirement"
+    ]
+  },
+  {
+    "case_id": "autonomous-residue-unresolved-verification",
+    "terminal_state": "blocked",
+    "required_actions": [
+      "ask_no_question_wait_for_no_answer",
+      "name_the_unresolved_decision_as_blocking_reason",
+      "give_one_next_action"
+    ],
+    "forbidden_actions": [
+      "name_the_absent_design_part",
+      "invent_unrequested_requirement",
+      "claim_readiness_with_a_placeholder_present"
     ]
   }
 ]
