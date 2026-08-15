@@ -26,6 +26,7 @@ from helpers import compact  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL = REPOSITORY_ROOT / "docs" / "cognitive-prose.md"
+JUSTFILE = REPOSITORY_ROOT / "justfile"
 BUNDLING_SKILLS = ("implement-ticket", "carve-changesets", "ready-ticket")
 
 REQUIRED_SECTIONS = (
@@ -160,6 +161,28 @@ class BundledProseContractTests(unittest.TestCase):
             )
         }
         self.assertEqual(found, set(BUNDLING_SKILLS))
+
+    def test_the_sync_recipe_copies_the_contract_to_exactly_these_skills(self) -> None:
+        """Every drift failure above tells a reader to run `just sync-contracts`.
+        That recipe has to refresh exactly these copies or the advice is a dead
+        end, and a skill dropped from it keeps a stale copy nothing else checks.
+
+        Scoped to the block that copies this contract rather than searching the
+        whole recipe: every bundling skill is named in other blocks too, so a
+        whole-file substring check passes even after a skill is dropped from
+        this one.
+        """
+        blocks = [
+            listed
+            for listed, body in re.findall(
+                r"@for skill in (.+?); do(.*?)\n  done", JUSTFILE.read_text(), re.S
+            )
+            if "cp docs/cognitive-prose.md" in body
+        ]
+        self.assertEqual(
+            len(blocks), 1, "expected exactly one cognitive-prose sync block"
+        )
+        self.assertEqual(tuple(blocks[0].split()), BUNDLING_SKILLS)
 
 
 if __name__ == "__main__":
