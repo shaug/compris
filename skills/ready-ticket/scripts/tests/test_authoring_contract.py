@@ -198,7 +198,7 @@ class ReadyTicketContractTests(unittest.TestCase):
             "A one-sentence bug design and a design document representing months "
             "of work are both legal inputs, checked against the same four parts",
             "reopen no decision the design already settles",
-            "Reopening reverses a choice the requester already made",
+            "reopening a settled decision reverses a choice the requester already made",
         ):
             self.assertIn(clause, self.contract)
 

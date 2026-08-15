@@ -116,13 +116,15 @@ between them surfaces in the body, not at the door.
 The boundary is hard in both directions. Left of it, a human decides what the
 work is. Right of it, this skill decides how that becomes a ticket.
 
-### Three moves that cross the boundary while looking like diligence
-
-| Move                                                                                    | Why it fails                                                                                                                                                                                                                               |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Inferring the missing part from the parts that are present.                             | Inference is gathering under another name. The inferred requirement lands in the body as decided, and the next reader never learns that nobody decided it.                                                                                 |
-| Asking one more question, because one more question would make the design sufficient.   | The question is the design work. Asking it moves the boundary rather than reaching it, and a boundary that moves once moves again, because the next question is also only one more.                                                        |
-| Reopening a decision the design settles, because the answer looks wrong from down here. | Reopening reverses a choice the requester already made, and it does so invisibly, because the reopened discussion looks like diligence. A design believed wrong is returned with that objection named, never quietly re-decided in a body. |
+Three moves cross it while looking like the opposite. Inference is gathering
+under another name: the inferred requirement lands in the body as decided, and
+the next reader never learns that nobody decided it. Asking one more question
+because one more question would close the gap is doing the design work — it
+moves the boundary rather than reaching it, and a boundary that moves once moves
+again, because the next question is also only one more. And reopening a settled
+decision reverses a choice the requester already made, invisibly, because the
+reopened discussion looks like diligence; a design believed wrong is returned
+with that objection named, never quietly re-decided in a body.
 
 ## Elicit only the tracker-shaped residue
 
