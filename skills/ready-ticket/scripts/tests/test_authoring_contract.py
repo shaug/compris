@@ -211,13 +211,28 @@ class ReadyTicketContractTests(unittest.TestCase):
     def test_a_missing_design_part_returns_requires_brainstorming_naming_the_gap(self):
         """AC: a missing design part names the gap in a routable typed result."""
         for clause in (
-            "A design is sufficient when it captures the requirements and "
-            "acceptance criteria, states the goals and non-goals, and identifies "
-            "the stakeholders and deadlines",
-            "return `requires_brainstorming`, naming which of the four is absent "
-            "and what it is absent about",
+            "A design is sufficient when all four of its parts are present",
+            "return `requires_brainstorming`, naming which of the four parts is "
+            "absent and what it is absent about",
         ):
             self.assertIn(clause, self.contract)
+
+        # The gate asks the run to name *which* part is absent, so the four must
+        # be enumerated rather than counted — "four" already denotes the four
+        # self-review scans elsewhere in this document.
+        gate = compact(
+            self.skill.split("## Require an approved design", 1)[1].split("\n## ", 1)[0]
+        )
+        for index, part in enumerate(
+            (
+                "the **requirements**",
+                "the **acceptance criteria**",
+                "the **goals and non-goals**",
+                "the **stakeholders and deadlines**",
+            ),
+            start=1,
+        ):
+            self.assertIn(f"{index}. {part}", gate)
 
         for case_id in (
             "design-missing-requirements",

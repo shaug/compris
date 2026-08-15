@@ -89,10 +89,17 @@ additional tracker items.
 This skill starts where the design work ends. The design is an input it
 validates, never an output it produces.
 
-A design is sufficient when it captures the requirements and acceptance
-criteria, states the goals and non-goals, and identifies the stakeholders and
-deadlines — each at the scale the work warrants. For a one-line bugfix, the
-sentence is the design.
+A design is sufficient when all four of its parts are present, each at the scale
+the work warrants:
+
+1. the **requirements** — what the work has to do;
+2. the **acceptance criteria** — how anyone can tell that it did;
+3. the **goals and non-goals** — what the work is for, and what it deliberately
+   is not; and
+4. the **stakeholders and deadlines** — who it is for, and by when.
+
+For a one-line bugfix, the sentence is the design: one sentence can carry all
+four.
 
 Scale is not a threshold to adjudicate, and there is no second door for bug
 reports. A one-sentence bug design and a design document representing months of
@@ -103,8 +110,8 @@ between them surfaces in the body, not at the door.
   ceremony the work does not warrant, and reopen no decision the design already
   settles.
 - **Missing any part** — return `requires_brainstorming`, naming which of the
-  four is absent and what it is absent about. Do not gather it, and do not infer
-  it from the parts that are present.
+  four parts is absent and what it is absent about. Do not gather it, and do not
+  infer it from the parts that are present.
 
 The boundary is hard in both directions. Left of it, a human decides what the
 work is. Right of it, this skill decides how that becomes a ticket.
