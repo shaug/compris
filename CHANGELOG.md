@@ -6,29 +6,29 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, then specified, published, and distributed the cognitive prose contract that answers its prose half
 
-- test: bind the prose contract's sync recipe to the skills its drift check names
-  — every drift failure tells a reader to run `just sync-contracts`, and nothing
-  held that recipe to the skill list the check asserts, so dropping a skill from
-  it left a stale bundled copy no test would catch. The new assertion is scoped
-  to the block that copies `docs/cognitive-prose.md` rather than searching the
-  whole recipe, because every bundling skill is named in other blocks too: a
-  whole-file substring check — the form the sibling
+- test: bind the prose contract's sync recipe to the skills its drift check
+  names — every drift failure tells a reader to run `just sync-contracts`, and
+  nothing held that recipe to the skill list the check asserts, so dropping a
+  skill from it left a stale bundled copy no test would catch. The new assertion
+  is scoped to the block that copies `docs/cognitive-prose.md` rather than
+  searching the whole recipe, because every bundling skill is named in other
+  blocks too: a whole-file substring check — the form the sibling
   `test_cognitive_shaping_doctrine.py` uses — still passes after a skill is
   dropped from the prose block, which was verified rather than assumed. The
   guard was verified capable of failing on that exact mutation. The sibling
   module carries the same latent weakness; it is not touched here.
 
 - docs: complete the changelog's record of its own repair
-  (e9c8cc59cc288103f308b1da54cc630dae4d19f3) — the previous commit
-  added the missing entry for the reconciliation commit and then reproduced the
-  defect it was fixing: it left that entry SHA-less and added none for itself,
-  so the SHA-less top entry named `HEAD~1` again. A commit that retroactively
-  records a past commit has to do three things, and the branch's own earlier
-  repair did all three — stamp the past commit's entry with its SHA, backfill
-  the entry below it, and add itself SHA-less. Doing only the first two
-  recurses. Found by the scoped re-review of the previous fix, which checked
-  whether the fix had recreated the defect one commit later rather than only
-  whether the reported symptom was gone.
+  (e9c8cc59cc288103f308b1da54cc630dae4d19f3) — the previous commit added the
+  missing entry for the reconciliation commit and then reproduced the defect it
+  was fixing: it left that entry SHA-less and added none for itself, so the
+  SHA-less top entry named `HEAD~1` again. A commit that retroactively records a
+  past commit has to do three things, and the branch's own earlier repair did
+  all three — stamp the past commit's entry with its SHA, backfill the entry
+  below it, and add itself SHA-less. Doing only the first two recurses. Found by
+  the scoped re-review of the previous fix, which checked whether the fix had
+  recreated the defect one commit later rather than only whether the reported
+  symptom was gone.
 
 - docs: record the reconciliation commit in the changelog
   (2be7f1c37bec0509f26235d61826b00eb63cb5a7) — the reconciliation commit landed
