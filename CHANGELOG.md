@@ -6,25 +6,42 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
+- test(ready-ticket): record the post-change measurement — the target case flips
+  the way the rule predicts: citing the volatile collection by location goes 1/5
+  to 5/5 and restating its membership as a value goes 4/5 to 0/5, with the
+  architectural fact still restated 5/5 and cited text still quoted 5/5. The run
+  is recorded `failed` rather than `completed`, because one pre-existing case,
+  `autonomous-unresolvable-rate-limit`, went from selecting
+  `choose_no_answer_on_requesters_behalf` 5/5 to 1/5 and dropped below the
+  majority. That movement is real and reproduces — a follow-up five-sample probe
+  at the same tree read 2/5 — but it is confined to that one scenario's
+  self-report: the case still returns `requires_brainstorming` 5/5, still asks
+  no question, names the absent design part, gives a next action, and mutates
+  nothing at 5/5, and the sibling case carrying the identical obligation reads
+  5/5 both before and after. Recorded as it stands rather than tuned away, since
+  shortening correct prose to recover one incidental self-report would be
+  fitting the rule to the instrument.
+
 - feat(ready-ticket): cite repository state in a form that fails loudly when it
-  goes stale — a ticket body that cites this repository makes a claim with a
-  shelf life, and the failure mode is silence: the line moves, the citation
-  still resolves, and the implementer reads something confident, specific, and
-  false with no signal it was ever true. The rule is three parts and one
-  question. A citation of repository text carries the quoted line, not only the
-  address, because a line number is invalidated by any edit above it and the
-  quoted text is what a reader searches for once the number stops landing. A
-  fact that changes whenever a consumer is added — a collection's members, a
-  count, a registry's contents — is cited by location, because whoever adds the
-  next member is not reading this ticket. And a fact whose change is itself news
-  — what a script writes, what an executor refuses to emit, what a runner ships
-  to a model — keeps its value, because a body made wrong by that kind of edit
-  has surfaced a real change rather than rotted. The question separating the
-  last two is what would make the statement false: one more consumer, or a
-  deliberate decision. The rot behind this is measured rather than supposed — of
-  eight citations written into tickets on one day, seven still pointed at their
-  text and one did not, after #231 moved the line reading "block, and ordinary
-  PR title and body content" in `carve-changesets`' spec.
+  goes stale (94b9ae8ce43322a97c510c7f0c4ff16da586ad6d) — a ticket body that
+  cites this repository makes a claim with a shelf life, and the failure mode is
+  silence: the line moves, the citation still resolves, and the implementer
+  reads something confident, specific, and false with no signal it was ever
+  true. The rule is three parts and one question. A citation of repository text
+  carries the quoted line, not only the address, because a line number is
+  invalidated by any edit above it and the quoted text is what a reader searches
+  for once the number stops landing. A fact that changes whenever a consumer is
+  added — a collection's members, a count, a registry's contents — is cited by
+  location, because whoever adds the next member is not reading this ticket. And
+  a fact whose change is itself news — what a script writes, what an executor
+  refuses to emit, what a runner ships to a model — keeps its value, because a
+  body made wrong by that kind of edit has surfaced a real change rather than
+  rotted. The question separating the last two is what would make the statement
+  false: one more consumer, or a deliberate decision. The rot behind this is
+  measured rather than supposed — of eight citations written into tickets on one
+  day, seven still pointed at their text and one did not, after #231 moved the
+  line reading "block, and ordinary PR title and body content" in
+  `carve-changesets`' spec.
 
 - test(ready-ticket): record the pre-change forward-eval measurement
   (6e5df1d5460cd42bd98fabeae2f36022f182f2ab) — the real-model forward run at the
