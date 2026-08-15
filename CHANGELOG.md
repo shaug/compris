@@ -6,14 +6,35 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
-- test(ready-ticket): record the pre-change measurement — the real-model forward
-  run at the tree carrying the case but not the rule: 12 of 13 pass, and the new
-  case fails. Across five independent samples the run cited the volatile
-  collection by location once and restated its membership as a value four times,
-  while quoting cited text 5/5 and restating the architectural fact 5/5. So one
-  of the three rules is where the behavior actually is, and the other two were
-  already the model's default — a distinction the pre-change run exists to make,
-  and one a single sample could not have made.
+- feat(ready-ticket): cite repository state in a form that fails loudly when it
+  goes stale — a ticket body that cites this repository makes a claim with a
+  shelf life, and the failure mode is silence: the line moves, the citation
+  still resolves, and the implementer reads something confident, specific, and
+  false with no signal it was ever true. The rule is three parts and one
+  question. A citation of repository text carries the quoted line, not only the
+  address, because a line number is invalidated by any edit above it and the
+  quoted text is what a reader searches for once the number stops landing. A
+  fact that changes whenever a consumer is added — a collection's members, a
+  count, a registry's contents — is cited by location, because whoever adds the
+  next member is not reading this ticket. And a fact whose change is itself news
+  — what a script writes, what an executor refuses to emit, what a runner ships
+  to a model — keeps its value, because a body made wrong by that kind of edit
+  has surfaced a real change rather than rotted. The question separating the
+  last two is what would make the statement false: one more consumer, or a
+  deliberate decision. The rot behind this is measured rather than supposed — of
+  eight citations written into tickets on one day, seven still pointed at their
+  text and one did not, after #231 moved the line reading "block, and ordinary
+  PR title and body content" in `carve-changesets`' spec.
+
+- test(ready-ticket): record the pre-change forward-eval measurement
+  (6e5df1d5460cd42bd98fabeae2f36022f182f2ab) — the real-model forward run at the
+  tree carrying the case but not the rule: 12 of 13 pass, and the new case
+  fails. Across five independent samples the run cited the volatile collection
+  by location once and restated its membership as a value four times, while
+  quoting cited text 5/5 and restating the architectural fact 5/5. So one of the
+  three rules is where the behavior actually is, and the other two were already
+  the model's default — a distinction the pre-change run exists to make, and one
+  a single sample could not have made.
 
 - test(ready-ticket): grade how a ticket body cites repository state, before the
   rule exists (5bd36f550cd7c55251e47c947c102788a13e049b) — the forward corpus
