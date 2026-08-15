@@ -21,6 +21,14 @@ without copying either skill's workflow.
 
 - Always read [the normative contract](references/SPEC.md) before planning or
   mutating a chain.
+- Always read
+  [the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md)
+  before proposing or revising a changeset boundary. It is compris's canonical
+  statement of when a unit of work is correctly shaped, bundled here from the
+  repository-root `docs/` copy and kept byte-identical to it. Cite it for every
+  shape and ordering judgment; this skill does not restate, extend, or locally
+  override the standard. Return `blocked` with the missing dependency when the
+  doctrine is unavailable, and do not invent or copy a local replacement.
 - Read [the plan schema](references/plan-schema.md) before creating or editing
   `.carve-changesets/plan.json`.
 - Read [the CLI reference](references/cli.md) before invoking a subcommand or
@@ -73,9 +81,9 @@ Before mutation, discover or receive and verify:
   interfaces, migrations, and rollout properties the final chain must preserve;
 - explicitly approved argv arrays for tests and any required database, build,
   integration, or manual validation commands;
-- cognitive-load guardrails, acceptable intermediate states, decomposition
-  order, feature-flag policy, and database-migration requirements from the
-  normative contract;
+- changeset shape and decomposition order from the bundled doctrine, and
+  acceptable intermediate states, feature-flag policy, and database-migration
+  requirements from the normative contract;
 - the requested terminal boundary: proposal only, local chain, published PRs, or
   fully merged chain; and
 - authority for local decomposition, validation execution, publication,

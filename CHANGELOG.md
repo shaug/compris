@@ -4,19 +4,44 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-15 — Retired carve-changesets' duplicate shaping rules in favor of the canonical doctrine
+
+- feat(carve-changesets): bind changeset shape and ordering to the canonical
+  doctrine — `references/SPEC.md` carried its own cognitive-load guardrails and
+  decomposition-order list, a second codification of rules
+  `docs/cognitive-shaping-doctrine.md` already owns, and a doctrine with two
+  homes has no home. Both sections retire in favor of the bundled doctrine,
+  distributed by `just sync-contracts` and drift-checked byte-for-byte under
+  `just test` — the same mechanism `review-solution-simplicity` adopted, and the
+  one `docs/cognitive-driven-development.md` records as the selected shaping
+  authority. What survives locally is carving-specific: the rename-accompanies-
+  behavior rule with its PR-naming requirement, wide-refactor isolation,
+  feature-flag policy, and the database-migration rules, none of which the
+  doctrine carries because they constrain an ordered sequence of merges rather
+  than shape in general. Two of the doctrine's breakdown rules are scoped out as
+  planning-time rather than carving-time; the rest apply directly. The binding
+  reaches an evaluated run rather than stopping at prose: the eval runner now
+  ships the doctrine as a contract document and the fixture gate requires its
+  text, so a run that does not receive it blocks instead of carving to an
+  improvised standard — verified by driving the executor with and without it.
+  Two provisions the local guardrails never had now apply to carving: mechanical
+  change runs much larger, and recorded machine-generated evidence is excluded
+  from the size judgment outright.
+
 ## 2026-08-14 — Named cognitive debt as the problem the suite exists to solve, then specified, published, and distributed the cognitive prose contract that answers its prose half
 
 - test: bind the prose contract's sync recipe to the skills its drift check
-  names — every drift failure tells a reader to run `just sync-contracts`, and
-  nothing held that recipe to the skill list the check asserts, so dropping a
-  skill from it left a stale bundled copy no test would catch. The new assertion
-  is scoped to the block that copies `docs/cognitive-prose.md` rather than
-  searching the whole recipe, because every bundling skill is named in other
-  blocks too: a whole-file substring check — the form the sibling
-  `test_cognitive_shaping_doctrine.py` uses — still passes after a skill is
-  dropped from the prose block, which was verified rather than assumed. The
-  guard was verified capable of failing on that exact mutation. The sibling
-  module carries the same latent weakness; it is not touched here.
+  names (cb712926c7090d12e18d180c81d219c1c03db600) — every drift failure tells a
+  reader to run `just sync-contracts`, and nothing held that recipe to the skill
+  list the check asserts, so dropping a skill from it left a stale bundled copy
+  no test would catch. The new assertion is scoped to the block that copies
+  `docs/cognitive-prose.md` rather than searching the whole recipe, because
+  every bundling skill is named in other blocks too: a whole-file substring
+  check — the form the sibling `test_cognitive_shaping_doctrine.py` uses — still
+  passes after a skill is dropped from the prose block, which was verified
+  rather than assumed. The guard was verified capable of failing on that exact
+  mutation. The sibling module carries the same latent weakness; it is not
+  touched here.
 
 - docs: complete the changelog's record of its own repair
   (e9c8cc59cc288103f308b1da54cc630dae4d19f3) — the previous commit added the

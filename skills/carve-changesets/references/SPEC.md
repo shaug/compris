@@ -70,29 +70,39 @@ file-complete policy must include every hunk for a selected file. Pure
 rename-only changes should use a rename-aware path or patch mechanism rather
 than a textual-hunk mechanism that loses rename intent.
 
-#### Cognitive-load guardrails
+#### Changeset shape and decomposition order
 
-Changesets are sized to minimize reviewer cognitive load, not to meet an
-arbitrary line-count target.
+[The cognitive shaping doctrine](cognitive-shaping-doctrine.md) is compris's
+canonical statement of when a unit of work is correctly shaped, and it decides
+both how large a changeset may be and what order the chain runs in. It is
+bundled here from the repository-root `docs/` copy and kept byte-identical to
+it. Apply its standard, its scale calibration, and its breakdown rules as
+written. This contract does not restate, extend, or locally override them, and a
+boundary defended by a size figure supplied here is defending a rule that no
+longer exists.
 
-- A few hundred new or changed lines is the preferred range.
-- Raw deletion volume carries less cognitive cost when the reason for removal
-  and the replacement or obsoleting behavior are clear.
-- Larger changesets are acceptable for demonstrably mechanical refactors,
-  systematic renames, or low-semantic-impact changes.
-- Cohesiveness and independent reviewability override line count.
+Its standard is what a reviewer can hold: a changeset is correctly shaped when a
+reviewer can construct an accurate mental model of it and evaluate it
+independently. Size informs that judgment and never decides it, so justify each
+boundary by the concepts, states, and ownership it asks a reviewer to hold.
 
-#### Decomposition order
+Two of the doctrine's scale provisions decide most carving questions and are the
+easiest to lose. Mechanical change — a systematic rename, a codemod, a
+formatting pass — runs much larger without violating the standard, because the
+reviewer verifies one transformation instead of reading every line. And recorded
+machine-generated evidence is excluded outright, so a changeset carrying
+committed eval results, generated fixtures, or lockfiles is measured by its
+reviewable remainder.
 
-Decomposition must prefer:
+Two of its breakdown rules are addressed to planning rather than to carving:
+identifying re-split triggers before implementation, and keeping an initiative
+executable as one ticket when it is already reviewable. A carve begins after
+both were decided upstream. Every other rule governs changeset boundaries
+directly, and never decomposing to a single child is the floor for a chain — a
+one-changeset chain is not a decomposition.
 
-1. additive foundations before consumers, modifications, removals, or
-   user-visible cutovers;
-2. rename-only or mechanical changes before behavioral changes when doing so
-   materially reduces diff noise;
-3. internal, non-exposed behavior before public API or user-visible behavior;
-   and
-4. one concern per changeset over mixed unrelated work.
+The rest of this section is carving-specific. It constrains an ordered sequence
+of merges rather than shape in general, so it has no canonical home elsewhere.
 
 Renames may accompany behavior only when separation would increase cognitive
 load or create an incoherent intermediate state. The affected PR must then name

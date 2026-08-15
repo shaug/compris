@@ -39,6 +39,12 @@ def skill_prompt() -> str:
 def contract_documents() -> dict[str, str]:
     return {
         "SPEC.md": (SKILL_ROOT / "references" / "SPEC.md").read_text(),
+        # SPEC.md cites the doctrine for shape and ordering rather than
+        # restating it, so a run that does not receive the doctrine is missing
+        # the rules it is graded against, not merely a reference.
+        "cognitive-shaping-doctrine.md": (
+            SKILL_ROOT / "references" / "cognitive-shaping-doctrine.md"
+        ).read_text(),
         "suite-handoffs.md": (
             SKILL_ROOT / "references" / "suite-handoffs.md"
         ).read_text(),

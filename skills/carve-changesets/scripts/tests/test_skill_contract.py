@@ -13,6 +13,40 @@ from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[2]
 
+DOCTRINE_NAME = "cognitive-shaping-doctrine.md"
+
+# The generic rules the contract codified before the doctrine was bound. Each
+# one now has a canonical home; leaving any behind rebuilds the second home the
+# binding exists to remove, and a second home drifts.
+RETIRED_GENERIC_RULES = (
+    "A few hundred new or changed lines is the preferred range",
+    "Raw deletion volume carries less cognitive cost",
+    "Larger changesets are acceptable for demonstrably mechanical refactors",
+    "Cohesiveness and independent reviewability override line count",
+    "additive foundations before consumers, modifications, removals, or"
+    " user-visible cutovers",
+    "internal, non-exposed behavior before public API or user-visible behavior",
+)
+
+# Calibration figures belong to the doctrine. Any line-count figure left in the
+# contract is a second copy whether it reads as a gate or as a preference, so
+# this matches the figure itself rather than the enforcing verb.
+LINE_COUNT_FIGURES = (
+    r"(?:a few|several|couple of)\s+hundred",
+    r"[\d,]+\s+(?:new or changed |changed |added )?lines\b",
+    r"line[- ]count",
+)
+
+# What the doctrine does not carry and the chain still needs. These are
+# properties of an ordered chain of merges, not of shape in general.
+CARVING_SPECIFIC_CONSTRAINTS = (
+    "safe intermediate state",
+    "Feature-flag policy",
+    "Database migration rules",
+    "excluded from the chain",
+    "name the rename and the minimal accompanying behavior",
+)
+
 
 def compact(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
@@ -22,6 +56,7 @@ class CarveChangesetsContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.skill = compact((SKILL_ROOT / "SKILL.md").read_text())
+        cls.spec = compact((SKILL_ROOT / "references" / "SPEC.md").read_text())
         cls.handoff = compact(
             (SKILL_ROOT / "references" / "review-fix-loop-handoff.md").read_text()
         )
@@ -97,6 +132,53 @@ class CarveChangesetsContractTests(unittest.TestCase):
                 / "consumption-disciplines.md"
             ).is_file()
         )
+
+    def test_the_skill_loads_the_bundled_canonical_doctrine(self):
+        self.assertIn(DOCTRINE_NAME, self.skill)
+        self.assertTrue(
+            (SKILL_ROOT / "references" / DOCTRINE_NAME).is_file(),
+            f"references/{DOCTRINE_NAME} is missing; run `just sync-contracts`",
+        )
+
+    def test_a_missing_doctrine_fails_closed_rather_than_falling_back(self):
+        """Without this the skill degrades silently to no shape standard at
+        all, which is worse than the local heuristics it replaced."""
+        self.assertIn("doctrine is unavailable", self.skill)
+        for improvisation in (
+            "restate",
+            "local replacement",
+        ):
+            self.assertIn(improvisation, self.skill.lower())
+
+    def test_generic_shape_and_ordering_judgment_defers_to_the_doctrine(self):
+        self.assertIn(DOCTRINE_NAME, self.spec)
+        self.assertIn("canonical", self.spec)
+
+    def test_no_retired_generic_rule_survives_in_the_contract(self):
+        for rule in RETIRED_GENERIC_RULES:
+            with self.subTest(rule=rule):
+                self.assertNotIn(rule, self.spec)
+
+    def test_the_contract_states_no_line_count_figure_of_its_own(self):
+        for pattern in LINE_COUNT_FIGURES:
+            with self.subTest(pattern=pattern):
+                self.assertIsNone(
+                    re.search(pattern, self.spec, flags=re.IGNORECASE),
+                    f"the contract restates a size figure matching {pattern!r}",
+                )
+
+    def test_carving_specific_constraints_survive_the_retirement(self):
+        """The doctrine judges shape. It says nothing about keeping each
+        intermediate merge safe, which is the whole of carving."""
+        for constraint in CARVING_SPECIFIC_CONSTRAINTS:
+            with self.subTest(constraint=constraint):
+                self.assertIn(constraint, self.spec)
+
+    def test_an_evaluated_run_receives_the_doctrine_as_a_contract_document(self):
+        """A citation the run never loads is not a binding. The eval harness is
+        where 'a run applies the doctrine' becomes observable."""
+        runner = (SKILL_ROOT / "scripts" / "evals" / "runner.py").read_text()
+        self.assertIn(DOCTRINE_NAME, runner)
 
     def test_rationalization_table_covers_the_certified_seed_entry(self):
         self.assertIn("The equivalence check passed last time", self.skill)
