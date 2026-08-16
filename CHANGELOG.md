@@ -4,62 +4,83 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, and designed one owner for the policy that grades it
+## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
+
+- docs: restate the citation guard's own account of the backfill rule — the
+  merge-method change above left `scripts/tests/test_changelog_citations.py`
+  describing `main` as "almost entirely squash-merged" and naming the squash as
+  the only thing that makes a backfilled SHA unreachable, stale prose in the one
+  module that enforces the rule. Its docstring now records the squash rot as the
+  history it was written for, says that a merge commit preserves the authoring
+  commit an entry cites, and corrects what the old text had backwards once the
+  mechanism changed: when the guard actually fires. A SHA backfilled before
+  submission goes unreachable at the rebase onto `main` that precedes
+  submission, so `git rev-list HEAD` membership reddens on the authoring
+  branch's own run — it is only the squash-merged history behind that where the
+  check was inherently late, because those citations died at the merge instead.
+  The failure message names the same mechanism. No assertion, regex, or check
+  changes. The eight entries #238 and #243 landed without SHAs are backfilled to
+  their authoring commits, which is what the rule now names and what the guard
+  confirms is reachable.
 
 - fix(evals): name every path a run was measured through, and stop claiming
-  `sha` resolves — `subtree_paths` named `skills/<skill>` and, for a triggering
-  run, `triggering`, which under-describes any skill whose eval instrument lives
-  elsewhere. `implement-epic` is measured entirely through
-  `skills/implement-ticket`'s runner, executor, and corpus, so its corpus could
-  change, an `implement-epic` run be re-recorded, and the new summary's
-  `candidate.trees` come out byte-identical to the old — two runs on different
-  instruments with one recorded identity, which two committed summaries taken on
-  different dates already share. The paths are now derived from the run's own
-  resolved command, so a target self-describes and no hand-maintained mapping
-  can drift; the three affected backfilled summaries gain
-  `skills/implement-ticket`, derived from the commit each already names. A path
-  whose subtree cannot be read is recorded under `candidate.trees_unresolved`
-  rather than dropped, since a run that derived nothing otherwise reads exactly
-  like a summary predating the field and the reachability guard passes both. The
-  prose is corrected where it still asserted what this branch had just
-  disproved: the clean-tree rule kept its requirement but was resting on
-  `candidate.sha` resolving, the grandfathered 59 were said to name commits that
-  no longer resolve when the criterion applied was reachability from `HEAD`, and
-  the rebase-safety claim omitted the exception its own guard names — a rebase
-  resolving conflicts inside the skill directory. The rebase test now performs a
-  real rebase rather than committing an unrelated change on top, which proved
-  only that an untouched subtree survives an unrelated commit.
+  `sha` resolves (4c2dacb7ebeacc79f613c16b04c23775565c6ee6) — `subtree_paths`
+  named `skills/<skill>` and, for a triggering run, `triggering`, which
+  under-describes any skill whose eval instrument lives elsewhere.
+  `implement-epic` is measured entirely through `skills/implement-ticket`'s
+  runner, executor, and corpus, so its corpus could change, an `implement-epic`
+  run be re-recorded, and the new summary's `candidate.trees` come out
+  byte-identical to the old — two runs on different instruments with one
+  recorded identity, which two committed summaries taken on different dates
+  already share. The paths are now derived from the run's own resolved command,
+  so a target self-describes and no hand-maintained mapping can drift; the three
+  affected backfilled summaries gain `skills/implement-ticket`, derived from the
+  commit each already names. A path whose subtree cannot be read is recorded
+  under `candidate.trees_unresolved` rather than dropped, since a run that
+  derived nothing otherwise reads exactly like a summary predating the field and
+  the reachability guard passes both. The prose is corrected where it still
+  asserted what this branch had just disproved: the clean-tree rule kept its
+  requirement but was resting on `candidate.sha` resolving, the grandfathered 59
+  were said to name commits that no longer resolve when the criterion applied
+  was reachability from `HEAD`, and the rebase-safety claim omitted the
+  exception its own guard names — a rebase resolving conflicts inside the skill
+  directory. The rebase test now performs a real rebase rather than committing
+  an unrelated change on top, which proved only that an untouched subtree
+  survives an unrelated commit.
 
 - docs: make merge-commit the repository's merge method, not a rule about one
-  directory — the eval-evidence rule this replaces was conditional, applying to
-  pull requests that touch `skills/*/evals/results/`, and a conditional merge
-  method is one nothing can enforce. GitHub's merge method is a repository
-  setting rather than a per-pull-request one, so the conditional form rested
-  entirely on whoever clicked merge classifying the pull request correctly every
-  time, with no mechanism to catch a miss and no repair once missed. Since evals
-  first landed, 20 of 46 commits on `main` touched `evals/results/`, so the
-  classification would have been live on nearly half of them. The two failures
-  are not comparable either: squashing an eval-carrying pull request loses the
-  measured content permanently, while merge-committing one that carries none
-  costs a non-linear history `git log --first-parent` reads straight through.
-  The changelog's own backfill convention is updated to match — under a merge
-  commit the authoring commit is the landing commit, so new entries normally
-  cite distinct SHAs rather than sharing one, though the squash-merged history
-  behind this change still behaves the old way.
+  directory (bf30d2a650899bc69182c2d468ac6af8a75ba83c) — the eval-evidence rule
+  this replaces was conditional, applying to pull requests that touch
+  `skills/*/evals/results/`, and a conditional merge method is one nothing can
+  enforce. GitHub's merge method is a repository setting rather than a
+  per-pull-request one, so the conditional form rested entirely on whoever
+  clicked merge classifying the pull request correctly every time, with no
+  mechanism to catch a miss and no repair once missed. Since evals first landed,
+  20 of 46 commits on `main` touched `evals/results/`, so the classification
+  would have been live on nearly half of them. The two failures are not
+  comparable either: squashing an eval-carrying pull request loses the measured
+  content permanently, while merge-committing one that carries none costs a
+  non-linear history `git log --first-parent` reads straight through. The
+  changelog's own backfill convention is updated to match — under a merge commit
+  the authoring commit is the landing commit, so new entries normally cite
+  distinct SHAs rather than sharing one, though the squash-merged history behind
+  this change still behaves the old way.
 
 - docs: state the merge method the eval evidence depends on, and correct what
-  `AGENTS.md` claims survives — the file told a reader to trust `candidate.tree`
-  over `candidate.sha` on the grounds that content is identical under rebase and
-  squash where a commit is not. It is not: `tree` is the whole repository's, so
-  a rebase onto a moved `main` changes it through files outside the skill. Both
-  are now stated as branch-local, `candidate.trees` is named as the durable
-  half, and the rule that makes it durable is written down — a pull request
-  touching `skills/*/evals/results/` merges as a merge commit, because a squash
-  keeps one tree per pull request while the states eval evidence measures are
-  intermediate by construction. `babysit-pr`'s example output block is brought
-  into line with the obligation its own prose already carried.
+  `AGENTS.md` claims survives (c257f8b19cd69c5099472af201ef4d23e74a218c) — the
+  file told a reader to trust `candidate.tree` over `candidate.sha` on the
+  grounds that content is identical under rebase and squash where a commit is
+  not. It is not: `tree` is the whole repository's, so a rebase onto a moved
+  `main` changes it through files outside the skill. Both are now stated as
+  branch-local, `candidate.trees` is named as the durable half, and the rule
+  that makes it durable is written down — a pull request touching
+  `skills/*/evals/results/` merges as a merge commit, because a squash keeps one
+  tree per pull request while the states eval evidence measures are intermediate
+  by construction. `babysit-pr`'s example output block is brought into line with
+  the obligation its own prose already carried.
 
-- test(evals): hold every recorded subtree to reachability from `HEAD` —
+- test(evals): hold every recorded subtree to reachability from `HEAD`
+  (bc245d42e41d0023a73b71a2c1228abfeb1a599d) —
   `scripts/tests/test_eval_candidate_citations.py` fails when a summary's
   `candidate.trees` names content no commit reachable from `HEAD` carries, which
   is the same silent rot `scripts/tests/test_changelog_citations.py` catches for
@@ -71,31 +92,33 @@ summary: Chronological history of repository and skill changes.
   evidence.
 
 - fix(evals): derive the durable identity of every summary that still names a
-  reachable commit — 23 of the 82 summaries gain `candidate.trees` computed from
-  the commit each already carries, and the other 59 keep none. The derivation
-  asserts nothing the recorder did not hold:
-  `git rev-parse <recorded sha>:<path>` could not have come out differently had
-  the field existed when the summary was written, which is what separates it
-  from backfilling a landing commit — a fact decided after the run by a merge
-  that had not happened yet. One of the 23 is a triggering-suite run and needs
-  both its skill path and `triggering`. The 59 measured content that no longer
-  exists in any clone but its author's; unlike the changelog's citations, there
-  is nothing left to recover.
+  reachable commit (3147edf22d662c84b08930cd0e32b732d4147dea) — 23 of the 82
+  summaries gain `candidate.trees` computed from the commit each already
+  carries, and the other 59 keep none. The derivation asserts nothing the
+  recorder did not hold: `git rev-parse <recorded sha>:<path>` could not have
+  come out differently had the field existed when the summary was written, which
+  is what separates it from backfilling a landing commit — a fact decided after
+  the run by a merge that had not happened yet. One of the 23 is a
+  triggering-suite run and needs both its skill path and `triggering`. The 59
+  measured content that no longer exists in any clone but its author's; unlike
+  the changelog's citations, there is nothing left to recover.
 
-- feat(evals): record the subtree identity that survives a rebase —
-  `candidate.tree` was `git rev-parse HEAD^{tree}`, the whole repository's, so a
-  rebase onto a moved `main` changed it through files outside the skill and the
-  recorded identity resolved to nothing. `candidate.trees` now maps each path
-  whose content decided what the run read — `skills/<skill>` always, and
-  `triggering` as well for a triggering-suite run, whose executors live outside
-  every skill — to that path's subtree hash. The test that had asserted the old
-  claim passed only by simulating a rebase as a new parent over an identical
-  tree, which is the one thing a real rebase never is; it now models a base that
-  moved, and fails against the old behavior.
+- feat(evals): record the subtree identity that survives a rebase
+  (8f52f24450c27bd0a29c85d2812000e4b73f05fa) — `candidate.tree` was
+  `git rev-parse HEAD^{tree}`, the whole repository's, so a rebase onto a moved
+  `main` changed it through files outside the skill and the recorded identity
+  resolved to nothing. `candidate.trees` now maps each path whose content
+  decided what the run read — `skills/<skill>` always, and `triggering` as well
+  for a triggering-suite run, whose executors live outside every skill — to that
+  path's subtree hash. The test that had asserted the old claim passed only by
+  simulating a rebase as a new parent over an identical tree, which is the one
+  thing a real rebase never is; it now models a base that moved, and fails
+  against the old behavior.
 
-- docs: design the eval candidate's durable identity — `AGENTS.md` tells a
-  reader to trust `candidate.tree` over `candidate.sha`, on the grounds that
-  content is identical under rebase and squash where a commit is not. It is not:
+- docs: design the eval candidate's durable identity
+  (5070c687497996fc179af24113126d3edd9f2177) — `AGENTS.md` tells a reader to
+  trust `candidate.tree` over `candidate.sha`, on the grounds that content is
+  identical under rebase and squash where a commit is not. It is not:
   `candidate.tree` is `git rev-parse HEAD^{tree}`, the whole-repository tree, so
   a rebase onto a moved `main` changes it through files outside the skill
   entirely. 59 of the repository's 82 summaries already name an unreachable
@@ -118,24 +141,24 @@ summary: Chronological history of repository and skill changes.
   grandfathered: unlike the changelog's citations, the content they measured no
   longer exists to be recovered.
 
-- docs: design one owner for the eval sampling policy — the
-  repetition-and-majority-vote policy that turns repeated `claude -p` samples
-  into one graded answer exists in three independently maintained copies, and
-  they have drifted past features into results. `implement-ticket` breaks a tie
-  through `_modal`'s `min()` over the sorted candidates; `ready-ticket` uses
-  `Counter.most_common(1)[0]`, whose tie order follows insertion. On a 2–2 tie
-  the two record different answers, and `ready-ticket` records a different
-  answer again depending on which sample was drawn first — a silent difference
-  in recorded evidence rather than a missing feature. The design gives the
-  policy a canonical `sampling/core.py` at the root, in the transport, drawing,
-  and vote layers its four consumers need at different depths, distributed by
-  the `sync-contracts` mirror-and-drift-test pattern this repository already
-  uses for the review-suite contracts, the shaping doctrine, and
-  `ledger/core.py`. Only the two skills take a bundled copy, because only a
-  skill folder is a standalone distribution unit; `triggering/` and
-  `review-suite/` import the canonical and so cannot drift at all. Because
-  converging the tie-break changes the grader, a run also records the
-  `POLICY_VERSION` it was graded under, and a diff is drawn only when tier,
+- docs: design one owner for the eval sampling policy
+  (8661eb3488d6df16837b57b6b9a793a5ea41f0d3) — the repetition-and-majority-vote
+  policy that turns repeated `claude -p` samples into one graded answer exists
+  in three independently maintained copies, and they have drifted past features
+  into results. `implement-ticket` breaks a tie through `_modal`'s `min()` over
+  the sorted candidates; `ready-ticket` uses `Counter.most_common(1)[0]`, whose
+  tie order follows insertion. On a 2–2 tie the two record different answers,
+  and `ready-ticket` records a different answer again depending on which sample
+  was drawn first — a silent difference in recorded evidence rather than a
+  missing feature. The design gives the policy a canonical `sampling/core.py` at
+  the root, in the transport, drawing, and vote layers its four consumers need
+  at different depths, distributed by the `sync-contracts` mirror-and-drift-test
+  pattern this repository already uses for the review-suite contracts, the
+  shaping doctrine, and `ledger/core.py`. Only the two skills take a bundled
+  copy, because only a skill folder is a standalone distribution unit;
+  `triggering/` and `review-suite/` import the canonical and so cannot drift at
+  all. Because converging the tie-break changes the grader, a run also records
+  the `POLICY_VERSION` it was graded under, and a diff is drawn only when tier,
   suite, model, and policy all match — extending to a fourth field the rule that
   already keeps a model update from reading as behavioral movement. Deferred
   from #237's review as reaching beyond `skills/implement-ticket/`.
