@@ -36,14 +36,25 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
+- fix(implement-ticket): survive a burst that takes every sample of one scenario
+  — the re-recording at the shipping head died partway through: five concurrent
+  samples of one scenario failed together, the runner surfaced it as a non-zero
+  executor exit, and a stage half an hour in was filed as `attempted`, the
+  status reserved for an environment with no model access. The CLI answered
+  normally minutes later, so that is a burst, not an environment. A scenario
+  whose every sample failed now stands down 30 seconds and redraws once; a
+  second empty draw is the environment and still ends the stage. The `attempted`
+  record is committed beside this rather than dropped.
+
 - fix(implement-ticket): stop describing an unreadable citation in drift's words
-  — the post-change measurement below passed the case but halved its agreement:
-  2 of 5 samples blocked on an assumption with no repository address, calling it
-  drift. The section separates the two branches and then closes by naming the
-  unreadable branch's cost "drift's failure, reached without any drift", which
-  hands the word back to the branch it just excluded. It now says plainly that
-  an unreadable citation is not drift and never blocks, and why: drift is a
-  disagreement you observed, and an assumption you could not read produced none.
+  (36633b3f8f22024cd1b2a2470171215f6b88141f) — the post-change measurement below
+  passed the case but halved its agreement: 2 of 5 samples blocked on an
+  assumption with no repository address, calling it drift. The section separates
+  the two branches and then closes by naming the unreadable branch's cost
+  "drift's failure, reached without any drift", which hands the word back to the
+  branch it just excluded. It now says plainly that an unreadable citation is
+  not drift and never blocks, and why: drift is a disagreement you observed, and
+  an assumption you could not read produced none.
 
 - test(implement-ticket): record the post-change forward-eval measurement
   (92856572d9ad48167b5bdd22ed20c7421cb12557) — 37 of 60, up from 32, with no

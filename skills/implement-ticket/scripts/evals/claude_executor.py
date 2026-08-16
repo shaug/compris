@@ -30,8 +30,13 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+
+# How long a scenario stands down before redrawing after every one of its
+# concurrent samples failed at once.
+SCENARIO_RETRY_PAUSE_SECONDS = 30
 
 TERMINAL_STATES = (
     "ready_pr",
@@ -431,8 +436,24 @@ def main() -> int:
         )
     drawn = [item for item in observed if item is not None]
     if not drawn:
+        # Every concurrent sample failing at once reads as a burst — throttling,
+        # an overloaded backend — rather than as an unusable environment, and
+        # this scenario is one of sixty in a run that has already spent half an
+        # hour. Stand down briefly and redraw once; a second empty draw is the
+        # environment, and the recorder files the whole stage as `attempted`.
+        time.sleep(SCENARIO_RETRY_PAUSE_SECONDS)
+        drawn = [
+            item
+            for item in (
+                draw(prompt, args.claude_bin, args.model)
+                for _ in range(args.repetitions)
+            )
+            if item is not None
+        ]
+    if not drawn:
         raise RuntimeError(
-            f"every one of the {args.repetitions} samples failed for this scenario"
+            f"every one of the {args.repetitions} samples failed for this "
+            f"scenario, twice, {SCENARIO_RETRY_PAUSE_SECONDS}s apart"
         )
     result = combine([sample(payload, item) for item in drawn])
     result["failed_samples"] = len(observed) - len(drawn)

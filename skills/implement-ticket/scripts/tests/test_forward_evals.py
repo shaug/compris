@@ -673,6 +673,62 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         ):
             self.assertIsNone(CLAUDE_EXECUTOR.draw("prompt", "claude", None))
 
+    def test_a_scenario_whose_samples_all_failed_redraws_once(self):
+        """A burst that takes every concurrent sample must not end the run.
+
+        Observed: five concurrent samples failed together partway through a
+        recorded stage, `run_forward.py` surfaced it as a non-zero executor
+        exit, and the recorder filed a stage that had been running for half an
+        hour as `attempted` — the status reserved for an environment without
+        model access. The CLI answered normally minutes later.
+        """
+        valid = {
+            "target_skill": "implement-ticket",
+            "terminal_state": "ready_pr",
+            "actions": [],
+            "acceptance_ledger": [],
+        }
+        attempts = []
+
+        def flaky(prompt, claude_bin, model):
+            attempts.append(1)
+            if len(attempts) <= 5:
+                raise RuntimeError("claude exited 1: overloaded")
+            return valid
+
+        argv = ["claude_executor.py", "--repetitions", "5"]
+        with (
+            mock.patch.object(CLAUDE_EXECUTOR, "run_claude", side_effect=flaky),
+            mock.patch.object(CLAUDE_EXECUTOR.time, "sleep") as slept,
+            mock.patch.object(CLAUDE_EXECUTOR.sys, "argv", argv),
+            mock.patch.object(
+                CLAUDE_EXECUTOR.json, "load", return_value={"target_skill": "x"}
+            ),
+            mock.patch.object(CLAUDE_EXECUTOR, "build_prompt", return_value="p"),
+            mock.patch.object(CLAUDE_EXECUTOR.json, "dump") as dumped,
+        ):
+            self.assertEqual(0, CLAUDE_EXECUTOR.main())
+
+        slept.assert_called_once_with(CLAUDE_EXECUTOR.SCENARIO_RETRY_PAUSE_SECONDS)
+        self.assertEqual(10, len(attempts))
+        self.assertEqual(5, dumped.call_args.args[0]["repetitions"])
+
+    def test_a_second_empty_draw_is_reported_as_the_environment(self):
+        argv = ["claude_executor.py", "--repetitions", "3"]
+        with (
+            mock.patch.object(
+                CLAUDE_EXECUTOR, "run_claude", side_effect=RuntimeError("exited 1")
+            ),
+            mock.patch.object(CLAUDE_EXECUTOR.time, "sleep"),
+            mock.patch.object(CLAUDE_EXECUTOR.sys, "argv", argv),
+            mock.patch.object(
+                CLAUDE_EXECUTOR.json, "load", return_value={"target_skill": "x"}
+            ),
+            mock.patch.object(CLAUDE_EXECUTOR, "build_prompt", return_value="p"),
+        ):
+            with self.assertRaises(RuntimeError):
+                CLAUDE_EXECUTOR.main()
+
     def test_the_target_skill_is_voted_rather_than_backfilled(self):
         """A model that omits target_skill must still fail grading."""
         combined = CLAUDE_EXECUTOR.combine(
