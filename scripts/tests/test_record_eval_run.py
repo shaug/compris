@@ -616,7 +616,16 @@ class NormIsStatedTests(unittest.TestCase):
         agents = (REPOSITORY_ROOT / "AGENTS.md").read_text(encoding="utf-8")
 
         self.assertIn("candidate.trees", agents)
-        self.assertIn("merge commit", agents)
+        # "merge commit" alone is not enough: the changelog-backfill section
+        # already says "squash-merge commit" twice, which contains "merge
+        # commit" as a substring and would pass unconditionally. Assert the
+        # full rule instead, against whitespace-normalized text — mdformat
+        # wraps prose at 80 columns, and the phrase spans that wrapped line
+        # boundary in the committed file.
+        normalized_agents = " ".join(agents.split())
+        self.assertIn(
+            "merges as a merge commit rather than a squash", normalized_agents
+        )
         self.assertIn("skills/*/evals/results/", agents)
 
     def test_pull_request_template_points_at_the_norm(self) -> None:
