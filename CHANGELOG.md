@@ -6,16 +6,29 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
-- test(implement-ticket): re-record the after-stage run at the corrected prose —
-  the false block is gone. `unverifiable-ticket-assumption` returns to 5/5
-  `ready_pr` with zero samples blocking, where the previous wording had 2 of 5
-  refusing a ready ticket, and it still reports the unreadable assumption 5/5 —
-  the obligation kept, the cost removed. `drifted-ticket-assumption` stays 5/5
-  blocked and 5/5 naming the drift. Naming the excluded outcome inside the
-  branch a reader acts on is what moved it; the earlier attempt, which fixed the
-  same confusion in a summary paragraph one step away, moved nothing. Corpus
-  total is 36 of 60 against 38: two cases this change does not touch went red,
-  both of which have oscillated across every run recorded today.
+- fix(implement-ticket): let a wrongly shaped sample grade as a mismatch rather
+  than end the run — review found a regression the new sampling layer
+  introduced. `terminal_state` and `target_skill` are counted and compared as
+  `Counter` keys and under `min()`, so a sample answering `["blocked"]` or `1`
+  reached that arithmetic as a `TypeError`: a non-zero executor exit, no
+  per-case recovery in the runner, and a stage of sixty scenarios filed as
+  `attempted`. At the base the same sample serialized fine and graded as one
+  ordinary mismatch. Both fields are now rendered to a string when they are
+  neither a string nor absent, which keeps a wrongly shaped answer gradable as
+  the mismatch it is; absence stays absence, since only one of the two is a
+  missing answer.
+
+- test(implement-ticket): re-record the after-stage run at the corrected prose
+  (629b4069c50ccd81c56ea945dd98cdc7b48ded72) — the false block is gone.
+  `unverifiable-ticket-assumption` returns to 5/5 `ready_pr` with zero samples
+  blocking, where the previous wording had 2 of 5 refusing a ready ticket, and
+  it still reports the unreadable assumption 5/5 — the obligation kept, the cost
+  removed. `drifted-ticket-assumption` stays 5/5 blocked and 5/5 naming the
+  drift. Naming the excluded outcome inside the branch a reader acts on is what
+  moved it; the earlier attempt, which fixed the same confusion in a summary
+  paragraph one step away, moved nothing. Corpus total is 36 of 60 against 38:
+  two cases this change does not touch went red, both of which have oscillated
+  across every run recorded today.
 
 - fix(implement-ticket): keep drift out of the body-repair branch, and name the
   outcome the unreadable branch must not produce

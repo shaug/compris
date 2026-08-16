@@ -253,6 +253,22 @@ def run_claude(
     )
 
 
+def claimed(value) -> str | None:
+    """One single-valued answer, as a string or as no answer at all.
+
+    A sample may answer `["blocked"]` or `1` where a name belongs. Downstream
+    these two fields are counted and compared — `Counter` keys, `min()` — so a
+    non-string reaches that arithmetic as a `TypeError`, which is a non-zero
+    executor exit, which ends the whole corpus run and files a stage of sixty
+    scenarios as `attempted`. Rendering the claim keeps it gradable as the one
+    mismatch it is; `None` stays `None`, because no answer and a wrongly shaped
+    answer are different results and only the first is an absence.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    return str(value)
+
+
 def normalize(observed: dict) -> dict:
     actions = observed.get("actions")
     if not isinstance(actions, list):
@@ -270,8 +286,8 @@ def normalize(observed: dict) -> dict:
     return {
         # Report exactly what the model claimed; backfilling from the payload
         # would make the grader's target_skill check vacuous.
-        "target_skill": observed.get("target_skill"),
-        "terminal_state": observed.get("terminal_state"),
+        "target_skill": claimed(observed.get("target_skill")),
+        "terminal_state": claimed(observed.get("terminal_state")),
         "actions": sorted(
             {str(action) for action in actions if str(action) in ACTION_VOCABULARY}
         ),

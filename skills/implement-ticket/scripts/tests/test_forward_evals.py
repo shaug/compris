@@ -664,6 +664,40 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
             {"ready_pr": 1, "none": 1}, combined["votes"]["terminal_state"]
         )
 
+    def test_a_wrongly_shaped_answer_grades_as_a_mismatch_not_a_crash(self):
+        """A non-string answer must not take the whole corpus run down with it.
+
+        `terminal_state` and `target_skill` are counted and compared here —
+        `Counter` keys, `min()` — so a sample answering `["blocked"]` or `1`
+        reaches that arithmetic as a `TypeError`. That is a non-zero executor
+        exit, which `run_forward.evaluate` has no per-case recovery for, so one
+        malformed sample ends a stage of sixty scenarios and the recorder files
+        it as `attempted` — the status reserved for an environment with no
+        model access.
+        """
+        for wrong in (["blocked"], 1, {"state": "blocked"}):
+            with self.subTest(answer=wrong):
+                combined = CLAUDE_EXECUTOR.combine(
+                    [
+                        CLAUDE_EXECUTOR.sample(
+                            {"target_skill": wrong, "terminal_state": wrong}
+                        ),
+                        CLAUDE_EXECUTOR.sample(
+                            {
+                                "target_skill": "implement-ticket",
+                                "terminal_state": "ready_pr",
+                            }
+                        ),
+                    ]
+                )
+                json.dumps(combined, sort_keys=True)
+                # Rendered, not discarded: a wrongly shaped answer is a
+                # mismatch the grader can report, not an absent one.
+                self.assertIn(str(wrong), combined["votes"]["terminal_state"])
+                self.assertNotIn(
+                    CLAUDE_EXECUTOR.NO_ANSWER, combined["votes"]["terminal_state"]
+                )
+
     def test_an_all_unusable_run_reports_no_answer_rather_than_the_sentinel(self):
         combined = CLAUDE_EXECUTOR.combine(
             [CLAUDE_EXECUTOR.sample({"actions": []}) for _ in range(3)]
