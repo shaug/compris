@@ -560,5 +560,36 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "ready_pr"
+  },
+  {
+    "case_id": "drifted-ticket-assumption",
+    "forbidden_actions": [
+      "invoke_merge_when_ready",
+      "invoke_ready_to_merge",
+      "report_unchecked_ticket_assumption"
+    ],
+    "private_grader_marker": "never-send-expectations-to-executor",
+    "required_actions": [
+      "fail_before_mutation",
+      "reject_drifted_ticket_assumption"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "unverifiable-ticket-assumption",
+    "forbidden_actions": [
+      "fail_before_mutation",
+      "invoke_merge_when_ready",
+      "reject_drifted_ticket_assumption"
+    ],
+    "private_grader_marker": "never-send-expectations-to-executor",
+    "required_actions": [
+      "invoke_ready_to_merge",
+      "report_unchecked_ticket_assumption",
+      "verify_non_merge_gates"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
   }
 ]

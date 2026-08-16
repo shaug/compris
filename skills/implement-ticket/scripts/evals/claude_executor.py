@@ -13,6 +13,12 @@ artifacts, plus the closed action vocabulary below so its choices are gradable
 against `forward_expectations.json`. It never sees fixture identity or any
 expectations. Requires the `claude` CLI on PATH (override with --claude-bin).
 
+Each scenario is sampled `--repetitions` times (default 5) in independent
+concurrent processes. The majority terminal state wins, an action or acceptance
+criterion is reported when a majority of samples chose it, and every vote count
+is reported alongside, so a recorded run says how much of its answer was
+agreement and how much was a coin flip.
+
 Usage:
     python3 run_forward.py --executor "python3 claude_executor.py"
 """
@@ -24,6 +30,8 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 
 TERMINAL_STATES = (
     "ready_pr",
@@ -101,6 +109,7 @@ ACTION_VOCABULARY = (
     "reject_stale_connector_verdict",
     "reject_stale_or_malformed_result",
     "reject_stale_acceptance_evidence",
+    "reject_drifted_ticket_assumption",
     "report_closed_without_merge",
     "report_dependency_contract_failure",
     "report_dependency_provenance_failure",
@@ -109,6 +118,7 @@ ACTION_VOCABULARY = (
     "report_delivery_acceptance_separately",
     "report_mid_stack_redesign",
     "report_missing_reopen_authority",
+    "report_unchecked_ticket_assumption",
     "reopen_auto_closed_ticket",
     "reread_live_pr",
     "retain_only_proven_unaffected_evidence",
@@ -264,6 +274,111 @@ def normalize(payload: dict, observed: dict) -> dict:
     }
 
 
+# A vote key for an answer the model did not give. The counts become JSON
+# object keys, and `json.dump(..., sort_keys=True)` cannot order `None` against
+# a string, so one unusable sample would otherwise crash the whole corpus run
+# at output time. No real terminal state or skill name spells `none`.
+NO_ANSWER = "none"
+
+
+def sample(payload: dict, observed: dict) -> dict:
+    """One sample reduced to the four things the grader is defined on."""
+    normalized = normalize(payload, observed)
+    return {
+        "target_skill": normalized["target_skill"],
+        "terminal_state": normalized["terminal_state"],
+        "actions": frozenset(normalized["actions"]),
+        "acceptance_ledger": tuple(
+            (entry["criterion"], entry["status"])
+            for entry in normalized["acceptance_ledger"]
+        ),
+    }
+
+
+def _modal(votes: Counter) -> tuple[str, int]:
+    """The most-voted answer and its count, ties broken by sorted order."""
+    top = max(votes.values())
+    return min(answer for answer, count in votes.items() if count == top), top
+
+
+def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dict]:
+    """Majority-vote the acceptance ledger criterion by criterion.
+
+    A criterion is reported when a strict majority of samples listed it, the
+    same rule the actions use, and it carries that majority's modal status. Its
+    modal multiplicity is reported too, so a model that consistently emits one
+    criterion twice still trips the grader's duplicate check instead of having
+    the duplicate quietly voted away.
+    """
+    presence: Counter = Counter()
+    statuses: dict[str, Counter] = {}
+    multiplicities: dict[str, Counter] = {}
+    order: list[str] = []
+    for item in samples:
+        counted = Counter(criterion for criterion, _ in item["acceptance_ledger"])
+        for criterion, count in counted.items():
+            if criterion not in statuses:
+                statuses[criterion] = Counter()
+                multiplicities[criterion] = Counter()
+                order.append(criterion)
+            presence[criterion] += 1
+            multiplicities[criterion][str(count)] += 1
+        for criterion, status in item["acceptance_ledger"]:
+            statuses[criterion][status] += 1
+
+    ledger = []
+    for criterion in order:
+        if presence[criterion] < majority:
+            continue
+        status, _ = _modal(statuses[criterion])
+        multiplicity, _ = _modal(multiplicities[criterion])
+        ledger.extend([{"criterion": criterion, "status": status}] * int(multiplicity))
+    return ledger, {
+        criterion: {
+            "samples": presence[criterion],
+            "statuses": dict(statuses[criterion]),
+        }
+        for criterion in order
+    }
+
+
+def combine(samples: list[dict]) -> dict:
+    """Majority-vote independent samples into one gradable answer.
+
+    The terminal state and the target skill are the modal answers. An action is
+    reported when a strict majority of samples chose it, which is the same rule
+    applied per-element: a term half the samples reached for is not this run's
+    behavior, and reporting it either way would make a coin flip look decided.
+    `votes` keeps every count, so the variance stays legible after the majority
+    has collapsed it — a case degrading from unanimous to a bare majority is
+    still a `pass`, and the counts are the only place that shows.
+    """
+    repetitions = len(samples)
+    majority = repetitions // 2 + 1
+    skill_votes = Counter(item["target_skill"] or NO_ANSWER for item in samples)
+    state_votes = Counter(item["terminal_state"] or NO_ANSWER for item in samples)
+    action_votes = Counter(action for item in samples for action in item["actions"])
+    winning_skill, _ = _modal(skill_votes)
+    winning_state, agreement = _modal(state_votes)
+    ledger, ledger_votes = _combine_ledger(samples, majority)
+    return {
+        "target_skill": None if winning_skill == NO_ANSWER else winning_skill,
+        "terminal_state": None if winning_state == NO_ANSWER else winning_state,
+        "actions": sorted(
+            action for action, count in action_votes.items() if count >= majority
+        ),
+        "acceptance_ledger": ledger,
+        "repetitions": repetitions,
+        "agreement": agreement / repetitions,
+        "votes": {
+            "target_skill": dict(skill_votes),
+            "terminal_state": dict(state_votes),
+            "actions": dict(action_votes),
+            "acceptance_ledger": ledger_votes,
+        },
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--claude-bin", default="claude")
@@ -272,14 +387,56 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional model override passed to `claude --model`",
     )
+    parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=5,
+        help="Independent samples per scenario; the majority answer is graded",
+    )
     return parser.parse_args()
+
+
+def draw(prompt: str, claude_bin: str, model: str) -> dict | None:
+    """One sample, or `None` when this draw could not be taken at all.
+
+    A sample the runtime refused — a non-zero `claude` exit, or three malformed
+    responses in a row — is a missing sample, not an answer. Letting it end the
+    process would sink every case already sampled in this run and leave the
+    recorder to file the whole stage as `attempted`, the status reserved for an
+    environment without model access. `combine` votes over what was actually
+    drawn, and `failed_samples` reports what was not.
+    """
+    try:
+        return run_claude(prompt, claude_bin, model)
+    except RuntimeError:
+        return None
 
 
 def main() -> int:
     args = parse_args()
+    if args.repetitions < 1:
+        raise SystemExit("--repetitions must be at least 1")
     payload = json.load(sys.stdin)
-    observed = run_claude(build_prompt(payload), args.claude_bin, args.model)
-    json.dump(normalize(payload, observed), sys.stdout, sort_keys=True)
+    prompt = build_prompt(payload)
+    # The samples are independent by construction, so they are drawn
+    # concurrently: this corpus is four times the size of its sibling's, and
+    # drawing five sequential samples for each case would put a recorded stage
+    # into the hours.
+    with ThreadPoolExecutor(max_workers=args.repetitions) as pool:
+        observed = list(
+            pool.map(
+                lambda _: draw(prompt, args.claude_bin, args.model),
+                range(args.repetitions),
+            )
+        )
+    drawn = [item for item in observed if item is not None]
+    if not drawn:
+        raise RuntimeError(
+            f"every one of the {args.repetitions} samples failed for this scenario"
+        )
+    result = combine([sample(payload, item) for item in drawn])
+    result["failed_samples"] = len(observed) - len(drawn)
+    json.dump(result, sys.stdout, sort_keys=True)
     sys.stdout.write("\n")
     return 0
 

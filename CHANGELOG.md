@@ -36,10 +36,29 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
-- test(ready-ticket): test the retry loop the way its sibling already does —
-  review found the new retry test hand-rolling a partial stand-in for
-  `subprocess.CompletedProcess`, a manual patch-and-restore, and a list used as
-  a call counter, for behavior
+- test(implement-ticket): grade re-verification of a ticket's stated assumptions
+  at pickup — a ticket's `Verified assumptions` slot records what was true when
+  the body was written, and nothing re-reads it when the work is picked up. Two
+  forward cases put that question to the corpus: one whose stated assumption the
+  current tree contradicts, which has to stop before any implementation state
+  exists, and one carrying a claim no repository read can settle, which has to
+  proceed while saying so rather than passing it off as verified. Neither packet
+  says which assumption went stale — the citation carries the line it quotes,
+  the repository artifact carries the line that path reads now, and drift is
+  whatever disagreement a runtime finds between them, so what is graded is
+  whether it looks rather than whether it can read a flag. The corpus lands
+  ahead of the prose, because `just eval-record` runs the current tree and a
+  before-stage measurement needs the case to exist while the obligation does
+  not. The real-model executor also gained `--repetitions` (default 5, drawn
+  concurrently), so each recorded case carries the vote counts behind its answer
+  instead of one sample's opinion; concurrently because this corpus is four
+  times its sibling's size, where five sequential samples per case would put a
+  recorded stage into the hours.
+
+- test(ready-ticket): test the retry loop the way its sibling already does
+  (f6a90c20cc51c24c32915e5211345bc5b0fbfd4d) — review found the new retry test
+  hand-rolling a partial stand-in for `subprocess.CompletedProcess`, a manual
+  patch-and-restore, and a list used as a call counter, for behavior
   `skills/implement-ticket/scripts/tests/test_forward_evals.py` already covers
   with `mock.patch.object` and a real `CompletedProcess` — against a retry loop
   this change deliberately mirrored from that same module. The test now reads
