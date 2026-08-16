@@ -331,7 +331,6 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
     criterion twice still trips the grader's duplicate check instead of having
     the duplicate quietly voted away.
     """
-    presence: Counter = Counter()
     statuses: dict[str, Counter] = {}
     multiplicities: dict[str, Counter] = {}
     for item in samples:
@@ -340,7 +339,6 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
             if criterion not in statuses:
                 statuses[criterion] = Counter()
                 multiplicities[criterion] = Counter()
-            presence[criterion] += 1
             multiplicities[criterion][str(count)] += 1
         for criterion, status in item["acceptance_ledger"]:
             statuses[criterion][status] += 1
@@ -350,14 +348,14 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
     # keys could fall out of step with it.
     ledger = []
     for criterion in statuses:
-        if presence[criterion] < majority:
+        if multiplicities[criterion].total() < majority:
             continue
         status, _ = _modal(statuses[criterion])
         multiplicity, _ = _modal(multiplicities[criterion])
         ledger.extend([{"criterion": criterion, "status": status}] * int(multiplicity))
     return ledger, {
         criterion: {
-            "samples": presence[criterion],
+            "samples": multiplicities[criterion].total(),
             "statuses": dict(statuses[criterion]),
         }
         for criterion in statuses

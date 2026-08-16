@@ -6,6 +6,17 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
+- refactor(implement-ticket): stop the assumption test from re-grading the whole
+  corpus, and drop a counter that duplicates another — review of the candidate
+  found both. The assumption-gate test ran a second full 60-process grading pass
+  and repeated the corpus-wide `assertEqual([], failures)` that the test above
+  it already owns, so any of the other 58 cases regressing would have reddened a
+  test named for this gate and pointed a maintainer at the wrong obligation; it
+  now observes only the two cases it asserts about, at a twentieth of the cost.
+  In the ledger vote, `presence` was incremented in the same breath as
+  `multiplicities`, making it exactly that counter's total, so an edit changing
+  when a criterion counts had to touch both to stay consistent.
+
 - fix: say in each recorded eval summary that its own provenance did not survive
   the rebase — all five runs recorded on this branch name a `candidate.sha` and
   `candidate.tree` that no ref reaches, because the rebase onto #236 replayed

@@ -132,14 +132,28 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertEqual("blocked", observed["terminal_state"])
         self.assertIn("skill_contract_incomplete", observed["actions"])
 
+    def observe(self, case_id):
+        """One case's result, without a second pass over the whole corpus.
+
+        The corpus-wide grading pass belongs to
+        `test_forward_cases_execute_fresh_and_pass_separate_grading`; repeating
+        it here would redden a test named for the assumption gate whenever any
+        of the other 58 cases regressed.
+        """
+        case = next(item for item in self.cases if item["id"] == case_id)
+        return RUNNER.run_executor(
+            [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(case)
+        )
+
     def test_stated_assumptions_are_rechecked_before_any_mutation(self):
         """Drift stops the run; an uncheckable assumption is reported, not passed."""
-        observations, failures = RUNNER.evaluate(
-            RUNNER.DEFAULT_CASES,
-            RUNNER.DEFAULT_EXPECTATIONS,
-            [sys.executable, str(EXECUTOR_PATH)],
-        )
-        self.assertEqual([], failures)
+        observations = {
+            case_id: self.observe(case_id)
+            for case_id in (
+                "drifted-ticket-assumption",
+                "unverifiable-ticket-assumption",
+            )
+        }
 
         drifted = observations["drifted-ticket-assumption"]
         self.assertEqual("blocked", drifted["terminal_state"])
