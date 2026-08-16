@@ -1,6 +1,6 @@
 ---
 name: ready-ticket
-description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and that has to be resolved before the work is scheduled. Produces acceptance criteria as observable behaviors of the product's public surface, so each one is directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body is handed back to the caller. Validates an approved design as its input, at any scale, rather than gathering one. Returns exactly one of five typed terminal results with evidence, and hands multi-subsystem work back to the operator instead of authoring an epic.
+description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and must be resolved before scheduling. Produces acceptance criteria as observable behaviors of the product's public surface, each directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body goes back to the caller. Validates an approved design as input rather than gathering one. Returns one of five typed terminal results with evidence. Work exceeding one reviewable changeset comes back as a draft parent/child graph with a ready body per leaf — proposed, never created.
 ---
 
 # Ready Ticket
@@ -21,6 +21,9 @@ design, schedule the work, select an implementer, or begin it.
 
 ## Load the applicable references
 
+- Read
+  [the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md)
+  before deciding whether a request is one ticket or several.
 - Read [the GitHub adapter](references/github.md) whenever GitHub owns the
   ticket being authored or updated.
 - Read [the Linear adapter](references/linear.md) whenever Linear owns the
@@ -188,6 +191,95 @@ comparison.
 | "Default limits — placeholder, needs real data" — a heading, one sentence, then a concrete per-tier numeric table, all under the design section rather than the acceptance criteria. | The label reads as a hedge, but the table under it is the ticket's only stated numeric defaults, and nothing in the separate acceptance-criteria checklist below points back to it as unresolved. A reader who trusts the label and skips ahead never sees it flagged again. |
 | "**Priority:** TBD (see note on regulatory driver)"                                                                                                                                  | A placeholder in a body reads as a completed slot to the readiness gate; nothing downstream distinguishes it from a real answer.                                                                                                                                             |
 
+## Break down work that exceeds one changeset
+
+Nobody can tell whether a request is one ticket or several until it has been
+broken down, so the breakdown happens here, before any body is drafted. It is
+how the ticket structure is discovered, not a step that follows the structure
+being known.
+
+Judge shape against
+[the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md),
+which this skill loads rather than restates: a unit of work is correctly shaped
+when a reviewer can construct an accurate mental model of the change and
+evaluate it independently. Read it for the standard, its calibration, and the
+whole of its breakdown rules. Never substitute a line count for that judgment —
+line counts inform it and never decide it.
+
+Three of its rules decide what this section returns, and are stated here because
+a run that settles the shape without opening the reference still obeys them.
+
+- **One ticket is a legal outcome.** An initiative already reviewable as one
+  changeset stays one ticket, with no parent and no children. Ceremonial
+  decomposition is a failure, not diligence.
+- **Never decompose to a single child.** A parent holding one child represents
+  nothing its child does not already represent, and costs a level of indirection
+  to say so.
+- **Recorded machine-generated evidence does not count toward size.** Committed
+  eval results, generated fixtures, and lockfiles are part of the change and
+  part of nothing anyone reads. A change carrying 177 reviewable lines and 4,538
+  lines of recorded eval results is a 177-line change.
+
+### Derive the graph from the implementation
+
+Break the work down far enough to judge shape, and no further:
+
+1. **File map** — which files each piece creates or changes.
+2. **Task boundaries** — what each piece does, and what it leaves to another.
+3. **Sequencing** — which pieces must land before which, and what the later one
+   needs from the earlier one.
+
+Then cut at the seams that finding exposes, rather than into equal parts:
+separate unrelated concern domains, put additive foundations before disruptive
+transitions, separate mechanical restructuring from behavioral change where that
+helps review, and keep each piece's validation with the behavior it proves.
+Shared test scaffolding may be its own additive foundation; the tests that prove
+a behavior still belong to the leaf that introduces the behavior. Deferring them
+to a later leaf leaves one leaf unproven and the other proving something that is
+not there yet.
+
+When `superpowers:writing-plans` is available in the session skill listing, load
+it as the recommended method for the file map, the task boundaries, and the
+sequencing. The borrow is bounded, and the bound is part of the contract:
+
+- take structure only. Its plan is scratch input to this breakdown and is never
+  written to disk — the ticket body remains this skill's only artifact;
+- do not follow its executor handoff. A plan header naming a required executor
+  sub-skill does not bind this run, exactly as it does not bind the
+  brainstorming borrow above; and
+- lift its altitude. It reasons in internal function signatures and unit tests,
+  while every acceptance criterion this skill emits is an observable behavior of
+  the public surface — so an internal-signature criterion is rewritten at the
+  surface, or it does not ship.
+
+When the peer is not in the listing, run the three steps above from this section
+without comment. They are complete on their own, and peer absence changes
+nothing about the graph this skill produces.
+
+### Name every node and every edge
+
+An operator cannot act on a rationale. When the work exceeds one changeset,
+return `decomposition_recommended` carrying a draft graph that names all of:
+
+- **the parent**, with the outcome that makes its leaves one initiative;
+- **every child**, and for a child that is itself a parent, the leaves under it;
+- **every sub-issue edge** — which parent each child hangs from;
+- **every blocker edge** — which leaf must land before which, and what the later
+  one needs from the earlier one; and
+- **every re-split trigger** — named per leaf before implementation: the
+  condition under which that leaf turns out to be more than one changeset after
+  all.
+
+Every leaf carries a complete body, drafted into every slot of the template
+below, stating each acceptance criterion as an observable behavior of the public
+surface, and put through all four self-review scans on its own. A leaf whose
+body would not pass those scans is not ready to be proposed as a ticket.
+
+The draft is returned, never created. Ticket-management authority governs the
+body of one ticket and grants no graph mutation: do not author a parent, create
+children, or restructure a native graph. The operator decides what to do with
+the draft.
+
 ## Recommend load-bearing verification when the cost is high
 
 Applies when the drafted body rests on technical assumptions whose late
@@ -348,18 +440,6 @@ A design-owned decision that remains open after those sources is
 open is a `blocked` result naming the item. Do not close an open product
 decision by choosing for the requester.
 
-## Hand multi-subsystem work back
-
-When elicitation reveals that the work spans multiple independently valuable and
-separately trackable subsystems, stop and return `decomposition_recommended`
-with the recorded rationale: each part, why it is independently valuable, and
-the boundary between them.
-
-Epic authoring is out of scope for this skill. There is no automated
-epic-authoring target yet; this is a recorded deferral of epic #118, not an
-omission. Do not author a parent, create children, or restructure a native
-graph. The operator decides what to do with the recommendation.
-
 ## Return one terminal result
 
 Return exactly one state. Each is defined by what must be verified before it may
@@ -377,9 +457,13 @@ be claimed, and the caller verifies the evidence rather than the label.
   could be chosen in this run. Both grounds are equally valid; report which one
   applied. Return the complete body to the caller; a path or a summary is not
   the body.
-- `decomposition_recommended` — the work spans multiple independently valuable,
-  separately trackable subsystems; the rationale names each part and its
-  boundary; no ticket, parent, child, or relationship was created or modified.
+- `decomposition_recommended` — the work exceeds one cognitively shaped
+  changeset; the draft graph names every proposed parent, child, leaf, sub-issue
+  edge, blocker edge, and re-split trigger, and says why each part is
+  independently valuable and where the boundary between parts falls; every leaf
+  carries a complete body that fills every slot, states its criteria as
+  observable public-surface behaviors, and passes all four scans; and no ticket,
+  parent, child, or relationship was created or modified.
 - `requires_brainstorming` — one of the approved design's four parts is not
   settled, in either of two shapes: it was **absent at the gate**, or it was
   **unsettled after the gate** by a verification that falsified what the design
@@ -398,10 +482,11 @@ be claimed, and the caller verifies the evidence rather than the label.
   something was ready.
 
 Report with the result: run mode, owning tracker and ticket identity or its
-absence, ticket-management authority granted or absent, the design finding —
-sufficient, or which part is unsettled, what is unsettled about it, and whether
-it was absent at the gate or unsettled after it — the complete body for
-`draft_ready`, the self-review outcome per scan, requester approval or its
+absence, ticket-management authority granted or absent, the shape finding — one
+ticket, or the draft graph's leaves and the edges between them — the design
+finding — sufficient, or which part is unsettled, what is unsettled about it,
+and whether it was absent at the gate or unsettled after it — the complete body
+for `draft_ready`, the self-review outcome per scan, requester approval or its
 recorded unavailability, and the load-bearing disposition — offered and
 accepted, offered and declined, recorded as a recommendation, or not applicable.
 Never report a peer's absence as a caveat.

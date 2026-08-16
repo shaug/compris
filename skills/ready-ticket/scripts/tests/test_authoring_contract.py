@@ -532,17 +532,112 @@ class ReadyTicketContractTests(unittest.TestCase):
 
     # --- Scope boundaries -------------------------------------------------
 
-    def test_epic_authoring_is_a_recorded_deferral_not_an_omission(self):
-        self.assertIn("Epic authoring is out of scope for this skill", self.contract)
-        self.assertIn("recorded deferral of epic #118, not an omission", self.contract)
-        self.assertIn(
-            "Do not author a parent, create children, or restructure a native graph",
-            self.contract,
-        )
+    # --- The breakdown and its draft graph --------------------------------
+
+    def test_the_draft_names_every_node_and_every_edge(self):
+        """AC: the draft names every parent, child, leaf, and edge kind."""
+        for clause in (
+            "An operator cannot act on a rationale",
+            "**the parent**, with the outcome that makes its leaves one initiative",
+            "**every child**, and for a child that is itself a parent, the leaves "
+            "under it",
+            "**every sub-issue edge** — which parent each child hangs from",
+            "**every blocker edge** — which leaf must land before which",
+            "**every re-split trigger** — named per leaf before implementation",
+        ):
+            self.assertIn(clause, self.contract)
+
         for case_id in ("multi-subsystem-request", "epic-authoring-requested"):
             self.assertEqual(
                 "decomposition_recommended",
                 self.expectations[case_id]["workflow_state"],
+                case_id,
+            )
+            actions = self.actions(case_id)
+            self.assertIn(
+                "name every proposed parent, child, leaf, sub-issue edge, "
+                "blocker edge, and re-split trigger",
+                actions,
+                case_id,
+            )
+            self.assertIn("draft a complete body for every leaf", actions, case_id)
+
+    def test_every_leaf_body_is_surface_observable_and_scanned(self):
+        """AC: no leaf ships an internal-signature acceptance criterion."""
+        for clause in (
+            "Every leaf carries a complete body, drafted into every slot of the "
+            "template below, stating each acceptance criterion as an observable "
+            "behavior of the public surface, and put through all four self-review "
+            "scans on its own",
+            "A leaf whose body would not pass those scans is not ready to be "
+            "proposed as a ticket",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_one_reviewable_initiative_stays_one_ticket(self):
+        """AC: ceremonial and one-child decomposition are both rejected."""
+        for clause in (
+            "An initiative already reviewable as one changeset stays one ticket, "
+            "with no parent and no children",
+            "Ceremonial decomposition is a failure, not diligence",
+            "A parent holding one child represents nothing its child does not "
+            "already represent",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_validation_stays_with_the_behavior_it_proves(self):
+        """AC: a leaf's proof does not drift to a later leaf."""
+        for clause in (
+            "keep each piece's validation with the behavior it proves",
+            "the tests that prove a behavior still belong to the leaf that "
+            "introduces the behavior",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_generated_evidence_is_excluded_from_the_size_judgment(self):
+        for clause in (
+            "Recorded machine-generated evidence does not count toward size",
+            "is a 177-line change",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_the_doctrine_is_loaded_by_stable_path_rather_than_restated(self):
+        bundled = SKILL_ROOT / "references" / "cognitive-shaping-doctrine.md"
+        self.assertTrue(
+            bundled.is_file(), f"{bundled} is missing; run `just sync-contracts`"
+        )
+        self.assertIn(
+            "[the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md)",
+            self.skill,
+        )
+        self.assertIn("which this skill loads rather than restates", self.contract)
+        self.assertIn("Never substitute a line count for that judgment", self.contract)
+
+    def test_the_writing_plans_borrow_takes_structure_and_nothing_else(self):
+        for clause in (
+            "load it as the recommended method for the file map, the task "
+            "boundaries, and the sequencing",
+            "Its plan is scratch input to this breakdown and is never written to disk",
+            "A plan header naming a required executor sub-skill does not bind this run",
+            "an internal-signature criterion is rewritten at the surface, or it "
+            "does not ship",
+            "run the three steps above from this section without comment",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_the_draft_graph_is_proposed_and_never_created(self):
+        for clause in (
+            "The draft is returned, never created",
+            "Ticket-management authority governs the body of one ticket and grants "
+            "no graph mutation",
+            "do not author a parent, create children, or restructure a native graph",
+        ):
+            self.assertIn(clause, self.contract)
+        for case_id in ("multi-subsystem-request", "epic-authoring-requested"):
+            self.assertIn(
+                "hand the draft graph back to the operator",
+                self.actions(case_id),
+                case_id,
             )
 
     def test_authoring_authority_never_implies_graph_or_workflow_authority(self):

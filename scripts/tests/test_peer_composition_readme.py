@@ -32,7 +32,7 @@ README = REPOSITORY_ROOT / "README.md"
 # Seams the row claims are landed as of this file's own edit, and seams it
 # claims are still planned. #128 belongs here because this commit is the one
 # that makes its row's claim true, not because the tracker shows it closed.
-LANDED_SEAM_TICKETS = ("#124", "#125", "#126", "#127", "#128", "#131")
+LANDED_SEAM_TICKETS = ("#124", "#125", "#126", "#127", "#128", "#131", "#198")
 PLANNED_SEAM_TICKETS = ("#134",)
 
 # One ticket-to-status lookup, so the two directional tests below share it

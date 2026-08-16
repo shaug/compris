@@ -4,20 +4,41 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
+## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
+
+- feat(ready-ticket): return a draft ticket graph instead of a decomposition
+  rationale — `decomposition_recommended` named each independently valuable part
+  and stopped there, which left the operator holding a diagnosis and no route:
+  the parts were named, the graph that would carry them was not. The skill now
+  breaks the work down before any body is drafted, judging shape against
+  `docs/cognitive-shaping-doctrine.md`, which it bundles by stable path rather
+  than restating. The draft names every proposed parent, child, leaf, sub-issue
+  edge, blocker edge, and re-split trigger, and every leaf carries a complete
+  body that passes all four self-review scans on its own. Nothing is created:
+  ticket-management authority still governs one body and grants no graph
+  mutation. The doctrine's rules that most often go wrong are stated in the
+  skill itself, because a run that settles the shape without opening the
+  reference still has to obey them — one ticket stays one ticket, a parent never
+  holds a single child, and recorded machine-generated evidence does not count
+  toward size. `superpowers:writing-plans` moves from house territory to a
+  bounded referenced peer: it supplies the file map, task boundaries, and
+  sequencing when present, while the breakdown outcome stays house-owned, its
+  plan is never written to disk, and its unit-level altitude is lifted to the
+  public surface before anything reaches a leaf body.
 
 - fix: give the citation guard's failure message a remedy for both ways it can
-  fire — the message now names an unlanded backfill as a cause, since a SHA
-  taken before the branch was rebased and landed reaches nothing on that same
-  branch, but it still prescribed only the recovery for an entry that has
-  landed: `git log main -S'<the entry's first line>' -- CHANGELOG.md`. Run
-  against an entry that has not landed, that command returns nothing at all —
-  the entry is not on `main` yet, so `git log main -S` has no match to find —
-  and the reader following the message is handed empty output and no next step.
-  The remedy now covers both firing modes: recover the landing commit for an
-  entry that has landed, and drop the SHA until it lands for one that has not,
-  which is what AGENTS.md requires of an entry added on the current branch. No
-  assertion, regex, or reachability behavior changes.
+  fire (ba638ef040b4535e170cf50c3c8e94689d30f9ef) — the message now names an
+  unlanded backfill as a cause, since a SHA taken before the branch was rebased
+  and landed reaches nothing on that same branch, but it still prescribed only
+  the recovery for an entry that has landed:
+  `git log main -S'<the entry's first line>' -- CHANGELOG.md`. Run against an
+  entry that has not landed, that command returns nothing at all — the entry is
+  not on `main` yet, so `git log main -S` has no match to find — and the reader
+  following the message is handed empty output and no next step. The remedy now
+  covers both firing modes: recover the landing commit for an entry that has
+  landed, and drop the SHA until it lands for one that has not, which is what
+  AGENTS.md requires of an entry added on the current branch. No assertion,
+  regex, or reachability behavior changes.
 
 - docs: restate the citation guard's own account of the backfill rule
   (ecb17f4b3bfa3f3c66f3aff03b63cc956555d73c) — the merge-method change above

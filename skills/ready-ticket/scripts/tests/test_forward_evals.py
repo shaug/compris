@@ -165,6 +165,81 @@ class CorpusShapeTests(unittest.TestCase):
         ):
             self.assertNotIn(classification, repository)
 
+    def test_each_breakdown_rule_the_ticket_names_has_its_own_case(self) -> None:
+        """AC: one case per named breakdown risk, each carrying its own bait.
+
+        The bait matters as much as the case: a corpus that only rewards good
+        answers measures very little, so each scenario below states a fact that
+        tempts the wrong cut — an epic on the board, a shared sprint, a team
+        habit, a raw line count.
+        """
+        cases = {case["id"]: case for case in CASES}
+        for case_id, terminal_state, bait in (
+            (
+                "fits-as-one-stays-one-ticket",
+                "ticket_ready",
+                "leadership likes seeing an epic with sub-issues",
+            ),
+            (
+                "unrelated-concerns-become-separate-leaves",
+                "decomposition_recommended",
+                "migration reads both",
+            ),
+            (
+                "mechanical-and-behavioral-change-separated",
+                "decomposition_recommended",
+                "would rather not open two things",
+            ),
+            (
+                "validation-stays-with-the-behavior-it-proves",
+                "decomposition_recommended",
+                "after the features are in",
+            ),
+            (
+                "generated-evidence-excluded-from-size",
+                "ticket_ready",
+                "4,500 lines of generated JSON",
+            ),
+        ):
+            with self.subTest(case=case_id):
+                self.assertEqual(
+                    terminal_state, EXPECTATIONS[case_id]["terminal_state"]
+                )
+                self.assertIn(bait, json.dumps(cases[case_id]["artifacts"]))
+
+    def test_a_case_that_fits_as_one_may_not_grow_a_parent(self) -> None:
+        """AC: one reviewable initiative stays one ticket."""
+        for case_id in (
+            "fits-as-one-stays-one-ticket",
+            "generated-evidence-excluded-from-size",
+        ):
+            expectation = EXPECTATIONS[case_id]
+            with self.subTest(case=case_id):
+                self.assertIn(
+                    "keep_reviewable_initiative_as_one_ticket",
+                    expectation["required_actions"],
+                )
+                self.assertIn(
+                    "decompose_to_a_single_child", expectation["forbidden_actions"]
+                )
+
+    def test_every_decomposition_case_owes_the_graph_rather_than_a_rationale(
+        self,
+    ) -> None:
+        """AC: the draft names its nodes, its edges, and every leaf's body."""
+        decomposing = [
+            case_id
+            for case_id, item in EXPECTATIONS.items()
+            if item["terminal_state"] == "decomposition_recommended"
+        ]
+
+        self.assertTrue(decomposing)
+        for case_id in decomposing:
+            required = set(EXPECTATIONS[case_id]["required_actions"])
+            with self.subTest(case=case_id):
+                self.assertIn("name_every_graph_node_and_edge", required)
+                self.assertIn("draft_a_complete_body_for_every_leaf", required)
+
     def test_two_cases_are_the_strongest_baseline_scenarios(self) -> None:
         """AC: the strongest scenarios from the baseline pressure test are here."""
         requests = {case["request"] for case in CASES}
