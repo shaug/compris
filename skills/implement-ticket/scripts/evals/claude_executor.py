@@ -302,20 +302,6 @@ def normalize(observed: dict) -> dict:
 NO_ANSWER = "none"
 
 
-def sample(observed: dict) -> dict:
-    """One sample reduced to the four things the grader is defined on."""
-    normalized = normalize(observed)
-    return {
-        "target_skill": normalized["target_skill"],
-        "terminal_state": normalized["terminal_state"],
-        "actions": frozenset(normalized["actions"]),
-        "acceptance_ledger": tuple(
-            (entry["criterion"], entry["status"])
-            for entry in normalized["acceptance_ledger"]
-        ),
-    }
-
-
 def _modal(votes: Counter) -> tuple[str, int]:
     """The most-voted answer and its count, ties broken by sorted order."""
     top = max(votes.values())
@@ -334,14 +320,14 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
     statuses: dict[str, Counter] = {}
     multiplicities: dict[str, Counter] = {}
     for item in samples:
-        counted = Counter(criterion for criterion, _ in item["acceptance_ledger"])
+        counted = Counter(entry["criterion"] for entry in item["acceptance_ledger"])
         for criterion, count in counted.items():
             if criterion not in statuses:
                 statuses[criterion] = Counter()
                 multiplicities[criterion] = Counter()
             multiplicities[criterion][str(count)] += 1
-        for criterion, status in item["acceptance_ledger"]:
-            statuses[criterion][status] += 1
+        for entry in item["acceptance_ledger"]:
+            statuses[entry["criterion"]][entry["status"]] += 1
 
     # `statuses` is insertion-ordered and gains a key exactly where a criterion
     # is first seen, so it is the first-seen order; a separate list of the same
@@ -470,7 +456,7 @@ def main() -> int:
             f"every one of the {args.repetitions} samples failed for this "
             f"scenario, twice, {SCENARIO_RETRY_PAUSE_SECONDS}s apart"
         )
-    result = combine([sample(item) for item in drawn])
+    result = combine([normalize(item) for item in drawn])
     result["failed_samples"] = failed
     json.dump(result, sys.stdout, sort_keys=True)
     sys.stdout.write("\n")

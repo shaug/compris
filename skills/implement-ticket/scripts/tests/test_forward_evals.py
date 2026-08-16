@@ -577,7 +577,7 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
     def combine(self, *samples):
         return CLAUDE_EXECUTOR.combine(
             [
-                CLAUDE_EXECUTOR.sample(
+                CLAUDE_EXECUTOR.normalize(
                     {
                         "target_skill": "implement-ticket",
                         "terminal_state": state,
@@ -668,8 +668,8 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         """
         combined = CLAUDE_EXECUTOR.combine(
             [
-                CLAUDE_EXECUTOR.sample({"terminal_state": "ready_pr"}),
-                CLAUDE_EXECUTOR.sample({"actions": []}),
+                CLAUDE_EXECUTOR.normalize({"terminal_state": "ready_pr"}),
+                CLAUDE_EXECUTOR.normalize({"actions": []}),
             ]
         )
 
@@ -693,10 +693,10 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
             with self.subTest(answer=wrong):
                 combined = CLAUDE_EXECUTOR.combine(
                     [
-                        CLAUDE_EXECUTOR.sample(
+                        CLAUDE_EXECUTOR.normalize(
                             {"target_skill": wrong, "terminal_state": wrong}
                         ),
-                        CLAUDE_EXECUTOR.sample(
+                        CLAUDE_EXECUTOR.normalize(
                             {
                                 "target_skill": "implement-ticket",
                                 "terminal_state": "ready_pr",
@@ -714,7 +714,7 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
 
     def test_an_all_unusable_run_reports_no_answer_rather_than_the_sentinel(self):
         combined = CLAUDE_EXECUTOR.combine(
-            [CLAUDE_EXECUTOR.sample({"actions": []}) for _ in range(3)]
+            [CLAUDE_EXECUTOR.normalize({"actions": []}) for _ in range(3)]
         )
 
         self.assertIsNone(combined["terminal_state"])
@@ -795,7 +795,7 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         """A model that omits target_skill must still fail grading."""
         combined = CLAUDE_EXECUTOR.combine(
             [
-                CLAUDE_EXECUTOR.sample(
+                CLAUDE_EXECUTOR.normalize(
                     {"terminal_state": "ready_pr", "actions": []},
                 )
             ]

@@ -6,6 +6,17 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
+- refactor(implement-ticket): reduce a sample once instead of twice — `sample`
+  called `normalize` and re-emitted the same four fields in different
+  containers: a `frozenset` of actions `normalize` had already deduplicated, and
+  a tuple of criterion/status pairs whose single consumer rebuilt dicts from it
+  anyway. `combine` never hashed or set-operated a sample, so neither conversion
+  did anything except oblige a reader to prove that. `combine` now takes
+  `normalize`'s output directly, and the sibling executor's one-reduction shape
+  is what this matches. Verified identical over 4000 randomized batches
+  including absent, non-string, out-of-vocabulary, and duplicate-criterion
+  payloads: zero differences in the emitted JSON.
+
 - refactor(implement-ticket): stop the assumption test from re-grading the whole
   corpus, and drop a counter that duplicates another — review of the candidate
   found both. The assumption-gate test ran a second full 60-process grading pass
