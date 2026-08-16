@@ -6,11 +6,23 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
+- test(implement-ticket): re-record the after-stage run at the corrected prose —
+  the false block is gone. `unverifiable-ticket-assumption` returns to 5/5
+  `ready_pr` with zero samples blocking, where the previous wording had 2 of 5
+  refusing a ready ticket, and it still reports the unreadable assumption 5/5 —
+  the obligation kept, the cost removed. `drifted-ticket-assumption` stays 5/5
+  blocked and 5/5 naming the drift. Naming the excluded outcome inside the
+  branch a reader acts on is what moved it; the earlier attempt, which fixed the
+  same confusion in a summary paragraph one step away, moved nothing. Corpus
+  total is 36 of 60 against 38: two cases this change does not touch went red,
+  both of which have oscillated across every run recorded today.
+
 - fix(implement-ticket): keep drift out of the body-repair branch, and name the
-  outcome the unreadable branch must not produce — review of the candidate found
-  the new gate condition had been added to the same list the routing section
-  below calls the body-level conditions, whose first branch repairs the ticket
-  body and continues whenever ticket editing is authorized. A drifted assumption
+  outcome the unreadable branch must not produce
+  (4240e4cf924e8db2ebeafad2e8c54af3aedd424d) — review of the candidate found the
+  new gate condition had been added to the same list the routing section below
+  calls the body-level conditions, whose first branch repairs the ticket body
+  and continues whenever ticket editing is authorized. A drifted assumption
   would have taken that branch, which is the one thing the ticket names as a
   non-goal; the candidate's only carve-out disclaimed the routing marker, not
   the repair. The routing section now excludes the condition by name. The second
