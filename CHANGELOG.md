@@ -6,10 +6,20 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
 
+- test(evals): hold every recorded subtree to reachability from `HEAD` —
+  `scripts/tests/test_eval_candidate_citations.py` fails when a summary's
+  `candidate.trees` names content no commit reachable from `HEAD` carries, which
+  is the same silent rot `scripts/tests/test_changelog_citations.py` catches for
+  the changelog: a hash resolving to nothing reads exactly like one that
+  resolves. Unlike its sibling it needs no unlanded-branch exemption, because a
+  subtree recorded on an open branch stays reachable from that branch's own
+  history across a rebase. A summary carrying no `trees` passes — those predate
+  the field and are recorded as unresolvable rather than pretended into
+  evidence.
 - fix(evals): derive the durable identity of every summary that still names a
-  reachable commit — 23 of the 82 summaries gain `candidate.trees` computed
-  from the commit each already carries, and the other 59 keep none. The
-  derivation asserts nothing the recorder did not hold:
+  reachable commit — 23 of the 82 summaries gain `candidate.trees` computed from
+  the commit each already carries, and the other 59 keep none. The derivation
+  asserts nothing the recorder did not hold:
   `git rev-parse <recorded sha>:<path>` could not have come out differently had
   the field existed when the summary was written, which is what separates it
   from backfilling a landing commit — a fact decided after the run by a merge
