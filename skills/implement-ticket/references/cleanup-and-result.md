@@ -69,6 +69,9 @@ before return. Otherwise include every applicable field:
 - branch, worktree, candidate head, publication path, and PR or ordered stack
   identity when created;
 - delivery state separately from tracker/acceptance state;
+- the readiness gate's re-check of the ticket's stated assumptions: which still
+  hold, and which could not be checked from the tree — `none` when the ticket
+  states no assumption;
 - completion policy and the authority actually used;
 - the criterion-specific acceptance ledger: criterion, required flag, evidence
   category, pre/post-merge stage, candidate/deployed SHA, environment/URL,

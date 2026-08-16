@@ -240,6 +240,42 @@ def acceptance_result(
     return actions, acceptance_blocked or tracker_blocked, evidence
 
 
+CITATION = re.compile(r'^(?P<path>\S+), the line reading "(?P<line>.*)"$')
+
+
+def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str], bool]:
+    """Re-check the ticket's own stated assumptions against the current tree.
+
+    Unlike this corpus's pre-classified CI attribution and base drift, nothing
+    here says which assumption went stale: the citation carries the text it
+    points at, the repository artifact carries the line that path reads now, and
+    an assumption holds only when the two still agree. A case that announced its
+    own answer would grade whether a runtime can read a flag, not whether it
+    goes and looks.
+    """
+    excerpts = {}
+    for excerpt in repository.get("current_excerpts") or []:
+        excerpts.setdefault(excerpt.get("path"), []).append(excerpt.get("line"))
+
+    unchecked = False
+    drifted = False
+    for assumption in ticket.get("stated_assumptions") or []:
+        citation = CITATION.match(assumption.get("cited_as") or "")
+        if citation is None or citation.group("path") not in excerpts:
+            # A claim with no repository address, or one whose address this run
+            # cannot read, is not answerable here.
+            unchecked = True
+        elif citation.group("line") not in excerpts[citation.group("path")]:
+            drifted = True
+
+    actions = []
+    if unchecked:
+        actions.append("report_unchecked_ticket_assumption")
+    if drifted:
+        actions.extend(["reject_drifted_ticket_assumption", "fail_before_mutation"])
+    return actions, drifted
+
+
 def implement_ticket_dependency_result(
     target: str, repository: dict
 ) -> tuple[list[str], dict | None]:
@@ -462,6 +498,18 @@ def action_result(payload: dict) -> dict:
             "terminal_state": "blocked",
             "actions": ["fail_before_mutation", "name_missing_babysit_pr"],
         }
+
+    assumption_actions, assumptions_drifted = stated_assumption_result(
+        ticket, artifacts["repository"]
+    )
+    if assumptions_drifted:
+        return {
+            "target_skill": target,
+            "terminal_state": "blocked",
+            "actions": sorted(set(assumption_actions)),
+            "acceptance_ledger": acceptance_ledger,
+        }
+    actions.extend(assumption_actions)
 
     if artifacts["diff"].get("guardrail") == "oversized" and not capabilities.get(
         "carve_changesets"

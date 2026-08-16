@@ -1,0 +1,39 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-234-09af55",
+    "sha": "36633b3f8f22024cd1b2a2470171215f6b88141f",
+    "tree": "791ce10556693b95811ac97deeb97f4556941de1",
+    "worktree_clean": true
+  },
+  "case_evidence": {},
+  "cases": {},
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "skills/implement-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3 skills/implement-ticket/scripts/evals/claude_executor.py --model claude-opus-5"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 1,
+  "failures": [],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": "eval command exited 1 without an aggregate summary; model-behavior evidence not collected",
+  "model": "claude-opus-5",
+  "note": "Recorded before this branch was rebased onto 77011ed7 (#236), so candidate.sha 36633b3f and candidate.tree name pre-rebase objects that no ref reaches: the rebase replayed these commits onto different content, which is the case AGENTS.md's 'tree survives a rebase' claim does not cover. Commit e9bd92f on this branch carries a byte-identical skills/implement-ticket subtree and is what a later reader should read this run against. The measured results, per-case outcomes, and vote counts are unaffected.",
+  "output_tail": "Traceback (most recent call last):\n  File \"/Users/scott/.claude/worktrees/compris/ticket-234-09af55/skills/implement-ticket/scripts/evals/run_forward.py\", line 182, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-234-09af55/skills/implement-ticket/scripts/evals/run_forward.py\", line 160, in main\n    observations, failures = evaluate(\n                             ^^^^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-234-09af55/skills/implement-ticket/scripts/evals/run_forward.py\", line 133, in evaluate\n    observed = run_executor(command, payload)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-234-09af55/skills/implement-ticket/scripts/evals/run_forward.py\", line 50, in run_executor\n    raise RuntimeError(\nRuntimeError: executor exited 1: Traceback (most recent call last):\n  File \"/Users/scott/.claude/worktrees/compris/ticket-234-09af55/skills/implement-ticket/scripts/evals/claude_executor.py\", line 445, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-234-09af55/skills/implement-ticket/scripts/evals/claude_executor.py\", line 434, in main\n    raise RuntimeError(\nRuntimeError: every one of the 5 samples failed for this scenario",
+  "recorded_at": "2026-08-16T04:25:25Z",
+  "schema": "eval-run-summary/1",
+  "skill": "implement-ticket",
+  "stage": "after",
+  "status": "attempted",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": null
+}

@@ -355,6 +355,96 @@ class ImplementTicketContractTests(unittest.TestCase):
             self.skill_compact,
         )
 
+    def test_stated_assumptions_are_rechecked_before_implementation_state(self):
+        """Conditional behavior: an observable predicate with every branch stated."""
+        self.assertIn(
+            "states no assumption that the current tree now contradicts",
+            self.skill_compact,
+        )
+        self.assertIn(
+            "Before creating a branch, worktree, or any other implementation "
+            "state, re-read each stated assumption against the current tree",
+            self.skill_compact,
+        )
+        for branch in (
+            "**It still holds.**",
+            "**It no longer holds.**",
+            "**It cannot be checked here.**",
+        ):
+            self.assertIn(branch, self.skill_compact)
+        self.assertIn(
+            "exclusive and exhaustive: every stated assumption lands in one, and "
+            "no assumption lands in two",
+            self.skill_compact,
+        )
+        # Measured: two of five samples blocked on an unreadable citation while
+        # the section still described that branch's cost in drift's words.
+        self.assertIn(
+            "An unreadable citation is not drift and never blocks",
+            self.skill_compact,
+        )
+        # An empty slot has a spelling, so absence is not a silent pass.
+        self.assertIn("`None verified`", self.skill_compact)
+
+    def test_drift_blocks_without_editing_the_body_or_routing(self):
+        for required in (
+            "Make no mutation. Do not repair the body",
+            "it carries no routing marker",
+            # The gate's conditions are the same list the routing section calls
+            # the body-level conditions, and that section's first branch repairs
+            # the body when editing is authorized. Drift must be excluded there,
+            # not only disclaimed from the marker.
+            "One condition above is not routed here at all",
+            "it blocks without editing the body, whatever ticket-editing "
+            "authority exists",
+        ):
+            self.assertIn(required, self.skill_compact)
+
+    def test_the_unreadable_branch_names_the_outcome_it_must_not_produce(self):
+        """Measured: 2 of 5 samples blocked a ready ticket on an unreadable citation."""
+        self.assertIn(
+            "Proceed to implementation — never return `blocked` for this branch",
+            self.skill_compact,
+        )
+
+    def test_the_unchecked_branch_is_decided_by_the_citation(self):
+        """The measured failure was over-claiming `unchecked`, not missing drift."""
+        self.assertIn(
+            "Decide this from the citation, never from how the claim sounds",
+            self.skill_compact,
+        )
+        self.assertIn("An assumption you did read is checked", self.skill_compact)
+        # The result carries the report, so it cannot go missing quietly.
+        self.assertIn("which could not be checked from the tree", self.result_compact)
+
+    def test_the_recheck_does_not_reopen_the_load_bearing_exclusion(self):
+        self.assertIn("Re-checking is not re-deriving", self.skill_compact)
+        self.assertIn(
+            "That excludes re-deriving the conclusion, not re-reading the citation",
+            self.skill_compact,
+        )
+
+    def test_the_assumption_gate_is_forward_eval_covered(self):
+        forward = {
+            item["case_id"]: item
+            for item in json.loads(
+                read(SKILL_ROOT / "evals" / "forward_expectations.json")
+            )
+        }
+        terms = {
+            "reject_drifted_ticket_assumption",
+            "report_unchecked_ticket_assumption",
+        }
+        required = set()
+        forbidden = set()
+        for expectation in forward.values():
+            required |= set(expectation.get("required_actions") or []) & terms
+            forbidden |= set(expectation.get("forbidden_actions") or []) & terms
+        self.assertEqual(terms, required)
+        # Each term is also gradable as wrong somewhere, or a runtime emitting
+        # both on every case would pass both cases.
+        self.assertEqual(terms, forbidden)
+
     def test_fix_loop_consumes_findings_through_the_bundled_disciplines(self):
         for surface in (self.skill_compact, self.review_fix_loop_handoff_compact):
             self.assertIn("consumption-disciplines.md", surface)

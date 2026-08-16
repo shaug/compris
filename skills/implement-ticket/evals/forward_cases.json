@@ -1042,5 +1042,41 @@
       "worktree": {"path": "/worktrees/g304", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-304"}
     }
+  },
+  {
+    "id": "drifted-ticket-assumption",
+    "target_skill": "implement-ticket",
+    "request": "Implement GitHub ticket G-830.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-830", "state": "open", "whole_epic": false, "acceptance_evidence": [], "change_kind": "feature", "stated_assumptions": [{"claim": "The exporter writes through one sink, so this ticket adds the second one rather than reworking a set.", "cited_as": "src/export/writer.py, the line reading \"sink = FileSink(path)\""}, {"claim": "No retry wrapper exists around the sink, so this ticket introduces the first one.", "cited_as": "src/export/sink.py, the line reading \"def write(self, batch):\""}]},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "one ticket per PR", "current_excerpts": [{"path": "src/export/writer.py", "line": "sink = FileSink(path)"}, {"path": "src/export/sink.py", "line": "def write(self, batch, retries=3):"}]},
+      "pr": {"state": "absent", "merged": false, "head": null, "base": "base-1", "mergeable": null},
+      "diff": {"base": "base-1", "head": null, "patch": "", "resulting_tree": null},
+      "checks": {"status": "absent", "items": []},
+      "reviews": {"initial": "absent", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": null, "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": false, "result_well_formed": true}
+    }
+  },
+  {
+    "id": "unverifiable-ticket-assumption",
+    "target_skill": "implement-ticket",
+    "request": "Implement GitHub ticket G-831 to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-831", "state": "open", "whole_epic": false, "acceptance_evidence": [], "change_kind": "feature", "stated_assumptions": [{"claim": "The importer reads the schema module the exporter writes, so one edit covers both.", "cited_as": "src/import/reader.py, the line reading \"from schema import RowSchema\""}, {"claim": "The upstream vendor keeps publishing the legacy column through the end of the quarter.", "cited_as": "a statement from the vendor's integration team"}]},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "CI and clean review required", "current_excerpts": [{"path": "src/import/reader.py", "line": "from schema import RowSchema"}, {"path": "src/export/writer.py", "line": "sink = FileSink(path)"}]},
+      "pr": {"state": "open", "merged": false, "head": "head-831", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-831", "patch": "ticket-scoped patch", "resulting_tree": "tree-831"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-831"}]},
+      "reviews": {"initial": "clean", "head": "head-831", "connector_head": "head-831", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g831", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-831"}
+    }
   }
 ]
