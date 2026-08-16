@@ -253,7 +253,7 @@ def run_claude(
     )
 
 
-def normalize(payload: dict, observed: dict) -> dict:
+def normalize(observed: dict) -> dict:
     actions = observed.get("actions")
     if not isinstance(actions, list):
         actions = []
@@ -286,9 +286,9 @@ def normalize(payload: dict, observed: dict) -> dict:
 NO_ANSWER = "none"
 
 
-def sample(payload: dict, observed: dict) -> dict:
+def sample(observed: dict) -> dict:
     """One sample reduced to the four things the grader is defined on."""
-    normalized = normalize(payload, observed)
+    normalized = normalize(observed)
     return {
         "target_skill": normalized["target_skill"],
         "terminal_state": normalized["terminal_state"],
@@ -318,21 +318,22 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
     presence: Counter = Counter()
     statuses: dict[str, Counter] = {}
     multiplicities: dict[str, Counter] = {}
-    order: list[str] = []
     for item in samples:
         counted = Counter(criterion for criterion, _ in item["acceptance_ledger"])
         for criterion, count in counted.items():
             if criterion not in statuses:
                 statuses[criterion] = Counter()
                 multiplicities[criterion] = Counter()
-                order.append(criterion)
             presence[criterion] += 1
             multiplicities[criterion][str(count)] += 1
         for criterion, status in item["acceptance_ledger"]:
             statuses[criterion][status] += 1
 
+    # `statuses` is insertion-ordered and gains a key exactly where a criterion
+    # is first seen, so it is the first-seen order; a separate list of the same
+    # keys could fall out of step with it.
     ledger = []
-    for criterion in order:
+    for criterion in statuses:
         if presence[criterion] < majority:
             continue
         status, _ = _modal(statuses[criterion])
@@ -343,7 +344,7 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
             "samples": presence[criterion],
             "statuses": dict(statuses[criterion]),
         }
-        for criterion in order
+        for criterion in statuses
     }
 
 
@@ -417,24 +418,30 @@ def draw(prompt: str, claude_bin: str, model: str) -> dict | None:
         return None
 
 
+def draw_batch(prompt: str, claude_bin: str, model: str, repetitions: int) -> list:
+    """One round of independent samples, minus the ones the runtime refused.
+
+    The samples are independent by construction, so they are drawn
+    concurrently: this corpus is four times the size of its sibling's, and
+    drawing five sequential samples for each case would put a recorded stage
+    into the hours. Every round goes through here, so the redraw below is as
+    concurrent as the first round and is counted the same way.
+    """
+    with ThreadPoolExecutor(max_workers=repetitions) as pool:
+        observed = pool.map(
+            lambda _: draw(prompt, claude_bin, model), range(repetitions)
+        )
+    return [item for item in observed if item is not None]
+
+
 def main() -> int:
     args = parse_args()
     if args.repetitions < 1:
         raise SystemExit("--repetitions must be at least 1")
     payload = json.load(sys.stdin)
     prompt = build_prompt(payload)
-    # The samples are independent by construction, so they are drawn
-    # concurrently: this corpus is four times the size of its sibling's, and
-    # drawing five sequential samples for each case would put a recorded stage
-    # into the hours.
-    with ThreadPoolExecutor(max_workers=args.repetitions) as pool:
-        observed = list(
-            pool.map(
-                lambda _: draw(prompt, args.claude_bin, args.model),
-                range(args.repetitions),
-            )
-        )
-    drawn = [item for item in observed if item is not None]
+    drawn = draw_batch(prompt, args.claude_bin, args.model, args.repetitions)
+    failed = args.repetitions - len(drawn)
     if not drawn:
         # Every concurrent sample failing at once reads as a burst — throttling,
         # an overloaded backend — rather than as an unusable environment, and
@@ -442,21 +449,15 @@ def main() -> int:
         # hour. Stand down briefly and redraw once; a second empty draw is the
         # environment, and the recorder files the whole stage as `attempted`.
         time.sleep(SCENARIO_RETRY_PAUSE_SECONDS)
-        drawn = [
-            item
-            for item in (
-                draw(prompt, args.claude_bin, args.model)
-                for _ in range(args.repetitions)
-            )
-            if item is not None
-        ]
+        drawn = draw_batch(prompt, args.claude_bin, args.model, args.repetitions)
+        failed += args.repetitions - len(drawn)
     if not drawn:
         raise RuntimeError(
             f"every one of the {args.repetitions} samples failed for this "
             f"scenario, twice, {SCENARIO_RETRY_PAUSE_SECONDS}s apart"
         )
-    result = combine([sample(payload, item) for item in drawn])
-    result["failed_samples"] = len(observed) - len(drawn)
+    result = combine([sample(item) for item in drawn])
+    result["failed_samples"] = failed
     json.dump(result, sys.stdout, sort_keys=True)
     sys.stdout.write("\n")
     return 0

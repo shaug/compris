@@ -34,6 +34,17 @@ assert CLAUDE_SPEC and CLAUDE_SPEC.loader
 CLAUDE_SPEC.loader.exec_module(CLAUDE_EXECUTOR)
 
 
+def cited(assumption: dict) -> tuple[str, str] | None:
+    """The path and quoted line a stated assumption points at, or `None`.
+
+    Parsed through the executor's own `CITATION`, so a test cannot repair a
+    packet by a grammar the executor no longer reads — which would leave the
+    executor calling every citation unreadable while the test still passed.
+    """
+    match = FIXTURE_EXECUTOR.CITATION.match(assumption.get("cited_as") or "")
+    return None if match is None else (match.group("path"), match.group("line"))
+
+
 class ForwardEvaluationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -158,7 +169,7 @@ class ForwardEvaluationTests(unittest.TestCase):
         case["artifacts"]["ticket"]["stated_assumptions"] = [
             assumption
             for assumption in case["artifacts"]["ticket"]["stated_assumptions"]
-            if assumption["cited_as"].split(",")[0] in addressed
+            if (cited(assumption) or (None,))[0] in addressed
         ]
         observed = RUNNER.run_executor(
             [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(case)
@@ -183,10 +194,10 @@ class ForwardEvaluationTests(unittest.TestCase):
         for tell in ("holds", "drift", "stale", "checkable"):
             self.assertNotIn(tell, serialized)
 
-        quoted = {}
-        for assumption in case["artifacts"]["ticket"]["stated_assumptions"]:
-            path, _, line = assumption["cited_as"].partition(', the line reading "')
-            quoted[path] = line[:-1]
+        quoted = dict(
+            cited(assumption)
+            for assumption in case["artifacts"]["ticket"]["stated_assumptions"]
+        )
         for excerpt in case["artifacts"]["repository"]["current_excerpts"]:
             excerpt["line"] = quoted[excerpt["path"]]
         # Repaired to agree with what the tree now reads, the same packet is an
@@ -242,7 +253,6 @@ class ForwardEvaluationTests(unittest.TestCase):
 
     def test_claude_executor_reports_model_claims_verbatim(self):
         normalized = CLAUDE_EXECUTOR.normalize(
-            {"target_skill": "implement-ticket"},
             {"terminal_state": "ready_pr", "actions": ["invoke_ready_to_merge"]},
         )
         # No backfill: a model that omits target_skill must fail grading.
@@ -554,7 +564,6 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         return CLAUDE_EXECUTOR.combine(
             [
                 CLAUDE_EXECUTOR.sample(
-                    {"target_skill": "implement-ticket"},
                     {
                         "target_skill": "implement-ticket",
                         "terminal_state": state,
@@ -645,8 +654,8 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         """
         combined = CLAUDE_EXECUTOR.combine(
             [
-                CLAUDE_EXECUTOR.sample({}, {"terminal_state": "ready_pr"}),
-                CLAUDE_EXECUTOR.sample({}, {"actions": []}),
+                CLAUDE_EXECUTOR.sample({"terminal_state": "ready_pr"}),
+                CLAUDE_EXECUTOR.sample({"actions": []}),
             ]
         )
 
@@ -657,7 +666,7 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
 
     def test_an_all_unusable_run_reports_no_answer_rather_than_the_sentinel(self):
         combined = CLAUDE_EXECUTOR.combine(
-            [CLAUDE_EXECUTOR.sample({}, {"actions": []}) for _ in range(3)]
+            [CLAUDE_EXECUTOR.sample({"actions": []}) for _ in range(3)]
         )
 
         self.assertIsNone(combined["terminal_state"])
@@ -711,7 +720,12 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
 
         slept.assert_called_once_with(CLAUDE_EXECUTOR.SCENARIO_RETRY_PAUSE_SECONDS)
         self.assertEqual(10, len(attempts))
-        self.assertEqual(5, dumped.call_args.args[0]["repetitions"])
+        recorded = dumped.call_args.args[0]
+        self.assertEqual(5, recorded["repetitions"])
+        # The five the burst took are the record of turbulence absorbed. Counted
+        # against the redrawn round alone, a scenario that lost a whole batch
+        # reads exactly like one that never lost a sample.
+        self.assertEqual(5, recorded["failed_samples"])
 
     def test_a_second_empty_draw_is_reported_as_the_environment(self):
         argv = ["claude_executor.py", "--repetitions", "3"]
@@ -734,7 +748,6 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         combined = CLAUDE_EXECUTOR.combine(
             [
                 CLAUDE_EXECUTOR.sample(
-                    {"target_skill": "implement-ticket"},
                     {"terminal_state": "ready_pr", "actions": []},
                 )
             ]

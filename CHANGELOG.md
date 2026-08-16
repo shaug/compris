@@ -36,15 +36,29 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
-- test(implement-ticket): re-record the after-stage run at the shipping head —
-  38 of 60, both new cases green, taken at the head that ships rather than at
-  the prose commit two fixes back. It also refutes the reason given for one of
-  those fixes: the wording change was made because 2 of 5 samples called an
-  unreadable citation drift, and the sentence that described that branch in
-  drift's words looked like the cause. At the corrected head the case still
-  splits 3/5, with the same 2 samples blocking. The sentence is better prose and
-  was not the cause, which is recorded here rather than left implied by a green
-  case.
+- fix(implement-ticket): count the samples a burst took, and own the citation
+  grammar once — review of the candidate returned three strong recommendations,
+  all in the harness rather than the gate. The burst tolerance reported
+  `failed_samples` by subtracting the surviving redraw from the first round, so
+  a scenario that lost all five samples and recovered recorded zero failures,
+  reading exactly like one that never lost a sample; the redraw was also
+  sequential, quietly dropping the concurrency the first round has. Both rounds
+  now go through one `draw_batch`, and the losses accumulate across them. A test
+  repairing a drifted packet parsed the citation grammar by hand, so a change to
+  the executor's `CITATION` would have left that test green while the executor
+  called every citation unreadable — it now parses through `CITATION` itself.
+  `normalize` never read the `payload` argument it has always taken, and the new
+  sampling layer threaded it through again; it is gone from both.
+
+- test(implement-ticket): re-record the after-stage run at the shipping head
+  (c05a44b07dabdb5fb089a47599862110b08ee22b) — 38 of 60, both new cases green,
+  taken at the head that ships rather than at the prose commit two fixes back.
+  It also refutes the reason given for one of those fixes: the wording change
+  was made because 2 of 5 samples called an unreadable citation drift, and the
+  sentence that described that branch in drift's words looked like the cause. At
+  the corrected head the case still splits 3/5, with the same 2 samples
+  blocking. The sentence is better prose and was not the cause, which is
+  recorded here rather than left implied by a green case.
 
 - fix(implement-ticket): survive a burst that takes every sample of one scenario
   (b19794a9bebff1838e4b752b8f3bccda7d36903d) — the re-recording at the shipping
