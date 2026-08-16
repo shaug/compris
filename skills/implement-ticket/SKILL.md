@@ -356,6 +356,7 @@ Proceed only when the selected ticket:
   criteria and required verification the ticket or repository actually calls
   for, and enough detail to classify each evidence item as pre-merge or
   post-merge;
+- states no assumption that the current tree now contradicts;
 - contains no unresolved product, data, authorization, migration, destructive,
   or architecture decision;
 - represents one coherent candidate that is expected to fit one reviewable PR,
@@ -380,6 +381,52 @@ available post-merge verification and tracker authority.
 When ticket editing is authorized, make an unclear ticket implementation-ready
 and re-read it. Otherwise stop with the missing decision rather than
 improvising.
+
+### Re-check the stated assumptions against the current tree
+
+A ticket's `Verified assumptions` slot records what was true when the body was
+written. Concurrent work lands between authoring and pickup: a line moves, a
+collection gains a member, and the thing an assumption calls absent is the thing
+that shipped yesterday. The failure is silent — the implementer reads a
+confident, specific, false sentence and builds on it — and it is measured rather
+than supposed: of eight repository citations written into tickets on one day and
+re-checked the same day, one had already moved, in the file concurrent work
+happened to touch.
+
+Before creating a branch, worktree, or any other implementation state, re-read
+each stated assumption against the current tree and place it in exactly one of
+three branches. An empty slot has its own spelling, `None verified`, and leaves
+nothing to re-read.
+
+- **It still holds.** Proceed, and say so. This is the ordinary case, and it
+  costs one search per assumption: a citation written to this repository's
+  convention carries the text it points at, so the search is for that text
+  rather than for a line number that still resolves, to something else.
+- **It no longer holds.** Return `blocked`, naming every assumption that has
+  drifted, what the tree says now, and where you read it. Make no mutation. Do
+  not repair the body: drift can mean the sentence went stale or that the
+  ticket's premise changed, and only the requester decides which —
+  `ready-ticket` is where a corrected body comes from. This is not the
+  incomplete-body condition the next section routes, so it carries no routing
+  marker; nothing is missing from the body, one of its statements has stopped
+  being true.
+- **It cannot be checked here.** Decide this from the citation, never from how
+  the claim sounds: an assumption carrying no repository address, or one whose
+  address this run cannot read, is not answerable from the tree. Proceed, and
+  report that assumption as unchecked in the run's evidence. An assumption you
+  did read is checked — reporting it as unchecked anyway spends the word on a
+  case that has evidence, and leaves the reader unable to tell which claims
+  nobody could stand behind.
+
+The three branches are exclusive and exhaustive: every stated assumption lands
+in one, and no assumption lands in two. Silence about an unreadable claim would
+let it inherit the authority of the slot it sits in — drift's failure, reached
+without any drift.
+
+Re-checking is not re-deriving. This gate re-reads the citation the body already
+carries; it does not re-open the question the body settled, which is
+[step 2](#2-implement-only-the-live-contract)'s load-bearing exclusion and stays
+excluded.
 
 ### Route a not-ready ticket to `ready-ticket`
 
@@ -483,8 +530,12 @@ concurrency, or deployment: interactive runs offer it once, and the user's
 explicit yes constitutes the peer's required request; autonomous and delegated
 runs record the recommendation in the run's evidence and proceed. Do not
 re-verify an assumption the ticket body already records as verified at authoring
-time. A falsified assumption is evidence that the ticket body needs revision;
-take the existing not-ready path rather than redesigning the ticket here.
+time. That excludes re-deriving the conclusion, not re-reading the citation:
+[the readiness gate](#re-check-the-stated-assumptions-against-the-current-tree)
+has already confirmed each stated assumption against the current tree, which is
+a different question and a far cheaper one. A falsified assumption is evidence
+that the ticket body needs revision; take the existing not-ready path rather
+than redesigning the ticket here.
 
 While implementing, when `superpowers:test-driven-development` is available in
 the session skill listing, load it as the recommended method for producing the

@@ -36,17 +36,31 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
-- test(implement-ticket): record the pre-change forward-eval measurement — 32 of
-  60 at the shipping head, with the two new cases splitting. The drift case
-  fails, but not where the ticket predicted: the unmodified skill blocks 5/5 and
-  names the drifted assumption 5/5, and it fails because 3 of those 5 samples
-  also reported an assumption as unchecked in a packet where every assumption
-  carries a readable address. The unverifiable case already passes 5/5. So the
-  behavior the prose has to move is not "notice the drift" but "say which
-  assumptions you actually read", and an earlier measurement discarded before
-  this one is why the corpus asks that at all: its packets stated outright which
-  assumption had gone stale, both cases passed 5/5, and it was grading whether a
-  runtime can read a flag.
+- feat(implement-ticket): re-verify a ticket's stated assumptions at pickup —
+  the readiness gate now re-reads the `Verified assumptions` slot against the
+  current tree before a branch or worktree exists, and sorts each assumption
+  into one of three exclusive branches: it still holds, it no longer holds
+  (`blocked`, naming the drift and what the tree says now, with the body left
+  for the requester and `ready-ticket` to correct), or it cannot be checked from
+  here (proceed, and report it as unchecked). The third branch is decided by the
+  citation rather than by how the claim sounds, because the pre-change
+  measurement showed the wobble is there: the unmodified skill already blocked
+  on drift 5/5, and over-reported `unchecked` for assumptions it had read in 3
+  of those 5 samples. The load-bearing exclusion is unchanged and now says which
+  question it excludes — re-deriving the conclusion, not re-reading the
+  citation.
+
+- test(implement-ticket): record the pre-change forward-eval measurement
+  (0fe2d1326915a0032c2ef316fd3b534be14d5346) — 32 of 60 at the shipping head,
+  with the two new cases splitting. The drift case fails, but not where the
+  ticket predicted: the unmodified skill blocks 5/5 and names the drifted
+  assumption 5/5, and it fails because 3 of those 5 samples also reported an
+  assumption as unchecked in a packet where every assumption carries a readable
+  address. The unverifiable case already passes 5/5. So the behavior the prose
+  has to move is not "notice the drift" but "say which assumptions you actually
+  read", and an earlier measurement discarded before this one is why the corpus
+  asks that at all: its packets stated outright which assumption had gone stale,
+  both cases passed 5/5, and it was grading whether a runtime can read a flag.
 
 - test(implement-ticket): grade re-verification of a ticket's stated assumptions
   at pickup (ad650b2fac1813c387062dc720499dc5697dec49) — a ticket's
