@@ -2,6 +2,9 @@
   "candidate": {
     "branch": "scott/131-dispatch-guidance",
     "sha": "a1ee71cc43ab04af221667a184f7dbf3edac77f1",
+    "trees": {
+      "skills/carve-changesets": "a226d3f0c6ed439b0539dfa024b4ed6f068b3f58"
+    },
     "worktree_clean": false
   },
   "cases": {

@@ -2,6 +2,9 @@
   "candidate": {
     "branch": "scott/implement-ticket-105-4098f0",
     "sha": "da26dc3d9d90274890f86019dadff1010dfefe61",
+    "trees": {
+      "skills/carve-changesets": "f48502538338070a16171a90355cf8f16443aaa5"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

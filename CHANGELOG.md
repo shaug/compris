@@ -6,6 +6,17 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
 
+- fix(evals): derive the durable identity of every summary that still names a
+  reachable commit — 23 of the 82 summaries gain `candidate.trees` computed
+  from the commit each already carries, and the other 59 keep none. The
+  derivation asserts nothing the recorder did not hold:
+  `git rev-parse <recorded sha>:<path>` could not have come out differently had
+  the field existed when the summary was written, which is what separates it
+  from backfilling a landing commit — a fact decided after the run by a merge
+  that had not happened yet. One of the 23 is a triggering-suite run and needs
+  both its skill path and `triggering`. The 59 measured content that no longer
+  exists in any clone but its author's; unlike the changelog's citations, there
+  is nothing left to recover.
 - feat(evals): record the subtree identity that survives a rebase —
   `candidate.tree` was `git rev-parse HEAD^{tree}`, the whole repository's, so a
   rebase onto a moved `main` changed it through files outside the skill and the

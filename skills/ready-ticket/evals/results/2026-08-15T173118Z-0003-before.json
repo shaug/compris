@@ -3,6 +3,9 @@
     "branch": "scott/ticket-197-975284",
     "sha": "1ce41875782ac2a8de04b70d39619493e919d1d5",
     "tree": "ed225d3a4d9022de7332b8798bc8ddec3297f992",
+    "trees": {
+      "skills/ready-ticket": "55f5500260ace2eaaba1f0dc231d905646570da4"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

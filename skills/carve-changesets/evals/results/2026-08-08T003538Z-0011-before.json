@@ -2,6 +2,9 @@
   "candidate": {
     "branch": "scott/133-compaction-ledger",
     "sha": "2d5fa6041825cc5161d4300f9b3056b948bd8029",
+    "trees": {
+      "skills/carve-changesets": "111245e8780ab501e5d4af37de112da772e1a034"
+    },
     "worktree_clean": true
   },
   "case_evidence": {
