@@ -419,9 +419,11 @@ nothing to re-read.
   nobody could stand behind.
 
 The three branches are exclusive and exhaustive: every stated assumption lands
-in one, and no assumption lands in two. Silence about an unreadable claim would
-let it inherit the authority of the slot it sits in — drift's failure, reached
-without any drift.
+in one, and no assumption lands in two. An unreadable citation is not drift and
+never blocks: drift is a disagreement you observed between the citation and the
+tree, and an assumption you could not read produced no disagreement to observe.
+Reporting it is what keeps it from inheriting the authority of the slot it sits
+in.
 
 Re-checking is not re-deriving. This gate re-reads the citation the body already
 carries; it does not re-open the question the body settled, which is

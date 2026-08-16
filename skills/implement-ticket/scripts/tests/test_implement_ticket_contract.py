@@ -377,6 +377,12 @@ class ImplementTicketContractTests(unittest.TestCase):
             "no assumption lands in two",
             self.skill_compact,
         )
+        # Measured: two of five samples blocked on an unreadable citation while
+        # the section still described that branch's cost in drift's words.
+        self.assertIn(
+            "An unreadable citation is not drift and never blocks",
+            self.skill_compact,
+        )
         # An empty slot has a spelling, so absence is not a silent pass.
         self.assertIn("`None verified`", self.skill_compact)
 

@@ -36,16 +36,25 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
-- test(implement-ticket): record the post-change forward-eval measurement — 37
-  of 60, up from 32, with no case newly failing. The obligation the change was
-  written for moved: `drifted-ticket-assumption` goes red to green, still
-  blocking 5/5 and naming the drift 5/5, with the stray `unchecked` report that
-  had failed it at 3 of 5 samples now at 0 of 5. The unverifiable case still
-  passes, and its agreement is where the remaining variance sits — 5/5 before,
-  3/5 after, with 2 samples now calling an unreadable citation drift. The
-  sentence closing that section reached for the word `drift` to describe the
-  unreadable branch's failure, which is the one place the prose blurs the two
-  branches it just separated.
+- fix(implement-ticket): stop describing an unreadable citation in drift's words
+  — the post-change measurement below passed the case but halved its agreement:
+  2 of 5 samples blocked on an assumption with no repository address, calling it
+  drift. The section separates the two branches and then closes by naming the
+  unreadable branch's cost "drift's failure, reached without any drift", which
+  hands the word back to the branch it just excluded. It now says plainly that
+  an unreadable citation is not drift and never blocks, and why: drift is a
+  disagreement you observed, and an assumption you could not read produced none.
+
+- test(implement-ticket): record the post-change forward-eval measurement
+  (92856572d9ad48167b5bdd22ed20c7421cb12557) — 37 of 60, up from 32, with no
+  case newly failing. The obligation the change was written for moved:
+  `drifted-ticket-assumption` goes red to green, still blocking 5/5 and naming
+  the drift 5/5, with the stray `unchecked` report that had failed it at 3 of 5
+  samples now at 0 of 5. The unverifiable case still passes, and its agreement
+  is where the remaining variance sits — 5/5 before, 3/5 after, with 2 samples
+  now calling an unreadable citation drift. The sentence closing that section
+  reached for the word `drift` to describe the unreadable branch's failure,
+  which is the one place the prose blurs the two branches it just separated.
 
 - feat(implement-ticket): re-verify a ticket's stated assumptions at pickup
   (b9234af01c047fb8762013013b288b8f3bf0e433) — the readiness gate now re-reads
