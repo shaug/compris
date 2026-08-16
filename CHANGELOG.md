@@ -4,7 +4,29 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
+## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, and designed one owner for the policy that grades it
+
+- docs: design one owner for the eval sampling policy — the
+  repetition-and-majority-vote policy that turns repeated `claude -p` samples
+  into one graded answer exists in three independently maintained copies, and
+  they have drifted past features into results. `implement-ticket` breaks a tie
+  through `_modal`'s `min()` over the sorted candidates; `ready-ticket` uses
+  `Counter.most_common(1)[0]`, whose tie order follows insertion. On a 2–2 tie
+  the two record different answers, and `ready-ticket` records a different
+  answer again depending on which sample was drawn first — a silent difference
+  in recorded evidence rather than a missing feature. The design gives the
+  policy a canonical `sampling/core.py` at the root, in the transport, drawing,
+  and vote layers its four consumers need at different depths, distributed by
+  the `sync-contracts` mirror-and-drift-test pattern this repository already
+  uses for the review-suite contracts, the shaping doctrine, and
+  `ledger/core.py`. Only the two skills take a bundled copy, because only a
+  skill folder is a standalone distribution unit; `triggering/` and
+  `review-suite/` import the canonical and so cannot drift at all. Because
+  converging the tie-break changes the grader, a run also records the
+  `POLICY_VERSION` it was graded under, and a diff is drawn only when tier,
+  suite, model, and policy all match — extending to a fourth field the rule that
+  already keeps a model update from reading as behavioral movement. Deferred
+  from #237's review as reaching beyond `skills/implement-ticket/`.
 
 - refactor(implement-ticket): reduce a sample once instead of twice
   (3e7b43d5acf77684112f65958c4e27e9ce79769f) — `sample` called `normalize` and
