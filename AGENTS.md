@@ -179,14 +179,39 @@ said. Neither satisfies the other.
 - Changelog: order entries with newest days first and newest commits first
   within a day.
 
-- Changelog: before adding a new entry, backfill the full SHA onto the previous
-  entry (which may be on an earlier day).
+- Changelog: a backfilled SHA names the commit that carried the entry onto
+  `main` — the squash-merge commit for a squash-merged pull request, and the
+  authoring commit only where it survives, as under a merge-commit pull request
+  or a direct push to `main`. `main` is almost entirely squash-merged, and a
+  squash discards every authoring commit the pull request held, so backfilling
+  an authoring SHA leaves a citation that resolves to nothing while still
+  reading like one that resolves.
+
+- Changelog: backfill an entry only once it has landed on `main`. An entry added
+  on the current branch cannot know which commit will carry it there, so it
+  stays SHA-less until it does. Before adding a new entry, backfill every entry
+  below it that has landed and still lacks a SHA — which is more than one
+  whenever the previous pull request contributed several.
+
+- Changelog: several entries citing one SHA is expected, not a mistake. A
+  squash-merge commit carries every entry its pull request contributed, so each
+  of those entries names it.
+
+- Changelog: recover an entry's landing commit with
+  `git log main --format='%H %s' -S'<the entry's first line>' -- CHANGELOG.md`,
+  whose last line is the commit that introduced the entry.
 
 - Changelog: omit the SHA for the new entry being added in the current commit.
 
 - Changelog: format backfilled entries as `<commit title> (<full SHA>)`.
 
 - Changelog: format new entries as `<commit title>`.
+
+- Changelog: `scripts/tests/test_changelog_citations.py` holds the file to this:
+  every SHA it cites in parentheses must name a commit reachable from `HEAD`. A
+  backticked SHA outside parentheses is not a citation — the changelog uses that
+  form to pin a peer repository's commit, which names history that cannot
+  resolve here.
 
 - Release process: [`docs/release-process.md`](docs/release-process.md)
   documents how a tagged release is prepared and cut, including the four version
