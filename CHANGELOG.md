@@ -36,15 +36,28 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
+- test(implement-ticket): record the pre-change forward-eval measurement — 32 of
+  60 at the shipping head, with the two new cases splitting. The drift case
+  fails, but not where the ticket predicted: the unmodified skill blocks 5/5 and
+  names the drifted assumption 5/5, and it fails because 3 of those 5 samples
+  also reported an assumption as unchecked in a packet where every assumption
+  carries a readable address. The unverifiable case already passes 5/5. So the
+  behavior the prose has to move is not "notice the drift" but "say which
+  assumptions you actually read", and an earlier measurement discarded before
+  this one is why the corpus asks that at all: its packets stated outright which
+  assumption had gone stale, both cases passed 5/5, and it was grading whether a
+  runtime can read a flag.
+
 - test(implement-ticket): grade re-verification of a ticket's stated assumptions
-  at pickup — a ticket's `Verified assumptions` slot records what was true when
-  the body was written, and nothing re-reads it when the work is picked up. Two
-  forward cases put that question to the corpus: one whose stated assumption the
-  current tree contradicts, which has to stop before any implementation state
-  exists, and one carrying a claim no repository read can settle, which has to
-  proceed while saying so rather than passing it off as verified. Neither packet
-  says which assumption went stale — the citation carries the line it quotes,
-  the repository artifact carries the line that path reads now, and drift is
+  at pickup (ad650b2fac1813c387062dc720499dc5697dec49) — a ticket's
+  `Verified assumptions` slot records what was true when the body was written,
+  and nothing re-reads it when the work is picked up. Two forward cases put that
+  question to the corpus: one whose stated assumption the current tree
+  contradicts, which has to stop before any implementation state exists, and one
+  carrying a claim no repository read can settle, which has to proceed while
+  saying so rather than passing it off as verified. Neither packet says which
+  assumption went stale — the citation carries the line it quotes, the
+  repository artifact carries the line that path reads now, and drift is
   whatever disagreement a runtime finds between them, so what is graded is
   whether it looks rather than whether it can read a flag. The corpus lands
   ahead of the prose, because `just eval-record` runs the current tree and a
