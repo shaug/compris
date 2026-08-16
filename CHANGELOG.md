@@ -6,15 +6,25 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
-- test(ready-ticket): re-record the after-stage run at the shipping head — the
-  first after-stage run was taken before the executor fix below, so the tree
-  that produced the evidence was not the tree that ships the instrument. Review
-  named that gap, and closing it also settled the open question about the one
-  case that had gone red. The rerun is `completed`, 13 of 13, with the target
-  case still citing the volatile collection by location 5/5 and
-  `autonomous-unresolvable-rate-limit` back at 4/5 on
-  `choose_no_answer_on_requesters_behalf`. Three post-change measurements of
-  that term now read 1/5, 2/5, and 4/5, and its sibling case moved 5/5 to 3/5
+- test(ready-ticket): test the retry loop the way its sibling already does —
+  review found the new retry test hand-rolling a partial stand-in for
+  `subprocess.CompletedProcess`, a manual patch-and-restore, and a list used as
+  a call counter, for behavior
+  `skills/implement-ticket/scripts/tests/test_forward_evals.py` already covers
+  with `mock.patch.object` and a real `CompletedProcess` — against a retry loop
+  this change deliberately mirrored from that same module. The test now reads
+  like its sibling, and exhausting every attempt gained the case the hand-rolled
+  version had no room for.
+
+- test(ready-ticket): re-record the after-stage run at the shipping head
+  (2dc1e4e3339a1fb5be52208d657663b6518fd7ec) — the first after-stage run was
+  taken before the executor fix below, so the tree that produced the evidence
+  was not the tree that ships the instrument. Review named that gap, and closing
+  it also settled the open question about the one case that had gone red. The
+  rerun is `completed`, 13 of 13, with the target case still citing the volatile
+  collection by location 5/5 and `autonomous-unresolvable-rate-limit` back at
+  4/5 on `choose_no_answer_on_requesters_behalf`. Three post-change measurements
+  of that term now read 1/5, 2/5, and 4/5, and its sibling case moved 5/5 to 3/5
   while still passing: the term is an unstable self-report rather than an
   obligation the new prose suppressed, and no prose change was needed to recover
   it. Recorded rather than asserted, because two samples had looked like a

@@ -14,6 +14,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SKILL_ROOT = Path(__file__).resolve().parents[2]
 EVALS = SKILL_ROOT / "evals"
@@ -337,35 +338,43 @@ class RepetitionTests(unittest.TestCase):
         self.assertEqual([], combined["actions"])
         self.assertEqual({}, combined["votes"]["actions"])
 
+    @staticmethod
+    def completed(result_text: str) -> subprocess.CompletedProcess:
+        return subprocess.CompletedProcess(
+            args=["claude"],
+            returncode=0,
+            stdout=json.dumps({"result": result_text}),
+            stderr="",
+        )
+
     def test_a_malformed_sample_is_retried_rather_than_sinking_the_run(self) -> None:
         """One flaky response must not end a run of many sequential samples."""
-        attempts: list[str] = []
+        malformed = '{"terminal_state": "ticket_ready"'
+        valid = '{"terminal_state": "ticket_ready", "actions": []}'
 
-        def flaky(**_kwargs):
-            attempts.append("call")
-            if len(attempts) < 3:
-                return SimpleCompleted('{"terminal_state": "ticket_ready"')
-            return SimpleCompleted('{"terminal_state": "ticket_ready", "actions": []}')
-
-        original = claude_executor.subprocess.run
-        claude_executor.subprocess.run = lambda *args, **kwargs: flaky(**kwargs)
-        try:
+        with mock.patch.object(
+            claude_executor.subprocess,
+            "run",
+            side_effect=[self.completed(malformed), self.completed(valid)],
+        ) as run_mock:
             observed = claude_executor.run_claude("prompt", "claude", None)
-        finally:
-            claude_executor.subprocess.run = original
 
         self.assertEqual("ticket_ready", observed["terminal_state"])
-        self.assertEqual(3, len(attempts))
+        self.assertEqual(2, run_mock.call_count)
 
+    def test_a_run_of_malformed_samples_raises_once_attempts_are_spent(self) -> None:
+        malformed = '{"terminal_state": "ticket_ready"'
+        attempts = claude_executor.RESULT_ATTEMPTS
 
-class SimpleCompleted:
-    """The two fields `run_claude` reads off a completed `claude -p` process."""
+        with mock.patch.object(
+            claude_executor.subprocess,
+            "run",
+            side_effect=[self.completed(malformed)] * attempts,
+        ) as run_mock:
+            with self.assertRaises(RuntimeError):
+                claude_executor.run_claude("prompt", "claude", None)
 
-    returncode = 0
-    stderr = ""
-
-    def __init__(self, result_text: str) -> None:
-        self.stdout = json.dumps({"result": result_text})
+        self.assertEqual(attempts, run_mock.call_count)
 
 
 if __name__ == "__main__":
