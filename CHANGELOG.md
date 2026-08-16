@@ -19,7 +19,7 @@ summary: Chronological history of repository and skill changes.
   branch's own run — it is only the squash-merged history behind that where the
   check was inherently late, because those citations died at the merge instead.
   The failure message names the same mechanism. No assertion, regex, or check
-  changes. The seven entries #238 and #243 landed without SHAs are backfilled to
+  changes. The eight entries #238 and #243 landed without SHAs are backfilled to
   their authoring commits, which is what the rule now names and what the guard
   confirms is reachable.
 
@@ -114,9 +114,10 @@ summary: Chronological history of repository and skill changes.
   tree, which is the one thing a real rebase never is; it now models a base that
   moved, and fails against the old behavior.
 
-- docs: design the eval candidate's durable identity — `AGENTS.md` tells a
-  reader to trust `candidate.tree` over `candidate.sha`, on the grounds that
-  content is identical under rebase and squash where a commit is not. It is not:
+- docs: design the eval candidate's durable identity
+  (5070c687497996fc179af24113126d3edd9f2177) — `AGENTS.md` tells a reader to
+  trust `candidate.tree` over `candidate.sha`, on the grounds that content is
+  identical under rebase and squash where a commit is not. It is not:
   `candidate.tree` is `git rev-parse HEAD^{tree}`, the whole-repository tree, so
   a rebase onto a moved `main` changes it through files outside the skill
   entirely. 59 of the repository's 82 summaries already name an unreachable
