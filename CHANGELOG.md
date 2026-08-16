@@ -4,37 +4,65 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
+
+- docs: design the eval candidate's durable identity — `AGENTS.md` tells a
+  reader to trust `candidate.tree` over `candidate.sha`, on the grounds that
+  content is identical under rebase and squash where a commit is not. It is not:
+  `candidate.tree` is `git rev-parse HEAD^{tree}`, the whole-repository tree, so
+  a rebase onto a moved `main` changes it through files outside the skill
+  entirely. 59 of the repository's 82 summaries already name an unreachable
+  `sha`, proportionally worse than the 68 of 248 changelog citations
+  (77011ed74d28ec522ea7c05d4e310ed53b1dd0d6) repaired, and the loss falls where
+  the evidence matters most — 45 of 47 `after`-stage runs are gone, against 20
+  of 21 `before`-stage runs surviving only because they name an untouched branch
+  point already on `main`. Recording the skill's subtree fixes the rebase case,
+  verified against `scott/ticket-234-09af55` where five of five subtrees survive
+  a rebase that took all five commits, but fixes nothing under squash: a
+  `before` run measures new corpus against old prose, a superseded `after` run
+  measures prose a later commit changed, and neither state is on any commit a
+  squash keeps. The design therefore merge-commits pull requests carrying eval
+  evidence, records `candidate.trees` per path so a triggering-suite run also
+  names `triggering/`, and adds a reachability guard modeled on
+  `scripts/tests/test_changelog_citations.py`. The 23 summaries still naming a
+  reachable commit gain `candidate.trees` derived from it — a lossless
+  computation over what each file already carries, unlike a backfilled landing
+  commit, which would assert a fact the recorder never held. The other 59 are
+  grandfathered: unlike the changelog's citations, the content they measured no
+  longer exists to be recovered.
+
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, set up the citation-rot measurement, and repaired the changelog's own rotted citations under a convention that survives squash-merge
 
-- fix: cite the commit that reached `main`, and hold the changelog to it — 68 of
-  this file's 248 commit citations resolved to nothing. The changelog convention
-  told an author to backfill the SHA of the commit that wrote the entry, but
-  `main` is almost entirely squash-merged, and a squash discards every authoring
-  commit its pull request held. A pull request contributing several entries
-  therefore rotted all of them at once, which is how #147, #176, #185, and #222
-  account for 24 of the 26 dangling citations in the newer `(<sha>)` form. The
-  older `` (`<sha>`) `` form — 169 citations the bare-parenthesis search does
-  not see at all — carried 42 more. Two were not squash rot but fabrication: a
-  7-character prefix expanded to a plausible 40-character string that had never
-  named anything, sharing its prefix with the real commit it was meant to cite.
-  Every one is repointed at the commit that carried its entry onto `main`,
-  recovered by asking which commit introduced that entry's own line, and
-  cross-checked wherever a second source existed: GitHub's merge commit for the
-  cited SHA covers 52, and a real commit sharing the cited prefix covers the 2
-  fabricated ones. Neither source can speak for the remaining 14, whose
-  authoring commits GitHub never saw. No cross-check contradicted the recovered
-  commit. `AGENTS.md` now states the rule the repair follows — cite the landing
-  commit, backfill only once an entry has landed, and expect one SHA across
-  every entry its pull request contributed — and the seven entries that had
-  landed with no SHA at all gain one.
-  `scripts/tests/test_changelog_citations.py` keeps it true, and CI checks out
-  full history because a depth-1 clone cannot answer the question. The guard was
-  verified capable of failing: it named all 68 before the repair, and mutating
-  one character of a single surviving citation turns it red naming that line.
-  One SHA is deliberately left unchecked — the writing-plans experiment's `pin`
-  names a commit in the `superpowers` peer repository, which cannot resolve
-  here, and is written backticked outside parentheses rather than as a citation,
-  which is the distinction the check is scoped to.
+- fix: cite the commit that reached `main`, and hold the changelog to it
+  (77011ed74d28ec522ea7c05d4e310ed53b1dd0d6) — 68 of this file's 248 commit
+  citations resolved to nothing. The changelog convention told an author to
+  backfill the SHA of the commit that wrote the entry, but `main` is almost
+  entirely squash-merged, and a squash discards every authoring commit its pull
+  request held. A pull request contributing several entries therefore rotted all
+  of them at once, which is how #147, #176, #185, and #222 account for 24 of the
+  26 dangling citations in the newer `(<sha>)` form. The older `` (`<sha>`) ``
+  form — 169 citations the bare-parenthesis search does not see at all — carried
+  42 more. Two were not squash rot but fabrication: a 7-character prefix
+  expanded to a plausible 40-character string that had never named anything,
+  sharing its prefix with the real commit it was meant to cite. Every one is
+  repointed at the commit that carried its entry onto `main`, recovered by
+  asking which commit introduced that entry's own line, and cross-checked
+  wherever a second source existed: GitHub's merge commit for the cited SHA
+  covers 52, and a real commit sharing the cited prefix covers the 2 fabricated
+  ones. Neither source can speak for the remaining 14, whose authoring commits
+  GitHub never saw. No cross-check contradicted the recovered commit.
+  `AGENTS.md` now states the rule the repair follows — cite the landing commit,
+  backfill only once an entry has landed, and expect one SHA across every entry
+  its pull request contributed — and the seven entries that had landed with no
+  SHA at all gain one. `scripts/tests/test_changelog_citations.py` keeps it
+  true, and CI checks out full history because a depth-1 clone cannot answer the
+  question. The guard was verified capable of failing: it named all 68 before
+  the repair, and mutating one character of a single surviving citation turns it
+  red naming that line. One SHA is deliberately left unchecked — the
+  writing-plans experiment's `pin` names a commit in the `superpowers` peer
+  repository, which cannot resolve here, and is written backticked outside
+  parentheses rather than as a citation, which is the distinction the check is
+  scoped to.
 
 - test(ready-ticket): test the retry loop the way its sibling already does —
   review found the new retry test hand-rolling a partial stand-in for
