@@ -3,6 +3,9 @@
     "branch": "HEAD",
     "sha": "42b52102530563ead17a1c17db227f32d50954f7",
     "tree": "ad0c07530ed66a58c5af7581675d725f44193eee",
+    "trees": {
+      "skills/implement-ticket": "402e915c924f85b7bf27a39e1aceebf67630b247"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

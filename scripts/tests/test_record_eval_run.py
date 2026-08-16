@@ -456,22 +456,22 @@ class RecorderTests(unittest.TestCase):
         summary = json.loads(files[-1].read_text(encoding="utf-8"))
         self.assertIsNone(summary["compared_to"])
 
-    # AC: the recorded tree identifier still resolves to the evaluated content
-    # after the branch history that produced it is rewritten — first as a
-    # rebase would (a new parent), then as a squash-merge would (a brand new
-    # commit reusing the identical tree). `sha` cannot survive either; `tree`
-    # must survive both.
-    def test_candidate_tree_survives_rebase_and_squash(self) -> None:
+    # AC: the recorded identity still resolves to the evaluated content after
+    # a real rebase onto a moved `main` — one that changes files outside the
+    # skill, as every rebase in this repository does. `sha` cannot survive
+    # that, and neither can the whole-repository `tree`; the skill's subtree
+    # must, because unrelated files moving cannot disturb it.
+    def test_candidate_identity_survives_a_rebase_onto_a_moved_base(self) -> None:
         repo = self.root / "git-repo"
-        repo.mkdir()
+        skill = repo / "skills" / "demo"
+        skill.mkdir(parents=True)
 
-        def git(*args: str, input: str | None = None) -> str:
+        def git(*args: str) -> str:
             completed = subprocess.run(
                 ["git", *args],
                 cwd=repo,
                 text=True,
                 capture_output=True,
-                input=input,
                 check=True,
             )
             return completed.stdout.strip()
@@ -479,36 +479,155 @@ class RecorderTests(unittest.TestCase):
         git("init", "-q")
         git("config", "user.email", "a@example.com")
         git("config", "user.name", "a")
-        (repo / "file.txt").write_text("v1", encoding="utf-8")
-        git("add", "file.txt")
+        (repo / "AGENTS.md").write_text("base\n", encoding="utf-8")
+        (skill / "SKILL.md").write_text("prose v1\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "first")
+        trunk = git("rev-parse", "--abbrev-ref", "HEAD")
+
+        # The branch under measurement changes the skill, so its recorded
+        # subtree is one only this branch carries — not the base's, which
+        # would survive anything.
+        git("checkout", "-q", "-b", "work")
+        (skill / "SKILL.md").write_text("prose v2\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "change the skill under measurement")
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            before = record_eval_run.candidate_identity("demo", [])
+
+        # `main` moves by changing a file outside the skill, as every rebase
+        # in this repository does, and the branch is really rebased onto it.
+        # The rebase rewrites the commit that touched the skill; the content
+        # it touched is unchanged.
+        git("checkout", "-q", trunk)
+        (repo / "AGENTS.md").write_text("moved\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "unrelated change on main")
+        git("checkout", "-q", "work")
+        git("rebase", trunk)
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            after = record_eval_run.candidate_identity("demo", [])
+
+        self.assertNotEqual(after["sha"], before["sha"])
+        self.assertNotEqual(after["tree"], before["tree"])
+        self.assertEqual(after["trees"], before["trees"])
+        self.assertEqual(sorted(before["trees"]), ["skills/demo"])
+
+    # AC: a squash-merge that keeps the measured content keeps the recorded
+    # identity with it. This is the half of the deleted test that was worth
+    # keeping — it is what makes a run recorded at the shipping head
+    # resolvable on `main` afterward, and it is the only durability the
+    # merge-method rule in `AGENTS.md` cannot supply on its own.
+    def test_candidate_identity_survives_a_squash_that_keeps_the_content(
+        self,
+    ) -> None:
+        repo = self.root / "squash-repo"
+        skill = repo / "skills" / "demo"
+        skill.mkdir(parents=True)
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "AGENTS.md").write_text("base\n", encoding="utf-8")
+        (skill / "SKILL.md").write_text("prose v1\n", encoding="utf-8")
+        git("add", "-A")
         git("commit", "-q", "-m", "first")
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            before_rewrite = record_eval_run.candidate_identity()
+            before = record_eval_run.candidate_identity("demo", [])
 
-        original_tree = before_rewrite["tree"]
-        self.assertTrue(original_tree)
-
-        # A rebase: the same tree, a new synthetic parent.
-        empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-        rebase_parent = git("commit-tree", empty_tree, "-m", "rebased-onto")
-        rebased = git(
-            "commit-tree", original_tree, "-p", rebase_parent, "-m", "rebased"
-        )
-        git("reset", "--hard", rebased)
-
-        # A squash-merge on top: yet another brand new commit, still the same
-        # tree, with no ancestry relationship to the original commit at all.
-        squashed = git("commit-tree", original_tree, "-m", "squashed")
+        # The squash: one brand new commit carrying the other files the pull
+        # request touched, with no ancestry to the recorded commit at all.
+        (repo / "AGENTS.md").write_text("squashed\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "other files in the same pull request")
+        squashed = git("commit-tree", git("rev-parse", "HEAD^{tree}"), "-m", "squash")
         git("reset", "--hard", squashed)
 
-        self.assertEqual((repo / "file.txt").read_text(encoding="utf-8"), "v1")
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            after = record_eval_run.candidate_identity("demo", [])
+
+        self.assertNotEqual(after["sha"], before["sha"])
+        self.assertNotEqual(after["tree"], before["tree"])
+        self.assertEqual(after["trees"], before["trees"])
+
+    # AC: a triggering run's executors live in `triggering/`, outside every
+    # skill, so a summary naming only the skill would under-describe the
+    # instrument that produced it.
+    def test_triggering_run_also_names_the_triggering_executors(self) -> None:
+        repo = self.root / "triggering-repo"
+        (repo / "skills" / "demo").mkdir(parents=True)
+        (repo / "triggering").mkdir(parents=True)
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "skills" / "demo" / "SKILL.md").write_text("p\n", encoding="utf-8")
+        (repo / "triggering" / "runner.py").write_text("r\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "first")
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            after_rewrite = record_eval_run.candidate_identity()
+            identity = record_eval_run.candidate_identity(
+                "demo", [sys.executable, "triggering/runner.py", "--skill", "demo"]
+            )
 
-        self.assertEqual(after_rewrite["tree"], original_tree)
-        self.assertNotEqual(after_rewrite["sha"], before_rewrite["sha"])
+        self.assertEqual(sorted(identity["trees"]), ["skills/demo", "triggering"])
+        self.assertEqual(identity["trees_unresolved"], [])
+
+    # AC: a path whose subtree cannot be read is recorded rather than dropped.
+    # A summary that derived nothing otherwise reads exactly like one written
+    # before the field existed, and the reachability guard passes both.
+    def test_an_underivable_path_is_named_rather_than_dropped(self) -> None:
+        repo = self.root / "no-such-path-repo"
+        (repo / "skills" / "demo").mkdir(parents=True)
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "AGENTS.md").write_text("base\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "first")
+
+        # `skills/demo` exists in the worktree but was never committed, so
+        # `git rev-parse HEAD:skills/demo` has nothing to resolve.
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            identity = record_eval_run.candidate_identity("demo", [])
+
+        self.assertEqual(identity["trees"], {})
+        self.assertEqual(identity["trees_unresolved"], ["skills/demo"])
 
 
 class NormIsStatedTests(unittest.TestCase):
@@ -519,6 +638,33 @@ class NormIsStatedTests(unittest.TestCase):
 
         self.assertIn("skills/<skill>/evals/results/", agents)
         self.assertIn("just eval-record", agents)
+
+    def test_agents_md_states_the_merge_method_the_evidence_depends_on(
+        self,
+    ) -> None:
+        """AC: the rule that keeps a recorded subtree resolvable is written
+        where a contributor and a merging agent both read it.
+
+        A recorded subtree resolves only while a commit carrying it stays
+        reachable, so the merge method is load-bearing rather than stylistic
+        and its failure is unrepairable. Prose that omits it leaves the guard
+        firing on `main` with nothing to point the citation at.
+        """
+
+        agents = (REPOSITORY_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        self.assertIn("candidate.trees", agents)
+        # "merge commit" alone is not enough: the changelog-backfill section
+        # already says "squash-merge commit" twice, which contains "merge
+        # commit" as a substring and would pass unconditionally. Assert the
+        # full rule instead, against whitespace-normalized text — mdformat
+        # wraps prose at 80 columns, and the phrase spans that wrapped line
+        # boundary in the committed file.
+        normalized_agents = " ".join(agents.split())
+        self.assertIn(
+            "merges as a merge commit rather than a squash", normalized_agents
+        )
+        self.assertIn("skills/*/evals/results/", agents)
 
     def test_pull_request_template_points_at_the_norm(self) -> None:
         template = REPOSITORY_ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md"
@@ -606,7 +752,7 @@ class NormIsStatedTests(unittest.TestCase):
             "run",
             return_value=subprocess.CompletedProcess([], 0, status, ""),
         ):
-            identity = record_eval_run.candidate_identity()
+            identity = record_eval_run.candidate_identity("demo", [])
 
         self.assertTrue(identity["worktree_clean"])
 
@@ -617,7 +763,7 @@ class NormIsStatedTests(unittest.TestCase):
             "run",
             return_value=subprocess.CompletedProcess([], 0, status, ""),
         ):
-            identity = record_eval_run.candidate_identity()
+            identity = record_eval_run.candidate_identity("demo", [])
 
         self.assertFalse(identity["worktree_clean"])
 
@@ -631,6 +777,21 @@ class NormIsStatedTests(unittest.TestCase):
 
         self.assertEqual(resolved["suite"], "triggering")
         self.assertIn("triggering/runner.py", " ".join(resolved["command"]))
+
+    # AC: a skill whose eval instrument lives under another skill names that
+    # skill too. `implement-epic`'s runner, executor, and corpus are all
+    # `implement-ticket`'s, so naming only `skills/implement-epic` lets two
+    # runs on different instruments carry byte-identical identity — which two
+    # committed summaries recorded on different dates already do.
+    def test_a_run_names_the_skill_whose_corpus_and_executor_it_uses(self) -> None:
+        resolved = record_eval_run.plan(
+            skill="implement-epic", tier=None, override=None, per_case=True
+        )
+
+        self.assertEqual(
+            record_eval_run.subtree_paths("implement-epic", resolved["command"]),
+            ["skills/implement-epic", "skills/implement-ticket"],
+        )
 
     def test_just_exposes_the_recorder_as_eval_record(self) -> None:
         justfile = (REPOSITORY_ROOT / "justfile").read_text(encoding="utf-8")

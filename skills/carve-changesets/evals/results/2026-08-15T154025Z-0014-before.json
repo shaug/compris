@@ -3,6 +3,9 @@
     "branch": "scott/ticket-187-shaping-doctrine",
     "sha": "cb712926c7090d12e18d180c81d219c1c03db600",
     "tree": "4595192a3d818b38e1d36f1c561223220cd2bd70",
+    "trees": {
+      "skills/carve-changesets": "56c91ccbbe65e3b677929fed5728510184225939"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

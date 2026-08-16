@@ -2,6 +2,9 @@
   "candidate": {
     "branch": "HEAD",
     "sha": "20d05b0d49bb1e7930024ccc720c52ed4e320111",
+    "trees": {
+      "skills/carve-changesets": "be3ab221aa185927a78a5e2816bfffa09bfe1e9f"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

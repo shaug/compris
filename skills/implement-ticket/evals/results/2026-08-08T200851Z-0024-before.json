@@ -2,6 +2,9 @@
   "candidate": {
     "branch": "scott/134-worktree-isolation",
     "sha": "bb02ae01d16faa9fde1f40407ae77db2096de633",
+    "trees": {
+      "skills/implement-ticket": "d04ba5681c59f217a12115339a6fae3ccd17af65"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

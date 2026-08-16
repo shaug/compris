@@ -395,7 +395,7 @@ feedback: 3 comments dispositioned (2 fixed, 1 rejected with evidence);
 fixes_pushed: 1 (commit 4f2c…9a1d, review-requested null check)
 mergeability: MERGEABLE / CLEAN    mutation_ownership: this task, released
 caller_owned_follow_up: merge, tracker transition, branch/worktree cleanup
-next_action: caller may merge via repository-approved squash method
+next_action: caller may merge via the repository-approved merge method
 ```
 
 A non-converged example instead reports the retained candidate:

@@ -2,6 +2,9 @@
   "candidate": {
     "branch": "scott/145-real-model-baseline",
     "sha": "67ff0dbce8c534bcf82bde033f5534bb3f2db265",
+    "trees": {
+      "skills/implement-ticket": "a8088d3f89e0ccd770aae53150530940823b6c45"
+    },
     "worktree_clean": true
   },
   "cases": {

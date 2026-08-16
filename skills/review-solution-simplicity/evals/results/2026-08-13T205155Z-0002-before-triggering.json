@@ -3,6 +3,10 @@
     "branch": "scott/ticket-188-319c64",
     "sha": "5405aab218db0f7e519667440392be33063a0ea5",
     "tree": "232dec6de8c4d803cbccbbc0602c53bb063b54cd",
+    "trees": {
+      "skills/review-solution-simplicity": "96f6b0187b2abc51424ac184eb5f9b5e0804bc87",
+      "triggering": "96797e1025c479cb9d38670109f69937dd59b499"
+    },
     "worktree_clean": true
   },
   "case_evidence": {

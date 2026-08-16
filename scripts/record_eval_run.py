@@ -10,8 +10,8 @@ Each run writes one JSON summary to `skills/<skill>/evals/results/`, carrying
 the recorded date, the tier and exact executor command, the candidate the run
 evaluated, per-case pass/fail, and the diff against that skill's previous
 recorded run of the same tier. Summaries are evidence, not a CI gate. Record
-from a committed, clean tree so `candidate.sha` names a commit a later reader
-can actually resolve.
+from a committed, clean tree so `candidate.trees` can be derived from `HEAD`
+at all, and so what it names is content a later reader can actually resolve.
 
 Usage:
     python3 scripts/record_eval_run.py implement-ticket --stage baseline
@@ -389,13 +389,75 @@ def diff_against(
 RESULTS_PATH_MARKER = "/evals/results/"
 
 
-def candidate_identity() -> dict:
-    """Bind the run to the tree that produced it.
+def owning_unit(token: str) -> str | None:
+    """The top-level repository unit a command-line token names, if it names one.
+
+    A unit is `skills/<name>` for anything under `skills/` and the top-level
+    directory otherwise, because that is the granularity at which content in
+    this repository moves together. A token that is a flag, an absolute path,
+    a bare word, or a path no directory backs is not a repository path and
+    yields nothing.
+    """
+
+    if token.startswith("-") or "/" not in token or token.startswith("/"):
+        return None
+    parts = [part for part in token.split("/") if part]
+    if not parts or parts[0] in {".", ".."} or ".." in parts:
+        return None
+    if parts[0] == "skills" and len(parts) > 1:
+        unit = f"skills/{parts[1]}"
+    else:
+        unit = parts[0]
+    return unit if (REPOSITORY_ROOT / unit).is_dir() else None
+
+
+def subtree_paths(skill: str, command: list[str]) -> list[str]:
+    """Name the paths whose content decides what a run read.
+
+    `skills/<skill>` is always named: it holds the prose under measurement,
+    whether or not the command happens to mention it. Everything else is
+    derived from the run's own resolved command, so a target self-describes
+    and no hand-maintained mapping can drift away from the registry. Two
+    cases this repository already has depend on it — a triggering run's
+    executors live in `triggering/`, outside every skill, and
+    `implement-epic`'s runner, executor, and corpus all live under
+    `skills/implement-ticket/`, so naming only the skill would leave two runs
+    on different instruments carrying the same recorded identity.
+
+    A registered target's `--model` and script path normally live inside one
+    compound `--executor` string rather than as separate tokens, so each token
+    is re-split before its paths are read, the same way `model_for` does it.
+    """
+
+    paths = {f"skills/{skill}"}
+    for token in command:
+        for word in shlex.split(token) if " " in token else [token]:
+            unit = owning_unit(word)
+            if unit is not None:
+                paths.add(unit)
+    return sorted(paths)
+
+
+def candidate_identity(skill: str, command: list[str]) -> dict:
+    """Bind the run to the content that produced it.
+
+    `trees` is the durable half. `sha` and `tree` are both branch-local: a
+    rebase onto a moved `main` rewrites the commit and changes the
+    whole-repository tree through files outside the skill entirely, so neither
+    survives one. A subtree the change never touched is undisturbed by
+    unrelated files moving, which is why it is `trees` a later reader should
+    expect to resolve.
 
     `worktree_clean` is left unknown rather than asserted when git cannot be
     read: an empty `git status` and a failed `git status` are the same string,
     and defaulting to `True` would let a summary claim the strongest available
     provenance on the strength of a command that never ran.
+
+    `trees_unresolved` names any path whose subtree could not be read, for the
+    same reason. Dropping it silently would leave a run that derived nothing
+    indistinguishable from a summary predating the field — both carry no
+    citation, and the reachability guard reads the absence as legacy and stays
+    green either way.
     """
 
     def git(*args: str) -> str | None:
@@ -417,9 +479,19 @@ def candidate_identity() -> dict:
             for line in status.splitlines()
             if RESULTS_PATH_MARKER not in line.replace("\\", "/")
         ]
+    trees = {}
+    unresolved = []
+    for path in subtree_paths(skill, command):
+        resolved = git("rev-parse", f"HEAD:{path}")
+        if resolved is None:
+            unresolved.append(path)
+        else:
+            trees[path] = resolved
     return {
         "sha": git("rev-parse", "HEAD"),
         "tree": git("rev-parse", "HEAD^{tree}"),
+        "trees": trees,
+        "trees_unresolved": unresolved,
         "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
         "worktree_clean": None if relevant is None else not relevant,
     }
@@ -510,7 +582,7 @@ def build_summary(
         "gap": gap,
         "note": note,
         "command": command,
-        "candidate": candidate_identity(),
+        "candidate": candidate_identity(skill, command),
         "status": status,
         "exit_code": completed.returncode,
         "limitation": limitation,

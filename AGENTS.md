@@ -78,23 +78,84 @@ tier may report more than an outcome — the triggering corpus's description tie
 reports how many of its repetitions agreed. Variance is the metric there, and a
 case degrading from unanimous to a bare majority still records `pass`.
 
-Record from a committed, clean tree, so the summary's `candidate.sha` names a
-commit a later reader can resolve, and commit the summaries on top. A run
-recorded from a dirty tree — or from a commit later amended away — names a tree
-nobody else can retrieve, which is the one thing the record exists to supply.
+Record from a committed, clean tree, so the summary's `candidate.trees` can be
+derived from `HEAD` at all and names content a later reader can retrieve, and
+commit the summaries on top. A run recorded from a dirty tree read files no
+commit holds, so the subtrees it records name something other than what the eval
+actually saw — and naming that content is the one thing the record exists to do.
 
-Each summary also carries `candidate.tree`, the committed content's
-`git rev-parse HEAD^{tree}`, and — for a real-model run — `model`, the exact
-`--model` the recorded command passed. `sha` names the commit, which rebase
-rewrites and squash-merge discards outright; `tree` names the content, which is
-identical under both, so it is `tree`, not `sha`, that a reader should expect to
-still resolve once a change has landed on `main`. `model` exists because a
-before/after pair taken across a model update compares two different subjects
-wearing the same tier name; a diff is drawn only when the compared runs' tier,
-suite, and model all match. A deterministic run records no model — there is none
-to name. Summaries recorded before this field existed carry no `model` at all
-and are branch-local and unattributed: no model can be recovered for them after
-the fact, and they are not backfilled.
+Each summary also carries `candidate.trees` — a map from repository path to that
+path's subtree hash. It names `skills/<skill>` for every run, the prose under
+measurement, plus every repository unit the run's own resolved command names, so
+a run whose instrument lives elsewhere says so: a triggering run picks up
+`triggering/`, where its executors live outside every skill, and an
+`implement-epic` run picks up `skills/implement-ticket`, whose runner, executor,
+and corpus it is measured through. A path whose subtree could not be read is
+listed under `candidate.trees_unresolved` rather than dropped, because a run
+that derived nothing would otherwise be indistinguishable from a summary
+predating the field. Alongside them a summary carries `candidate.tree`, the
+whole repository's `git rev-parse HEAD^{tree}`, and, for a real-model run,
+`model`, the exact `--model` the recorded command passed.
+
+`sha` and `tree` are both branch-local. A rebase onto a moved `main` rewrites
+the commit and changes the repository tree through files outside the skill
+entirely, so neither survives one, and a squash-merge then discards both
+outright. It is `trees` a reader should expect to still resolve, because
+unrelated files moving cannot disturb a subtree the change never touched.
+
+A subtree resolves only while a commit carrying it stays reachable, which is why
+this repository merges as a merge commit rather than a squash. A squash keeps
+one tree per pull request, and the states eval evidence measures are
+intermediate by construction: a before-stage run measures a new corpus against
+the old prose, and a superseded after-stage run measures prose a later commit
+changed. Squashing such a pull request destroys the measured content in every
+clone but the author's, and no later repair recovers it — the only remedy is to
+re-record against a state that still exists and to say in the summary that the
+original is unrecoverable. `scripts/tests/test_eval_candidate_citations.py` is
+what turns red when this goes wrong, and `carve-changesets` already defaults its
+merge method to `merge`.
+
+The rule is unconditional rather than scoped to the pull requests that carry
+eval evidence, because a conditional one cannot be enforced. GitHub's merge
+method is a repository setting, not a per-pull-request one, so "squash normally,
+merge-commit when the diff touches `skills/*/evals/results/`" is not a
+configuration anyone can express — it would rest entirely on whoever clicks
+merge classifying the pull request correctly, every time, with no mechanism
+catching a mistake. The two failures are not comparable: squashing an
+eval-carrying pull request loses content permanently, while merge-committing one
+that carries none costs a non-linear history that `git log --first-parent` reads
+straight through. Disabling squash merging on the repository is what makes the
+rule hold; the prose only records why.
+
+Squash is the only method that has to be off. Rebase merging replays every
+commit rather than collapsing them, so each intermediate subtree still lands on
+`main` and stays reachable — a rebase moves a commit without disturbing a
+subtree the commit never touched, which is the same property `candidate.trees`
+rests on in the first place. It rewrites `sha`, but `sha` is already recorded as
+branch-local. The exception is a rebase that resolves conflicts inside a skill
+directory: there the replayed commit carries content the recorded run never
+read, so the recorded subtree lands nowhere and
+`scripts/tests/test_eval_candidate_citations.py` turning red is correct rather
+than a false alarm — that guard names this case alongside the squash, and the
+answer to it is to re-record. Rebase merging is therefore left available; only a
+squash collapses the measured states away with nothing to re-record against.
+
+`model` exists because a before/after pair taken across a model update compares
+two different subjects wearing the same tier name; a diff is drawn only when the
+compared runs' tier, suite, and model all match. A deterministic run records no
+model — there is none to name. Summaries recorded before these fields existed
+carry `trees` only where it could be derived from a commit still reachable from
+`HEAD`, and carry no `model` at all: no model can be recovered for them after
+the fact, and they are not backfilled. Reachability rather than resolvability is
+the criterion, because a commit surviving in one clone as a dangling object
+resolves there and nowhere else — deriving from those would write citations the
+guard reports as rot, which is what they are. The derivation that is backfilled,
+`git rev-parse <recorded sha>:<path>`, is a computation over what the file
+already carries and could not have come out differently had the field existed
+when it was written. A landing commit is not backfilled for the opposite reason:
+which commit carries a summary onto `main` is decided after the run by a merge
+that has not happened yet, so writing it in would add a claim nothing in the
+file supports.
 
 Summaries already written under `evals/results/` are the one exemption, and it
 is narrow by construction. Recording several skills in sequence writes a summary
@@ -180,12 +241,14 @@ said. Neither satisfies the other.
   within a day.
 
 - Changelog: a backfilled SHA names the commit that carried the entry onto
-  `main` — the squash-merge commit for a squash-merged pull request, and the
-  authoring commit only where it survives, as under a merge-commit pull request
-  or a direct push to `main`. `main` is almost entirely squash-merged, and a
-  squash discards every authoring commit the pull request held, so backfilling
-  an authoring SHA leaves a citation that resolves to nothing while still
-  reading like one that resolves.
+  `main` — the authoring commit where it survives, as under a merge-commit pull
+  request or a direct push to `main`, and the squash-merge commit for a
+  squash-merged one. Merge-commit is now this repository's method, so the
+  authoring commit normally is the landing commit. The distinction still matters
+  for the squash-merged history behind that change: a squash discards every
+  authoring commit its pull request held, so backfilling an authoring SHA there
+  leaves a citation that resolves to nothing while still reading like one that
+  resolves.
 
 - Changelog: backfill an entry only once it has landed on `main`. An entry added
   on the current branch cannot know which commit will carry it there, so it
@@ -193,9 +256,11 @@ said. Neither satisfies the other.
   below it that has landed and still lacks a SHA — which is more than one
   whenever the previous pull request contributed several.
 
-- Changelog: several entries citing one SHA is expected, not a mistake. A
-  squash-merge commit carries every entry its pull request contributed, so each
-  of those entries names it.
+- Changelog: several entries citing one SHA is expected, not a mistake, in the
+  squash-merged history behind the merge-commit change — a squash-merge commit
+  carries every entry its pull request contributed, so each of those entries
+  names it. Under a merge commit each entry has its own authoring commit, so new
+  entries normally cite distinct SHAs.
 
 - Changelog: recover an entry's landing commit with
   `git log main --format='%H %s' -S'<the entry's first line>' -- CHANGELOG.md`,
