@@ -5,18 +5,25 @@ narrative entry to the history that produced it, and its failure mode is
 silent: a citation that resolves to nothing reads exactly like one that
 resolves, so nobody discovers the rot until they try to follow it.
 
-`main` is almost entirely squash-merged. A pull request contributing several
-entries collapses to one commit, and every authoring SHA those entries had
-backfilled is discarded by the squash — which is how 68 of this file's 248
-citations came to point at nothing at once. `AGENTS.md` now requires a
-backfilled SHA to name the commit that carried the entry onto `main`, and this
-module is what holds the file to it.
+The rot this module was written for arrived through squash-merges: `main` was
+squash-merged for most of this file's history, so a pull request contributing
+several entries collapsed to one commit and every authoring SHA those entries
+had backfilled was discarded at once — which is how 68 of the 248 citations
+came to point at nothing. Squash merging is off now, and a merge commit
+preserves the authoring commits it carries, so a landed authoring commit is
+itself the SHA its entry cites. `AGENTS.md` requires a backfilled SHA to name
+the commit that carried the entry onto `main`, and this module is what holds
+the file to it.
 
-The check is reachability from `HEAD`, so it turns red on the first change
-made after a doomed citation lands rather than on the branch that wrote it: on
-its own branch an unlanded authoring commit is still reachable, and only the
-squash makes it unreachable. `AGENTS.md` closes that window from the other
-side by requiring a SHA to be backfilled only once its entry has landed.
+When the guard fires depends on which mechanism invalidated the SHA. The check
+is `git rev-list HEAD` membership, so a citation backfilled before its branch
+was submitted reddens on that same branch: submitting rebases onto `main`
+first, and a rebased `HEAD` no longer reaches the commit it replaced. It is the
+squash-merged history behind that where the check is inherently late — those
+citations stayed reachable on their own branch and died only at the merge, so
+nothing turned red until the first change made after they had landed.
+`AGENTS.md` closes the window from the other side by requiring a SHA to be
+backfilled only once its entry has landed.
 """
 
 from __future__ import annotations
@@ -99,9 +106,9 @@ class ChangelogCitationTests(unittest.TestCase):
                 for sha, line, title in dangling
             )
             + "\n\nA backfilled SHA names the commit that carried the entry onto "
-            "`main`\n(see AGENTS.md). Squash-merge discards the authoring commit, "
-            "so citing\nit leaves a citation resolving to nothing. Recover the "
-            "landing commit with:\n"
+            "`main`\n(see AGENTS.md). A SHA taken before the branch was rebased "
+            "and landed\nnames a commit no ref reaches. Recover the landing "
+            "commit with:\n"
             "  git log main --format='%H %s' -S'<the entry's first line>' -- "
             "CHANGELOG.md\nand take the last line, which is the commit that "
             "introduced that entry.",
