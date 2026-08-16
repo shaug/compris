@@ -412,11 +412,12 @@ nothing to re-read.
   being true.
 - **It cannot be checked here.** Decide this from the citation, never from how
   the claim sounds: an assumption carrying no repository address, or one whose
-  address this run cannot read, is not answerable from the tree. Proceed, and
-  report that assumption as unchecked in the run's evidence. An assumption you
-  did read is checked — reporting it as unchecked anyway spends the word on a
-  case that has evidence, and leaves the reader unable to tell which claims
-  nobody could stand behind.
+  address this run cannot read, is not answerable from the tree. Proceed to
+  implementation — never return `blocked` for this branch — and report that
+  assumption as unchecked in the run's evidence. An assumption you did read is
+  checked; reporting it as unchecked anyway spends the word on a case that has
+  evidence, and leaves the reader unable to tell which claims nobody could stand
+  behind.
 
 The three branches are exclusive and exhaustive: every stated assumption lands
 in one, and no assumption lands in two. An unreadable citation is not drift and
@@ -437,6 +438,12 @@ product, data, authorization, migration, destructive, or architecture decision �
 is not a dead end. Two checkable facts decide the branch: whether ticket editing
 is authorized, and whether closing the gap would decide something this skill may
 not decide.
+
+One condition above is not routed here at all. A drifted stated assumption is
+governed entirely by
+[the preceding section](#re-check-the-stated-assumptions-against-the-current-tree):
+it blocks without editing the body, whatever ticket-editing authority exists,
+because a body that has gone false is not a body with a gap to close.
 
 - **Ticket editing is authorized and the gap is not one of those decisions.**
   The preceding paragraph governs unchanged: make the ticket

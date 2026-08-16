@@ -390,8 +390,22 @@ class ImplementTicketContractTests(unittest.TestCase):
         for required in (
             "Make no mutation. Do not repair the body",
             "it carries no routing marker",
+            # The gate's conditions are the same list the routing section calls
+            # the body-level conditions, and that section's first branch repairs
+            # the body when editing is authorized. Drift must be excluded there,
+            # not only disclaimed from the marker.
+            "One condition above is not routed here at all",
+            "it blocks without editing the body, whatever ticket-editing "
+            "authority exists",
         ):
             self.assertIn(required, self.skill_compact)
+
+    def test_the_unreadable_branch_names_the_outcome_it_must_not_produce(self):
+        """Measured: 2 of 5 samples blocked a ready ticket on an unreadable citation."""
+        self.assertIn(
+            "Proceed to implementation — never return `blocked` for this branch",
+            self.skill_compact,
+        )
 
     def test_the_unchecked_branch_is_decided_by_the_citation(self):
         """The measured failure was over-claiming `unchecked`, not missing drift."""

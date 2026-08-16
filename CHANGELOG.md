@@ -4,6 +4,22 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
+
+- fix(implement-ticket): keep drift out of the body-repair branch, and name the
+  outcome the unreadable branch must not produce — review of the candidate found
+  the new gate condition had been added to the same list the routing section
+  below calls the body-level conditions, whose first branch repairs the ticket
+  body and continues whenever ticket editing is authorized. A drifted assumption
+  would have taken that branch, which is the one thing the ticket names as a
+  non-goal; the candidate's only carve-out disclaimed the routing marker, not
+  the repair. The routing section now excludes the condition by name. The second
+  finding is measured rather than argued: the unreadable branch told a run what
+  to do and never said what it must not do, and 2 of 5 samples blocked a ready
+  ticket on a citation with no repository address where 5 of 5 had proceeded
+  before this change. The branch now states the excluded terminal outcome where
+  a reader acts on it.
+
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, set up the citation-rot measurement, and repaired the changelog's own rotted citations under a convention that survives squash-merge
 
 - fix: cite the commit that reached `main`, and hold the changelog to it — 68 of
@@ -37,18 +53,19 @@ summary: Chronological history of repository and skill changes.
   which is the distinction the check is scoped to.
 
 - fix(implement-ticket): count the samples a burst took, and own the citation
-  grammar once — review of the candidate returned three strong recommendations,
-  all in the harness rather than the gate. The burst tolerance reported
-  `failed_samples` by subtracting the surviving redraw from the first round, so
-  a scenario that lost all five samples and recovered recorded zero failures,
-  reading exactly like one that never lost a sample; the redraw was also
-  sequential, quietly dropping the concurrency the first round has. Both rounds
-  now go through one `draw_batch`, and the losses accumulate across them. A test
-  repairing a drifted packet parsed the citation grammar by hand, so a change to
-  the executor's `CITATION` would have left that test green while the executor
-  called every citation unreadable — it now parses through `CITATION` itself.
-  `normalize` never read the `payload` argument it has always taken, and the new
-  sampling layer threaded it through again; it is gone from both.
+  grammar once (643c66a967899bc08ba847537f2fc56d1d9e6a70) — review of the
+  candidate returned three strong recommendations, all in the harness rather
+  than the gate. The burst tolerance reported `failed_samples` by subtracting
+  the surviving redraw from the first round, so a scenario that lost all five
+  samples and recovered recorded zero failures, reading exactly like one that
+  never lost a sample; the redraw was also sequential, quietly dropping the
+  concurrency the first round has. Both rounds now go through one `draw_batch`,
+  and the losses accumulate across them. A test repairing a drifted packet
+  parsed the citation grammar by hand, so a change to the executor's `CITATION`
+  would have left that test green while the executor called every citation
+  unreadable — it now parses through `CITATION` itself. `normalize` never read
+  the `payload` argument it has always taken, and the new sampling layer
+  threaded it through again; it is gone from both.
 
 - test(implement-ticket): re-record the after-stage run at the shipping head
   (c05a44b07dabdb5fb089a47599862110b08ee22b) — 38 of 60, both new cases green,
@@ -70,6 +87,8 @@ summary: Chronological history of repository and skill changes.
   down 30 seconds and redraws once; a second empty draw is the environment and
   still ends the stage. The `attempted` record is committed beside this rather
   than dropped.
+
+## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set the assumption re-check against a recorded baseline
 
 - fix(implement-ticket): stop describing an unreadable citation in drift's words
   (36633b3f8f22024cd1b2a2470171215f6b88141f) — the post-change measurement below
