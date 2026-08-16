@@ -601,6 +601,24 @@ class NormIsStatedTests(unittest.TestCase):
         self.assertIn("skills/<skill>/evals/results/", agents)
         self.assertIn("just eval-record", agents)
 
+    def test_agents_md_states_the_merge_method_the_evidence_depends_on(
+        self,
+    ) -> None:
+        """AC: the rule that keeps a recorded subtree resolvable is written
+        where a contributor and a merging agent both read it.
+
+        A recorded subtree resolves only while a commit carrying it stays
+        reachable, so the merge method is load-bearing rather than stylistic
+        and its failure is unrepairable. Prose that omits it leaves the guard
+        firing on `main` with nothing to point the citation at.
+        """
+
+        agents = (REPOSITORY_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        self.assertIn("candidate.trees", agents)
+        self.assertIn("merge commit", agents)
+        self.assertIn("skills/*/evals/results/", agents)
+
     def test_pull_request_template_points_at_the_norm(self) -> None:
         template = REPOSITORY_ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md"
 

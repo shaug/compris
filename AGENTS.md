@@ -83,18 +83,43 @@ commit a later reader can resolve, and commit the summaries on top. A run
 recorded from a dirty tree — or from a commit later amended away — names a tree
 nobody else can retrieve, which is the one thing the record exists to supply.
 
-Each summary also carries `candidate.tree`, the committed content's
-`git rev-parse HEAD^{tree}`, and — for a real-model run — `model`, the exact
-`--model` the recorded command passed. `sha` names the commit, which rebase
-rewrites and squash-merge discards outright; `tree` names the content, which is
-identical under both, so it is `tree`, not `sha`, that a reader should expect to
-still resolve once a change has landed on `main`. `model` exists because a
-before/after pair taken across a model update compares two different subjects
-wearing the same tier name; a diff is drawn only when the compared runs' tier,
-suite, and model all match. A deterministic run records no model — there is none
-to name. Summaries recorded before this field existed carry no `model` at all
-and are branch-local and unattributed: no model can be recovered for them after
-the fact, and they are not backfilled.
+Each summary also carries `candidate.trees` — a map from repository path to that
+path's subtree hash, holding `skills/<skill>` for every run and `triggering` as
+well for a triggering-suite run, whose executors live outside every skill —
+`candidate.tree`, the whole repository's `git rev-parse HEAD^{tree}`, and, for a
+real-model run, `model`, the exact `--model` the recorded command passed.
+
+`sha` and `tree` are both branch-local. A rebase onto a moved `main` rewrites
+the commit and changes the repository tree through files outside the skill
+entirely, so neither survives one, and a squash-merge then discards both
+outright. It is `trees` a reader should expect to still resolve, because
+unrelated files moving cannot disturb a subtree the change never touched.
+
+A subtree resolves only while a commit carrying it stays reachable, so a pull
+request that adds or changes any file under `skills/*/evals/results/` merges as
+a merge commit rather than a squash. A squash keeps one tree per pull request,
+and the states eval evidence measures are intermediate by construction: a
+before-stage run measures a new corpus against the old prose, and a superseded
+after-stage run measures prose a later commit changed. Squashing such a pull
+request destroys the measured content in every clone but the author's, and no
+later repair recovers it — the only remedy is to re-record against a state that
+still exists and to say in the summary that the original is unrecoverable.
+`scripts/tests/test_eval_candidate_citations.py` is what turns red when this
+goes wrong, and `carve-changesets` already defaults its merge method to `merge`.
+
+`model` exists because a before/after pair taken across a model update compares
+two different subjects wearing the same tier name; a diff is drawn only when the
+compared runs' tier, suite, and model all match. A deterministic run records no
+model — there is none to name. Summaries recorded before these fields existed
+carry `trees` only where it could be derived from a commit they still name, and
+carry no `model` at all: no model can be recovered for them after the fact, and
+they are not backfilled. The derivation that is backfilled,
+`git rev-parse <recorded sha>:<path>`, is a computation over what the file
+already carries and could not have come out differently had the field existed
+when it was written. A landing commit is not backfilled for the opposite reason:
+which commit carries a summary onto `main` is decided after the run by a merge
+that has not happened yet, so writing it in would add a claim nothing in the
+file supports.
 
 Summaries already written under `evals/results/` are the one exemption, and it
 is narrow by construction. Recording several skills in sequence writes a summary

@@ -6,6 +6,17 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
 
+- docs: state the merge method the eval evidence depends on, and correct what
+  `AGENTS.md` claims survives — the file told a reader to trust `candidate.tree`
+  over `candidate.sha` on the grounds that content is identical under rebase and
+  squash where a commit is not. It is not: `tree` is the whole repository's, so
+  a rebase onto a moved `main` changes it through files outside the skill. Both
+  are now stated as branch-local, `candidate.trees` is named as the durable
+  half, and the rule that makes it durable is written down — a pull request
+  touching `skills/*/evals/results/` merges as a merge commit, because a squash
+  keeps one tree per pull request while the states eval evidence measures are
+  intermediate by construction. `babysit-pr`'s example output block is brought
+  into line with the obligation its own prose already carried.
 - test(evals): hold every recorded subtree to reachability from `HEAD` —
   `scripts/tests/test_eval_candidate_citations.py` fails when a summary's
   `candidate.trees` names content no commit reachable from `HEAD` carries, which
