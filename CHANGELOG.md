@@ -6,6 +6,18 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
+- fix: say in each recorded eval summary that its own provenance did not survive
+  the rebase — all five runs recorded on this branch name a `candidate.sha` and
+  `candidate.tree` that no ref reaches, because the rebase onto #236 replayed
+  those commits onto different content. `AGENTS.md` promises `tree` survives
+  rebase and squash-merge, which holds for a content-preserving replay and not
+  for this one. Each summary's `note` now states that, and names the commit on
+  this branch carrying a byte-identical `skills/implement-ticket` subtree —
+  293e951, 853333d, e9bd92f, 4c6bdda, be7788f respectively — so the run can
+  still be read against the prose that produced it. No measured result, per-case
+  outcome, or vote count changes. That the recorder can produce this at all is
+  filed as separate work.
+
 - fix: repair the day sections this branch's rebase split — resolving the rebase
   conflict against #236 left `CHANGELOG.md` with two `## 2026-08-15` headings 66
   lines apart, each claiming to summarize the same day, with three 2026-08-16
