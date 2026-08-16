@@ -6,22 +6,35 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 
-- docs: restate the citation guard's own account of the backfill rule — the
-  merge-method change above left `scripts/tests/test_changelog_citations.py`
-  describing `main` as "almost entirely squash-merged" and naming the squash as
-  the only thing that makes a backfilled SHA unreachable, stale prose in the one
-  module that enforces the rule. Its docstring now records the squash rot as the
-  history it was written for, says that a merge commit preserves the authoring
-  commit an entry cites, and corrects what the old text had backwards once the
-  mechanism changed: when the guard actually fires. A SHA backfilled before
-  submission goes unreachable at the rebase onto `main` that precedes
-  submission, so `git rev-list HEAD` membership reddens on the authoring
-  branch's own run — it is only the squash-merged history behind that where the
-  check was inherently late, because those citations died at the merge instead.
-  The failure message names the same mechanism. No assertion, regex, or check
-  changes. The eight entries #238 and #243 landed without SHAs are backfilled to
-  their authoring commits, which is what the rule now names and what the guard
-  confirms is reachable.
+- fix: give the citation guard's failure message a remedy for both ways it can
+  fire — the message now names an unlanded backfill as a cause, since a SHA
+  taken before the branch was rebased and landed reaches nothing on that same
+  branch, but it still prescribed only the recovery for an entry that has
+  landed: `git log main -S'<the entry's first line>' -- CHANGELOG.md`. Run
+  against an entry that has not landed, that command returns nothing at all —
+  the entry is not on `main` yet, so `git log main -S` has no match to find —
+  and the reader following the message is handed empty output and no next step.
+  The remedy now covers both firing modes: recover the landing commit for an
+  entry that has landed, and drop the SHA until it lands for one that has not,
+  which is what AGENTS.md requires of an entry added on the current branch. No
+  assertion, regex, or reachability behavior changes.
+
+- docs: restate the citation guard's own account of the backfill rule
+  (ecb17f4b3bfa3f3c66f3aff03b63cc956555d73c) — the merge-method change above
+  left `scripts/tests/test_changelog_citations.py` describing `main` as "almost
+  entirely squash-merged" and naming the squash as the only thing that makes a
+  backfilled SHA unreachable, stale prose in the one module that enforces the
+  rule. Its docstring now records the squash rot as the history it was written
+  for, says that a merge commit preserves the authoring commit an entry cites,
+  and corrects what the old text had backwards once the mechanism changed: when
+  the guard actually fires. A SHA backfilled before submission goes unreachable
+  at the rebase onto `main` that precedes submission, so `git rev-list HEAD`
+  membership reddens on the authoring branch's own run — it is only the
+  squash-merged history behind that where the check was inherently late, because
+  those citations died at the merge instead. The failure message names the same
+  mechanism. No assertion, regex, or check changes. The eight entries #238 and
+  #243 landed without SHAs are backfilled to their authoring commits, which is
+  what the rule now names and what the guard confirms is reachable.
 
 - fix(evals): name every path a run was measured through, and stop claiming
   `sha` resolves (4c2dacb7ebeacc79f613c16b04c23775565c6ee6) — `subtree_paths`

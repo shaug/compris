@@ -107,11 +107,13 @@ class ChangelogCitationTests(unittest.TestCase):
             )
             + "\n\nA backfilled SHA names the commit that carried the entry onto "
             "`main`\n(see AGENTS.md). A SHA taken before the branch was rebased "
-            "and landed\nnames a commit no ref reaches. Recover the landing "
-            "commit with:\n"
+            "and landed\nnames a commit no ref reaches. If the entry has landed, "
+            "recover its\nlanding commit with:\n"
             "  git log main --format='%H %s' -S'<the entry's first line>' -- "
             "CHANGELOG.md\nand take the last line, which is the commit that "
-            "introduced that entry.",
+            "introduced that entry.\nIf it has not landed, that command returns "
+            "nothing, because the entry is\nnot on `main` yet: drop the SHA and "
+            "backfill it once the entry lands.",
         )
 
 
