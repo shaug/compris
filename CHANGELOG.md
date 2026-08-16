@@ -36,15 +36,26 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
+- test(implement-ticket): re-record the after-stage run at the shipping head —
+  38 of 60, both new cases green, taken at the head that ships rather than at
+  the prose commit two fixes back. It also refutes the reason given for one of
+  those fixes: the wording change was made because 2 of 5 samples called an
+  unreadable citation drift, and the sentence that described that branch in
+  drift's words looked like the cause. At the corrected head the case still
+  splits 3/5, with the same 2 samples blocking. The sentence is better prose and
+  was not the cause, which is recorded here rather than left implied by a green
+  case.
+
 - fix(implement-ticket): survive a burst that takes every sample of one scenario
-  — the re-recording at the shipping head died partway through: five concurrent
-  samples of one scenario failed together, the runner surfaced it as a non-zero
-  executor exit, and a stage half an hour in was filed as `attempted`, the
-  status reserved for an environment with no model access. The CLI answered
-  normally minutes later, so that is a burst, not an environment. A scenario
-  whose every sample failed now stands down 30 seconds and redraws once; a
-  second empty draw is the environment and still ends the stage. The `attempted`
-  record is committed beside this rather than dropped.
+  (b19794a9bebff1838e4b752b8f3bccda7d36903d) — the re-recording at the shipping
+  head died partway through: five concurrent samples of one scenario failed
+  together, the runner surfaced it as a non-zero executor exit, and a stage half
+  an hour in was filed as `attempted`, the status reserved for an environment
+  with no model access. The CLI answered normally minutes later, so that is a
+  burst, not an environment. A scenario whose every sample failed now stands
+  down 30 seconds and redraws once; a second empty draw is the environment and
+  still ends the stage. The `attempted` record is committed beside this rather
+  than dropped.
 
 - fix(implement-ticket): stop describing an unreadable citation in drift's words
   (36633b3f8f22024cd1b2a2470171215f6b88141f) — the post-change measurement below
