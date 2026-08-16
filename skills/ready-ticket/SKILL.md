@@ -259,6 +259,52 @@ be asserted against implementation internals is a readiness defect: rewrite it
 at the surface during elicitation, or elicit the surface behavior that was
 actually wanted.
 
+## Cite repository state so it fails loudly
+
+A body that cites this repository makes a claim with a shelf life. Between
+authoring and pickup, concurrent work moves lines, adds members to collections,
+and changes counts. A citation that goes stale quietly is worse than no citation
+at all: the implementer reads something confident, specific, and false, with no
+signal that it was ever true.
+
+This is measured, not hypothesized. Of eight repository citations written into
+tickets on one day and re-checked against `main` the same day, seven still
+pointed at the text they claimed and one did not.
+`skills/carve-changesets/references/SPEC.md` had moved the line reading "block,
+and ordinary PR title and body content" from 251 to 267, and the ticket citing
+251 became silently wrong. The rot concentrated in the one file concurrent work
+happened to touch — which is also the file a ticket is most likely to cite.
+
+**Quote the text you point at.** A citation of repository text carries the text,
+not only the address: the path, then the line as it reads —
+`skills/carve-changesets/references/SPEC.md`, the line reading "block, and
+ordinary PR title and body content" — never the bare `SPEC.md:251`. A line
+number is invalidated by any edit above it, and it fails silently, because it
+still resolves, to something else. The quoted text is what a reader searches for
+when the number stops landing, and it is what separates a citation that moved
+from a claim that was wrong.
+
+The remaining two rules are a pair, and one question decides between them.
+
+**Cite a volatile fact by location, not by value.** A fact that changes whenever
+a consumer is added — a collection's members, a count, a registry's contents —
+goes false the next time anyone adds one, and whoever adds one is not reading
+this ticket. Point at where the collection is defined and let the reader read
+today's members: "the lenses `review-code-change` loads", not "the three
+lenses". A count is the worst form of it, because it reads as verified precision
+and is the first thing to rot.
+
+**Keep the value where a change to it is news.** An architectural fact is one
+whose change is itself something a reader has to notice: what a script writes,
+what an executor refuses to emit, what a runner ships to a model. Restating
+those is the point. A body asserting what an executor emits, made wrong by a
+later edit, has surfaced a real change — that is the loud failure this section
+asks for, not a violation of it.
+
+The question that decides which of the two applies is **what would make this
+statement false?** If adding one more consumer would, cite the location. If only
+a deliberate decision would, state the value.
+
 ## Self-review before claiming readiness
 
 Run all four scans over the drafted body, in this order, on every run. This pass

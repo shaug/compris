@@ -4,45 +4,154 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-15 — Moved the design boundary to a checkable place, and retired carve-changesets' duplicate shaping rules
+## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set up the citation-rot measurement
 
-- feat(ready-ticket): make an approved design a fail-closed planner input —
-  `ready-ticket` approximated brainstorming's questioning: it elicited the open
-  product decisions itself, so the design boundary sat wherever a given run
-  happened to stop asking. `docs/cognitive-driven-development.md` moves that
-  boundary somewhere checkable — brainstorming is done when the requirements and
-  acceptance criteria are captured, the goals and non-goals are known, and the
-  stakeholders and deadlines are identified, each at the scale the work warrants
-  — and this change binds the skill to it. The design becomes an input validated
-  against those four parts at any scale: a one-sentence bug design and a
-  document representing months of work are both legal inputs, checked the same
-  way, and neither earns extra ceremony nor gets re-litigated. Elicitation
-  narrows to the tracker-shaped residue a design cannot answer — each criterion
-  restated as an observable public-surface behavior, the check that would
-  demonstrate it, and whether that check runs before or after merge. A missing
-  part becomes a routable fifth terminal result, `requires_brainstorming`,
-  naming which part is unsettled, what is unsettled about it, which of the
-  result's two shapes it is — absent at the gate, or unsettled after the gate by
-  a verification that falsified what the design rested on — and one next action.
-  That last obligation was recorded behavior rather than foresight: the first
-  post-change real-model run routed correctly and then stopped at the diagnosis
-  on three cases, because the bullet asked for a next action only under
-  `blocked`. A gap named without a route is what `blocked` already produced, so
-  the prose gained the obligation rather than the corpus losing it. The gap is
-  never gathered and never inferred: an inferred requirement lands in the body
-  as decided, and the next reader never learns that nobody decided it. Three
-  existing corpus expectations change answer rather than grade, because the new
-  contract routes what the old one could only report — the unresolved
-  retry-idempotency case, the objection resting on an unmade pricing decision,
-  and the falsified load-bearing assumption whose replacement is design work.
-  Two forward cases move the same way, so their before/after movement is not
-  evidence about the prose in either direction, and `evals/README.md` says so
-  rather than leaving a reader to infer a win. A sufficient design whose residue
-  nobody can resolve still stops at `blocked`, and a new forward case holds that
-  line so the two results cannot collapse into one. README composition rule 1
-  asserted the gate was satisfied *because* `ready-ticket` ran elicitation and
-  obtained approval of the body; that mechanism is exactly what this change
-  removes, so the rule now rests on brainstorming having run.
+- test(ready-ticket): test the retry loop the way its sibling already does —
+  review found the new retry test hand-rolling a partial stand-in for
+  `subprocess.CompletedProcess`, a manual patch-and-restore, and a list used as
+  a call counter, for behavior
+  `skills/implement-ticket/scripts/tests/test_forward_evals.py` already covers
+  with `mock.patch.object` and a real `CompletedProcess` — against a retry loop
+  this change deliberately mirrored from that same module. The test now reads
+  like its sibling, and exhausting every attempt gained the case the hand-rolled
+  version had no room for.
+
+- test(ready-ticket): re-record the after-stage run at the shipping head
+  (2dc1e4e3339a1fb5be52208d657663b6518fd7ec) — the first after-stage run was
+  taken before the executor fix below, so the tree that produced the evidence
+  was not the tree that ships the instrument. Review named that gap, and closing
+  it also settled the open question about the one case that had gone red. The
+  rerun is `completed`, 13 of 13, with the target case still citing the volatile
+  collection by location 5/5 and `autonomous-unresolvable-rate-limit` back at
+  4/5 on `choose_no_answer_on_requesters_behalf`. Three post-change measurements
+  of that term now read 1/5, 2/5, and 4/5, and its sibling case moved 5/5 to 3/5
+  while still passing: the term is an unstable self-report rather than an
+  obligation the new prose suppressed, and no prose change was needed to recover
+  it. Recorded rather than asserted, because two samples had looked like a
+  reproduction and the third is what distinguished variance from a regression.
+
+- fix(ready-ticket): keep one unusable sample from ending a recorded eval run
+  (75cf01e09e740f7321f3a80f433951a7840b8065) — review of the change below found
+  that the new majority-vote executor keyed its terminal-state counts by the raw
+  sample value, so a well-formed response that simply omitted `terminal_state`
+  put `None` beside string keys in the emitted object and
+  `json.dump(..., sort_keys=True)` raised `TypeError`. The harness reads that as
+  a non-zero executor exit and ends the corpus mid-run, discarding every case
+  already sampled and leaving the recorder to file the loss as `attempted` — the
+  status reserved for an environment with no model access — rather than as the
+  harness defect it is. That is the exact failure the retry loop was added to
+  prevent, and it was a regression against the previous executor, which degraded
+  to a single graded mismatch. The absent state now votes under a `none`
+  sentinel the way `triggering/executors/description_executor.py` already votes
+  an absent answer, while the graded value stays `None` and still grades as a
+  mismatch. The same review found the corpus README restating a case count that
+  this change made false — the failure mode the prose below names, one directory
+  away — so it now points at `forward_cases.json` instead of counting it.
+
+- test(ready-ticket): record the post-change forward-eval measurement
+  (f888b12b6e8c22bf9bd0efc0e2ab70825059e88c) — the target case flips the way the
+  rule predicts: citing the volatile collection by location goes 1/5 to 5/5 and
+  restating its membership as a value goes 4/5 to 0/5, with the architectural
+  fact still restated 5/5 and cited text still quoted 5/5. The run is recorded
+  `failed` rather than `completed`, because one pre-existing case,
+  `autonomous-unresolvable-rate-limit`, went from selecting
+  `choose_no_answer_on_requesters_behalf` 5/5 to 1/5 and dropped below the
+  majority. The case's substance held throughout — it still returns
+  `requires_brainstorming` 5/5, still asks no question, names the absent design
+  part, gives a next action, and mutates nothing at 5/5 — and the sibling case
+  carrying the identical obligation read 5/5 on both sides. The run is committed
+  as recorded rather than tuned away; the entry above resolves what the movement
+  was.
+
+- feat(ready-ticket): cite repository state in a form that fails loudly when it
+  goes stale (94b9ae8ce43322a97c510c7f0c4ff16da586ad6d) — a ticket body that
+  cites this repository makes a claim with a shelf life, and the failure mode is
+  silence: the line moves, the citation still resolves, and the implementer
+  reads something confident, specific, and false with no signal it was ever
+  true. The rule is three parts and one question. A citation of repository text
+  carries the quoted line, not only the address, because a line number is
+  invalidated by any edit above it and the quoted text is what a reader searches
+  for once the number stops landing. A fact that changes whenever a consumer is
+  added — a collection's members, a count, a registry's contents — is cited by
+  location, because whoever adds the next member is not reading this ticket. And
+  a fact whose change is itself news — what a script writes, what an executor
+  refuses to emit, what a runner ships to a model — keeps its value, because a
+  body made wrong by that kind of edit has surfaced a real change rather than
+  rotted. The question separating the last two is what would make the statement
+  false: one more consumer, or a deliberate decision. The rot behind this is
+  measured rather than supposed — of eight citations written into tickets on one
+  day, seven still pointed at their text and one did not, after #231 moved the
+  line reading "block, and ordinary PR title and body content" in
+  `carve-changesets`' spec.
+
+- test(ready-ticket): record the pre-change forward-eval measurement
+  (6e5df1d5460cd42bd98fabeae2f36022f182f2ab) — the real-model forward run at the
+  tree carrying the case but not the rule: 12 of 13 pass, and the new case
+  fails. Across five independent samples the run cited the volatile collection
+  by location once and restated its membership as a value four times, while
+  quoting cited text 5/5 and restating the architectural fact 5/5. So one of the
+  three rules is where the behavior actually is, and the other two were already
+  the model's default — a distinction the pre-change run exists to make, and one
+  a single sample could not have made.
+
+- test(ready-ticket): grade how a ticket body cites repository state, before the
+  rule exists (5bd36f550cd7c55251e47c947c102788a13e049b) — the forward corpus
+  gains one case whose scenario names three repository facts (a line of a file,
+  which lenses a skill loads, what the eval recorder emits) and grades which of
+  them the run quotes, cites by location, or restates as a value. The case lands
+  ahead of the prose it measures, so `just eval-record` has a term to grade at
+  `--stage before`. Two harness changes make that measurement trustworthy rather
+  than anecdotal: the real-model executor now takes `--repetitions` (default 5)
+  and majority-votes independent samples the way
+  `triggering/executors/description_executor.py` already does, recording the
+  per-sample counts so a 3/5 answer is never filed as 5/5, and it retries a
+  malformed response three times the way implement-ticket's executor does,
+  because one flaky sample must not sink a run that is now five times longer. A
+  first draft of the scenario described the lens set as one that "gains a member
+  whenever a lens is added"; a fresh model given that phrasing answered
+  correctly against the unchanged prose, so the case was grading the hint rather
+  than the skill. The committed scenario states the three facts and leaves their
+  classification to the prose, and a test guards the leak from coming back.
+
+- feat(ready-ticket): make an approved design a fail-closed planner input
+  (46c35a7a1c16d8a7afb3ab3468ab94d75d2e2305) — `ready-ticket` approximated
+  brainstorming's questioning: it elicited the open product decisions itself, so
+  the design boundary sat wherever a given run happened to stop asking.
+  `docs/cognitive-driven-development.md` moves that boundary somewhere checkable
+  — brainstorming is done when the requirements and acceptance criteria are
+  captured, the goals and non-goals are known, and the stakeholders and
+  deadlines are identified, each at the scale the work warrants — and this
+  change binds the skill to it. The design becomes an input validated against
+  those four parts at any scale: a one-sentence bug design and a document
+  representing months of work are both legal inputs, checked the same way, and
+  neither earns extra ceremony nor gets re-litigated. Elicitation narrows to the
+  tracker-shaped residue a design cannot answer — each criterion restated as an
+  observable public-surface behavior, the check that would demonstrate it, and
+  whether that check runs before or after merge. A missing part becomes a
+  routable fifth terminal result, `requires_brainstorming`, naming which part is
+  unsettled, what is unsettled about it, which of the result's two shapes it is
+  — absent at the gate, or unsettled after the gate by a verification that
+  falsified what the design rested on — and one next action. That last
+  obligation was recorded behavior rather than foresight: the first post-change
+  real-model run routed correctly and then stopped at the diagnosis on three
+  cases, because the bullet asked for a next action only under `blocked`. A gap
+  named without a route is what `blocked` already produced, so the prose gained
+  the obligation rather than the corpus losing it. The gap is never gathered and
+  never inferred: an inferred requirement lands in the body as decided, and the
+  next reader never learns that nobody decided it. Three existing corpus
+  expectations change answer rather than grade, because the new contract routes
+  what the old one could only report — the unresolved retry-idempotency case,
+  the objection resting on an unmade pricing decision, and the falsified
+  load-bearing assumption whose replacement is design work. Two forward cases
+  move the same way, so their before/after movement is not evidence about the
+  prose in either direction, and `evals/README.md` says so rather than leaving a
+  reader to infer a win. A sufficient design whose residue nobody can resolve
+  still stops at `blocked`, and a new forward case holds that line so the two
+  results cannot collapse into one. README composition rule 1 asserted the gate
+  was satisfied *because* `ready-ticket` ran elicitation and obtained approval
+  of the body; that mechanism is exactly what this change removes, so the rule
+  now rests on brainstorming having run.
+
 - feat(carve-changesets): bind changeset shape and ordering to the canonical
   doctrine (1ce41875782ac2a8de04b70d39619493e919d1d5) — `references/SPEC.md`
   carried its own cognitive-load guardrails and decomposition-order list, a

@@ -104,6 +104,14 @@ ANSWERS: dict[str, dict] = {
             "elicit_public_surface_behavior",
         ],
     },
+    "Make GH-512 ready — the linked design was approved.": {
+        "terminal_state": "ticket_ready",
+        "actions": [
+            "quote_cited_repository_text",
+            "cite_volatile_collection_by_location",
+            "restate_architectural_fact_as_value",
+        ],
+    },
     "Write a ticket for the new notifications feature.": {
         "terminal_state": "requires_brainstorming",
         "actions": [

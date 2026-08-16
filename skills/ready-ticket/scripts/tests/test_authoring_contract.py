@@ -386,6 +386,39 @@ class ReadyTicketContractTests(unittest.TestCase):
             self.contract,
         )
 
+    # --- Repository citations ---------------------------------------------
+
+    def test_a_cited_repository_line_carries_its_quoted_text(self):
+        for clause in (
+            "A citation of repository text carries the text, not only the address",
+            "never the bare `SPEC.md:251`",
+            "it fails silently, because it still resolves, to something else",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_a_volatile_fact_is_located_and_an_architectural_one_is_restated(self):
+        for clause in (
+            "A fact that changes whenever a consumer is added — a collection's "
+            "members, a count, a registry's contents — goes false the next time "
+            "anyone adds one",
+            "let the reader read today's members: \"the lenses `review-code-change` "
+            'loads", not "the three lenses"',
+            "An architectural fact is one whose change is itself something a reader "
+            "has to notice",
+            "what a script writes, what an executor refuses to emit, what a runner "
+            "ships to a model",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_the_two_forms_are_separated_by_a_stated_discriminator(self):
+        """Without the question, the pair is two examples and no way to apply it."""
+        for clause in (
+            "what would make this statement false?",
+            "If adding one more consumer would, cite the location",
+            "If only a deliberate decision would, state the value",
+        ):
+            self.assertIn(clause, self.contract)
+
     # --- Criteria quality and the self-review pass ------------------------
 
     def test_criteria_are_surface_observable_and_test_encodable(self):

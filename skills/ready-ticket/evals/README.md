@@ -24,10 +24,11 @@ table, and a paired before/after comparison. See
 cases in the shape `../implement-ticket/evals/forward_cases.json` established,
 run through `scripts/evals/run_forward.py` with a real-model or
 deterministic-fixture executor and recorded per the #135 eval-evidence
-convention. Two of the twelve cases are the strongest scenarios from the
-baseline pressure test; the rest round out coverage of all five terminal
-results, including both approved-design scales, a missing design, and a
-sufficient design whose residue cannot be resolved.
+convention. Two of the cases in `forward_cases.json` are the strongest scenarios
+from the baseline pressure test; the rest round out coverage of all five
+terminal results, including both approved-design scales, a missing design, a
+sufficient design whose residue cannot be resolved, and the form a body cites
+repository state in.
 
 Those two baseline scenarios changed answer with #197 rather than changing
 grade: both are missing-design scenarios, so the approved-design boundary routes
