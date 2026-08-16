@@ -6,6 +6,14 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
+- fix: hold this branch's entries to the landing-commit convention — #236 landed
+  while this work was in flight and changed what a backfilled SHA names: the
+  commit that carried an entry onto `main`, backfilled only once it has landed.
+  The nine entries below cited their authoring commits, which the rebase onto
+  #236 then rewrote — the rot that change was made to stop, reproduced in the
+  same file within a day. They now carry no SHA, which is what an unlanded entry
+  is supposed to carry, and `scripts/tests/test_changelog_citations.py` passes.
+
 - fix(implement-ticket): let a wrongly shaped sample grade as a mismatch rather
   than end the run — review found a regression the new sampling layer
   introduced. `terminal_state` and `target_skill` are counted and compared as
@@ -18,24 +26,22 @@ summary: Chronological history of repository and skill changes.
   the mismatch it is; absence stays absence, since only one of the two is a
   missing answer.
 
-- test(implement-ticket): re-record the after-stage run at the corrected prose
-  (629b4069c50ccd81c56ea945dd98cdc7b48ded72) — the false block is gone.
-  `unverifiable-ticket-assumption` returns to 5/5 `ready_pr` with zero samples
-  blocking, where the previous wording had 2 of 5 refusing a ready ticket, and
-  it still reports the unreadable assumption 5/5 — the obligation kept, the cost
-  removed. `drifted-ticket-assumption` stays 5/5 blocked and 5/5 naming the
-  drift. Naming the excluded outcome inside the branch a reader acts on is what
-  moved it; the earlier attempt, which fixed the same confusion in a summary
-  paragraph one step away, moved nothing. Corpus total is 36 of 60 against 38:
-  two cases this change does not touch went red, both of which have oscillated
-  across every run recorded today.
+- test(implement-ticket): re-record the after-stage run at the corrected prose —
+  the false block is gone. `unverifiable-ticket-assumption` returns to 5/5
+  `ready_pr` with zero samples blocking, where the previous wording had 2 of 5
+  refusing a ready ticket, and it still reports the unreadable assumption 5/5 —
+  the obligation kept, the cost removed. `drifted-ticket-assumption` stays 5/5
+  blocked and 5/5 naming the drift. Naming the excluded outcome inside the
+  branch a reader acts on is what moved it; the earlier attempt, which fixed the
+  same confusion in a summary paragraph one step away, moved nothing. Corpus
+  total is 36 of 60 against 38: two cases this change does not touch went red,
+  both of which have oscillated across every run recorded today.
 
 - fix(implement-ticket): keep drift out of the body-repair branch, and name the
-  outcome the unreadable branch must not produce
-  (4240e4cf924e8db2ebeafad2e8c54af3aedd424d) — review of the candidate found the
-  new gate condition had been added to the same list the routing section below
-  calls the body-level conditions, whose first branch repairs the ticket body
-  and continues whenever ticket editing is authorized. A drifted assumption
+  outcome the unreadable branch must not produce — review of the candidate found
+  the new gate condition had been added to the same list the routing section
+  below calls the body-level conditions, whose first branch repairs the ticket
+  body and continues whenever ticket editing is authorized. A drifted assumption
   would have taken that branch, which is the one thing the ticket names as a
   non-goal; the candidate's only carve-out disclaimed the routing marker, not
   the repair. The routing section now excludes the condition by name. The second
@@ -78,100 +84,96 @@ summary: Chronological history of repository and skill changes.
   which is the distinction the check is scoped to.
 
 - fix(implement-ticket): count the samples a burst took, and own the citation
-  grammar once (643c66a967899bc08ba847537f2fc56d1d9e6a70) — review of the
-  candidate returned three strong recommendations, all in the harness rather
-  than the gate. The burst tolerance reported `failed_samples` by subtracting
-  the surviving redraw from the first round, so a scenario that lost all five
-  samples and recovered recorded zero failures, reading exactly like one that
-  never lost a sample; the redraw was also sequential, quietly dropping the
-  concurrency the first round has. Both rounds now go through one `draw_batch`,
-  and the losses accumulate across them. A test repairing a drifted packet
-  parsed the citation grammar by hand, so a change to the executor's `CITATION`
-  would have left that test green while the executor called every citation
-  unreadable — it now parses through `CITATION` itself. `normalize` never read
-  the `payload` argument it has always taken, and the new sampling layer
-  threaded it through again; it is gone from both.
+  grammar once — review of the candidate returned three strong recommendations,
+  all in the harness rather than the gate. The burst tolerance reported
+  `failed_samples` by subtracting the surviving redraw from the first round, so
+  a scenario that lost all five samples and recovered recorded zero failures,
+  reading exactly like one that never lost a sample; the redraw was also
+  sequential, quietly dropping the concurrency the first round has. Both rounds
+  now go through one `draw_batch`, and the losses accumulate across them. A test
+  repairing a drifted packet parsed the citation grammar by hand, so a change to
+  the executor's `CITATION` would have left that test green while the executor
+  called every citation unreadable — it now parses through `CITATION` itself.
+  `normalize` never read the `payload` argument it has always taken, and the new
+  sampling layer threaded it through again; it is gone from both.
 
-- test(implement-ticket): re-record the after-stage run at the shipping head
-  (c05a44b07dabdb5fb089a47599862110b08ee22b) — 38 of 60, both new cases green,
-  taken at the head that ships rather than at the prose commit two fixes back.
-  It also refutes the reason given for one of those fixes: the wording change
-  was made because 2 of 5 samples called an unreadable citation drift, and the
-  sentence that described that branch in drift's words looked like the cause. At
-  the corrected head the case still splits 3/5, with the same 2 samples
-  blocking. The sentence is better prose and was not the cause, which is
-  recorded here rather than left implied by a green case.
+- test(implement-ticket): re-record the after-stage run at the shipping head —
+  38 of 60, both new cases green, taken at the head that ships rather than at
+  the prose commit two fixes back. It also refutes the reason given for one of
+  those fixes: the wording change was made because 2 of 5 samples called an
+  unreadable citation drift, and the sentence that described that branch in
+  drift's words looked like the cause. At the corrected head the case still
+  splits 3/5, with the same 2 samples blocking. The sentence is better prose and
+  was not the cause, which is recorded here rather than left implied by a green
+  case.
 
 - fix(implement-ticket): survive a burst that takes every sample of one scenario
-  (b19794a9bebff1838e4b752b8f3bccda7d36903d) — the re-recording at the shipping
-  head died partway through: five concurrent samples of one scenario failed
-  together, the runner surfaced it as a non-zero executor exit, and a stage half
-  an hour in was filed as `attempted`, the status reserved for an environment
-  with no model access. The CLI answered normally minutes later, so that is a
-  burst, not an environment. A scenario whose every sample failed now stands
-  down 30 seconds and redraws once; a second empty draw is the environment and
-  still ends the stage. The `attempted` record is committed beside this rather
-  than dropped.
+  — the re-recording at the shipping head died partway through: five concurrent
+  samples of one scenario failed together, the runner surfaced it as a non-zero
+  executor exit, and a stage half an hour in was filed as `attempted`, the
+  status reserved for an environment with no model access. The CLI answered
+  normally minutes later, so that is a burst, not an environment. A scenario
+  whose every sample failed now stands down 30 seconds and redraws once; a
+  second empty draw is the environment and still ends the stage. The `attempted`
+  record is committed beside this rather than dropped.
 
 ## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, and set the assumption re-check against a recorded baseline
 
 - fix(implement-ticket): stop describing an unreadable citation in drift's words
-  (36633b3f8f22024cd1b2a2470171215f6b88141f) — the post-change measurement below
-  passed the case but halved its agreement: 2 of 5 samples blocked on an
-  assumption with no repository address, calling it drift. The section separates
-  the two branches and then closes by naming the unreadable branch's cost
-  "drift's failure, reached without any drift", which hands the word back to the
-  branch it just excluded. It now says plainly that an unreadable citation is
-  not drift and never blocks, and why: drift is a disagreement you observed, and
-  an assumption you could not read produced none.
+  — the post-change measurement below passed the case but halved its agreement:
+  2 of 5 samples blocked on an assumption with no repository address, calling it
+  drift. The section separates the two branches and then closes by naming the
+  unreadable branch's cost "drift's failure, reached without any drift", which
+  hands the word back to the branch it just excluded. It now says plainly that
+  an unreadable citation is not drift and never blocks, and why: drift is a
+  disagreement you observed, and an assumption you could not read produced none.
 
-- test(implement-ticket): record the post-change forward-eval measurement
-  (92856572d9ad48167b5bdd22ed20c7421cb12557) — 37 of 60, up from 32, with no
-  case newly failing. The obligation the change was written for moved:
-  `drifted-ticket-assumption` goes red to green, still blocking 5/5 and naming
-  the drift 5/5, with the stray `unchecked` report that had failed it at 3 of 5
-  samples now at 0 of 5. The unverifiable case still passes, and its agreement
-  is where the remaining variance sits — 5/5 before, 3/5 after, with 2 samples
-  now calling an unreadable citation drift. The sentence closing that section
-  reached for the word `drift` to describe the unreadable branch's failure,
-  which is the one place the prose blurs the two branches it just separated.
+- test(implement-ticket): record the post-change forward-eval measurement — 37
+  of 60, up from 32, with no case newly failing. The obligation the change was
+  written for moved: `drifted-ticket-assumption` goes red to green, still
+  blocking 5/5 and naming the drift 5/5, with the stray `unchecked` report that
+  had failed it at 3 of 5 samples now at 0 of 5. The unverifiable case still
+  passes, and its agreement is where the remaining variance sits — 5/5 before,
+  3/5 after, with 2 samples now calling an unreadable citation drift. The
+  sentence closing that section reached for the word `drift` to describe the
+  unreadable branch's failure, which is the one place the prose blurs the two
+  branches it just separated.
 
-- feat(implement-ticket): re-verify a ticket's stated assumptions at pickup
-  (b9234af01c047fb8762013013b288b8f3bf0e433) — the readiness gate now re-reads
-  the `Verified assumptions` slot against the current tree before a branch or
-  worktree exists, and sorts each assumption into one of three exclusive
-  branches: it still holds, it no longer holds (`blocked`, naming the drift and
-  what the tree says now, with the body left for the requester and
-  `ready-ticket` to correct), or it cannot be checked from here (proceed, and
-  report it as unchecked). The third branch is decided by the citation rather
-  than by how the claim sounds, because the pre-change measurement showed the
-  wobble is there: the unmodified skill already blocked on drift 5/5, and
-  over-reported `unchecked` for assumptions it had read in 3 of those 5 samples.
-  The load-bearing exclusion is unchanged and now says which question it
-  excludes — re-deriving the conclusion, not re-reading the citation.
+- feat(implement-ticket): re-verify a ticket's stated assumptions at pickup —
+  the readiness gate now re-reads the `Verified assumptions` slot against the
+  current tree before a branch or worktree exists, and sorts each assumption
+  into one of three exclusive branches: it still holds, it no longer holds
+  (`blocked`, naming the drift and what the tree says now, with the body left
+  for the requester and `ready-ticket` to correct), or it cannot be checked from
+  here (proceed, and report it as unchecked). The third branch is decided by the
+  citation rather than by how the claim sounds, because the pre-change
+  measurement showed the wobble is there: the unmodified skill already blocked
+  on drift 5/5, and over-reported `unchecked` for assumptions it had read in 3
+  of those 5 samples. The load-bearing exclusion is unchanged and now says which
+  question it excludes — re-deriving the conclusion, not re-reading the
+  citation.
 
-- test(implement-ticket): record the pre-change forward-eval measurement
-  (0fe2d1326915a0032c2ef316fd3b534be14d5346) — 32 of 60 at the shipping head,
-  with the two new cases splitting. The drift case fails, but not where the
-  ticket predicted: the unmodified skill blocks 5/5 and names the drifted
-  assumption 5/5, and it fails because 3 of those 5 samples also reported an
-  assumption as unchecked in a packet where every assumption carries a readable
-  address. The unverifiable case already passes 5/5. So the behavior the prose
-  has to move is not "notice the drift" but "say which assumptions you actually
-  read", and an earlier measurement discarded before this one is why the corpus
-  asks that at all: its packets stated outright which assumption had gone stale,
-  both cases passed 5/5, and it was grading whether a runtime can read a flag.
+- test(implement-ticket): record the pre-change forward-eval measurement — 32 of
+  60 at the shipping head, with the two new cases splitting. The drift case
+  fails, but not where the ticket predicted: the unmodified skill blocks 5/5 and
+  names the drifted assumption 5/5, and it fails because 3 of those 5 samples
+  also reported an assumption as unchecked in a packet where every assumption
+  carries a readable address. The unverifiable case already passes 5/5. So the
+  behavior the prose has to move is not "notice the drift" but "say which
+  assumptions you actually read", and an earlier measurement discarded before
+  this one is why the corpus asks that at all: its packets stated outright which
+  assumption had gone stale, both cases passed 5/5, and it was grading whether a
+  runtime can read a flag.
 
 - test(implement-ticket): grade re-verification of a ticket's stated assumptions
-  at pickup (ad650b2fac1813c387062dc720499dc5697dec49) — a ticket's
-  `Verified assumptions` slot records what was true when the body was written,
-  and nothing re-reads it when the work is picked up. Two forward cases put that
-  question to the corpus: one whose stated assumption the current tree
-  contradicts, which has to stop before any implementation state exists, and one
-  carrying a claim no repository read can settle, which has to proceed while
-  saying so rather than passing it off as verified. Neither packet says which
-  assumption went stale — the citation carries the line it quotes, the
-  repository artifact carries the line that path reads now, and drift is
+  at pickup — a ticket's `Verified assumptions` slot records what was true when
+  the body was written, and nothing re-reads it when the work is picked up. Two
+  forward cases put that question to the corpus: one whose stated assumption the
+  current tree contradicts, which has to stop before any implementation state
+  exists, and one carrying a claim no repository read can settle, which has to
+  proceed while saying so rather than passing it off as verified. Neither packet
+  says which assumption went stale — the citation carries the line it quotes,
+  the repository artifact carries the line that path reads now, and drift is
   whatever disagreement a runtime finds between them, so what is graded is
   whether it looks rather than whether it can read a flag. The corpus lands
   ahead of the prose, because `just eval-record` runs the current tree and a
