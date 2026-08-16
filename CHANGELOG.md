@@ -4,42 +4,234 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, set up the citation-rot measurement, and repaired the changelog's own rotted citations under a convention that survives squash-merge
+## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, and hardened the harness that measured it
 
-- fix: cite the commit that reached `main`, and hold the changelog to it — 68 of
-  this file's 248 commit citations resolved to nothing. The changelog convention
-  told an author to backfill the SHA of the commit that wrote the entry, but
-  `main` is almost entirely squash-merged, and a squash discards every authoring
-  commit its pull request held. A pull request contributing several entries
-  therefore rotted all of them at once, which is how #147, #176, #185, and #222
-  account for 24 of the 26 dangling citations in the newer `(<sha>)` form. The
-  older `` (`<sha>`) `` form — 169 citations the bare-parenthesis search does
-  not see at all — carried 42 more. Two were not squash rot but fabrication: a
-  7-character prefix expanded to a plausible 40-character string that had never
-  named anything, sharing its prefix with the real commit it was meant to cite.
-  Every one is repointed at the commit that carried its entry onto `main`,
-  recovered by asking which commit introduced that entry's own line, and
-  cross-checked wherever a second source existed: GitHub's merge commit for the
-  cited SHA covers 52, and a real commit sharing the cited prefix covers the 2
-  fabricated ones. Neither source can speak for the remaining 14, whose
-  authoring commits GitHub never saw. No cross-check contradicted the recovered
-  commit. `AGENTS.md` now states the rule the repair follows — cite the landing
-  commit, backfill only once an entry has landed, and expect one SHA across
-  every entry its pull request contributed — and the seven entries that had
-  landed with no SHA at all gain one.
-  `scripts/tests/test_changelog_citations.py` keeps it true, and CI checks out
-  full history because a depth-1 clone cannot answer the question. The guard was
-  verified capable of failing: it named all 68 before the repair, and mutating
-  one character of a single surviving citation turns it red naming that line.
-  One SHA is deliberately left unchecked — the writing-plans experiment's `pin`
-  names a commit in the `superpowers` peer repository, which cannot resolve
-  here, and is written backticked outside parentheses rather than as a citation,
-  which is the distinction the check is scoped to.
+- refactor(implement-ticket): reduce a sample once instead of twice — `sample`
+  called `normalize` and re-emitted the same four fields in different
+  containers: a `frozenset` of actions `normalize` had already deduplicated, and
+  a tuple of criterion/status pairs whose single consumer rebuilt dicts from it
+  anyway. `combine` never hashed or set-operated a sample, so neither conversion
+  did anything except oblige a reader to prove that. `combine` now takes
+  `normalize`'s output directly, and the sibling executor's one-reduction shape
+  is what this matches. Verified identical over 4000 randomized batches
+  including absent, non-string, out-of-vocabulary, and duplicate-criterion
+  payloads: zero differences in the emitted JSON.
 
-- test(ready-ticket): test the retry loop the way its sibling already does —
-  review found the new retry test hand-rolling a partial stand-in for
-  `subprocess.CompletedProcess`, a manual patch-and-restore, and a list used as
-  a call counter, for behavior
+- refactor(implement-ticket): stop the assumption test from re-grading the whole
+  corpus, and drop a counter that duplicates another — review of the candidate
+  found both. The assumption-gate test ran a second full 60-process grading pass
+  and repeated the corpus-wide `assertEqual([], failures)` that the test above
+  it already owns, so any of the other 58 cases regressing would have reddened a
+  test named for this gate and pointed a maintainer at the wrong obligation; it
+  now observes only the two cases it asserts about, at a twentieth of the cost.
+  In the ledger vote, `presence` was incremented in the same breath as
+  `multiplicities`, making it exactly that counter's total, so an edit changing
+  when a criterion counts had to touch both to stay consistent.
+
+- fix: say in each recorded eval summary that its own provenance did not survive
+  the rebase — all five runs recorded on this branch name a `candidate.sha` and
+  `candidate.tree` that no ref reaches, because the rebase onto #236 replayed
+  those commits onto different content. `AGENTS.md` promises `tree` survives
+  rebase and squash-merge, which holds for a content-preserving replay and not
+  for this one. Each summary's `note` now states that, and names the commit on
+  this branch carrying a byte-identical `skills/implement-ticket` subtree —
+  293e951, 853333d, e9bd92f, 4c6bdda, be7788f respectively — so the run can
+  still be read against the prose that produced it. No measured result, per-case
+  outcome, or vote count changes. That the recorder can produce this at all is
+  filed as separate work.
+
+- fix: repair the day sections this branch's rebase split — resolving the rebase
+  conflict against #236 left `CHANGELOG.md` with two `## 2026-08-15` headings 66
+  lines apart, each claiming to summarize the same day, with three 2026-08-16
+  entries stranded under the older one and nine of `main`'s entries re-parented
+  under a heading this branch wrote. Both days are one section again, ordered
+  newest-first, and #236's own entry — which had landed on `main` carrying no
+  SHA — is backfilled with the commit that carried it there, which the
+  convention requires of every landed entry below a new one. Neither the
+  citation guard nor `mdformat` can see either defect: one checks that a SHA
+  present resolves, the other does not read heading semantics.
+
+- fix: hold this branch's entries to the landing-commit convention — #236 landed
+  while this work was in flight and changed what a backfilled SHA names: the
+  commit that carried an entry onto `main`, backfilled only once it has landed.
+  The nine entries below cited their authoring commits, which the rebase onto
+  #236 then rewrote — the rot that change was made to stop, reproduced in the
+  same file within a day. They now carry no SHA, which is what an unlanded entry
+  is supposed to carry, and `scripts/tests/test_changelog_citations.py` passes.
+
+- fix(implement-ticket): let a wrongly shaped sample grade as a mismatch rather
+  than end the run — review found a regression the new sampling layer
+  introduced. `terminal_state` and `target_skill` are counted and compared as
+  `Counter` keys and under `min()`, so a sample answering `["blocked"]` or `1`
+  reached that arithmetic as a `TypeError`: a non-zero executor exit, no
+  per-case recovery in the runner, and a stage of sixty scenarios filed as
+  `attempted`. At the base the same sample serialized fine and graded as one
+  ordinary mismatch. Both fields are now rendered to a string when they are
+  neither a string nor absent, which keeps a wrongly shaped answer gradable as
+  the mismatch it is; absence stays absence, since only one of the two is a
+  missing answer.
+
+- test(implement-ticket): re-record the after-stage run at the corrected prose —
+  the false block is gone. `unverifiable-ticket-assumption` returns to 5/5
+  `ready_pr` with zero samples blocking, where the previous wording had 2 of 5
+  refusing a ready ticket, and it still reports the unreadable assumption 5/5 —
+  the obligation kept, the cost removed. `drifted-ticket-assumption` stays 5/5
+  blocked and 5/5 naming the drift. Naming the excluded outcome inside the
+  branch a reader acts on is what moved it; the earlier attempt, which fixed the
+  same confusion in a summary paragraph one step away, moved nothing. Corpus
+  total is 36 of 60 against 38: two cases this change does not touch went red,
+  both of which have oscillated across every run recorded today.
+
+- fix(implement-ticket): keep drift out of the body-repair branch, and name the
+  outcome the unreadable branch must not produce — review of the candidate found
+  the new gate condition had been added to the same list the routing section
+  below calls the body-level conditions, whose first branch repairs the ticket
+  body and continues whenever ticket editing is authorized. A drifted assumption
+  would have taken that branch, which is the one thing the ticket names as a
+  non-goal; the candidate's only carve-out disclaimed the routing marker, not
+  the repair. The routing section now excludes the condition by name. The second
+  finding is measured rather than argued: the unreadable branch told a run what
+  to do and never said what it must not do, and 2 of 5 samples blocked a ready
+  ticket on a citation with no repository address where 5 of 5 had proceeded
+  before this change. The branch now states the excluded terminal outcome where
+  a reader acts on it.
+
+- fix(implement-ticket): count the samples a burst took, and own the citation
+  grammar once — review of the candidate returned three strong recommendations,
+  all in the harness rather than the gate. The burst tolerance reported
+  `failed_samples` by subtracting the surviving redraw from the first round, so
+  a scenario that lost all five samples and recovered recorded zero failures,
+  reading exactly like one that never lost a sample; the redraw was also
+  sequential, quietly dropping the concurrency the first round has. Both rounds
+  now go through one `draw_batch`, and the losses accumulate across them. A test
+  repairing a drifted packet parsed the citation grammar by hand, so a change to
+  the executor's `CITATION` would have left that test green while the executor
+  called every citation unreadable — it now parses through `CITATION` itself.
+  `normalize` never read the `payload` argument it has always taken, and the new
+  sampling layer threaded it through again; it is gone from both.
+
+- test(implement-ticket): re-record the after-stage run at the shipping head —
+  38 of 60, both new cases green, taken at the head that ships rather than at
+  the prose commit two fixes back. It also refutes the reason given for one of
+  those fixes: the wording change was made because 2 of 5 samples called an
+  unreadable citation drift, and the sentence that described that branch in
+  drift's words looked like the cause. At the corrected head the case still
+  splits 3/5, with the same 2 samples blocking. The sentence is better prose and
+  was not the cause, which is recorded here rather than left implied by a green
+  case.
+
+- fix(implement-ticket): survive a burst that takes every sample of one scenario
+  — the re-recording at the shipping head died partway through: five concurrent
+  samples of one scenario failed together, the runner surfaced it as a non-zero
+  executor exit, and a stage half an hour in was filed as `attempted`, the
+  status reserved for an environment with no model access. The CLI answered
+  normally minutes later, so that is a burst, not an environment. A scenario
+  whose every sample failed now stands down 30 seconds and redraws once; a
+  second empty draw is the environment and still ends the stage. The `attempted`
+  record is committed beside this rather than dropped.
+
+## 2026-08-15 — Moved the design boundary to a checkable place, retired carve-changesets' duplicate shaping rules, set the assumption re-check against a recorded baseline, and repaired the changelog's own rotted citations under a convention that survives squash-merge
+
+- fix(implement-ticket): stop describing an unreadable citation in drift's words
+  — the post-change measurement below passed the case but halved its agreement:
+  2 of 5 samples blocked on an assumption with no repository address, calling it
+  drift. The section separates the two branches and then closes by naming the
+  unreadable branch's cost "drift's failure, reached without any drift", which
+  hands the word back to the branch it just excluded. It now says plainly that
+  an unreadable citation is not drift and never blocks, and why: drift is a
+  disagreement you observed, and an assumption you could not read produced none.
+
+- test(implement-ticket): record the post-change forward-eval measurement — 37
+  of 60, up from 32, with no case newly failing. The obligation the change was
+  written for moved: `drifted-ticket-assumption` goes red to green, still
+  blocking 5/5 and naming the drift 5/5, with the stray `unchecked` report that
+  had failed it at 3 of 5 samples now at 0 of 5. The unverifiable case still
+  passes, and its agreement is where the remaining variance sits — 5/5 before,
+  3/5 after, with 2 samples now calling an unreadable citation drift. The
+  sentence closing that section reached for the word `drift` to describe the
+  unreadable branch's failure, which is the one place the prose blurs the two
+  branches it just separated.
+
+- feat(implement-ticket): re-verify a ticket's stated assumptions at pickup —
+  the readiness gate now re-reads the `Verified assumptions` slot against the
+  current tree before a branch or worktree exists, and sorts each assumption
+  into one of three exclusive branches: it still holds, it no longer holds
+  (`blocked`, naming the drift and what the tree says now, with the body left
+  for the requester and `ready-ticket` to correct), or it cannot be checked from
+  here (proceed, and report it as unchecked). The third branch is decided by the
+  citation rather than by how the claim sounds, because the pre-change
+  measurement showed the wobble is there: the unmodified skill already blocked
+  on drift 5/5, and over-reported `unchecked` for assumptions it had read in 3
+  of those 5 samples. The load-bearing exclusion is unchanged and now says which
+  question it excludes — re-deriving the conclusion, not re-reading the
+  citation.
+
+- test(implement-ticket): record the pre-change forward-eval measurement — 32 of
+  60 at the shipping head, with the two new cases splitting. The drift case
+  fails, but not where the ticket predicted: the unmodified skill blocks 5/5 and
+  names the drifted assumption 5/5, and it fails because 3 of those 5 samples
+  also reported an assumption as unchecked in a packet where every assumption
+  carries a readable address. The unverifiable case already passes 5/5. So the
+  behavior the prose has to move is not "notice the drift" but "say which
+  assumptions you actually read", and an earlier measurement discarded before
+  this one is why the corpus asks that at all: its packets stated outright which
+  assumption had gone stale, both cases passed 5/5, and it was grading whether a
+  runtime can read a flag.
+
+- fix: cite the commit that reached `main`, and hold the changelog to it
+  (77011ed74d28ec522ea7c05d4e310ed53b1dd0d6) — 68 of this file's 248 commit
+  citations resolved to nothing. The changelog convention told an author to
+  backfill the SHA of the commit that wrote the entry, but `main` is almost
+  entirely squash-merged, and a squash discards every authoring commit its pull
+  request held. A pull request contributing several entries therefore rotted all
+  of them at once, which is how #147, #176, #185, and #222 account for 24 of the
+  26 dangling citations in the newer `(<sha>)` form. The older `` (`<sha>`) ``
+  form — 169 citations the bare-parenthesis search does not see at all — carried
+  42 more. Two were not squash rot but fabrication: a 7-character prefix
+  expanded to a plausible 40-character string that had never named anything,
+  sharing its prefix with the real commit it was meant to cite. Every one is
+  repointed at the commit that carried its entry onto `main`, recovered by
+  asking which commit introduced that entry's own line, and cross-checked
+  wherever a second source existed: GitHub's merge commit for the cited SHA
+  covers 52, and a real commit sharing the cited prefix covers the 2 fabricated
+  ones. Neither source can speak for the remaining 14, whose authoring commits
+  GitHub never saw. No cross-check contradicted the recovered commit.
+  `AGENTS.md` now states the rule the repair follows — cite the landing commit,
+  backfill only once an entry has landed, and expect one SHA across every entry
+  its pull request contributed — and the seven entries that had landed with no
+  SHA at all gain one. `scripts/tests/test_changelog_citations.py` keeps it
+  true, and CI checks out full history because a depth-1 clone cannot answer the
+  question. The guard was verified capable of failing: it named all 68 before
+  the repair, and mutating one character of a single surviving citation turns it
+  red naming that line. One SHA is deliberately left unchecked — the
+  writing-plans experiment's `pin` names a commit in the `superpowers` peer
+  repository, which cannot resolve here, and is written backticked outside
+  parentheses rather than as a citation, which is the distinction the check is
+  scoped to.
+
+- test(implement-ticket): grade re-verification of a ticket's stated assumptions
+  at pickup — a ticket's `Verified assumptions` slot records what was true when
+  the body was written, and nothing re-reads it when the work is picked up. Two
+  forward cases put that question to the corpus: one whose stated assumption the
+  current tree contradicts, which has to stop before any implementation state
+  exists, and one carrying a claim no repository read can settle, which has to
+  proceed while saying so rather than passing it off as verified. Neither packet
+  says which assumption went stale — the citation carries the line it quotes,
+  the repository artifact carries the line that path reads now, and drift is
+  whatever disagreement a runtime finds between them, so what is graded is
+  whether it looks rather than whether it can read a flag. The corpus lands
+  ahead of the prose, because `just eval-record` runs the current tree and a
+  before-stage measurement needs the case to exist while the obligation does
+  not. The real-model executor also gained `--repetitions` (default 5, drawn
+  concurrently), so each recorded case carries the vote counts behind its answer
+  instead of one sample's opinion; concurrently because this corpus is four
+  times its sibling's size, where five sequential samples per case would put a
+  recorded stage into the hours.
+
+- test(ready-ticket): test the retry loop the way its sibling already does
+  (f6a90c20cc51c24c32915e5211345bc5b0fbfd4d) — review found the new retry test
+  hand-rolling a partial stand-in for `subprocess.CompletedProcess`, a manual
+  patch-and-restore, and a list used as a call counter, for behavior
   `skills/implement-ticket/scripts/tests/test_forward_evals.py` already covers
   with `mock.patch.object` and a real `CompletedProcess` — against a retry loop
   this change deliberately mirrored from that same module. The test now reads

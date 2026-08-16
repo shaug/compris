@@ -34,6 +34,17 @@ assert CLAUDE_SPEC and CLAUDE_SPEC.loader
 CLAUDE_SPEC.loader.exec_module(CLAUDE_EXECUTOR)
 
 
+def cited(assumption: dict) -> tuple[str, str] | None:
+    """The path and quoted line a stated assumption points at, or `None`.
+
+    Parsed through the executor's own `CITATION`, so a test cannot repair a
+    packet by a grammar the executor no longer reads — which would leave the
+    executor calling every citation unreadable while the test still passed.
+    """
+    match = FIXTURE_EXECUTOR.CITATION.match(assumption.get("cited_as") or "")
+    return None if match is None else (match.group("path"), match.group("line"))
+
+
 class ForwardEvaluationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -52,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(58, len(self.cases))
+        self.assertEqual(60, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -107,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(58, len(observations))
+        self.assertEqual(60, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(58, len(process_ids))
+        self.assertEqual(60, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -120,6 +131,95 @@ class ForwardEvaluationTests(unittest.TestCase):
         )
         self.assertEqual("blocked", observed["terminal_state"])
         self.assertIn("skill_contract_incomplete", observed["actions"])
+
+    def observe(self, case_id):
+        """One case's result, without a second pass over the whole corpus.
+
+        The corpus-wide grading pass belongs to
+        `test_forward_cases_execute_fresh_and_pass_separate_grading`; repeating
+        it here would redden a test named for the assumption gate whenever any
+        of the other 58 cases regressed.
+        """
+        case = next(item for item in self.cases if item["id"] == case_id)
+        return RUNNER.run_executor(
+            [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(case)
+        )
+
+    def test_stated_assumptions_are_rechecked_before_any_mutation(self):
+        """Drift stops the run; an uncheckable assumption is reported, not passed."""
+        observations = {
+            case_id: self.observe(case_id)
+            for case_id in (
+                "drifted-ticket-assumption",
+                "unverifiable-ticket-assumption",
+            )
+        }
+
+        drifted = observations["drifted-ticket-assumption"]
+        self.assertEqual("blocked", drifted["terminal_state"])
+        self.assertIn("reject_drifted_ticket_assumption", drifted["actions"])
+        self.assertIn("fail_before_mutation", drifted["actions"])
+        # Every assumption in that case is checkable; only one has drifted.
+        self.assertNotIn("report_unchecked_ticket_assumption", drifted["actions"])
+
+        unverifiable = observations["unverifiable-ticket-assumption"]
+        self.assertEqual("ready_pr", unverifiable["terminal_state"])
+        self.assertIn("report_unchecked_ticket_assumption", unverifiable["actions"])
+        self.assertNotIn("reject_drifted_ticket_assumption", unverifiable["actions"])
+
+    def test_a_holding_assumption_set_changes_nothing(self):
+        """A ticket whose citations all still resolve proceeds as before."""
+        case = copy.deepcopy(
+            next(
+                item
+                for item in self.cases
+                if item["id"] == "unverifiable-ticket-assumption"
+            )
+        )
+        addressed = {
+            excerpt["path"]
+            for excerpt in case["artifacts"]["repository"]["current_excerpts"]
+        }
+        case["artifacts"]["ticket"]["stated_assumptions"] = [
+            assumption
+            for assumption in case["artifacts"]["ticket"]["stated_assumptions"]
+            if (cited(assumption) or (None,))[0] in addressed
+        ]
+        observed = RUNNER.run_executor(
+            [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(case)
+        )
+        self.assertEqual("ready_pr", observed["terminal_state"])
+        self.assertNotIn("report_unchecked_ticket_assumption", observed["actions"])
+        self.assertNotIn("reject_drifted_ticket_assumption", observed["actions"])
+
+    def test_drift_is_detected_by_comparison_rather_than_declared(self):
+        """Nothing in the packet says which assumption went stale.
+
+        The corpus grades whether a runtime re-reads the citation, so the
+        drifted case must stop being drifted when — and only when — the line it
+        quotes is what the repository now reads.
+        """
+        case = copy.deepcopy(
+            next(
+                item for item in self.cases if item["id"] == "drifted-ticket-assumption"
+            )
+        )
+        serialized = json.dumps(case["artifacts"], sort_keys=True)
+        for tell in ("holds", "drift", "stale", "checkable"):
+            self.assertNotIn(tell, serialized)
+
+        quoted = dict(
+            cited(assumption)
+            for assumption in case["artifacts"]["ticket"]["stated_assumptions"]
+        )
+        for excerpt in case["artifacts"]["repository"]["current_excerpts"]:
+            excerpt["line"] = quoted[excerpt["path"]]
+        # Repaired to agree with what the tree now reads, the same packet is an
+        # ordinary pre-implementation ticket again.
+        observed = RUNNER.run_executor(
+            [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(case)
+        )
+        self.assertNotIn("reject_drifted_ticket_assumption", observed["actions"])
 
     def test_acceptance_cases_depend_on_the_acceptance_skill_contract(self):
         for case_id, fragment in (
@@ -167,7 +267,6 @@ class ForwardEvaluationTests(unittest.TestCase):
 
     def test_claude_executor_reports_model_claims_verbatim(self):
         normalized = CLAUDE_EXECUTOR.normalize(
-            {"target_skill": "implement-ticket"},
             {"terminal_state": "ready_pr", "actions": ["invoke_ready_to_merge"]},
         )
         # No backfill: a model that omits target_skill must fail grading.
@@ -470,6 +569,239 @@ class ForwardEvaluationTests(unittest.TestCase):
                 "forbidden actions" in failure for failure in failed_dependency_failures
             )
         )
+
+
+class ClaudeExecutorRepetitionTests(unittest.TestCase):
+    """The real-model tier records how many of its repetitions agreed."""
+
+    def combine(self, *samples):
+        return CLAUDE_EXECUTOR.combine(
+            [
+                CLAUDE_EXECUTOR.normalize(
+                    {
+                        "target_skill": "implement-ticket",
+                        "terminal_state": state,
+                        "actions": actions,
+                        "acceptance_ledger": ledger,
+                    },
+                )
+                for state, actions, ledger in samples
+            ]
+        )
+
+    def test_the_majority_terminal_state_wins_and_its_agreement_is_recorded(self):
+        combined = self.combine(
+            ("ready_pr", [], []),
+            ("ready_pr", [], []),
+            ("blocked", [], []),
+        )
+
+        self.assertEqual("ready_pr", combined["terminal_state"])
+        self.assertEqual(3, combined["repetitions"])
+        self.assertAlmostEqual(2 / 3, combined["agreement"])
+        self.assertEqual(
+            {"ready_pr": 2, "blocked": 1}, combined["votes"]["terminal_state"]
+        )
+
+    def test_an_action_is_reported_only_on_a_strict_majority(self):
+        combined = self.combine(
+            ("ready_pr", ["invoke_ready_to_merge"], []),
+            ("ready_pr", ["invoke_ready_to_merge"], []),
+            ("ready_pr", ["invoke_merge_when_ready"], []),
+        )
+
+        self.assertEqual(["invoke_ready_to_merge"], combined["actions"])
+        self.assertEqual(
+            {"invoke_ready_to_merge": 2, "invoke_merge_when_ready": 1},
+            combined["votes"]["actions"],
+        )
+
+    def test_a_term_outside_the_vocabulary_is_discarded(self):
+        combined = self.combine(("ready_pr", ["not_a_real_action"], []))
+
+        self.assertEqual([], combined["actions"])
+        self.assertEqual({}, combined["votes"]["actions"])
+
+    def test_an_acceptance_criterion_carries_its_majority_status(self):
+        entry = {"criterion": "CI is green", "status": "pass"}
+        combined = self.combine(
+            ("merged", [], [entry]),
+            ("merged", [], [entry]),
+            ("merged", [], [{"criterion": "CI is green", "status": "missing"}]),
+        )
+
+        self.assertEqual([entry], combined["acceptance_ledger"])
+        self.assertEqual(
+            {"pass": 2, "missing": 1},
+            combined["votes"]["acceptance_ledger"]["CI is green"]["statuses"],
+        )
+
+    def test_a_criterion_a_minority_invented_is_not_reported(self):
+        kept = {"criterion": "CI is green", "status": "pass"}
+        invented = {"criterion": "Deploy observed", "status": "pass"}
+        combined = self.combine(
+            ("merged", [], [kept]),
+            ("merged", [], [kept]),
+            ("merged", [], [kept, invented]),
+        )
+
+        self.assertEqual([kept], combined["acceptance_ledger"])
+
+    def test_a_consistently_duplicated_criterion_still_reaches_the_grader(self):
+        """Voting must not launder a duplicate away from the duplicate check."""
+        entry = {"criterion": "CI is green", "status": "pass"}
+        combined = self.combine(
+            ("merged", [], [entry, entry]),
+            ("merged", [], [entry, entry]),
+            ("merged", [], [entry]),
+        )
+
+        self.assertEqual([entry, entry], combined["acceptance_ledger"])
+
+    def test_an_unusable_sample_still_serializes(self):
+        """One unusable sample grades as a mismatch; it does not end the run.
+
+        The vote counts become JSON object keys, and
+        `json.dump(..., sort_keys=True)` cannot order `None` against a string:
+        keying an absent answer raw would turn one unusable sample into a
+        crash that ends the whole corpus run mid-way.
+        """
+        combined = CLAUDE_EXECUTOR.combine(
+            [
+                CLAUDE_EXECUTOR.normalize({"terminal_state": "ready_pr"}),
+                CLAUDE_EXECUTOR.normalize({"actions": []}),
+            ]
+        )
+
+        json.dumps(combined, sort_keys=True)
+        self.assertEqual(
+            {"ready_pr": 1, "none": 1}, combined["votes"]["terminal_state"]
+        )
+
+    def test_a_wrongly_shaped_answer_grades_as_a_mismatch_not_a_crash(self):
+        """A non-string answer must not take the whole corpus run down with it.
+
+        `terminal_state` and `target_skill` are counted and compared here —
+        `Counter` keys, `min()` — so a sample answering `["blocked"]` or `1`
+        reaches that arithmetic as a `TypeError`. That is a non-zero executor
+        exit, which `run_forward.evaluate` has no per-case recovery for, so one
+        malformed sample ends a stage of sixty scenarios and the recorder files
+        it as `attempted` — the status reserved for an environment with no
+        model access.
+        """
+        for wrong in (["blocked"], 1, {"state": "blocked"}):
+            with self.subTest(answer=wrong):
+                combined = CLAUDE_EXECUTOR.combine(
+                    [
+                        CLAUDE_EXECUTOR.normalize(
+                            {"target_skill": wrong, "terminal_state": wrong}
+                        ),
+                        CLAUDE_EXECUTOR.normalize(
+                            {
+                                "target_skill": "implement-ticket",
+                                "terminal_state": "ready_pr",
+                            }
+                        ),
+                    ]
+                )
+                json.dumps(combined, sort_keys=True)
+                # Rendered, not discarded: a wrongly shaped answer is a
+                # mismatch the grader can report, not an absent one.
+                self.assertIn(str(wrong), combined["votes"]["terminal_state"])
+                self.assertNotIn(
+                    CLAUDE_EXECUTOR.NO_ANSWER, combined["votes"]["terminal_state"]
+                )
+
+    def test_an_all_unusable_run_reports_no_answer_rather_than_the_sentinel(self):
+        combined = CLAUDE_EXECUTOR.combine(
+            [CLAUDE_EXECUTOR.normalize({"actions": []}) for _ in range(3)]
+        )
+
+        self.assertIsNone(combined["terminal_state"])
+        self.assertIsNone(combined["target_skill"])
+        self.assertEqual({"none": 3}, combined["votes"]["terminal_state"])
+
+    def test_a_refused_sample_is_dropped_rather_than_ending_the_run(self):
+        """A missing sample is missing, not an answer, and not a dead run."""
+        with mock.patch.object(
+            CLAUDE_EXECUTOR,
+            "run_claude",
+            side_effect=RuntimeError("claude exited 1: boom"),
+        ):
+            self.assertIsNone(CLAUDE_EXECUTOR.draw("prompt", "claude", None))
+
+    def test_a_scenario_whose_samples_all_failed_redraws_once(self):
+        """A burst that takes every concurrent sample must not end the run.
+
+        Observed: five concurrent samples failed together partway through a
+        recorded stage, `run_forward.py` surfaced it as a non-zero executor
+        exit, and the recorder filed a stage that had been running for half an
+        hour as `attempted` — the status reserved for an environment without
+        model access. The CLI answered normally minutes later.
+        """
+        valid = {
+            "target_skill": "implement-ticket",
+            "terminal_state": "ready_pr",
+            "actions": [],
+            "acceptance_ledger": [],
+        }
+        attempts = []
+
+        def flaky(prompt, claude_bin, model):
+            attempts.append(1)
+            if len(attempts) <= 5:
+                raise RuntimeError("claude exited 1: overloaded")
+            return valid
+
+        argv = ["claude_executor.py", "--repetitions", "5"]
+        with (
+            mock.patch.object(CLAUDE_EXECUTOR, "run_claude", side_effect=flaky),
+            mock.patch.object(CLAUDE_EXECUTOR.time, "sleep") as slept,
+            mock.patch.object(CLAUDE_EXECUTOR.sys, "argv", argv),
+            mock.patch.object(
+                CLAUDE_EXECUTOR.json, "load", return_value={"target_skill": "x"}
+            ),
+            mock.patch.object(CLAUDE_EXECUTOR, "build_prompt", return_value="p"),
+            mock.patch.object(CLAUDE_EXECUTOR.json, "dump") as dumped,
+        ):
+            self.assertEqual(0, CLAUDE_EXECUTOR.main())
+
+        slept.assert_called_once_with(CLAUDE_EXECUTOR.SCENARIO_RETRY_PAUSE_SECONDS)
+        self.assertEqual(10, len(attempts))
+        recorded = dumped.call_args.args[0]
+        self.assertEqual(5, recorded["repetitions"])
+        # The five the burst took are the record of turbulence absorbed. Counted
+        # against the redrawn round alone, a scenario that lost a whole batch
+        # reads exactly like one that never lost a sample.
+        self.assertEqual(5, recorded["failed_samples"])
+
+    def test_a_second_empty_draw_is_reported_as_the_environment(self):
+        argv = ["claude_executor.py", "--repetitions", "3"]
+        with (
+            mock.patch.object(
+                CLAUDE_EXECUTOR, "run_claude", side_effect=RuntimeError("exited 1")
+            ),
+            mock.patch.object(CLAUDE_EXECUTOR.time, "sleep"),
+            mock.patch.object(CLAUDE_EXECUTOR.sys, "argv", argv),
+            mock.patch.object(
+                CLAUDE_EXECUTOR.json, "load", return_value={"target_skill": "x"}
+            ),
+            mock.patch.object(CLAUDE_EXECUTOR, "build_prompt", return_value="p"),
+        ):
+            with self.assertRaises(RuntimeError):
+                CLAUDE_EXECUTOR.main()
+
+    def test_the_target_skill_is_voted_rather_than_backfilled(self):
+        """A model that omits target_skill must still fail grading."""
+        combined = CLAUDE_EXECUTOR.combine(
+            [
+                CLAUDE_EXECUTOR.normalize(
+                    {"terminal_state": "ready_pr", "actions": []},
+                )
+            ]
+        )
+
+        self.assertIsNone(combined["target_skill"])
 
 
 class ClaudeExecutorRetryTests(unittest.TestCase):
