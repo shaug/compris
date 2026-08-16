@@ -79,16 +79,17 @@ summary: Chronological history of repository and skill changes.
   by construction. `babysit-pr`'s example output block is brought into line with
   the obligation its own prose already carried.
 
-- test(evals): hold every recorded subtree to reachability from `HEAD` —
+- test(evals): hold every recorded subtree to reachability from `HEAD`
+  (bc245d42e41d0023a73b71a2c1228abfeb1a599d) —
   `scripts/tests/test_eval_candidate_citations.py` fails when a summary's
   `candidate.trees` names content no commit reachable from `HEAD` carries, which
   is the same silent rot `scripts/tests/test_changelog_citations.py` catches for
   the changelog: a hash resolving to nothing reads exactly like one that
   resolves. Unlike its sibling it needs no unlanded-branch exemption, because a
   subtree recorded on an open branch stays reachable from that branch's own
-  history across a rebase. A summary carrying no `trees` passes
-  (bc245d42e41d0023a73b71a2c1228abfeb1a599d) — those predate the field and are
-  recorded as unresolvable rather than pretended into evidence.
+  history across a rebase. A summary carrying no `trees` passes — those predate
+  the field and are recorded as unresolvable rather than pretended into
+  evidence.
 
 - fix(evals): derive the durable identity of every summary that still names a
   reachable commit (3147edf22d662c84b08930cd0e32b732d4147dea) — 23 of the 82
@@ -102,17 +103,17 @@ summary: Chronological history of repository and skill changes.
   measured content that no longer exists in any clone but its author's; unlike
   the changelog's citations, there is nothing left to recover.
 
-- feat(evals): record the subtree identity that survives a rebase —
-  `candidate.tree` was `git rev-parse HEAD^{tree}`, the whole repository's, so a
-  rebase onto a moved `main` changed it through files outside the skill and the
-  recorded identity resolved to nothing. `candidate.trees` now maps each path
-  whose content decided what the run read
-  (8f52f24450c27bd0a29c85d2812000e4b73f05fa) — `skills/<skill>` always, and
-  `triggering` as well for a triggering-suite run, whose executors live outside
-  every skill — to that path's subtree hash. The test that had asserted the old
-  claim passed only by simulating a rebase as a new parent over an identical
-  tree, which is the one thing a real rebase never is; it now models a base that
-  moved, and fails against the old behavior.
+- feat(evals): record the subtree identity that survives a rebase
+  (8f52f24450c27bd0a29c85d2812000e4b73f05fa) — `candidate.tree` was
+  `git rev-parse HEAD^{tree}`, the whole repository's, so a rebase onto a moved
+  `main` changed it through files outside the skill and the recorded identity
+  resolved to nothing. `candidate.trees` now maps each path whose content
+  decided what the run read — `skills/<skill>` always, and `triggering` as well
+  for a triggering-suite run, whose executors live outside every skill — to that
+  path's subtree hash. The test that had asserted the old claim passed only by
+  simulating a rebase as a new parent over an identical tree, which is the one
+  thing a real rebase never is; it now models a base that moved, and fails
+  against the old behavior.
 
 - docs: design the eval candidate's durable identity
   (5070c687497996fc179af24113126d3edd9f2177) — `AGENTS.md` tells a reader to
