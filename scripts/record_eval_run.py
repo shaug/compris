@@ -389,8 +389,31 @@ def diff_against(
 RESULTS_PATH_MARKER = "/evals/results/"
 
 
-def candidate_identity() -> dict:
-    """Bind the run to the tree that produced it.
+def subtree_paths(skill: str, suite: str) -> list[str]:
+    """Name the paths whose content decides what a run of this suite read.
+
+    The skill directory holds both the prose under measurement and, at
+    `scripts/evals/`, the executor that produced the evidence — which is the
+    pair a re-record at the shipping head exists to keep together. A
+    triggering run's executors live in `triggering/` instead, outside every
+    skill, so naming only the skill would under-describe the instrument.
+    """
+
+    paths = [f"skills/{skill}"]
+    if suite == TRIGGERING_SUITE:
+        paths.append("triggering")
+    return paths
+
+
+def candidate_identity(skill: str, suite: str) -> dict:
+    """Bind the run to the content that produced it.
+
+    `trees` is the durable half. `sha` and `tree` are both branch-local: a
+    rebase onto a moved `main` rewrites the commit and changes the
+    whole-repository tree through files outside the skill entirely, so neither
+    survives one. A subtree the change never touched is undisturbed by
+    unrelated files moving, which is why it is `trees` a later reader should
+    expect to resolve.
 
     `worktree_clean` is left unknown rather than asserted when git cannot be
     read: an empty `git status` and a failed `git status` are the same string,
@@ -417,9 +440,15 @@ def candidate_identity() -> dict:
             for line in status.splitlines()
             if RESULTS_PATH_MARKER not in line.replace("\\", "/")
         ]
+    trees = {}
+    for path in subtree_paths(skill, suite):
+        resolved = git("rev-parse", f"HEAD:{path}")
+        if resolved is not None:
+            trees[path] = resolved
     return {
         "sha": git("rev-parse", "HEAD"),
         "tree": git("rev-parse", "HEAD^{tree}"),
+        "trees": trees,
         "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
         "worktree_clean": None if relevant is None else not relevant,
     }
@@ -510,7 +539,7 @@ def build_summary(
         "gap": gap,
         "note": note,
         "command": command,
-        "candidate": candidate_identity(),
+        "candidate": candidate_identity(skill, suite),
         "status": status,
         "exit_code": completed.returncode,
         "limitation": limitation,

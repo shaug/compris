@@ -6,6 +6,16 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
 
+- feat(evals): record the subtree identity that survives a rebase —
+  `candidate.tree` was `git rev-parse HEAD^{tree}`, the whole repository's, so a
+  rebase onto a moved `main` changed it through files outside the skill and the
+  recorded identity resolved to nothing. `candidate.trees` now maps each path
+  whose content decided what the run read — `skills/<skill>` always, and
+  `triggering` as well for a triggering-suite run, whose executors live outside
+  every skill — to that path's subtree hash. The test that had asserted the old
+  claim passed only by simulating a rebase as a new parent over an identical
+  tree, which is the one thing a real rebase never is; it now models a base that
+  moved, and fails against the old behavior.
 - docs: design the eval candidate's durable identity — `AGENTS.md` tells a
   reader to trust `candidate.tree` over `candidate.sha`, on the grounds that
   content is identical under rebase and squash where a commit is not. It is not:

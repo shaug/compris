@@ -456,22 +456,22 @@ class RecorderTests(unittest.TestCase):
         summary = json.loads(files[-1].read_text(encoding="utf-8"))
         self.assertIsNone(summary["compared_to"])
 
-    # AC: the recorded tree identifier still resolves to the evaluated content
-    # after the branch history that produced it is rewritten — first as a
-    # rebase would (a new parent), then as a squash-merge would (a brand new
-    # commit reusing the identical tree). `sha` cannot survive either; `tree`
-    # must survive both.
-    def test_candidate_tree_survives_rebase_and_squash(self) -> None:
+    # AC: the recorded identity still resolves to the evaluated content after
+    # a real rebase onto a moved `main` — one that changes files outside the
+    # skill, as every rebase in this repository does. `sha` cannot survive
+    # that, and neither can the whole-repository `tree`; the skill's subtree
+    # must, because unrelated files moving cannot disturb it.
+    def test_candidate_identity_survives_a_rebase_onto_a_moved_base(self) -> None:
         repo = self.root / "git-repo"
-        repo.mkdir()
+        skill = repo / "skills" / "demo"
+        skill.mkdir(parents=True)
 
-        def git(*args: str, input: str | None = None) -> str:
+        def git(*args: str) -> str:
             completed = subprocess.run(
                 ["git", *args],
                 cwd=repo,
                 text=True,
                 capture_output=True,
-                input=input,
                 check=True,
             )
             return completed.stdout.strip()
@@ -479,36 +479,117 @@ class RecorderTests(unittest.TestCase):
         git("init", "-q")
         git("config", "user.email", "a@example.com")
         git("config", "user.name", "a")
-        (repo / "file.txt").write_text("v1", encoding="utf-8")
-        git("add", "file.txt")
+        (repo / "AGENTS.md").write_text("base\n", encoding="utf-8")
+        (skill / "SKILL.md").write_text("prose v1\n", encoding="utf-8")
+        git("add", "-A")
         git("commit", "-q", "-m", "first")
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            before_rewrite = record_eval_run.candidate_identity()
+            before = record_eval_run.candidate_identity(
+                "demo", record_eval_run.FORWARD_SUITE
+            )
 
-        original_tree = before_rewrite["tree"]
-        self.assertTrue(original_tree)
-
-        # A rebase: the same tree, a new synthetic parent.
-        empty_tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-        rebase_parent = git("commit-tree", empty_tree, "-m", "rebased-onto")
-        rebased = git(
-            "commit-tree", original_tree, "-p", rebase_parent, "-m", "rebased"
-        )
-        git("reset", "--hard", rebased)
-
-        # A squash-merge on top: yet another brand new commit, still the same
-        # tree, with no ancestry relationship to the original commit at all.
-        squashed = git("commit-tree", original_tree, "-m", "squashed")
-        git("reset", "--hard", squashed)
-
-        self.assertEqual((repo / "file.txt").read_text(encoding="utf-8"), "v1")
+        # The rebase: `main` moved by changing a file outside the skill, and
+        # the branch's work is replayed on top. The skill's content is
+        # untouched; the repository's tree is not.
+        (repo / "AGENTS.md").write_text("moved\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "unrelated change on main")
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            after_rewrite = record_eval_run.candidate_identity()
+            after = record_eval_run.candidate_identity(
+                "demo", record_eval_run.FORWARD_SUITE
+            )
 
-        self.assertEqual(after_rewrite["tree"], original_tree)
-        self.assertNotEqual(after_rewrite["sha"], before_rewrite["sha"])
+        self.assertNotEqual(after["sha"], before["sha"])
+        self.assertNotEqual(after["tree"], before["tree"])
+        self.assertEqual(after["trees"], before["trees"])
+        self.assertEqual(sorted(before["trees"]), ["skills/demo"])
+
+    # AC: a squash-merge that keeps the measured content keeps the recorded
+    # identity with it. This is the half of the deleted test that was worth
+    # keeping — it is what makes a run recorded at the shipping head
+    # resolvable on `main` afterward, and it is the only durability the
+    # merge-method rule in `AGENTS.md` cannot supply on its own.
+    def test_candidate_identity_survives_a_squash_that_keeps_the_content(
+        self,
+    ) -> None:
+        repo = self.root / "squash-repo"
+        skill = repo / "skills" / "demo"
+        skill.mkdir(parents=True)
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "AGENTS.md").write_text("base\n", encoding="utf-8")
+        (skill / "SKILL.md").write_text("prose v1\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "first")
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            before = record_eval_run.candidate_identity(
+                "demo", record_eval_run.FORWARD_SUITE
+            )
+
+        # The squash: one brand new commit carrying the other files the pull
+        # request touched, with no ancestry to the recorded commit at all.
+        (repo / "AGENTS.md").write_text("squashed\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "other files in the same pull request")
+        squashed = git("commit-tree", git("rev-parse", "HEAD^{tree}"), "-m", "squash")
+        git("reset", "--hard", squashed)
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            after = record_eval_run.candidate_identity(
+                "demo", record_eval_run.FORWARD_SUITE
+            )
+
+        self.assertNotEqual(after["sha"], before["sha"])
+        self.assertNotEqual(after["tree"], before["tree"])
+        self.assertEqual(after["trees"], before["trees"])
+
+    # AC: a triggering run's executors live in `triggering/`, outside every
+    # skill, so a summary naming only the skill would under-describe the
+    # instrument that produced it.
+    def test_triggering_run_also_names_the_triggering_executors(self) -> None:
+        repo = self.root / "triggering-repo"
+        (repo / "skills" / "demo").mkdir(parents=True)
+        (repo / "triggering").mkdir(parents=True)
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "skills" / "demo" / "SKILL.md").write_text("p\n", encoding="utf-8")
+        (repo / "triggering" / "runner.py").write_text("r\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "first")
+
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            identity = record_eval_run.candidate_identity(
+                "demo", record_eval_run.TRIGGERING_SUITE
+            )
+
+        self.assertEqual(sorted(identity["trees"]), ["skills/demo", "triggering"])
 
 
 class NormIsStatedTests(unittest.TestCase):
@@ -606,7 +687,9 @@ class NormIsStatedTests(unittest.TestCase):
             "run",
             return_value=subprocess.CompletedProcess([], 0, status, ""),
         ):
-            identity = record_eval_run.candidate_identity()
+            identity = record_eval_run.candidate_identity(
+                "demo", record_eval_run.FORWARD_SUITE
+            )
 
         self.assertTrue(identity["worktree_clean"])
 
@@ -617,7 +700,9 @@ class NormIsStatedTests(unittest.TestCase):
             "run",
             return_value=subprocess.CompletedProcess([], 0, status, ""),
         ):
-            identity = record_eval_run.candidate_identity()
+            identity = record_eval_run.candidate_identity(
+                "demo", record_eval_run.FORWARD_SUITE
+            )
 
         self.assertFalse(identity["worktree_clean"])
 
