@@ -14,6 +14,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # scripts/tests/test_changelog_citations.py resolves every SHA
+          # CHANGELOG.md cites against this repository's history, which the
+          # default depth-1 checkout does not contain.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
