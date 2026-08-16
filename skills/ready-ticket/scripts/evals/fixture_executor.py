@@ -63,6 +63,9 @@ ANSWERS: dict[str, dict] = {
             "record_why_each_part_independently_valuable",
             "record_boundary_between_parts",
             "hand_recommendation_back_to_operator",
+            "name_every_graph_node_and_edge",
+            "name_a_re_split_trigger_per_leaf",
+            "draft_a_complete_body_for_every_leaf",
         ],
     },
     "Get the import ticket ready.": {
@@ -125,6 +128,50 @@ ANSWERS: dict[str, dict] = {
             "ask_no_question_wait_for_no_answer",
             "name_the_unresolved_decision_as_blocking_reason",
             "give_one_next_action",
+        ],
+    },
+    "Write a ticket for adding a `--dry-run` flag to our deploy CLI.": {
+        "terminal_state": "ticket_ready",
+        "actions": [
+            "keep_reviewable_initiative_as_one_ticket",
+            "fill_every_template_slot",
+            "meet_the_ticket_ready_readiness_target",
+        ],
+    },
+    "We're adding SSO. Write it up.": {
+        "terminal_state": "decomposition_recommended",
+        "actions": [
+            "separate_unrelated_concern_domains",
+            "name_every_graph_node_and_edge",
+            "name_a_re_split_trigger_per_leaf",
+            "draft_a_complete_body_for_every_leaf",
+            "perform_no_tracker_mutation",
+        ],
+    },
+    "Write a ticket for renaming `JobRunner` to `TaskRunner` everywhere, and while we're in there make it retry a failed job three times.": {
+        "terminal_state": "decomposition_recommended",
+        "actions": [
+            "separate_mechanical_restructuring_from_behavioral_change",
+            "name_every_graph_node_and_edge",
+            "draft_a_complete_body_for_every_leaf",
+            "perform_no_tracker_mutation",
+        ],
+    },
+    "Write up the webhook delivery work.": {
+        "terminal_state": "decomposition_recommended",
+        "actions": [
+            "keep_validation_with_the_behavior_it_proves",
+            "name_every_graph_node_and_edge",
+            "draft_a_complete_body_for_every_leaf",
+            "perform_no_tracker_mutation",
+        ],
+    },
+    "Write a ticket for tightening the reviewer prompt in our eval harness.": {
+        "terminal_state": "ticket_ready",
+        "actions": [
+            "exclude_recorded_generated_evidence_from_size",
+            "keep_reviewable_initiative_as_one_ticket",
+            "fill_every_template_slot",
         ],
     },
 }

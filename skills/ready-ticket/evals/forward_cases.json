@@ -147,5 +147,65 @@
       "design": "the paragraph states the requirements and acceptance criteria, the goals and non-goals, and the stakeholders and deadline",
       "elicitation": "no named document, repository contract, or existing test says which command would demonstrate the third criterion or whether it can run before merge"
     }
+  },
+  {
+    "id": "fits-as-one-stays-one-ticket",
+    "request": "Write a ticket for adding a `--dry-run` flag to our deploy CLI.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository",
+      "peers": "no peer skills in the session listing",
+      "design": "a two-paragraph note settles the requirements, the acceptance criteria, the goals and non-goals, and who wants it by when",
+      "elicitation": "the flag parses in the existing option block, skips the two mutating calls, and prints the plan it would have run; one command file and its test change; the requester says to use however many tickets it takes and adds that leadership likes seeing an epic with sub-issues on the board"
+    }
+  },
+  {
+    "id": "unrelated-concerns-become-separate-leaves",
+    "request": "We're adding SSO. Write it up.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design document settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline",
+      "elicitation": "answers describe SAML assertion handling, an admin screen for configuring an identity provider, and a migration path that moves existing password users onto their provider; the admin screen reads the provider record the assertion work introduces, and the migration reads both"
+    }
+  },
+  {
+    "id": "mechanical-and-behavioral-change-separated",
+    "request": "Write a ticket for renaming `JobRunner` to `TaskRunner` everywhere, and while we're in there make it retry a failed job three times.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved one-page note settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for both halves",
+      "elicitation": "the rename touches 140 call sites across 60 files and changes no observable behavior; the retry adds a new `max_attempts` config key and changes what a caller observes when a job fails; the requester says both land in the same sprint and would rather not open two things"
+    }
+  },
+  {
+    "id": "validation-stays-with-the-behavior-it-proves",
+    "request": "Write up the webhook delivery work.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline",
+      "elicitation": "three pieces — an outbound delivery queue, a retry policy with backoff, and a signed request header; proving the retry policy and the header both need the fake clock and the HTTP fixture the queue piece introduces, and the requester says the team's habit is to land shared test scaffolding and the tests that use it together, after the features are in"
+    }
+  },
+  {
+    "id": "generated-evidence-excluded-from-size",
+    "request": "Write a ticket for tightening the reviewer prompt in our eval harness.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved one-paragraph note settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline",
+      "elicitation": "the edit rewrites about 150 lines of prompt text in one file; the repository's evidence norm requires the re-recorded eval results to be committed in the same change, which is roughly 4,500 lines of generated JSON nobody reads; the requester asks whether something that large has to be split"
+    }
   }
 ]

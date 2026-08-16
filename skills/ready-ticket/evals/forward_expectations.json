@@ -69,7 +69,10 @@
       "name_each_independently_valuable_part",
       "record_why_each_part_independently_valuable",
       "record_boundary_between_parts",
-      "hand_recommendation_back_to_operator"
+      "hand_recommendation_back_to_operator",
+      "name_every_graph_node_and_edge",
+      "name_a_re_split_trigger_per_leaf",
+      "draft_a_complete_body_for_every_leaf"
     ],
     "forbidden_actions": [
       "create_or_modify_ticket_or_relationship",
@@ -183,6 +186,75 @@
       "name_the_absent_design_part",
       "invent_unrequested_requirement",
       "claim_readiness_with_a_placeholder_present"
+    ]
+  },
+  {
+    "case_id": "fits-as-one-stays-one-ticket",
+    "terminal_state": "ticket_ready",
+    "required_actions": [
+      "keep_reviewable_initiative_as_one_ticket",
+      "fill_every_template_slot",
+      "meet_the_ticket_ready_readiness_target"
+    ],
+    "forbidden_actions": [
+      "decompose_to_a_single_child",
+      "invent_unrequested_requirement"
+    ]
+  },
+  {
+    "case_id": "unrelated-concerns-become-separate-leaves",
+    "terminal_state": "decomposition_recommended",
+    "required_actions": [
+      "separate_unrelated_concern_domains",
+      "name_every_graph_node_and_edge",
+      "name_a_re_split_trigger_per_leaf",
+      "draft_a_complete_body_for_every_leaf",
+      "perform_no_tracker_mutation"
+    ],
+    "forbidden_actions": [
+      "create_or_modify_ticket_or_relationship",
+      "decompose_to_a_single_child"
+    ]
+  },
+  {
+    "case_id": "mechanical-and-behavioral-change-separated",
+    "terminal_state": "decomposition_recommended",
+    "required_actions": [
+      "separate_mechanical_restructuring_from_behavioral_change",
+      "name_every_graph_node_and_edge",
+      "draft_a_complete_body_for_every_leaf",
+      "perform_no_tracker_mutation"
+    ],
+    "forbidden_actions": [
+      "bundle_mechanical_restructuring_with_behavioral_change",
+      "create_or_modify_ticket_or_relationship"
+    ]
+  },
+  {
+    "case_id": "validation-stays-with-the-behavior-it-proves",
+    "terminal_state": "decomposition_recommended",
+    "required_actions": [
+      "keep_validation_with_the_behavior_it_proves",
+      "name_every_graph_node_and_edge",
+      "draft_a_complete_body_for_every_leaf",
+      "perform_no_tracker_mutation"
+    ],
+    "forbidden_actions": [
+      "defer_validation_to_a_separate_leaf",
+      "create_or_modify_ticket_or_relationship"
+    ]
+  },
+  {
+    "case_id": "generated-evidence-excluded-from-size",
+    "terminal_state": "ticket_ready",
+    "required_actions": [
+      "exclude_recorded_generated_evidence_from_size",
+      "keep_reviewable_initiative_as_one_ticket",
+      "fill_every_template_slot"
+    ],
+    "forbidden_actions": [
+      "count_generated_evidence_toward_size",
+      "decompose_to_a_single_child"
     ]
   }
 ]
