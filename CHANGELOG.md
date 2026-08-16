@@ -6,6 +6,23 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
 
+- docs: make merge-commit the repository's merge method, not a rule about one
+  directory — the eval-evidence rule this replaces was conditional, applying to
+  pull requests that touch `skills/*/evals/results/`, and a conditional merge
+  method is one nothing can enforce. GitHub's merge method is a repository
+  setting rather than a per-pull-request one, so the conditional form rested
+  entirely on whoever clicked merge classifying the pull request correctly every
+  time, with no mechanism to catch a miss and no repair once missed. Since evals
+  first landed, 20 of 46 commits on `main` touched `evals/results/`, so the
+  classification would have been live on nearly half of them. The two failures
+  are not comparable either: squashing an eval-carrying pull request loses the
+  measured content permanently, while merge-committing one that carries none
+  costs a non-linear history `git log --first-parent` reads straight through.
+  The changelog's own backfill convention is updated to match — under a merge
+  commit the authoring commit is the landing commit, so new entries normally
+  cite distinct SHAs rather than sharing one, though the squash-merged history
+  behind this change still behaves the old way.
+
 - docs: state the merge method the eval evidence depends on, and correct what
   `AGENTS.md` claims survives — the file told a reader to trust `candidate.tree`
   over `candidate.sha` on the grounds that content is identical under rebase and
@@ -17,6 +34,7 @@ summary: Chronological history of repository and skill changes.
   keeps one tree per pull request while the states eval evidence measures are
   intermediate by construction. `babysit-pr`'s example output block is brought
   into line with the obligation its own prose already carried.
+
 - test(evals): hold every recorded subtree to reachability from `HEAD` —
   `scripts/tests/test_eval_candidate_citations.py` fails when a summary's
   `candidate.trees` names content no commit reachable from `HEAD` carries, which
@@ -27,6 +45,7 @@ summary: Chronological history of repository and skill changes.
   history across a rebase. A summary carrying no `trees` passes — those predate
   the field and are recorded as unresolvable rather than pretended into
   evidence.
+
 - fix(evals): derive the durable identity of every summary that still names a
   reachable commit — 23 of the 82 summaries gain `candidate.trees` computed from
   the commit each already carries, and the other 59 keep none. The derivation
@@ -38,6 +57,7 @@ summary: Chronological history of repository and skill changes.
   both its skill path and `triggering`. The 59 measured content that no longer
   exists in any clone but its author's; unlike the changelog's citations, there
   is nothing left to recover.
+
 - feat(evals): record the subtree identity that survives a rebase —
   `candidate.tree` was `git rev-parse HEAD^{tree}`, the whole repository's, so a
   rebase onto a moved `main` changed it through files outside the skill and the
@@ -48,6 +68,7 @@ summary: Chronological history of repository and skill changes.
   claim passed only by simulating a rebase as a new parent over an identical
   tree, which is the one thing a real rebase never is; it now models a base that
   moved, and fails against the old behavior.
+
 - docs: design the eval candidate's durable identity — `AGENTS.md` tells a
   reader to trust `candidate.tree` over `candidate.sha`, on the grounds that
   content is identical under rebase and squash where a commit is not. It is not:
