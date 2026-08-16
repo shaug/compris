@@ -78,16 +78,24 @@ tier may report more than an outcome — the triggering corpus's description tie
 reports how many of its repetitions agreed. Variance is the metric there, and a
 case degrading from unanimous to a bare majority still records `pass`.
 
-Record from a committed, clean tree, so the summary's `candidate.sha` names a
-commit a later reader can resolve, and commit the summaries on top. A run
-recorded from a dirty tree — or from a commit later amended away — names a tree
-nobody else can retrieve, which is the one thing the record exists to supply.
+Record from a committed, clean tree, so the summary's `candidate.trees` can be
+derived from `HEAD` at all and names content a later reader can retrieve, and
+commit the summaries on top. A run recorded from a dirty tree read files no
+commit holds, so the subtrees it records name something other than what the eval
+actually saw — and naming that content is the one thing the record exists to do.
 
 Each summary also carries `candidate.trees` — a map from repository path to that
-path's subtree hash, holding `skills/<skill>` for every run and `triggering` as
-well for a triggering-suite run, whose executors live outside every skill —
-`candidate.tree`, the whole repository's `git rev-parse HEAD^{tree}`, and, for a
-real-model run, `model`, the exact `--model` the recorded command passed.
+path's subtree hash. It names `skills/<skill>` for every run, the prose under
+measurement, plus every repository unit the run's own resolved command names, so
+a run whose instrument lives elsewhere says so: a triggering run picks up
+`triggering/`, where its executors live outside every skill, and an
+`implement-epic` run picks up `skills/implement-ticket`, whose runner, executor,
+and corpus it is measured through. A path whose subtree could not be read is
+listed under `candidate.trees_unresolved` rather than dropped, because a run
+that derived nothing would otherwise be indistinguishable from a summary
+predating the field. Alongside them a summary carries `candidate.tree`, the
+whole repository's `git rev-parse HEAD^{tree}`, and, for a real-model run,
+`model`, the exact `--model` the recorded command passed.
 
 `sha` and `tree` are both branch-local. A rebase onto a moved `main` rewrites
 the commit and changes the repository tree through files outside the skill
@@ -124,16 +132,24 @@ commit rather than collapsing them, so each intermediate subtree still lands on
 `main` and stays reachable — a rebase moves a commit without disturbing a
 subtree the commit never touched, which is the same property `candidate.trees`
 rests on in the first place. It rewrites `sha`, but `sha` is already recorded as
-branch-local. Rebase merging is therefore left available; only a squash
-collapses the measured states away.
+branch-local. The exception is a rebase that resolves conflicts inside a skill
+directory: there the replayed commit carries content the recorded run never
+read, so the recorded subtree lands nowhere and
+`scripts/tests/test_eval_candidate_citations.py` turning red is correct rather
+than a false alarm — that guard names this case alongside the squash, and the
+answer to it is to re-record. Rebase merging is therefore left available; only a
+squash collapses the measured states away with nothing to re-record against.
 
 `model` exists because a before/after pair taken across a model update compares
 two different subjects wearing the same tier name; a diff is drawn only when the
 compared runs' tier, suite, and model all match. A deterministic run records no
 model — there is none to name. Summaries recorded before these fields existed
-carry `trees` only where it could be derived from a commit they still name, and
-carry no `model` at all: no model can be recovered for them after the fact, and
-they are not backfilled. The derivation that is backfilled,
+carry `trees` only where it could be derived from a commit still reachable from
+`HEAD`, and carry no `model` at all: no model can be recovered for them after
+the fact, and they are not backfilled. Reachability rather than resolvability is
+the criterion, because a commit surviving in one clone as a dangling object
+resolves there and nowhere else — deriving from those would write citations the
+guard reports as rot, which is what they are. The derivation that is backfilled,
 `git rev-parse <recorded sha>:<path>`, is a computation over what the file
 already carries and could not have come out differently had the field existed
 when it was written. A landing commit is not backfilled for the opposite reason:

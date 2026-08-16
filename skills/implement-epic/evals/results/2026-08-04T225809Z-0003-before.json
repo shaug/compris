@@ -3,7 +3,8 @@
     "branch": "HEAD",
     "sha": "a1ee71cc43ab04af221667a184f7dbf3edac77f1",
     "trees": {
-      "skills/implement-epic": "561fb17539ed510947ffd199e00e08a3f597a2c2"
+      "skills/implement-epic": "561fb17539ed510947ffd199e00e08a3f597a2c2",
+      "skills/implement-ticket": "0969370f3280dc3726a41805433d63331e066bbf"
     },
     "worktree_clean": true
   },

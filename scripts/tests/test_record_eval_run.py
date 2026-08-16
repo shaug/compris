@@ -483,23 +483,32 @@ class RecorderTests(unittest.TestCase):
         (skill / "SKILL.md").write_text("prose v1\n", encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "first")
+        trunk = git("rev-parse", "--abbrev-ref", "HEAD")
+
+        # The branch under measurement changes the skill, so its recorded
+        # subtree is one only this branch carries — not the base's, which
+        # would survive anything.
+        git("checkout", "-q", "-b", "work")
+        (skill / "SKILL.md").write_text("prose v2\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "change the skill under measurement")
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            before = record_eval_run.candidate_identity(
-                "demo", record_eval_run.FORWARD_SUITE
-            )
+            before = record_eval_run.candidate_identity("demo", [])
 
-        # The rebase: `main` moved by changing a file outside the skill, and
-        # the branch's work is replayed on top. The skill's content is
-        # untouched; the repository's tree is not.
+        # `main` moves by changing a file outside the skill, as every rebase
+        # in this repository does, and the branch is really rebased onto it.
+        # The rebase rewrites the commit that touched the skill; the content
+        # it touched is unchanged.
+        git("checkout", "-q", trunk)
         (repo / "AGENTS.md").write_text("moved\n", encoding="utf-8")
         git("add", "-A")
         git("commit", "-q", "-m", "unrelated change on main")
+        git("checkout", "-q", "work")
+        git("rebase", trunk)
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            after = record_eval_run.candidate_identity(
-                "demo", record_eval_run.FORWARD_SUITE
-            )
+            after = record_eval_run.candidate_identity("demo", [])
 
         self.assertNotEqual(after["sha"], before["sha"])
         self.assertNotEqual(after["tree"], before["tree"])
@@ -537,9 +546,7 @@ class RecorderTests(unittest.TestCase):
         git("commit", "-q", "-m", "first")
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            before = record_eval_run.candidate_identity(
-                "demo", record_eval_run.FORWARD_SUITE
-            )
+            before = record_eval_run.candidate_identity("demo", [])
 
         # The squash: one brand new commit carrying the other files the pull
         # request touched, with no ancestry to the recorded commit at all.
@@ -550,9 +557,7 @@ class RecorderTests(unittest.TestCase):
         git("reset", "--hard", squashed)
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
-            after = record_eval_run.candidate_identity(
-                "demo", record_eval_run.FORWARD_SUITE
-            )
+            after = record_eval_run.candidate_identity("demo", [])
 
         self.assertNotEqual(after["sha"], before["sha"])
         self.assertNotEqual(after["tree"], before["tree"])
@@ -586,10 +591,43 @@ class RecorderTests(unittest.TestCase):
 
         with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
             identity = record_eval_run.candidate_identity(
-                "demo", record_eval_run.TRIGGERING_SUITE
+                "demo", [sys.executable, "triggering/runner.py", "--skill", "demo"]
             )
 
         self.assertEqual(sorted(identity["trees"]), ["skills/demo", "triggering"])
+        self.assertEqual(identity["trees_unresolved"], [])
+
+    # AC: a path whose subtree cannot be read is recorded rather than dropped.
+    # A summary that derived nothing otherwise reads exactly like one written
+    # before the field existed, and the reachability guard passes both.
+    def test_an_underivable_path_is_named_rather_than_dropped(self) -> None:
+        repo = self.root / "no-such-path-repo"
+        (repo / "skills" / "demo").mkdir(parents=True)
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            return completed.stdout.strip()
+
+        git("init", "-q")
+        git("config", "user.email", "a@example.com")
+        git("config", "user.name", "a")
+        (repo / "AGENTS.md").write_text("base\n", encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "first")
+
+        # `skills/demo` exists in the worktree but was never committed, so
+        # `git rev-parse HEAD:skills/demo` has nothing to resolve.
+        with mock.patch.object(record_eval_run, "REPOSITORY_ROOT", repo):
+            identity = record_eval_run.candidate_identity("demo", [])
+
+        self.assertEqual(identity["trees"], {})
+        self.assertEqual(identity["trees_unresolved"], ["skills/demo"])
 
 
 class NormIsStatedTests(unittest.TestCase):
@@ -714,9 +752,7 @@ class NormIsStatedTests(unittest.TestCase):
             "run",
             return_value=subprocess.CompletedProcess([], 0, status, ""),
         ):
-            identity = record_eval_run.candidate_identity(
-                "demo", record_eval_run.FORWARD_SUITE
-            )
+            identity = record_eval_run.candidate_identity("demo", [])
 
         self.assertTrue(identity["worktree_clean"])
 
@@ -727,9 +763,7 @@ class NormIsStatedTests(unittest.TestCase):
             "run",
             return_value=subprocess.CompletedProcess([], 0, status, ""),
         ):
-            identity = record_eval_run.candidate_identity(
-                "demo", record_eval_run.FORWARD_SUITE
-            )
+            identity = record_eval_run.candidate_identity("demo", [])
 
         self.assertFalse(identity["worktree_clean"])
 
@@ -743,6 +777,21 @@ class NormIsStatedTests(unittest.TestCase):
 
         self.assertEqual(resolved["suite"], "triggering")
         self.assertIn("triggering/runner.py", " ".join(resolved["command"]))
+
+    # AC: a skill whose eval instrument lives under another skill names that
+    # skill too. `implement-epic`'s runner, executor, and corpus are all
+    # `implement-ticket`'s, so naming only `skills/implement-epic` lets two
+    # runs on different instruments carry byte-identical identity — which two
+    # committed summaries recorded on different dates already do.
+    def test_a_run_names_the_skill_whose_corpus_and_executor_it_uses(self) -> None:
+        resolved = record_eval_run.plan(
+            skill="implement-epic", tier=None, override=None, per_case=True
+        )
+
+        self.assertEqual(
+            record_eval_run.subtree_paths("implement-epic", resolved["command"]),
+            ["skills/implement-epic", "skills/implement-ticket"],
+        )
 
     def test_just_exposes_the_recorder_as_eval_record(self) -> None:
         justfile = (REPOSITORY_ROOT / "justfile").read_text(encoding="utf-8")

@@ -3,7 +3,8 @@
     "branch": "scott/133-compaction-ledger",
     "sha": "2d5fa6041825cc5161d4300f9b3056b948bd8029",
     "trees": {
-      "skills/implement-epic": "331d434f037ee7659a8e6ef15ebfa38d0758b0c7"
+      "skills/implement-epic": "331d434f037ee7659a8e6ef15ebfa38d0758b0c7",
+      "skills/implement-ticket": "d04ba5681c59f217a12115339a6fae3ccd17af65"
     },
     "worktree_clean": true
   },

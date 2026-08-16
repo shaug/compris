@@ -6,6 +6,30 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Diagnosed the same citation rot in the eval summaries and designed the identity that survives it
 
+- fix(evals): name every path a run was measured through, and stop claiming
+  `sha` resolves — `subtree_paths` named `skills/<skill>` and, for a triggering
+  run, `triggering`, which under-describes any skill whose eval instrument lives
+  elsewhere. `implement-epic` is measured entirely through
+  `skills/implement-ticket`'s runner, executor, and corpus, so its corpus could
+  change, an `implement-epic` run be re-recorded, and the new summary's
+  `candidate.trees` come out byte-identical to the old — two runs on different
+  instruments with one recorded identity, which two committed summaries taken on
+  different dates already share. The paths are now derived from the run's own
+  resolved command, so a target self-describes and no hand-maintained mapping
+  can drift; the three affected backfilled summaries gain
+  `skills/implement-ticket`, derived from the commit each already names. A path
+  whose subtree cannot be read is recorded under `candidate.trees_unresolved`
+  rather than dropped, since a run that derived nothing otherwise reads exactly
+  like a summary predating the field and the reachability guard passes both. The
+  prose is corrected where it still asserted what this branch had just
+  disproved: the clean-tree rule kept its requirement but was resting on
+  `candidate.sha` resolving, the grandfathered 59 were said to name commits that
+  no longer resolve when the criterion applied was reachability from `HEAD`, and
+  the rebase-safety claim omitted the exception its own guard names — a rebase
+  resolving conflicts inside the skill directory. The rebase test now performs a
+  real rebase rather than committing an unrelated change on top, which proved
+  only that an untouched subtree survives an unrelated commit.
+
 - docs: make merge-commit the repository's merge method, not a rule about one
   directory — the eval-evidence rule this replaces was conditional, applying to
   pull requests that touch `skills/*/evals/results/`, and a conditional merge

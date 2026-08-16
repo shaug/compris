@@ -43,8 +43,8 @@ def _citations() -> list[tuple[str, str, str]]:
     """Return (summary path, repository path, subtree hash) for every citation.
 
     A summary carrying no `trees` is not a failure. Those predate the field
-    and could not have their identity derived from a commit that still
-    resolves; `AGENTS.md` records them as branch-local and unresolvable.
+    and name no commit reachable from `HEAD`, so nothing could be derived for
+    them; `AGENTS.md` records them as branch-local and unresolvable.
     """
 
     found = []
@@ -90,6 +90,27 @@ class EvalCandidateCitationTests(unittest.TestCase):
             self.citations,
             "no summary under skills/*/evals/results/ carries "
             "candidate.trees, so the reachability check below is vacuous",
+        )
+
+    def test_no_summary_records_a_path_it_could_not_derive(self) -> None:
+        # A run that derived nothing writes no `trees` at all, which reads
+        # here exactly like a summary predating the field — so the check
+        # above would stay green over a summary carrying no citation because
+        # its derivation failed. `candidate.trees_unresolved` is what tells
+        # the two apart, and a non-empty one is a recording fault.
+        unresolved = []
+        for summary in SUMMARIES:
+            recorded = json.loads(summary.read_text(encoding="utf-8"))
+            paths = (recorded.get("candidate") or {}).get("trees_unresolved") or []
+            for path in sorted(paths):
+                unresolved.append((str(summary.relative_to(REPOSITORY_ROOT)), path))
+
+        self.assertEqual(
+            unresolved,
+            [],
+            "eval summaries name paths whose subtree could not be read at "
+            "record time, so they carry no citation for them:\n"
+            + "\n".join(f"  {summary}\n    {path}" for summary, path in unresolved),
         )
 
     def test_every_cited_subtree_is_reachable_from_head(self) -> None:
