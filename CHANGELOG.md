@@ -36,19 +36,30 @@ summary: Chronological history of repository and skill changes.
   here, and is written backticked outside parentheses rather than as a citation,
   which is the distinction the check is scoped to.
 
-- feat(implement-ticket): re-verify a ticket's stated assumptions at pickup —
-  the readiness gate now re-reads the `Verified assumptions` slot against the
-  current tree before a branch or worktree exists, and sorts each assumption
-  into one of three exclusive branches: it still holds, it no longer holds
-  (`blocked`, naming the drift and what the tree says now, with the body left
-  for the requester and `ready-ticket` to correct), or it cannot be checked from
-  here (proceed, and report it as unchecked). The third branch is decided by the
-  citation rather than by how the claim sounds, because the pre-change
-  measurement showed the wobble is there: the unmodified skill already blocked
-  on drift 5/5, and over-reported `unchecked` for assumptions it had read in 3
-  of those 5 samples. The load-bearing exclusion is unchanged and now says which
-  question it excludes — re-deriving the conclusion, not re-reading the
-  citation.
+- test(implement-ticket): record the post-change forward-eval measurement — 37
+  of 60, up from 32, with no case newly failing. The obligation the change was
+  written for moved: `drifted-ticket-assumption` goes red to green, still
+  blocking 5/5 and naming the drift 5/5, with the stray `unchecked` report that
+  had failed it at 3 of 5 samples now at 0 of 5. The unverifiable case still
+  passes, and its agreement is where the remaining variance sits — 5/5 before,
+  3/5 after, with 2 samples now calling an unreadable citation drift. The
+  sentence closing that section reached for the word `drift` to describe the
+  unreadable branch's failure, which is the one place the prose blurs the two
+  branches it just separated.
+
+- feat(implement-ticket): re-verify a ticket's stated assumptions at pickup
+  (b9234af01c047fb8762013013b288b8f3bf0e433) — the readiness gate now re-reads
+  the `Verified assumptions` slot against the current tree before a branch or
+  worktree exists, and sorts each assumption into one of three exclusive
+  branches: it still holds, it no longer holds (`blocked`, naming the drift and
+  what the tree says now, with the body left for the requester and
+  `ready-ticket` to correct), or it cannot be checked from here (proceed, and
+  report it as unchecked). The third branch is decided by the citation rather
+  than by how the claim sounds, because the pre-change measurement showed the
+  wobble is there: the unmodified skill already blocked on drift 5/5, and
+  over-reported `unchecked` for assumptions it had read in 3 of those 5 samples.
+  The load-bearing exclusion is unchanged and now says which question it
+  excludes — re-deriving the conclusion, not re-reading the citation.
 
 - test(implement-ticket): record the pre-change forward-eval measurement
   (0fe2d1326915a0032c2ef316fd3b534be14d5346) — 32 of 60 at the shipping head,
