@@ -22,7 +22,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-from helpers import compact  # noqa: E402
+from helpers import compact, sync_block_skills  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
@@ -219,22 +219,12 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
         recipe has to refresh exactly these copies, or the advice is a dead end,
         and a skill dropped from it keeps a stale copy nothing else checks.
 
-        Scoped to the block that copies this doctrine rather than searching the
-        whole recipe, and asserting equality rather than membership: every
-        bundling skill is named in other sync blocks too, so a whole-file
-        substring check passes even after a skill is dropped from this one.
+        `helpers.sync_block_skills` scopes the read to the block that copies
+        this doctrine and states why equality rather than membership is what
+        makes the check real.
         """
-        recipe = JUSTFILE.read_text()
-        self.assertIn(f"docs/{BUNDLED_NAME}", recipe)
-        blocks = [
-            listed
-            for listed, body in re.findall(
-                r"@for skill in (.+?); do(.*?)\n  done", recipe, re.S
-            )
-            if f"cp docs/{BUNDLED_NAME}" in body
-        ]
-        self.assertEqual(len(blocks), 1, "expected exactly one doctrine sync block")
-        self.assertEqual(tuple(blocks[0].split()), BUNDLING_SKILLS)
+        self.assertIn(f"docs/{BUNDLED_NAME}", JUSTFILE.read_text())
+        self.assertEqual(sync_block_skills(f"docs/{BUNDLED_NAME}"), BUNDLING_SKILLS)
 
     def test_the_packaging_check_requires_the_same_bundle_set(self):
         """The third statement of this list is `validate_plugins.py`'s own, and
