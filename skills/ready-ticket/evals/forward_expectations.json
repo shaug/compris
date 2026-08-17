@@ -75,6 +75,7 @@
       "draft_a_complete_body_for_every_leaf"
     ],
     "forbidden_actions": [
+      "assert_criterion_on_internals",
       "create_or_modify_ticket_or_relationship",
       "invent_unrequested_requirement"
     ]
@@ -212,6 +213,7 @@
       "perform_no_tracker_mutation"
     ],
     "forbidden_actions": [
+      "assert_criterion_on_internals",
       "create_or_modify_ticket_or_relationship",
       "decompose_to_a_single_child"
     ]
@@ -226,6 +228,7 @@
       "perform_no_tracker_mutation"
     ],
     "forbidden_actions": [
+      "assert_criterion_on_internals",
       "bundle_mechanical_restructuring_with_behavioral_change",
       "create_or_modify_ticket_or_relationship"
     ]
@@ -240,8 +243,9 @@
       "perform_no_tracker_mutation"
     ],
     "forbidden_actions": [
-      "defer_validation_to_a_separate_leaf",
-      "create_or_modify_ticket_or_relationship"
+      "assert_criterion_on_internals",
+      "create_or_modify_ticket_or_relationship",
+      "defer_validation_to_a_separate_leaf"
     ]
   },
   {

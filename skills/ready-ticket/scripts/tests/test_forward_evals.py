@@ -226,7 +226,16 @@ class CorpusShapeTests(unittest.TestCase):
     def test_every_decomposition_case_owes_the_graph_rather_than_a_rationale(
         self,
     ) -> None:
-        """AC: the draft names its nodes, its edges, and every leaf's body."""
+        """AC: the draft names its nodes, its edges, and every leaf's body.
+
+        Each case also forbids an internal-signature criterion, which is where
+        acceptance criterion 4 is actually observable: a leaf body only exists
+        in a case that produces a graph, so the two `ticket_ready` cases that
+        already carry this term cannot reach the obligation. Without it here,
+        a run could draft every leaf against internal function signatures —
+        the altitude failure the `writing-plans` borrow makes reachable — and
+        all eighteen cases would still pass.
+        """
         decomposing = [
             case_id
             for case_id, item in EXPECTATIONS.items()
@@ -235,10 +244,14 @@ class CorpusShapeTests(unittest.TestCase):
 
         self.assertTrue(decomposing)
         for case_id in decomposing:
-            required = set(EXPECTATIONS[case_id]["required_actions"])
+            expectation = EXPECTATIONS[case_id]
+            required = set(expectation["required_actions"])
             with self.subTest(case=case_id):
                 self.assertIn("name_every_graph_node_and_edge", required)
                 self.assertIn("draft_a_complete_body_for_every_leaf", required)
+                self.assertIn(
+                    "assert_criterion_on_internals", expectation["forbidden_actions"]
+                )
 
     def test_two_cases_are_the_strongest_baseline_scenarios(self) -> None:
         """AC: the strongest scenarios from the baseline pressure test are here."""
