@@ -530,8 +530,6 @@ class ReadyTicketContractTests(unittest.TestCase):
         ):
             self.assertNotIn(peer_trigger, self.description.lower())
 
-    # --- Scope boundaries -------------------------------------------------
-
     # --- The breakdown and its draft graph --------------------------------
 
     def test_the_draft_names_every_node_and_every_edge(self):

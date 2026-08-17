@@ -26,7 +26,6 @@ from helpers import compact, sync_block_skills  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
-JUSTFILE = REPOSITORY_ROOT / "justfile"
 
 # Skills that load the doctrine rather than restating it. Each bundles the
 # canonical text so it still resolves when the skill is installed outside this
@@ -223,7 +222,6 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
         this doctrine and states why equality rather than membership is what
         makes the check real.
         """
-        self.assertIn(f"docs/{BUNDLED_NAME}", JUSTFILE.read_text())
         self.assertEqual(sync_block_skills(f"docs/{BUNDLED_NAME}"), BUNDLING_SKILLS)
 
     def test_the_packaging_check_requires_the_same_bundle_set(self):

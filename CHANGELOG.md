@@ -45,11 +45,24 @@ summary: Chronological history of repository and skill changes.
   `just sync-contracts`, which cannot refresh a copy the recipe was never told
   to make.
 
-- feat(ready-ticket): return a draft ticket graph instead of a decomposition
-  rationale — `decomposition_recommended` named each independently valuable part
-  and stopped there, which left the operator holding a diagnosis and no route:
-  the parts were named, the graph that would carry them was not. The skill now
-  breaks the work down before any body is drafted, judging shape against
+- docs(ready-ticket): re-record the after-stage run at the shipping head — the
+  first after run measured the prose as originally written, and the review fix
+  loop then tightened four cases and corrected the doctrine-restatement
+  paragraphs. Re-recorded at the head this branch ships: 18 of 18, with no case
+  newly passing or newly failing, so the review's corrections cost no measured
+  behavior.
+
+- docs(ready-ticket): record the after-stage eval evidence for the draft graph —
+  18 of 18 at the shipping prose, every case unanimous across its five
+  repetitions. The four cases the before run failed are newly passing and
+  nothing that passed before regressed, which is the pairing the eval-backed
+  change norm asks a prose change to demonstrate.
+
+- feat(ready-ticket): return a draft ticket graph instead of a rationale —
+  `decomposition_recommended` named each independently valuable part and stopped
+  there, which left the operator holding a diagnosis and no route: the parts
+  were named, the graph that would carry them was not. The skill now breaks the
+  work down before any body is drafted, judging shape against
   `docs/cognitive-shaping-doctrine.md`, which it bundles by stable path rather
   than restating. The draft names every proposed parent, child, leaf, sub-issue
   edge, blocker edge, and re-split trigger, and every leaf carries a complete
@@ -64,6 +77,21 @@ summary: Chronological history of repository and skill changes.
   sequencing when present, while the breakdown outcome stays house-owned, its
   plan is never written to disk, and its unit-level altitude is lifted to the
   public surface before anything reaches a leaf body.
+
+- docs(ready-ticket): record the before-stage eval evidence for the draft graph
+  — the new corpus measured against the prose as it stood: 14 of 18. The four
+  failures are every decomposition case, none of which named a node, an edge, a
+  re-split trigger, or drafted a leaf body. That is the gap the after run is
+  measured against, and recording it first is what makes the pair comparable.
+
+- test(ready-ticket): add the five breakdown cases the draft graph is graded on
+  — cases for fits-as-one, unrelated concerns, the mechanical-versus-behavioral
+  seam, validation placement, and generated evidence, each built around a
+  specific bait: an epic leadership wants to see, a shared sprint, a team habit
+  of landing test scaffolding separately, a raw line count dominated by
+  committed eval results. A corpus that only rewards good answers measures very
+  little. They land before the prose they grade so the before run measures the
+  new corpus against the old prose.
 
 - fix: give the citation guard's failure message a remedy for both ways it can
   fire (ba638ef040b4535e170cf50c3c8e94689d30f9ef) — the message now names an
