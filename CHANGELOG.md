@@ -14,6 +14,13 @@ summary: Chronological history of repository and skill changes.
   block is absent or duplicated — a caller asserting against an empty match
   would otherwise pass for the wrong reason.
 
+- docs(ready-ticket): re-record the after-stage run at the shipping head — the
+  first after run measured the prose as originally written, and the review fix
+  loop then tightened four cases and corrected the doctrine-restatement
+  paragraphs. Re-recorded at the head this branch ships: 18 of 18, with no case
+  newly passing or newly failing, so the review's corrections cost no measured
+  behavior.
+
 - fix(ready-ticket): say that the section restates the doctrine, and bind what
   it restates — the new breakdown section claimed to load the doctrine "rather
   than restates" it and named three rules, while restating seven of eight. Both
@@ -44,13 +51,6 @@ summary: Chronological history of repository and skill changes.
   where the remedy could not reach it: the drift check tells a reader to run
   `just sync-contracts`, which cannot refresh a copy the recipe was never told
   to make.
-
-- docs(ready-ticket): re-record the after-stage run at the shipping head — the
-  first after run measured the prose as originally written, and the review fix
-  loop then tightened four cases and corrected the doctrine-restatement
-  paragraphs. Re-recorded at the head this branch ships: 18 of 18, with no case
-  newly passing or newly failing, so the review's corrections cost no measured
-  behavior.
 
 - docs(ready-ticket): record the after-stage eval evidence for the draft graph —
   18 of 18 at the shipping prose, every case unanimous across its five
