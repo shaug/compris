@@ -200,14 +200,17 @@ being known.
 
 Judge shape against
 [the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md),
-which this skill loads rather than restates: a unit of work is correctly shaped
+which this skill loads and never supersedes: a unit of work is correctly shaped
 when a reviewer can construct an accurate mental model of the change and
 evaluate it independently. Read it for the standard, its calibration, and the
 whole of its breakdown rules. Never substitute a line count for that judgment —
 line counts inform it and never decide it.
 
-Three of its rules decide what this section returns, and are stated here because
-a run that settles the shape without opening the reference still obeys them.
+The rules that decide what this section returns are restated here and in the
+subsections below, because a run that settles the shape without opening the
+reference still obeys them. That restatement is deliberate and partial: the
+doctrine is the canonical text, it carries rules this section does not restate,
+and where a sentence here and the doctrine disagree, the doctrine governs.
 
 - **One ticket is a legal outcome.** An initiative already reviewable as one
   changeset stays one ticket, with no parent and no children. Ceremonial

@@ -601,7 +601,16 @@ class ReadyTicketContractTests(unittest.TestCase):
         ):
             self.assertIn(clause, self.contract)
 
-    def test_the_doctrine_is_loaded_by_stable_path_rather_than_restated(self):
+    def test_the_doctrine_is_loaded_by_stable_path_and_governs_the_restatement(self):
+        """AC: the section names the doctrine canonical over its own inline copy.
+
+        This skill's forward eval hands the model `SKILL.md` alone, so the rules
+        that decide the breakdown are restated inline. The section therefore has
+        to say that it restates them and that the doctrine still governs —
+        claiming it does not restate would be false about the prose below it.
+        `scripts/tests/test_cognitive_shaping_doctrine.py` binds the verbatim
+        sentences of that restatement to the canonical text.
+        """
         bundled = SKILL_ROOT / "references" / "cognitive-shaping-doctrine.md"
         self.assertTrue(
             bundled.is_file(), f"{bundled} is missing; run `just sync-contracts`"
@@ -610,7 +619,15 @@ class ReadyTicketContractTests(unittest.TestCase):
             "[the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md)",
             self.skill,
         )
-        self.assertIn("which this skill loads rather than restates", self.contract)
+        self.assertIn("which this skill loads and never supersedes", self.contract)
+        for clause in (
+            "The rules that decide what this section returns are restated here "
+            "and in the subsections below",
+            "That restatement is deliberate and partial",
+            "it carries rules this section does not restate",
+            "where a sentence here and the doctrine disagree, the doctrine governs",
+        ):
+            self.assertIn(clause, self.contract)
         self.assertIn("Never substitute a line count for that judgment", self.contract)
 
     def test_the_writing_plans_borrow_takes_structure_and_nothing_else(self):

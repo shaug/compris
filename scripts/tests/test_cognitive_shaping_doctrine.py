@@ -34,6 +34,22 @@ JUSTFILE = REPOSITORY_ROOT / "justfile"
 BUNDLING_SKILLS = ("review-solution-simplicity", "carve-changesets", "ready-ticket")
 BUNDLED_NAME = "cognitive-shaping-doctrine.md"
 
+# The one consumer that also restates part of the doctrine inside its own
+# `SKILL.md`, because its forward eval hands the model that file alone and
+# never loads a reference alongside it.
+RESTATING_SKILL = "ready-ticket"
+
+# The sentences that restatement carries word for word. Equality can bind only
+# these; see the test below for what it deliberately leaves unbound.
+RESTATED_VERBATIM = (
+    "unit of work is correctly shaped when a reviewer can construct an accurate"
+    " mental model of the change and evaluate it independently",
+    "Committed eval results, generated fixtures, and lockfiles are part of the"
+    " change and part of nothing anyone reads.",
+    "A change carrying 177 reviewable lines and 4,538 lines of recorded eval"
+    " results is a 177-line change.",
+)
+
 # The doctrine is compris's own claim. It names no upstream project, because
 # there is no external owner to attribute and a citation would imply one.
 FOREIGN_SOURCES = ("atelier",)
@@ -152,6 +168,50 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
                     canonical,
                     bundled.read_bytes(),
                     f"{bundled} drifted from {DOCTRINE}; run `just sync-contracts`",
+                )
+
+    def test_the_inline_restatement_stays_verbatim_with_the_doctrine(self):
+        """`ready-ticket` restates breakdown rules inside its own `SKILL.md`,
+        and nothing else binds those sentences to this document. Its forward
+        eval hands the model `SKILL.md` alone, so the rules have to be present
+        there; the bundled copy under `references/` is never loaded into that
+        payload and so cannot carry them. Without this check, editing the
+        canonical text leaves that skill stating a superseded rule with every
+        suite still green.
+
+        Three sentences are carried word for word and are bound here: the
+        mental-model standard, and the two sentences of the recorded-evidence
+        exclusion — the committed-artifacts sentence and its 177-line /
+        4,538-line example.
+
+        The rest of the restatement is paraphrase and cannot be bound the same
+        way. `SKILL.md` says "A parent holding one child represents nothing its
+        child does not already represent, and costs a level of indirection to
+        say so" where the doctrine says "it costs"; it compresses "Keep an
+        initiative executable as one ticket when it is already reviewable" into
+        "An initiative already reviewable as one changeset stays one ticket";
+        and it folds four more rules into running prose in the subsections
+        below. String equality would report every one of those as drift on the
+        day it was written, so it binds what is genuinely verbatim and leaves
+        the paraphrase to that skill's own contract test.
+        """
+        skill = compact(
+            (REPOSITORY_ROOT / "skills" / RESTATING_SKILL / "SKILL.md").read_text()
+        )
+        for sentence in RESTATED_VERBATIM:
+            with self.subTest(sentence=sentence):
+                self.assertIn(
+                    sentence,
+                    self.doc,
+                    f"{DOCTRINE} no longer states this sentence, which"
+                    f" skills/{RESTATING_SKILL}/SKILL.md restates verbatim;"
+                    " update both together or drop it from RESTATED_VERBATIM",
+                )
+                self.assertIn(
+                    sentence,
+                    skill,
+                    f"skills/{RESTATING_SKILL}/SKILL.md drifted from"
+                    f" {DOCTRINE} on this sentence",
                 )
 
     def test_the_sync_recipe_copies_the_doctrine_to_exactly_these_skills(self):
