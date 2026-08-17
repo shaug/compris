@@ -12,6 +12,7 @@ consumer.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import sys
 import unittest
@@ -153,14 +154,40 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
                     f"{bundled} drifted from {DOCTRINE}; run `just sync-contracts`",
                 )
 
-    def test_the_sync_recipe_is_the_remedy_the_drift_check_names(self):
+    def test_the_sync_recipe_copies_the_doctrine_to_exactly_these_skills(self):
         """The failure above tells a reader to run `just sync-contracts`; that
-        recipe has to actually refresh the copy, or the advice is a dead end."""
+        recipe has to refresh exactly these copies, or the advice is a dead end,
+        and a skill dropped from it keeps a stale copy nothing else checks.
+
+        Scoped to the block that copies this doctrine rather than searching the
+        whole recipe, and asserting equality rather than membership: every
+        bundling skill is named in other sync blocks too, so a whole-file
+        substring check passes even after a skill is dropped from this one.
+        """
         recipe = JUSTFILE.read_text()
         self.assertIn(f"docs/{BUNDLED_NAME}", recipe)
-        for skill in BUNDLING_SKILLS:
-            with self.subTest(skill=skill):
-                self.assertIn(skill, recipe)
+        blocks = [
+            listed
+            for listed, body in re.findall(
+                r"@for skill in (.+?); do(.*?)\n  done", recipe, re.S
+            )
+            if f"cp docs/{BUNDLED_NAME}" in body
+        ]
+        self.assertEqual(len(blocks), 1, "expected exactly one doctrine sync block")
+        self.assertEqual(tuple(blocks[0].split()), BUNDLING_SKILLS)
+
+    def test_the_packaging_check_requires_the_same_bundle_set(self):
+        """The third statement of this list is `validate_plugins.py`'s own, and
+        it was bound to nothing: a skill added here and omitted there shipped a
+        package with a dangling citation that no check reported."""
+        spec = importlib.util.spec_from_file_location(
+            "validate_plugins", REPOSITORY_ROOT / "scripts" / "validate_plugins.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        self.assertEqual(module.DOCTRINE_NAME, BUNDLED_NAME)
+        self.assertEqual(module.DOCTRINE_BUNDLING_SKILLS, set(BUNDLING_SKILLS))
 
     def test_the_doctrine_carries_no_link_a_bundle_cannot_resolve(self):
         """A bundled skill ships the doctrine alone. A repository-relative link
