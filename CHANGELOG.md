@@ -4,20 +4,108 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-16 — Made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
+## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
+
+- refactor(tests): parse the sync-contracts block in one place — binding the
+  doctrine's bundle set to the recipe reused the prose contract's regex by
+  copying it, leaving one justfile's shell syntax parsed in two independently
+  maintained places. `scripts/tests/helpers.py` now owns `sync_block_skills`,
+  both drift checks call it, and it raises rather than asserts when its named
+  block is absent or duplicated — a caller asserting against an empty match
+  would otherwise pass for the wrong reason.
+
+- docs(ready-ticket): re-record the after-stage run at the shipping head — the
+  first after run measured the prose as originally written, and the review fix
+  loop then tightened four cases and corrected the doctrine-restatement
+  paragraphs. Re-recorded at the head this branch ships: 18 of 18, with no case
+  newly passing or newly failing, so the review's corrections cost no measured
+  behavior.
+
+- fix(ready-ticket): say that the section restates the doctrine, and bind what
+  it restates — the new breakdown section claimed to load the doctrine "rather
+  than restates" it and named three rules, while restating seven of eight. Both
+  claims were false about the prose directly beneath them. The restatement
+  stays, because this skill's forward eval hands the model `SKILL.md` alone and
+  a rule absent from that file cannot govern a measured run; what changes is
+  that the section says so and names the doctrine canonical where the two
+  disagree. Its three verbatim sentences are now bound to the canonical text, so
+  editing the doctrine and running `just sync-contracts` reddens instead of
+  leaving a superseded rule stated with every suite green.
+
+- test(ready-ticket): grade leaf-body altitude, and record the writing-plans
+  overlap — the acceptance criterion requiring every leaf body to be
+  surface-observable shipped with prose assertions as its only evidence. The
+  vocabulary term for that failure existed but appeared only in cases that
+  produce no graph, and therefore no leaf body, so a run could draft every leaf
+  against internal function signatures with all eighteen cases still passing.
+  The trigger-collision audit also gains the `ready-ticket` × `writing-plans`
+  row the reclassification below requires: without it a reader cannot tell a
+  considered disposition from a missed one.
+
+- test: bind the doctrine's three bundle lists to one source — which skills
+  bundle the cognitive-shaping doctrine was written by hand in the justfile, the
+  drift check, and the packaging validator, kept in lockstep by nothing. The one
+  guard that looked like it bound them searched the whole justfile for each
+  skill's name, and every bundling skill is named in other sync blocks too, so
+  dropping a skill from the doctrine block reddened nothing. The failure landed
+  where the remedy could not reach it: the drift check tells a reader to run
+  `just sync-contracts`, which cannot refresh a copy the recipe was never told
+  to make.
+
+- docs(ready-ticket): record the after-stage eval evidence for the draft graph —
+  18 of 18 at the shipping prose, every case unanimous across its five
+  repetitions. The four cases the before run failed are newly passing and
+  nothing that passed before regressed, which is the pairing the eval-backed
+  change norm asks a prose change to demonstrate.
+
+- feat(ready-ticket): return a draft ticket graph instead of a rationale —
+  `decomposition_recommended` named each independently valuable part and stopped
+  there, which left the operator holding a diagnosis and no route: the parts
+  were named, the graph that would carry them was not. The skill now breaks the
+  work down before any body is drafted, judging shape against
+  `docs/cognitive-shaping-doctrine.md`, which it bundles by stable path rather
+  than restating. The draft names every proposed parent, child, leaf, sub-issue
+  edge, blocker edge, and re-split trigger, and every leaf carries a complete
+  body that passes all four self-review scans on its own. Nothing is created:
+  ticket-management authority still governs one body and grants no graph
+  mutation. The doctrine's rules that most often go wrong are stated in the
+  skill itself, because a run that settles the shape without opening the
+  reference still has to obey them — one ticket stays one ticket, a parent never
+  holds a single child, and recorded machine-generated evidence does not count
+  toward size. `superpowers:writing-plans` moves from house territory to a
+  bounded referenced peer: it supplies the file map, task boundaries, and
+  sequencing when present, while the breakdown outcome stays house-owned, its
+  plan is never written to disk, and its unit-level altitude is lifted to the
+  public surface before anything reaches a leaf body.
+
+- docs(ready-ticket): record the before-stage eval evidence for the draft graph
+  — the new corpus measured against the prose as it stood: 14 of 18. The four
+  failures are every decomposition case, none of which named a node, an edge, a
+  re-split trigger, or drafted a leaf body. That is the gap the after run is
+  measured against, and recording it first is what makes the pair comparable.
+
+- test(ready-ticket): add the five breakdown cases the draft graph is graded on
+  — cases for fits-as-one, unrelated concerns, the mechanical-versus-behavioral
+  seam, validation placement, and generated evidence, each built around a
+  specific bait: an epic leadership wants to see, a shared sprint, a team habit
+  of landing test scaffolding separately, a raw line count dominated by
+  committed eval results. A corpus that only rewards good answers measures very
+  little. They land before the prose they grade so the before run measures the
+  new corpus against the old prose.
 
 - fix: give the citation guard's failure message a remedy for both ways it can
-  fire — the message now names an unlanded backfill as a cause, since a SHA
-  taken before the branch was rebased and landed reaches nothing on that same
-  branch, but it still prescribed only the recovery for an entry that has
-  landed: `git log main -S'<the entry's first line>' -- CHANGELOG.md`. Run
-  against an entry that has not landed, that command returns nothing at all —
-  the entry is not on `main` yet, so `git log main -S` has no match to find —
-  and the reader following the message is handed empty output and no next step.
-  The remedy now covers both firing modes: recover the landing commit for an
-  entry that has landed, and drop the SHA until it lands for one that has not,
-  which is what AGENTS.md requires of an entry added on the current branch. No
-  assertion, regex, or reachability behavior changes.
+  fire (ba638ef040b4535e170cf50c3c8e94689d30f9ef) — the message now names an
+  unlanded backfill as a cause, since a SHA taken before the branch was rebased
+  and landed reaches nothing on that same branch, but it still prescribed only
+  the recovery for an entry that has landed:
+  `git log main -S'<the entry's first line>' -- CHANGELOG.md`. Run against an
+  entry that has not landed, that command returns nothing at all — the entry is
+  not on `main` yet, so `git log main -S` has no match to find — and the reader
+  following the message is handed empty output and no next step. The remedy now
+  covers both firing modes: recover the landing commit for an entry that has
+  landed, and drop the SHA until it lands for one that has not, which is what
+  AGENTS.md requires of an entry added on the current branch. No assertion,
+  regex, or reachability behavior changes.
 
 - docs: restate the citation guard's own account of the backfill rule
   (ecb17f4b3bfa3f3c66f3aff03b63cc956555d73c) — the merge-method change above

@@ -15,7 +15,7 @@
   "cases": [
     {
       "id": "gate-satisfaction-ready-ticket-does-not-rebrainstorm",
-      "seam": "ready-ticket \u2194 superpowers:brainstorming (#124)",
+      "seam": "ready-ticket ↔ superpowers:brainstorming (#124)",
       "requires_peers": [
         "superpowers"
       ],
@@ -27,19 +27,19 @@
     },
     {
       "id": "executor-exclusivity-ticket-work-does-not-route-to-sdd",
-      "seam": "implement-ticket \u2194 superpowers:subagent-driven-development",
+      "seam": "implement-ticket ↔ superpowers:subagent-driven-development",
       "requires_peers": [
         "superpowers"
       ],
       "prompt": "Implement ticket 412.",
       "expected_behavior": "implement-ticket owns the work end to end. subagent-driven-development must not claim it, and no dispatch of a fresh implementer subagent per task may displace the house rule that exactly one executor owns a unit of work.",
-      "why_it_matters": "The registry files subagent-driven-development as house territory precisely on executor exclusivity. This is the case that would detect the peer's broad trigger claiming pipeline work \u2014 the vice-versa collision #128 documents rather than fixes.",
+      "why_it_matters": "The registry files subagent-driven-development as house territory precisely on executor exclusivity. This is the case that would detect the peer's broad trigger claiming pipeline work — the vice-versa collision #128 documents rather than fixes.",
       "status": "not_run",
       "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."
     },
     {
       "id": "executing-plans-does-not-claim-ticket-execution",
-      "seam": "implement-ticket \u2194 superpowers:executing-plans",
+      "seam": "implement-ticket ↔ superpowers:executing-plans",
       "requires_peers": [
         "superpowers"
       ],
@@ -51,49 +51,61 @@
     },
     {
       "id": "finishing-a-development-branch-does-not-claim-the-merge-boundary",
-      "seam": "babysit-pr \u2194 superpowers:finishing-a-development-branch (#128)",
+      "seam": "babysit-pr ↔ superpowers:finishing-a-development-branch (#128)",
       "requires_peers": [
         "superpowers"
       ],
-      "prompt": "This branch is done \u2014 take it through to merged.",
+      "prompt": "This branch is done — take it through to merged.",
       "expected_behavior": "The merge boundary stays house-owned under explicit authority grades. finishing-a-development-branch must not present integration options or execute a merge on its own terms.",
-      "why_it_matters": "The peer verifies tests, offers integration options, executes, and cleans up \u2014 all of which implement-ticket and babysit-pr own under graded authority. An overlap here is a merge executed outside the authority matrix.",
+      "why_it_matters": "The peer verifies tests, offers integration options, executes, and cleans up — all of which implement-ticket and babysit-pr own under graded authority. An overlap here is a merge executed outside the authority matrix.",
       "status": "not_run",
       "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."
     },
     {
       "id": "load-bearing-offer-semantics-autonomous-run",
-      "seam": "ticket authoring and pre-implementation \u2194 load-bearing",
+      "seam": "ticket authoring and pre-implementation ↔ load-bearing",
       "requires_peers": [
         "load-bearing"
       ],
       "prompt": "Implement ticket 412.",
-      "expected_behavior": "load-bearing does not self-trigger \u2014 its own description restricts it to explicit user request. In an autonomous run the recommendation is recorded in the run's evidence and the run proceeds; it is never a blocker and never a prompt for a human.",
+      "expected_behavior": "load-bearing does not self-trigger — its own description restricts it to explicit user request. In an autonomous run the recommendation is recorded in the run's evidence and the run proceeds; it is never a blocker and never a prompt for a human.",
       "why_it_matters": "The registry records explicit-invoke-only actor semantics for this peer. A self-triggering load-bearing would stall an autonomous run at exactly the point the peer-precedence rule maps to the typed blocked result instead.",
       "status": "not_run",
-      "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is NOT a blocker for this case \u2014 load-bearing is installed \u2014 so building the harness alone unblocks it, which makes it the cheapest seam to cover first."
+      "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is NOT a blocker for this case — load-bearing is installed — so building the harness alone unblocks it, which makes it the cheapest seam to cover first."
     },
     {
       "id": "tdd-peer-supplies-method-without-becoming-a-gate",
-      "seam": "implement-ticket \u2194 superpowers:test-driven-development (#126)",
+      "seam": "implement-ticket ↔ superpowers:test-driven-development (#126)",
       "requires_peers": [
         "superpowers"
       ],
       "prompt": "Implement ticket 412. It adds a new validation rule to the signup endpoint.",
       "expected_behavior": "implement-ticket loads test-driven-development as the recommended method for producing the contracted test evidence, and still enforces the house evidence obligation itself: behavioral tests bound to acceptance criteria, observed failing at base and passing at head. With the peer absent the obligation is unchanged and the run says nothing about it.",
-      "why_it_matters": "This is the seam where 'peer absence is silent fallback, never a blocker' is either true or not. The failure to detect is a run that quietly lowers its evidence bar when the peer is missing, or blocks when it is \u2014 either would make a quality outcome depend on install state, which the convention forbids.",
+      "why_it_matters": "This is the seam where 'peer absence is silent fallback, never a blocker' is either true or not. The failure to detect is a run that quietly lowers its evidence bar when the peer is missing, or blocks when it is — either would make a quality outcome depend on install state, which the convention forbids.",
       "status": "not_run",
       "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."
     },
     {
       "id": "systematic-debugging-escalation-maps-to-blocked",
-      "seam": "implement-ticket \u2194 superpowers:systematic-debugging (#127)",
+      "seam": "implement-ticket ↔ superpowers:systematic-debugging (#127)",
       "requires_peers": [
         "superpowers"
       ],
       "prompt": "Implement ticket 412. The fix keeps failing CI for a reason I can't work out.",
       "expected_behavior": "After repeated failed fixes implement-ticket loads systematic-debugging as the recommended diagnosis method. Where the peer's own escape valve is to ask a human partner, the autonomous run maps that to the typed `blocked` result rather than stalling, per the recorded peer-precedence rule.",
       "why_it_matters": "The peer is written for an interactive setting and its escalation ends in a question to a human. An autonomous run that inherits that verbatim returns no state at all, which is precisely the stall peer precedence exists to convert into `blocked`.",
+      "status": "not_run",
+      "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."
+    },
+    {
+      "id": "writing-plans-supplies-structure-without-claiming-the-ticket",
+      "seam": "ready-ticket ↔ superpowers:writing-plans (#198)",
+      "requires_peers": [
+        "superpowers"
+      ],
+      "prompt": "We're adding SSO. Write it up as tickets I can hand to implementers.",
+      "expected_behavior": "ready-ticket breaks the work down and returns a draft parent/child graph with a ready body per leaf. superpowers:writing-plans may supply the file map, task boundaries, and sequencing, but no plan file is written, its executor handoff is not followed, and no acceptance criterion reaches a leaf body asserted against an internal function signature.",
+      "why_it_matters": "The registry records this borrow as bounded: the breakdown outcome is house-owned and only the method is delegated. If the peer's plan artifact or its unit-level altitude survives into the output, the seam has failed open in the two ways the bound exists to prevent.",
       "status": "not_run",
       "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."
     }

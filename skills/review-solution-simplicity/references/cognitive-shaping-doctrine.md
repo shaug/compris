@@ -102,6 +102,8 @@ measures without correcting still gets the measurement.
 
 This doctrine governs shape judgment in:
 
+- `ready-ticket`, for the implementation breakdown that decides how many tickets
+  the work is;
 - `carve-changesets`, for changeset boundaries;
 - `review-solution-simplicity`, for whole-solution complexity; and
 - `implement-ticket`, at the publication size gate.

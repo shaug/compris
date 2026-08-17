@@ -35,9 +35,13 @@ REVIEW_BUNDLE_FILES = {
     "review-result.schema.json",
     "validate.py",
 }
-# The lenses that judge shape load the canonical doctrine rather than restating
+# The skills that judge shape load the canonical doctrine rather than restating
 # it, so a package that ships one without the other ships a dangling citation.
-DOCTRINE_BUNDLING_SKILLS = {"review-solution-simplicity", "carve-changesets"}
+DOCTRINE_BUNDLING_SKILLS = {
+    "review-solution-simplicity",
+    "carve-changesets",
+    "ready-ticket",
+}
 DOCTRINE_NAME = "cognitive-shaping-doctrine.md"
 
 

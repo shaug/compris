@@ -12,6 +12,7 @@ consumer.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import sys
 import unittest
@@ -21,17 +22,32 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-from helpers import compact  # noqa: E402
+from helpers import compact, sync_block_skills  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
-JUSTFILE = REPOSITORY_ROOT / "justfile"
 
 # Skills that load the doctrine rather than restating it. Each bundles the
 # canonical text so it still resolves when the skill is installed outside this
 # repository, exactly as `review-suite/` is bundled today.
-BUNDLING_SKILLS = ("review-solution-simplicity", "carve-changesets")
+BUNDLING_SKILLS = ("review-solution-simplicity", "carve-changesets", "ready-ticket")
 BUNDLED_NAME = "cognitive-shaping-doctrine.md"
+
+# The one consumer that also restates part of the doctrine inside its own
+# `SKILL.md`, because its forward eval hands the model that file alone and
+# never loads a reference alongside it.
+RESTATING_SKILL = "ready-ticket"
+
+# The sentences that restatement carries word for word. Equality can bind only
+# these; see the test below for what it deliberately leaves unbound.
+RESTATED_VERBATIM = (
+    "unit of work is correctly shaped when a reviewer can construct an accurate"
+    " mental model of the change and evaluate it independently",
+    "Committed eval results, generated fixtures, and lockfiles are part of the"
+    " change and part of nothing anyone reads.",
+    "A change carrying 177 reviewable lines and 4,538 lines of recorded eval"
+    " results is a 177-line change.",
+)
 
 # The doctrine is compris's own claim. It names no upstream project, because
 # there is no external owner to attribute and a citation would imply one.
@@ -153,14 +169,73 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
                     f"{bundled} drifted from {DOCTRINE}; run `just sync-contracts`",
                 )
 
-    def test_the_sync_recipe_is_the_remedy_the_drift_check_names(self):
+    def test_the_inline_restatement_stays_verbatim_with_the_doctrine(self):
+        """`ready-ticket` restates breakdown rules inside its own `SKILL.md`,
+        and nothing else binds those sentences to this document. Its forward
+        eval hands the model `SKILL.md` alone, so the rules have to be present
+        there; the bundled copy under `references/` is never loaded into that
+        payload and so cannot carry them. Without this check, editing the
+        canonical text leaves that skill stating a superseded rule with every
+        suite still green.
+
+        Three sentences are carried word for word and are bound here: the
+        mental-model standard, and the two sentences of the recorded-evidence
+        exclusion — the committed-artifacts sentence and its 177-line /
+        4,538-line example.
+
+        The rest of the restatement is paraphrase and cannot be bound the same
+        way. `SKILL.md` says "A parent holding one child represents nothing its
+        child does not already represent, and costs a level of indirection to
+        say so" where the doctrine says "it costs"; it compresses "Keep an
+        initiative executable as one ticket when it is already reviewable" into
+        "An initiative already reviewable as one changeset stays one ticket";
+        and it folds four more rules into running prose in the subsections
+        below. String equality would report every one of those as drift on the
+        day it was written, so it binds what is genuinely verbatim and leaves
+        the paraphrase to that skill's own contract test.
+        """
+        skill = compact(
+            (REPOSITORY_ROOT / "skills" / RESTATING_SKILL / "SKILL.md").read_text()
+        )
+        for sentence in RESTATED_VERBATIM:
+            with self.subTest(sentence=sentence):
+                self.assertIn(
+                    sentence,
+                    self.doc,
+                    f"{DOCTRINE} no longer states this sentence, which"
+                    f" skills/{RESTATING_SKILL}/SKILL.md restates verbatim;"
+                    " update both together or drop it from RESTATED_VERBATIM",
+                )
+                self.assertIn(
+                    sentence,
+                    skill,
+                    f"skills/{RESTATING_SKILL}/SKILL.md drifted from"
+                    f" {DOCTRINE} on this sentence",
+                )
+
+    def test_the_sync_recipe_copies_the_doctrine_to_exactly_these_skills(self):
         """The failure above tells a reader to run `just sync-contracts`; that
-        recipe has to actually refresh the copy, or the advice is a dead end."""
-        recipe = JUSTFILE.read_text()
-        self.assertIn(f"docs/{BUNDLED_NAME}", recipe)
-        for skill in BUNDLING_SKILLS:
-            with self.subTest(skill=skill):
-                self.assertIn(skill, recipe)
+        recipe has to refresh exactly these copies, or the advice is a dead end,
+        and a skill dropped from it keeps a stale copy nothing else checks.
+
+        `helpers.sync_block_skills` scopes the read to the block that copies
+        this doctrine and states why equality rather than membership is what
+        makes the check real.
+        """
+        self.assertEqual(sync_block_skills(f"docs/{BUNDLED_NAME}"), BUNDLING_SKILLS)
+
+    def test_the_packaging_check_requires_the_same_bundle_set(self):
+        """The third statement of this list is `validate_plugins.py`'s own, and
+        it was bound to nothing: a skill added here and omitted there shipped a
+        package with a dangling citation that no check reported."""
+        spec = importlib.util.spec_from_file_location(
+            "validate_plugins", REPOSITORY_ROOT / "scripts" / "validate_plugins.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        self.assertEqual(module.DOCTRINE_NAME, BUNDLED_NAME)
+        self.assertEqual(module.DOCTRINE_BUNDLING_SKILLS, set(BUNDLING_SKILLS))
 
     def test_the_doctrine_carries_no_link_a_bundle_cannot_resolve(self):
         """A bundled skill ships the doctrine alone. A repository-relative link

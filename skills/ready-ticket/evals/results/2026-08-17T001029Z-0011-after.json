@@ -1,0 +1,747 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-198-41ae57",
+    "sha": "e67dd3aecafefec50824656a10fa65c5aec72c5d",
+    "tree": "134ac0ad10dad71811b20931e06f6a615268cc06",
+    "trees": {
+      "skills/ready-ticket": "a1940e50b915ee6e35af11672aaf710b87a027f8"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "autonomous-explicit-no-fill-in-export": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "give_one_next_action",
+        "name_the_absent_design_part",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "requires_brainstorming",
+      "votes": {
+        "actions": {
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 3,
+          "choose_no_tracker_on_requesters_behalf": 3,
+          "give_one_next_action": 5,
+          "name_the_absent_design_part": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "requires_brainstorming": 5
+        }
+      }
+    },
+    "autonomous-residue-unresolved-verification": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "elicit_only_tracker_shaped_residue",
+        "give_one_next_action",
+        "keep_reviewable_initiative_as_one_ticket",
+        "name_the_unresolved_decision_as_blocking_reason",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "blocked",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 3,
+          "elicit_only_tracker_shaped_residue": 4,
+          "elicit_public_surface_behavior": 2,
+          "give_one_next_action": 5,
+          "keep_reviewable_initiative_as_one_ticket": 4,
+          "name_the_unresolved_decision_as_blocking_reason": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "blocked": 5
+        }
+      }
+    },
+    "autonomous-tracker-unchosen": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "perform_no_tracker_mutation",
+        "quote_cited_repository_text",
+        "reject_placeholder_in_scan",
+        "return_complete_body_to_caller"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "draft_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 4,
+          "choose_no_tracker_on_requesters_behalf": 5,
+          "cite_volatile_collection_by_location": 1,
+          "elicit_only_tracker_shaped_residue": 2,
+          "elicit_public_surface_behavior": 3,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "perform_no_tracker_mutation": 5,
+          "quote_cited_repository_text": 5,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 2,
+          "restate_architectural_fact_as_value": 1,
+          "return_complete_body_to_caller": 5
+        },
+        "terminal_state": {
+          "draft_ready": 5
+        }
+      }
+    },
+    "autonomous-unresolvable-rate-limit": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "give_one_next_action",
+        "name_the_absent_design_part",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "requires_brainstorming",
+      "votes": {
+        "actions": {
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 4,
+          "choose_no_tracker_on_requesters_behalf": 4,
+          "give_one_next_action": 5,
+          "hand_recommendation_back_to_operator": 1,
+          "name_the_absent_design_part": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "requires_brainstorming": 5
+        }
+      }
+    },
+    "design-missing-requirements": {
+      "actions": [
+        "give_one_next_action",
+        "name_the_absent_design_part",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "requires_brainstorming",
+      "votes": {
+        "actions": {
+          "give_one_next_action": 5,
+          "name_the_absent_design_part": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "requires_brainstorming": 5
+        }
+      }
+    },
+    "fits-as-one-stays-one-ticket": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "keep_validation_with_the_behavior_it_proves",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_internal_call_criterion"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_internal_call_criterion": 3,
+          "reject_placeholder_in_scan": 1,
+          "rerun_all_four_scans_after_edit": 1
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "full-design-document-proceeds": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "cite_volatile_collection_by_location",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "quote_cited_repository_text",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "restate_architectural_fact_as_value"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 3,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 2,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 3,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 3,
+          "rerun_all_four_scans_after_edit": 3,
+          "restate_architectural_fact_as_value": 3
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "generated-evidence-excluded-from-size": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "exclude_recorded_generated_evidence_from_size",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "quote_cited_repository_text",
+        "reject_placeholder_in_scan"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 1,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "keep_validation_with_the_behavior_it_proves": 1,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 5,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 4,
+          "rerun_all_four_scans_after_edit": 1,
+          "restate_architectural_fact_as_value": 2
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "internal-criterion-rejected": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_internal_call_criterion",
+        "rerun_all_four_scans_after_edit"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_internal_call_criterion": 5,
+          "reject_placeholder_in_scan": 1,
+          "rerun_all_four_scans_after_edit": 3
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "mechanical-and-behavioral-change-separated": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "rerun_all_four_scans_after_edit",
+        "separate_mechanical_restructuring_from_behavioral_change",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 2,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 2,
+          "rerun_all_four_scans_after_edit": 4,
+          "separate_mechanical_restructuring_from_behavioral_change": 5,
+          "separate_unrelated_concern_domains": 4
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "multi-subsystem-decomposition": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_placeholder_in_scan",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "choose_no_answer_on_requesters_behalf": 1,
+          "choose_no_tracker_on_requesters_behalf": 2,
+          "cite_volatile_collection_by_location": 1,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "quote_cited_repository_text": 1,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 3,
+          "rerun_all_four_scans_after_edit": 1,
+          "restate_architectural_fact_as_value": 1,
+          "separate_mechanical_restructuring_from_behavioral_change": 1,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "no-authority-draft-ready": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "cite_volatile_collection_by_location",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "exclude_recorded_generated_evidence_from_size",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "perform_no_tracker_mutation",
+        "quote_cited_repository_text",
+        "reject_internal_call_criterion",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "restate_architectural_fact_as_value",
+        "return_complete_body_to_caller"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "draft_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "choose_no_answer_on_requesters_behalf": 1,
+          "choose_no_tracker_on_requesters_behalf": 1,
+          "cite_volatile_collection_by_location": 4,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 3,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 1,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "keep_validation_with_the_behavior_it_proves": 1,
+          "meet_the_ticket_ready_readiness_target": 3,
+          "perform_no_tracker_mutation": 5,
+          "quote_cited_repository_text": 4,
+          "reject_internal_call_criterion": 5,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 5,
+          "restate_architectural_fact_as_value": 4,
+          "return_complete_body_to_caller": 5,
+          "return_to_elicitation_for_missing_value": 2
+        },
+        "terminal_state": {
+          "draft_ready": 5
+        }
+      }
+    },
+    "one-sentence-bug-design-proceeds": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_placeholder_in_scan": 1
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "placeholder-scan-catches-first-draft": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "return_to_elicitation_for_missing_value"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "choose_no_answer_on_requesters_behalf": 1,
+          "cite_volatile_collection_by_location": 1,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 1,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 5,
+          "restate_architectural_fact_as_value": 1,
+          "return_to_elicitation_for_missing_value": 5
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "repository-citation-quotes-and-locates": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "cite_volatile_collection_by_location",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "quote_cited_repository_text",
+        "reject_placeholder_in_scan",
+        "restate_architectural_fact_as_value"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 5,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 5,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 3,
+          "rerun_all_four_scans_after_edit": 2,
+          "restate_architectural_fact_as_value": 5
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "unrelated-concerns-become-separate-leaves": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_placeholder_in_scan",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "choose_no_answer_on_requesters_behalf": 1,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 2,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "vague-idea-resolved-elicitation": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_placeholder_in_scan": 3,
+          "rerun_all_four_scans_after_edit": 1
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "validation-stays-with-the-behavior-it-proves": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 2,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 3,
+          "rerun_all_four_scans_after_edit": 3,
+          "return_to_elicitation_for_missing_value": 1,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    }
+  },
+  "cases": {
+    "autonomous-explicit-no-fill-in-export": "pass",
+    "autonomous-residue-unresolved-verification": "pass",
+    "autonomous-tracker-unchosen": "pass",
+    "autonomous-unresolvable-rate-limit": "pass",
+    "design-missing-requirements": "pass",
+    "fits-as-one-stays-one-ticket": "pass",
+    "full-design-document-proceeds": "pass",
+    "generated-evidence-excluded-from-size": "pass",
+    "internal-criterion-rejected": "pass",
+    "mechanical-and-behavioral-change-separated": "pass",
+    "multi-subsystem-decomposition": "pass",
+    "no-authority-draft-ready": "pass",
+    "one-sentence-bug-design-proceeds": "pass",
+    "placeholder-scan-catches-first-draft": "pass",
+    "repository-citation-quotes-and-locates": "pass",
+    "unrelated-concerns-become-separate-leaves": "pass",
+    "vague-idea-resolved-elicitation": "pass",
+    "validation-stays-with-the-behavior-it-proves": "pass"
+  },
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "skills/ready-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3 skills/ready-ticket/scripts/evals/claude_executor.py --model claude-opus-5"
+  ],
+  "compared_to": "2026-08-16T232526Z-0010-before.json",
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [
+      "mechanical-and-behavioral-change-separated",
+      "multi-subsystem-decomposition",
+      "unrelated-concerns-become-separate-leaves",
+      "validation-stays-with-the-behavior-it-proves"
+    ],
+    "still_failing": [],
+    "unchanged": 14
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": null,
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"passed\": 18,\n  \"total\": 18\n}",
+  "recorded_at": "2026-08-17T00:10:29Z",
+  "schema": "eval-run-summary/1",
+  "skill": "ready-ticket",
+  "stage": "after",
+  "status": "completed",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": {
+    "failed": 0,
+    "passed": 18,
+    "total": 18
+  }
+}

@@ -46,8 +46,10 @@
     "required_actions": [
       "name each independently valuable part and the boundary between them",
       "record why each part is independently valuable",
+      "name every proposed parent, child, leaf, sub-issue edge, blocker edge, and re-split trigger",
+      "draft a complete body for every leaf",
       "create or modify no ticket, parent, child, or relationship",
-      "hand the recommendation back to the operator"
+      "hand the draft graph back to the operator"
     ]
   },
   {
@@ -55,8 +57,9 @@
     "workflow_state": "decomposition_recommended",
     "required_actions": [
       "author no parent and no children",
-      "state that epic authoring is out of scope as a recorded deferral",
-      "hand the decomposition rationale back to the operator"
+      "name every proposed parent, child, leaf, sub-issue edge, blocker edge, and re-split trigger",
+      "draft a complete body for every leaf",
+      "hand the draft graph back to the operator"
     ]
   },
   {
