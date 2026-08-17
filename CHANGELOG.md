@@ -6,6 +6,45 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 
+- refactor(tests): parse the sync-contracts block in one place — binding the
+  doctrine's bundle set to the recipe reused the prose contract's regex by
+  copying it, leaving one justfile's shell syntax parsed in two independently
+  maintained places. `scripts/tests/helpers.py` now owns `sync_block_skills`,
+  both drift checks call it, and it raises rather than asserts when its named
+  block is absent or duplicated — a caller asserting against an empty match
+  would otherwise pass for the wrong reason.
+
+- fix(ready-ticket): say that the section restates the doctrine, and bind what
+  it restates — the new breakdown section claimed to load the doctrine "rather
+  than restates" it and named three rules, while restating seven of eight. Both
+  claims were false about the prose directly beneath them. The restatement
+  stays, because this skill's forward eval hands the model `SKILL.md` alone and
+  a rule absent from that file cannot govern a measured run; what changes is
+  that the section says so and names the doctrine canonical where the two
+  disagree. Its three verbatim sentences are now bound to the canonical text, so
+  editing the doctrine and running `just sync-contracts` reddens instead of
+  leaving a superseded rule stated with every suite green.
+
+- test(ready-ticket): grade leaf-body altitude, and record the writing-plans
+  overlap — the acceptance criterion requiring every leaf body to be
+  surface-observable shipped with prose assertions as its only evidence. The
+  vocabulary term for that failure existed but appeared only in cases that
+  produce no graph, and therefore no leaf body, so a run could draft every leaf
+  against internal function signatures with all eighteen cases still passing.
+  The trigger-collision audit also gains the `ready-ticket` × `writing-plans`
+  row the reclassification below requires: without it a reader cannot tell a
+  considered disposition from a missed one.
+
+- test: bind the doctrine's three bundle lists to one source — which skills
+  bundle the cognitive-shaping doctrine was written by hand in the justfile, the
+  drift check, and the packaging validator, kept in lockstep by nothing. The one
+  guard that looked like it bound them searched the whole justfile for each
+  skill's name, and every bundling skill is named in other sync blocks too, so
+  dropping a skill from the doctrine block reddened nothing. The failure landed
+  where the remedy could not reach it: the drift check tells a reader to run
+  `just sync-contracts`, which cannot refresh a copy the recipe was never told
+  to make.
+
 - feat(ready-ticket): return a draft ticket graph instead of a decomposition
   rationale — `decomposition_recommended` named each independently valuable part
   and stopped there, which left the operator holding a diagnosis and no route:
