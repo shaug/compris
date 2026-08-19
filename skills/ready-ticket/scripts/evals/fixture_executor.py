@@ -174,6 +174,51 @@ ANSWERS: dict[str, dict] = {
             "fill_every_template_slot",
         ],
     },
+    "Write a ticket for the new reporting subsystem.": {
+        "terminal_state": "decomposition_recommended",
+        "actions": [
+            "name_every_graph_node_and_edge",
+            "draft_a_complete_body_for_every_leaf",
+            "hand_recommendation_back_to_operator",
+            "perform_no_tracker_mutation",
+        ],
+    },
+    "Write a ticket for the new reporting subsystem, and you're authorized to create the whole approved graph in GitHub once it's ready.": {
+        "terminal_state": "graph_created",
+        "actions": [
+            "name_every_graph_node_and_edge",
+            "draft_a_complete_body_for_every_leaf",
+            "create_the_approved_graph",
+            "create_native_relationships",
+            "reread_and_verify_graph_before_success",
+        ],
+    },
+    "Write a ticket for the new reporting subsystem, and show me the plan before you touch GitHub.": {
+        "terminal_state": "graph_created",
+        "actions": [
+            "present_draft_graph_for_approval",
+            "create_the_approved_graph",
+            "create_native_relationships",
+            "reread_and_verify_graph_before_success",
+        ],
+    },
+    "Write a ticket for the new reporting subsystem — go ahead and create the approved graph in GitHub, you have my authority for that.": {
+        "terminal_state": "blocked",
+        "actions": [
+            "report_every_landed_item",
+            "report_every_missing_edge",
+            "stop_creating_after_partial_write",
+            "give_one_next_action",
+        ],
+    },
+    "Write a ticket for the new reporting subsystem; you're cleared to create the approved graph in GitHub as soon as it's ready.": {
+        "terminal_state": "blocked",
+        "actions": [
+            "reread_and_verify_graph_before_success",
+            "report_the_exact_mismatch",
+            "give_one_next_action",
+        ],
+    },
 }
 
 

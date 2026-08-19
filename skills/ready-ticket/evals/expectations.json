@@ -268,5 +268,26 @@
       "report that implementation was not performed and is out of scope",
       "withhold no part of the in-scope authoring work"
     ]
+  },
+  {
+    "case_id": "graph-creation-authority-granted-creates-the-graph",
+    "workflow_state": "graph_created",
+    "required_actions": [
+      "name every proposed parent, child, leaf, sub-issue edge, blocker edge, and re-split trigger",
+      "draft a complete body for every leaf and pass all four self-review scans on each",
+      "create every node and every native relationship the approved draft names",
+      "reread every created body and the created topology before claiming success"
+    ]
+  },
+  {
+    "case_id": "graph-relationship-fails-after-issues-land",
+    "workflow_state": "blocked",
+    "required_actions": [
+      "stop creating anything further once the relationship create fails",
+      "report every issue that did land",
+      "report the edge that is still missing",
+      "claim no graph_created on the strength of the issues that did land",
+      "give one next action"
+    ]
   }
 ]

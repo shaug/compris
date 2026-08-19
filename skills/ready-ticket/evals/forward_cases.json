@@ -207,5 +207,65 @@
       "design": "an approved one-paragraph note settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline",
       "elicitation": "the edit rewrites about 150 lines of prompt text in one file; the repository's evidence norm requires the re-recorded eval results to be committed in the same change, which is roughly 4,500 lines of generated JSON nobody reads; the requester asks whether something that large has to be split"
     }
+  },
+  {
+    "id": "graph-authority-absent-stays-graph-draft",
+    "request": "Write a ticket for the new reporting subsystem.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority was not granted, at invocation or otherwise",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans"
+    }
+  },
+  {
+    "id": "graph-authority-granted-at-invocation",
+    "request": "Write a ticket for the new reporting subsystem, and you're authorized to create the whole approved graph in GitHub once it's ready.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority granted at invocation, covering whatever draft this run produces",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the GitHub API confirms every issue and every native relationship exactly as created"
+    }
+  },
+  {
+    "id": "graph-authority-granted-after-presentation",
+    "request": "Write a ticket for the new reporting subsystem, and show me the plan before you touch GitHub.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority was not granted at invocation",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; presented with the complete draft graph, the requester explicitly grants graph-creation authority over exactly that draft; the GitHub API then confirms every issue and every native relationship exactly as created"
+    }
+  },
+  {
+    "id": "graph-relationship-creation-fails-partway",
+    "request": "Write a ticket for the new reporting subsystem — go ahead and create the approved graph in GitHub, you have my authority for that.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority granted at invocation, covering whatever draft this run produces",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the GitHub API creates all three issues successfully but returns an error creating the blocker edge from the rollup job to the metrics collector"
+    }
+  },
+  {
+    "id": "graph-readback-mismatch-blocks-success",
+    "request": "Write a ticket for the new reporting subsystem; you're cleared to create the approved graph in GitHub as soon as it's ready.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority granted at invocation, covering whatever draft this run produces",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the GitHub API reports every issue and every native relationship created successfully, but rereading the rollup job issue shows its stored body is missing the Required verification section it was created with"
+    }
   }
 ]

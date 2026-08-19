@@ -47,6 +47,7 @@ TERMINAL_RESULTS = {
     "ticket_ready",
     "draft_ready",
     "decomposition_recommended",
+    "graph_created",
     "requires_brainstorming",
     "blocked",
 }

@@ -241,5 +241,23 @@
     "authority": "ticket-management authority granted; no implementation authority",
     "peers": "no peer skills in the session listing",
     "elicitation": "the requester resolves every open product decision for the export"
+  },
+  {
+    "id": "graph-creation-authority-granted-creates-the-graph",
+    "request": "Write a ticket for the new reporting subsystem, and you're authorized to create the whole approved graph in GitHub once it's ready.",
+    "ticket": "none",
+    "run_mode": "interactive",
+    "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority granted at invocation, covering whatever draft this run produces",
+    "peers": "no peer skills in the session listing",
+    "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the GitHub API confirms every issue and every native relationship exactly as created"
+  },
+  {
+    "id": "graph-relationship-fails-after-issues-land",
+    "request": "Write a ticket for the new reporting subsystem — go ahead and create the approved graph in GitHub, you have my authority for that.",
+    "ticket": "none",
+    "run_mode": "interactive",
+    "authority": "ticket-management authority granted for the project's GitHub repository; graph-creation authority granted at invocation",
+    "peers": "no peer skills in the session listing",
+    "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view; every leaf passes all four self-review scans; the GitHub API creates all three issues but returns an error creating the blocker edge from the rollup job to the metrics collector"
   }
 ]
