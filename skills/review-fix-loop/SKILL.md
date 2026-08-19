@@ -133,19 +133,35 @@ summary:
    remote-write tool.
 4. Capture worktree state, including local refs (excluding `refs/remotes/*`),
    immediately before and after the pass and run `detect_worktree_mutation` on
-   the two snapshots (it raises if either snapshot is missing a required capture
-   key, rather than silently treating an uncaptured dimension as unchanged).
+   the two snapshots, passing `candidate_branch_ref` and
+   `attempt_namespace_prefix` (from
+   `local_execution.attempt_namespace_ref_prefix`) (it raises if either snapshot
+   is missing a required capture key, rather than silently treating an
+   uncaptured dimension as unchanged). It returns a `WorktreeMutationReport`,
+   not a flat list: a Tier 1 `candidate_mutations` entry (`head_sha`, the
+   candidate branch ref, or this invocation's own attempt namespace) means the
+   candidate itself moved — stop immediately and return
+   `blocked/candidate_integrity_failure` without building a `review_records`
+   entry, since the packet's expected head and base are now stale. Worktree path
+   state lands in `mutation_attempts`; every other local ref lands in non-gating
+   `observed_ref_changes`. See
+   [`references/reviewer-orchestration.md`](references/reviewer-orchestration.md)'s
+   "Reviewer write prevention" tier 4 for the full attribution rationale.
 5. Build one `review_records` entry with `build_review_record`, passing both the
    exact packet handed to the reviewer (`packet=...`, required) and its result,
-   feeding in every detected mutation. This validates the packet and result
-   together — including catching a `clean` verdict paired with a packet whose
-   own required validation entry was `failed` or `unavailable`, which a
-   result-only check cannot see — and raises `ReviewIntegrityError` instead of
-   returning a partially trusted record. A non-empty `mutation_attempts` always
-   yields `write_isolation: "violated"`, even when the aggregate verdict itself
-   looked clean — stop immediately and return
-   `blocked/reviewer_integrity_failure` rather than continuing to iterate on
-   that pass's findings.
+   feeding in `mutation_attempts` (worktree state plus any tool-trace evidence),
+   `observed_ref_changes`, and `integrity_evidence` (`"tool_trace"` when the
+   host performed tool-trace inspection for this pass, `"surface_only"`
+   otherwise). This validates the packet and result together — including
+   catching a `clean` verdict paired with a packet whose own required validation
+   entry was `failed` or `unavailable`, which a result-only check cannot see —
+   and raises `ReviewIntegrityError` instead of returning a partially trusted
+   record. A non-empty `mutation_attempts` always yields
+   `write_isolation: "violated"`, even when the aggregate verdict itself looked
+   clean — stop immediately and return `blocked/reviewer_integrity_failure`
+   rather than continuing to iterate on that pass's findings.
+   `observed_ref_changes` never affects `write_isolation`; a `surface_only`
+   `integrity_evidence` still reaches `converged`.
 6. When the verdict is not `clean`, use `normalize_findings` and
    `select_next_finding` to identify the next finding in one deterministic order
    — selecting a finding is not disposing or fixing it; that remains a later

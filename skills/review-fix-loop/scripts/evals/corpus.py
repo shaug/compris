@@ -20,7 +20,11 @@ publication races, plus fresh-subagent defaults and the explicit in-agent
 override. It deliberately does not re-cover `oscillation` or
 `repeated_failed_attempt`: those `changes_remaining` reasons are already
 exercised by `scripts/tests/test_local_commit.py`, the capability-owned unit
-suite this ticket's own body says not to duplicate.
+suite this ticket's own body says not to duplicate. Issue #245 adds one
+scenario beyond #101's original list, alongside the existing reviewer-mutation
+one: an unattributed third-party ref advance
+(`lc_unattributed_ref_advance_converges`) that must converge rather than
+block, per the tiered write-isolation attribution that issue introduces.
 
 Every scenario is a plain function `(tmp_dir: Path) -> dict` so `runner.py`
 can execute each one inside its own disposable temporary directory and so
@@ -469,6 +473,77 @@ def lc_reviewer_mutation_blocked(tmp_dir: Path) -> dict[str, Any]:
     )
     return _case(
         "lc-reviewer-mutation-blocked",
+        category="reviewer_mutation",
+        policy="local_commit",
+        result=result,
+        checks=checks,
+    )
+
+
+def lc_unattributed_ref_advance_converges(tmp_dir: Path) -> dict[str, Any]:
+    """The unattributed third-party ref advance this ticket (#245) adds
+    alongside `lc_reviewer_mutation_blocked`: a local ref unrelated to the
+    candidate — not the candidate branch, not `HEAD`, not this invocation's
+    own attempt namespace — force-advances mid-review, the way a concurrent
+    worktree's own branch or an unattended background `pull --ff-only` would
+    in a checkout where several worktrees share one ref store. The review
+    must still converge, and the change must be recorded verbatim in the
+    final review record's `observed_ref_changes` — non-gating, never a
+    reviewer-integrity failure."""
+    repo = tmp_dir / "repo"
+    H.init_repo(repo)
+    base_sha, head_sha = H.start_candidate(
+        repo, branch="lc/unattributed-ref", marker="fixed"
+    )
+    invocation = H.make_invocation(
+        repo,
+        policy="local_commit",
+        branch="lc/unattributed-ref",
+        base_sha=base_sha,
+        head_sha=head_sha,
+        invocation_id="lc-unattributed-ref",
+    )
+    result = LC.run_local_commit(
+        invocation,
+        repo=repo,
+        reviewer=H.make_third_party_ref_advancing_reviewer(
+            repo, H.make_marker_reviewer(repo)
+        ),
+        decide=H.accepting_decide,
+        apply_fix=H.fixing_apply_fix,
+    )
+    checks = _terminal_checks(result, terminal_state="converged", reason=None)
+    final_records = [
+        record
+        for record in result.get("review_records", [])
+        if record.get("head_sha") == head_sha
+    ]
+    final_record = final_records[-1] if final_records else {}
+    third_party_ref_sha = G.rev_parse(repo, "background/automation")
+    candidate_branch_sha = G.rev_parse(repo, "lc/unattributed-ref")
+    checks.update(
+        {
+            "write_isolation_enforced": (
+                "enforced",
+                final_record.get("write_isolation"),
+            ),
+            "no_mutation_attempts": ([], final_record.get("mutation_attempts")),
+            "third_party_ref_observed": (
+                True,
+                any(
+                    "background/automation" in change
+                    for change in final_record.get("observed_ref_changes", [])
+                ),
+            ),
+            # Independent Git evidence: the third-party ref genuinely
+            # advanced (the mutation really happened, not merely un-reported)
+            # while the candidate branch itself never moved.
+            "third_party_ref_actually_advanced": (head_sha, third_party_ref_sha),
+            "candidate_branch_unaffected": (head_sha, candidate_branch_sha),
+        }
+    )
+    return _case(
+        "lc-unattributed-ref-advance-converges",
         category="reviewer_mutation",
         policy="local_commit",
         result=result,
@@ -1142,6 +1217,7 @@ SCENARIOS: list[Callable[[Path], dict[str, Any]]] = [
     lc_validation_failure_not_tractable,
     lc_validation_failure_tractable_converges,
     lc_reviewer_mutation_blocked,
+    lc_unattributed_ref_advance_converges,
     lc_incomplete_review_blocked_verdict,
     lc_invalid_stale_review_result_blocked,
     lc_missing_capability_without_override,

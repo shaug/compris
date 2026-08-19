@@ -4,94 +4,141 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-19 — Taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
+
+- chore(review-fix-loop): re-record the after-stage run at the shipping head —
+  the first after run measured the prose before `exclusive_ref_store` was
+  removed below. Re-recorded at the head this branch ships: 21 of 21, unchanged,
+  so the review-driven simplification cost no measured behavior.
+
+- fix(review-fix-loop): drop exclusive_ref_store, the buggy legacy behavior had
+  no business surviving as an opt-in — review found that offering a flag to
+  restore the whole-local-ref-map comparison made no sense when that exact
+  comparison was the documented source of the false positives this ticket fixes.
+  Removed the flag from the schema, the tiering function, and the review-phase
+  call site: every Tier 2 ref change is now unconditionally a non-gating
+  `observed_ref_changes` observation, with no configuration path back to the old
+  behavior. A dedicated clone that wants stricter isolation already has tiers
+  1-3 of the write-prevention ladder (sandbox, restricted tool surface,
+  read-only commands) available to it.
+
+- chore(review-fix-loop): record after-stage eval evidence for #245 — commit the
+  after-stage deterministic eval-corpus summary for the candidate-ref-
+  attribution tiering, on top of the implementation commit, per the eval-backed
+  change norm's requirement that the run be recorded from a committed, clean
+  tree.
+
+- fix(review-fix-loop): attribute reviewer mutation, not any local ref move —
+  `detect_worktree_mutation` compared the entire local ref map, so a checkout
+  where several worktrees share one ref store — or any background automation
+  touching a branch — made an unattributed ref advance indistinguishable from
+  reviewer misconduct and killed a valid review. Replaced the flat comparison
+  with a tiered `WorktreeMutationReport`: a change to `HEAD`, the candidate
+  branch ref, or this invocation's own attempt namespace still invalidates the
+  candidate (`blocked/candidate_integrity_failure`), but every other local ref
+  is now always a non-gating `observed_ref_changes` observation — no flag
+  restores the old flat comparison, since it was the source of the false
+  positives this fixes. Worktree path state and host-supplied tool-trace
+  evidence remain the only inputs that force `write_isolation: "violated"`, and
+  a new `integrity_evidence` field records whether the host actually inspected a
+  tool trace for a clean pass. Added an eval corpus scenario for the
+  unattributed third-party ref advance alongside the existing reviewer-mutation
+  one, and recorded before/after deterministic eval-corpus evidence per the
+  eval-backed change norm.
+
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 
-- refactor(tests): parse the sync-contracts block in one place — binding the
-  doctrine's bundle set to the recipe reused the prose contract's regex by
-  copying it, leaving one justfile's shell syntax parsed in two independently
-  maintained places. `scripts/tests/helpers.py` now owns `sync_block_skills`,
-  both drift checks call it, and it raises rather than asserts when its named
-  block is absent or duplicated — a caller asserting against an empty match
-  would otherwise pass for the wrong reason.
+- refactor(tests): parse the sync-contracts block in one place
+  (fecc1790fa1438817c6edf33866056ec7d1c2fe4) — binding the doctrine's bundle set
+  to the recipe reused the prose contract's regex by copying it, leaving one
+  justfile's shell syntax parsed in two independently maintained places.
+  `scripts/tests/helpers.py` now owns `sync_block_skills`, both drift checks
+  call it, and it raises rather than asserts when its named block is absent or
+  duplicated — a caller asserting against an empty match would otherwise pass
+  for the wrong reason.
 
-- docs(ready-ticket): re-record the after-stage run at the shipping head — the
-  first after run measured the prose as originally written, and the review fix
-  loop then tightened four cases and corrected the doctrine-restatement
-  paragraphs. Re-recorded at the head this branch ships: 18 of 18, with no case
-  newly passing or newly failing, so the review's corrections cost no measured
-  behavior.
+- docs(ready-ticket): re-record the after-stage run at the shipping head
+  (5f38895deb9a69f9508a7e815bead1687785148f) — the first after run measured the
+  prose as originally written, and the review fix loop then tightened four cases
+  and corrected the doctrine-restatement paragraphs. Re-recorded at the head
+  this branch ships: 18 of 18, with no case newly passing or newly failing, so
+  the review's corrections cost no measured behavior.
 
 - fix(ready-ticket): say that the section restates the doctrine, and bind what
-  it restates — the new breakdown section claimed to load the doctrine "rather
-  than restates" it and named three rules, while restating seven of eight. Both
-  claims were false about the prose directly beneath them. The restatement
-  stays, because this skill's forward eval hands the model `SKILL.md` alone and
-  a rule absent from that file cannot govern a measured run; what changes is
-  that the section says so and names the doctrine canonical where the two
-  disagree. Its three verbatim sentences are now bound to the canonical text, so
-  editing the doctrine and running `just sync-contracts` reddens instead of
-  leaving a superseded rule stated with every suite green.
+  it restates (72229a4465ab02d6bc4e49e2d4c714d20d077b07) — the new breakdown
+  section claimed to load the doctrine "rather than restates" it and named three
+  rules, while restating seven of eight. Both claims were false about the prose
+  directly beneath them. The restatement stays, because this skill's forward
+  eval hands the model `SKILL.md` alone and a rule absent from that file cannot
+  govern a measured run; what changes is that the section says so and names the
+  doctrine canonical where the two disagree. Its three verbatim sentences are
+  now bound to the canonical text, so editing the doctrine and running
+  `just sync-contracts` reddens instead of leaving a superseded rule stated with
+  every suite green.
 
 - test(ready-ticket): grade leaf-body altitude, and record the writing-plans
-  overlap — the acceptance criterion requiring every leaf body to be
-  surface-observable shipped with prose assertions as its only evidence. The
-  vocabulary term for that failure existed but appeared only in cases that
-  produce no graph, and therefore no leaf body, so a run could draft every leaf
-  against internal function signatures with all eighteen cases still passing.
-  The trigger-collision audit also gains the `ready-ticket` × `writing-plans`
-  row the reclassification below requires: without it a reader cannot tell a
-  considered disposition from a missed one.
+  overlap (2a6ebf5bff15ab0734b4bfc726ff1c5d7bf19d0b) — the acceptance criterion
+  requiring every leaf body to be surface-observable shipped with prose
+  assertions as its only evidence. The vocabulary term for that failure existed
+  but appeared only in cases that produce no graph, and therefore no leaf body,
+  so a run could draft every leaf against internal function signatures with all
+  eighteen cases still passing. The trigger-collision audit also gains the
+  `ready-ticket` × `writing-plans` row the reclassification below requires:
+  without it a reader cannot tell a considered disposition from a missed one.
 
-- test: bind the doctrine's three bundle lists to one source — which skills
-  bundle the cognitive-shaping doctrine was written by hand in the justfile, the
-  drift check, and the packaging validator, kept in lockstep by nothing. The one
-  guard that looked like it bound them searched the whole justfile for each
-  skill's name, and every bundling skill is named in other sync blocks too, so
-  dropping a skill from the doctrine block reddened nothing. The failure landed
-  where the remedy could not reach it: the drift check tells a reader to run
+- test: bind the doctrine's three bundle lists to one source
+  (ba2dc686d331ab6045a0e6a5830bec532a43c2cd) — which skills bundle the
+  cognitive-shaping doctrine was written by hand in the justfile, the drift
+  check, and the packaging validator, kept in lockstep by nothing. The one guard
+  that looked like it bound them searched the whole justfile for each skill's
+  name, and every bundling skill is named in other sync blocks too, so dropping
+  a skill from the doctrine block reddened nothing. The failure landed where the
+  remedy could not reach it: the drift check tells a reader to run
   `just sync-contracts`, which cannot refresh a copy the recipe was never told
   to make.
 
-- docs(ready-ticket): record the after-stage eval evidence for the draft graph —
-  18 of 18 at the shipping prose, every case unanimous across its five
-  repetitions. The four cases the before run failed are newly passing and
-  nothing that passed before regressed, which is the pairing the eval-backed
-  change norm asks a prose change to demonstrate.
+- docs(ready-ticket): record the after-stage eval evidence for the draft graph
+  (f1939624b73ac4d273a02bdf9f15583c13b4b7ad) — 18 of 18 at the shipping prose,
+  every case unanimous across its five repetitions. The four cases the before
+  run failed are newly passing and nothing that passed before regressed, which
+  is the pairing the eval-backed change norm asks a prose change to demonstrate.
 
-- feat(ready-ticket): return a draft ticket graph instead of a rationale —
-  `decomposition_recommended` named each independently valuable part and stopped
-  there, which left the operator holding a diagnosis and no route: the parts
-  were named, the graph that would carry them was not. The skill now breaks the
-  work down before any body is drafted, judging shape against
-  `docs/cognitive-shaping-doctrine.md`, which it bundles by stable path rather
-  than restating. The draft names every proposed parent, child, leaf, sub-issue
-  edge, blocker edge, and re-split trigger, and every leaf carries a complete
-  body that passes all four self-review scans on its own. Nothing is created:
-  ticket-management authority still governs one body and grants no graph
-  mutation. The doctrine's rules that most often go wrong are stated in the
-  skill itself, because a run that settles the shape without opening the
-  reference still has to obey them — one ticket stays one ticket, a parent never
-  holds a single child, and recorded machine-generated evidence does not count
-  toward size. `superpowers:writing-plans` moves from house territory to a
-  bounded referenced peer: it supplies the file map, task boundaries, and
-  sequencing when present, while the breakdown outcome stays house-owned, its
-  plan is never written to disk, and its unit-level altitude is lifted to the
-  public surface before anything reaches a leaf body.
+- feat(ready-ticket): return a draft ticket graph instead of a rationale
+  (e67dd3aecafefec50824656a10fa65c5aec72c5d) — `decomposition_recommended` named
+  each independently valuable part and stopped there, which left the operator
+  holding a diagnosis and no route: the parts were named, the graph that would
+  carry them was not. The skill now breaks the work down before any body is
+  drafted, judging shape against `docs/cognitive-shaping-doctrine.md`, which it
+  bundles by stable path rather than restating. The draft names every proposed
+  parent, child, leaf, sub-issue edge, blocker edge, and re-split trigger, and
+  every leaf carries a complete body that passes all four self-review scans on
+  its own. Nothing is created: ticket-management authority still governs one
+  body and grants no graph mutation. The doctrine's rules that most often go
+  wrong are stated in the skill itself, because a run that settles the shape
+  without opening the reference still has to obey them — one ticket stays one
+  ticket, a parent never holds a single child, and recorded machine-generated
+  evidence does not count toward size. `superpowers:writing-plans` moves from
+  house territory to a bounded referenced peer: it supplies the file map, task
+  boundaries, and sequencing when present, while the breakdown outcome stays
+  house-owned, its plan is never written to disk, and its unit-level altitude is
+  lifted to the public surface before anything reaches a leaf body.
 
 - docs(ready-ticket): record the before-stage eval evidence for the draft graph
-  — the new corpus measured against the prose as it stood: 14 of 18. The four
-  failures are every decomposition case, none of which named a node, an edge, a
-  re-split trigger, or drafted a leaf body. That is the gap the after run is
-  measured against, and recording it first is what makes the pair comparable.
+  (040391c7efd52797a46d358d1e6940b120e5a9b6) — the new corpus measured against
+  the prose as it stood: 14 of 18. The four failures are every decomposition
+  case, none of which named a node, an edge, a re-split trigger, or drafted a
+  leaf body. That is the gap the after run is measured against, and recording it
+  first is what makes the pair comparable.
 
 - test(ready-ticket): add the five breakdown cases the draft graph is graded on
-  — cases for fits-as-one, unrelated concerns, the mechanical-versus-behavioral
-  seam, validation placement, and generated evidence, each built around a
-  specific bait: an epic leadership wants to see, a shared sprint, a team habit
-  of landing test scaffolding separately, a raw line count dominated by
-  committed eval results. A corpus that only rewards good answers measures very
-  little. They land before the prose they grade so the before run measures the
-  new corpus against the old prose.
+  (ad458e2af5170b86dc3b4df2794fad3443651d4a) — cases for fits-as-one, unrelated
+  concerns, the mechanical-versus-behavioral seam, validation placement, and
+  generated evidence, each built around a specific bait: an epic leadership
+  wants to see, a shared sprint, a team habit of landing test scaffolding
+  separately, a raw line count dominated by committed eval results. A corpus
+  that only rewards good answers measures very little. They land before the
+  prose they grade so the before run measures the new corpus against the old
+  prose.
 
 - fix: give the citation guard's failure message a remedy for both ways it can
   fire (ba638ef040b4535e170cf50c3c8e94689d30f9ef) — the message now names an

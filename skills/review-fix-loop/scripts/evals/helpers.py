@@ -339,6 +339,28 @@ def make_mutating_reviewer(repo: Path, inner: Callable[..., Any]) -> Callable[..
     return reviewer
 
 
+def make_third_party_ref_advancing_reviewer(
+    repo: Path,
+    inner: Callable[..., Any],
+    *,
+    ref: str = "refs/heads/background/automation",
+) -> Callable[..., Any]:
+    """Wraps `inner` but also force-advances an unrelated local ref before
+    returning — simulating background automation (a concurrent worktree's own
+    branch, an unattended `pull --ff-only`) sharing this checkout's ref store,
+    never the reviewer itself. `ref` is neither the candidate branch, `HEAD`,
+    nor this invocation's own attempt namespace, so this is Tier 2 by design
+    (issue #245): unattributable from the ref map alone, and must not gate a
+    clean review the way `make_mutating_reviewer`'s Tier 1/worktree mutation
+    does."""
+
+    def reviewer(**kwargs):
+        LE.git("update-ref", ref, kwargs["head_sha"], cwd=repo)
+        return inner(**kwargs)
+
+    return reviewer
+
+
 # ---------------------------------------------------------------------------
 # Decide fixtures
 # ---------------------------------------------------------------------------

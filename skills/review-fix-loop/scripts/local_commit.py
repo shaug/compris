@@ -115,11 +115,20 @@ class LocalCommitError(RuntimeError):
 
 @dataclasses.dataclass
 class ReviewPass:
-    """One raw review-code-change pass and its isolation evidence."""
+    """One raw review-code-change pass and its isolation evidence.
+
+    `mutation_attempts` is host-supplied tool-trace evidence of an attempted
+    write (tier 5 of the write-prevention ladder) — leave it empty when the
+    host observed no attempt. `tool_trace_available` is `True` only when the
+    host actually performed tool-trace inspection for this pass (whether or
+    not it found anything); the default `False` means no tool trace was
+    supplied at all, distinct from "inspected and clean."
+    """
 
     result: Mapping[str, Any]
     reviewer_identity: str | None = None
     mutation_attempts: Sequence[str] = ()
+    tool_trace_available: bool = False
 
 
 @dataclasses.dataclass
@@ -1120,9 +1129,34 @@ def _run_engine(
                         sequence=review_sequence,
                     )
                     after = _worktree_snapshot(state.repo)
-                    mutation_attempts = list(
-                        ORCH.detect_worktree_mutation(before, after)
-                    ) + list(review_pass.mutation_attempts)
+                    mutation_report = ORCH.detect_worktree_mutation(
+                        before,
+                        after,
+                        candidate_branch_ref=f"refs/heads/{state.branch}",
+                        attempt_namespace_prefix=LE.attempt_namespace_ref_prefix(
+                            invocation["invocation_id"]
+                        ),
+                    )
+                    if mutation_report.candidate_mutations:
+                        return _finalize(
+                            state,
+                            terminal_state="blocked",
+                            reason="candidate_integrity_failure",
+                            operator_action=(
+                                "the candidate's own refs moved during the review "
+                                "pass, regardless of attribution: "
+                                + "; ".join(mutation_report.candidate_mutations)
+                            ),
+                            phase="review",
+                        )
+                    mutation_attempts = list(mutation_report.mutation_attempts) + list(
+                        review_pass.mutation_attempts
+                    )
+                    integrity_evidence = (
+                        "tool_trace"
+                        if review_pass.tool_trace_available
+                        else "surface_only"
+                    )
                     reviewer_identity = ORCH.generate_reviewer_identity(
                         independence,
                         review_sequence,
@@ -1138,6 +1172,8 @@ def _run_engine(
                             independence=independence,
                             reviewer_identity=reviewer_identity,
                             mutation_attempts=mutation_attempts,
+                            observed_ref_changes=mutation_report.observed_ref_changes,
+                            integrity_evidence=integrity_evidence,
                         )
                     except ORCH.ReviewIntegrityError as exc:
                         return _finalize(

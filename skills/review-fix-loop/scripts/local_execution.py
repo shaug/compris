@@ -473,6 +473,19 @@ def attempt_branch_name(invocation_id: str, sequence: int) -> str:
     return f"{ATTEMPT_BRANCH_PREFIX}{_sanitize_component(invocation_id)}/{sequence}"
 
 
+def attempt_namespace_ref_prefix(invocation_id: str) -> str:
+    """Return the full-ref prefix covering every attempt branch this
+    invocation could create — `refs/heads/review-fix-loop/attempt/<id>/`.
+
+    Used by `reviewer_orchestration.detect_worktree_mutation`'s
+    `attempt_namespace_prefix` to classify a ref change inside this
+    invocation's own attempt namespace as Tier 1 (candidate-bound), while a
+    change inside a *different* invocation's attempt namespace — which does
+    not share this prefix — stays Tier 2.
+    """
+    return f"refs/heads/{ATTEMPT_BRANCH_PREFIX}{_sanitize_component(invocation_id)}/"
+
+
 def create_attempt(
     *,
     repo: Path,

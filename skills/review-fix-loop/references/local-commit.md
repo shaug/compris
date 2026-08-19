@@ -60,9 +60,12 @@ agent supplies exactly the judgment the design assigns to it, nothing more:
   `Read, Grep, Glob, Bash, Agent, Task, Skill` per
   [`references/reviewer-orchestration.md`](reviewer-orchestration.md) and
   returning its raw aggregate result. `run_local_commit` still performs the
-  before/after mutation snapshot, `evaluate_review_result` binding, and
+  tiered before/after mutation snapshot, `evaluate_review_result` binding, and
   `write_isolation` recording around this call — the port only needs to return
-  the raw result (plus any tool-trace mutation evidence the runtime observed).
+  the raw result, plus any tool-trace mutation evidence the runtime observed
+  (`ReviewPass.mutation_attempts`) and whether it performed tool-trace
+  inspection at all for this pass (`ReviewPass.tool_trace_available`, recorded
+  as the review record's `integrity_evidence`).
 - `decide(*, finding, change_contract, attempt_number) -> FixDecision` — verify
   the selected finding's evidence against the candidate, confirm it is within
   `change_contract.allowed_remediation_scope`, and return `accepted`,
