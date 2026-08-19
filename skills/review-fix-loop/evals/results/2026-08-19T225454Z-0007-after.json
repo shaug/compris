@@ -1,0 +1,667 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-245-0251fb",
+    "sha": "3841b1e29f3eff61ddfad3c2275c2df70ee561fe",
+    "tree": "806655412bbe2dd6c788b8f7b2b2b799f40e53c9",
+    "trees": {
+      "skills/review-fix-loop": "4a8a3c67710714f8e41e145346dea525d1e26413"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "lc-budget-exhausted-persistent-finding": {
+      "category": "budget_exhaustion",
+      "checks": {
+        "exactly_one_attempt_committed": {
+          "expected": 1,
+          "observed": 1
+        },
+        "finding_genuinely_unresolved_at_final_head": {
+          "expected": false,
+          "observed": false
+        },
+        "reason": {
+          "expected": "cycle_budget_exhausted",
+          "observed": "cycle_budget_exhausted"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "changes_remaining",
+          "observed": "changes_remaining"
+        },
+        "worktree_clean": {
+          "expected": true,
+          "observed": true
+        }
+      },
+      "id": "lc-budget-exhausted-persistent-finding",
+      "policy": "local_commit"
+    },
+    "lc-checkpoint-mismatch-resume-blocked": {
+      "category": "recovery",
+      "checks": {
+        "candidate_never_advanced": {
+          "expected": "f4b2f44ff3900064bf07f1202128914e4acd6561",
+          "observed": "f4b2f44ff3900064bf07f1202128914e4acd6561"
+        },
+        "reason": {
+          "expected": "checkpoint_mismatch",
+          "observed": "checkpoint_mismatch"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-checkpoint-mismatch-resume-blocked",
+      "policy": "local_commit"
+    },
+    "lc-converged-after-one-fix": {
+      "category": "convergence",
+      "checks": {
+        "canonical_branch_matches_reported_final_head": {
+          "expected": "e5ce620f52e770645351353e70d91974da9d4e40",
+          "observed": "e5ce620f52e770645351353e70d91974da9d4e40"
+        },
+        "default_review_independence": {
+          "expected": "fresh_subagent",
+          "observed": "fresh_subagent"
+        },
+        "exactly_one_new_commit": {
+          "expected": 1,
+          "observed": 1
+        },
+        "marker_at_final_head": {
+          "expected": "fixed",
+          "observed": "fixed"
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        },
+        "worktree_clean": {
+          "expected": true,
+          "observed": true
+        }
+      },
+      "id": "lc-converged-after-one-fix",
+      "policy": "local_commit"
+    },
+    "lc-converged-clean-initial": {
+      "category": "convergence",
+      "checks": {
+        "marker_at_final_head": {
+          "expected": "fixed",
+          "observed": "fixed"
+        },
+        "no_new_commit_on_canonical_branch": {
+          "expected": 0,
+          "observed": 0
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        },
+        "worktree_clean": {
+          "expected": true,
+          "observed": true
+        }
+      },
+      "id": "lc-converged-clean-initial",
+      "policy": "local_commit"
+    },
+    "lc-declined-finding-blocked": {
+      "category": "declined_findings",
+      "checks": {
+        "no_commit_was_made": {
+          "expected": "02e1680adb4aeeb5d63c39b084aeec2c72945efb",
+          "observed": "02e1680adb4aeeb5d63c39b084aeec2c72945efb"
+        },
+        "reason": {
+          "expected": "operator_input_required",
+          "observed": "operator_input_required"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        },
+        "worktree_clean": {
+          "expected": true,
+          "observed": true
+        }
+      },
+      "id": "lc-declined-finding-blocked",
+      "policy": "local_commit"
+    },
+    "lc-in-agent-override-bypasses-missing-capability": {
+      "category": "review_mode",
+      "checks": {
+        "exactly_one_new_commit": {
+          "expected": 1,
+          "observed": 1
+        },
+        "marker_at_final_head": {
+          "expected": "fixed",
+          "observed": "fixed"
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "review_independence_is_in_agent_override": {
+          "expected": "in_agent_override",
+          "observed": "in_agent_override"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        }
+      },
+      "id": "lc-in-agent-override-bypasses-missing-capability",
+      "policy": "local_commit"
+    },
+    "lc-incomplete-review-blocked-verdict": {
+      "category": "invalid_review",
+      "checks": {
+        "candidate_never_advanced": {
+          "expected": "4a596f6929f3b2d2a18f8f24d09079777e364e4c",
+          "observed": "4a596f6929f3b2d2a18f8f24d09079777e364e4c"
+        },
+        "reason": {
+          "expected": "missing_capability",
+          "observed": "missing_capability"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-incomplete-review-blocked-verdict",
+      "policy": "local_commit"
+    },
+    "lc-interrupted-attempt-recovered-without-losing-commit": {
+      "category": "recovery",
+      "checks": {
+        "exactly_one_promoted_commit": {
+          "expected": 1,
+          "observed": 1
+        },
+        "interrupted_attempt_branch_still_points_at_it": {
+          "expected": "c807b04079485328755d834cb745938334b4cecc",
+          "observed": "c807b04079485328755d834cb745938334b4cecc"
+        },
+        "interrupted_attempt_recorded_as_preserved": {
+          "expected": true,
+          "observed": true
+        },
+        "interrupted_commit_object_preserved": {
+          "expected": true,
+          "observed": true
+        },
+        "marker_at_final_head": {
+          "expected": "fixed",
+          "observed": "fixed"
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        }
+      },
+      "id": "lc-interrupted-attempt-recovered-without-losing-commit",
+      "policy": "local_commit"
+    },
+    "lc-invalid-stale-review-result-blocked": {
+      "category": "invalid_review",
+      "checks": {
+        "candidate_never_advanced": {
+          "expected": "f6deaff138c548edf260c9394af3332c07e0866d",
+          "observed": "f6deaff138c548edf260c9394af3332c07e0866d"
+        },
+        "reason": {
+          "expected": "reviewer_integrity_failure",
+          "observed": "reviewer_integrity_failure"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-invalid-stale-review-result-blocked",
+      "policy": "local_commit"
+    },
+    "lc-missing-capability-without-override": {
+      "category": "review_mode",
+      "checks": {
+        "candidate_never_advanced": {
+          "expected": "f432bbe93628554a9b8e43f922a2d76d22dce724",
+          "observed": "f432bbe93628554a9b8e43f922a2d76d22dce724"
+        },
+        "reason": {
+          "expected": "missing_capability",
+          "observed": "missing_capability"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-missing-capability-without-override",
+      "policy": "local_commit"
+    },
+    "lc-reviewer-mutation-blocked": {
+      "category": "reviewer_mutation",
+      "checks": {
+        "candidate_never_advanced": {
+          "expected": "001f106371d9cf336d3080fff220ae1df709eac1",
+          "observed": "001f106371d9cf336d3080fff220ae1df709eac1"
+        },
+        "mutation_attempt_preserved_for_inspection": {
+          "expected": true,
+          "observed": true
+        },
+        "reason": {
+          "expected": "reviewer_integrity_failure",
+          "observed": "reviewer_integrity_failure"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-reviewer-mutation-blocked",
+      "policy": "local_commit"
+    },
+    "lc-scope-expanding-finding-blocked": {
+      "category": "declined_findings",
+      "checks": {
+        "no_commit_was_made": {
+          "expected": "02e1680adb4aeeb5d63c39b084aeec2c72945efb",
+          "observed": "02e1680adb4aeeb5d63c39b084aeec2c72945efb"
+        },
+        "reason": {
+          "expected": "scope_decision_required",
+          "observed": "scope_decision_required"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-scope-expanding-finding-blocked",
+      "policy": "local_commit"
+    },
+    "lc-unattributed-ref-advance-converges": {
+      "category": "reviewer_mutation",
+      "checks": {
+        "candidate_branch_unaffected": {
+          "expected": "edbf297147b9c5cf079f81af2d6dfa20692755cb",
+          "observed": "edbf297147b9c5cf079f81af2d6dfa20692755cb"
+        },
+        "no_mutation_attempts": {
+          "expected": [],
+          "observed": []
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        },
+        "third_party_ref_actually_advanced": {
+          "expected": "edbf297147b9c5cf079f81af2d6dfa20692755cb",
+          "observed": "edbf297147b9c5cf079f81af2d6dfa20692755cb"
+        },
+        "third_party_ref_observed": {
+          "expected": true,
+          "observed": true
+        },
+        "write_isolation_enforced": {
+          "expected": "enforced",
+          "observed": "enforced"
+        }
+      },
+      "id": "lc-unattributed-ref-advance-converges",
+      "policy": "local_commit"
+    },
+    "lc-validation-failure-not-tractable": {
+      "category": "validation_failure",
+      "checks": {
+        "no_commit_was_made": {
+          "expected": "af23edc089995c5ce24602bb1b987f09c0cf1d22",
+          "observed": "af23edc089995c5ce24602bb1b987f09c0cf1d22"
+        },
+        "reason": {
+          "expected": "current_candidate_validation_failure",
+          "observed": "current_candidate_validation_failure"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "changes_remaining",
+          "observed": "changes_remaining"
+        }
+      },
+      "id": "lc-validation-failure-not-tractable",
+      "policy": "local_commit"
+    },
+    "lc-validation-failure-tractable-converges": {
+      "category": "validation_failure",
+      "checks": {
+        "exactly_one_new_commit": {
+          "expected": 1,
+          "observed": 1
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        },
+        "validation_flag_actually_repaired": {
+          "expected": "pass",
+          "observed": "pass"
+        }
+      },
+      "id": "lc-validation-failure-tractable-converges",
+      "policy": "local_commit"
+    },
+    "lc-validation-unavailable-blocked": {
+      "category": "validation_failure",
+      "checks": {
+        "no_commit_was_made": {
+          "expected": "c2726fd9f36f3b04b2f8bc6456cce3e1b9eda915",
+          "observed": "c2726fd9f36f3b04b2f8bc6456cce3e1b9eda915"
+        },
+        "reason": {
+          "expected": "validation_unavailable",
+          "observed": "validation_unavailable"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "lc-validation-unavailable-blocked",
+      "policy": "local_commit"
+    },
+    "up-converged-published": {
+      "category": "convergence",
+      "checks": {
+        "marker_at_published_head": {
+          "expected": "fixed",
+          "observed": "fixed"
+        },
+        "reason": {
+          "expected": null,
+          "observed": null
+        },
+        "remote_advanced_to_exact_local_head": {
+          "expected": "4684b58e48383b7a1a7d4c2d04417c7062e60d8f",
+          "observed": "4684b58e48383b7a1a7d4c2d04417c7062e60d8f"
+        },
+        "remote_started_at_expected_old_head": {
+          "expected": "84279c5687a0f3b7586947d4435d9bcf91f97aa2",
+          "observed": "84279c5687a0f3b7586947d4435d9bcf91f97aa2"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        }
+      },
+      "id": "up-converged-published",
+      "policy": "update_pr"
+    },
+    "up-mismatched-grant-blocked": {
+      "category": "publication_target",
+      "checks": {
+        "reason": {
+          "expected": "missing_authority",
+          "observed": "missing_authority"
+        },
+        "remote_untouched_before_any_lock": {
+          "expected": "24f011899794eb04d48a3c7dda726532ec7e085b",
+          "observed": "24f011899794eb04d48a3c7dda726532ec7e085b"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "up-mismatched-grant-blocked",
+      "policy": "update_pr"
+    },
+    "up-missing-authority-target-mismatch-blocked": {
+      "category": "publication_target",
+      "checks": {
+        "no_cycle_was_ever_consumed": {
+          "expected": 0,
+          "observed": 0
+        },
+        "reason": {
+          "expected": "missing_authority",
+          "observed": "missing_authority"
+        },
+        "remote_untouched_before_any_lock": {
+          "expected": "24f011899794eb04d48a3c7dda726532ec7e085b",
+          "observed": "24f011899794eb04d48a3c7dda726532ec7e085b"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "up-missing-authority-target-mismatch-blocked",
+      "policy": "update_pr"
+    },
+    "up-remote-advanced-stale-target-blocked": {
+      "category": "publication_race",
+      "checks": {
+        "local_converged_commit_not_lost": {
+          "expected": true,
+          "observed": true
+        },
+        "reason": {
+          "expected": "remote_advanced",
+          "observed": "remote_advanced"
+        },
+        "remote_untouched_by_the_losing_invocation": {
+          "expected": "dc06bd3c8bea0c5b68d39c224ff41b8a4936c1ec",
+          "observed": "dc06bd3c8bea0c5b68d39c224ff41b8a4936c1ec"
+        },
+        "schema_valid": {
+          "expected": [],
+          "observed": []
+        },
+        "terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        }
+      },
+      "id": "up-remote-advanced-stale-target-blocked",
+      "policy": "update_pr"
+    },
+    "up-sequential-publication-race-second-clone-loses": {
+      "category": "publication_race",
+      "checks": {
+        "loser_publication_status": {
+          "expected": "failed",
+          "observed": "failed"
+        },
+        "loser_reason": {
+          "expected": "remote_advanced",
+          "observed": "remote_advanced"
+        },
+        "loser_terminal_state": {
+          "expected": "blocked",
+          "observed": "blocked"
+        },
+        "losers_local_commit_exists": {
+          "expected": true,
+          "observed": true
+        },
+        "losers_local_commit_object_preserved": {
+          "expected": true,
+          "observed": true
+        },
+        "remote_does_not_equal_losers_local_head": {
+          "expected": true,
+          "observed": true
+        },
+        "remote_equals_winners_local_head": {
+          "expected": "ddf9fa240f404364b9d9b63a88addf8297641197",
+          "observed": "ddf9fa240f404364b9d9b63a88addf8297641197"
+        },
+        "winner_terminal_state": {
+          "expected": "converged",
+          "observed": "converged"
+        }
+      },
+      "id": "up-sequential-publication-race-second-clone-loses",
+      "policy": "update_pr"
+    }
+  },
+  "cases": {
+    "lc-budget-exhausted-persistent-finding": "pass",
+    "lc-checkpoint-mismatch-resume-blocked": "pass",
+    "lc-converged-after-one-fix": "pass",
+    "lc-converged-clean-initial": "pass",
+    "lc-declined-finding-blocked": "pass",
+    "lc-in-agent-override-bypasses-missing-capability": "pass",
+    "lc-incomplete-review-blocked-verdict": "pass",
+    "lc-interrupted-attempt-recovered-without-losing-commit": "pass",
+    "lc-invalid-stale-review-result-blocked": "pass",
+    "lc-missing-capability-without-override": "pass",
+    "lc-reviewer-mutation-blocked": "pass",
+    "lc-scope-expanding-finding-blocked": "pass",
+    "lc-unattributed-ref-advance-converges": "pass",
+    "lc-validation-failure-not-tractable": "pass",
+    "lc-validation-failure-tractable-converges": "pass",
+    "lc-validation-unavailable-blocked": "pass",
+    "up-converged-published": "pass",
+    "up-mismatched-grant-blocked": "pass",
+    "up-missing-authority-target-mismatch-blocked": "pass",
+    "up-remote-advanced-stale-target-blocked": "pass",
+    "up-sequential-publication-race-second-clone-loses": "pass"
+  },
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "skills/review-fix-loop/scripts/evals/runner.py"
+  ],
+  "compared_to": "2026-08-19T205130Z-0006-after.json",
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 21
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": false,
+  "gap": "recorded tier is deterministic, so no model read the prose and the model-behavior evidence is absent No real-model executor is registered for this skill, so this tier is the only one available here.",
+  "limitation": null,
+  "model": null,
+  "note": "re-recorded after removing exclusive_ref_store per review feedback",
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"passed\": 21,\n  \"total\": 21\n}",
+  "recorded_at": "2026-08-19T22:54:54Z",
+  "schema": "eval-run-summary/1",
+  "skill": "review-fix-loop",
+  "stage": "after",
+  "status": "completed",
+  "suite": "forward",
+  "tier": "deterministic",
+  "totals": {
+    "failed": 0,
+    "passed": 21,
+    "total": 21
+  }
+}
