@@ -113,6 +113,7 @@ def make_invocation(
     invocation_id: str = "local-commit-test",
     max_fix_cycles: int = 3,
     validation: list[dict[str, str]] | None = None,
+    review_execution: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     common_dir = LE.git_common_dir(repo)
     diff = LE.git("diff", base_sha, head_sha, cwd=repo).stdout
@@ -145,7 +146,7 @@ def make_invocation(
                 "nearby_patterns": [],
             },
         },
-        "review_execution": {"mode": "fresh_subagent"},
+        "review_execution": review_execution or {"mode": "fresh_subagent"},
         "fix_cycle_budget": {"max_fix_cycles": max_fix_cycles},
         "validation": validation or ALWAYS_PASS_VALIDATION,
         "publication": {"policy": "local_commit"},
@@ -971,6 +972,310 @@ class ReviewerMutationTests(LocalCommitRepoTestCase):
         # Preserved for operator inspection, not silently cleaned up.
         LE.git("reset", "-q", "--hard", "HEAD", cwd=self.repo)
         LE.git("clean", "-fdq", cwd=self.repo)
+
+
+def _clean_review_pass(head_sha, comparison_base_sha, **kwargs):
+    candidate = {"head_sha": head_sha, "comparison_base_sha": comparison_base_sha}
+    result = {
+        **CLEAN_TEMPLATE,
+        "candidate": candidate,
+        "lens_executions": [
+            {
+                "lens": lens,
+                "head_sha": head_sha,
+                "comparison_base_sha": comparison_base_sha,
+                "verdict": "clean",
+                "freshly_executed": True,
+            }
+            for lens in ("solution_simplicity", "correctness", "code_simplicity")
+        ],
+    }
+    return LC.ReviewPass(result=result, **kwargs)
+
+
+class CandidateRefIntegrityTests(LocalCommitRepoTestCase):
+    """Tier 1 (issue #245): a change to `HEAD`, the candidate branch ref, or
+    this invocation's own attempt namespace invalidates the candidate itself
+    — `blocked/candidate_integrity_failure` — regardless of who caused it."""
+
+    def test_candidate_branch_ref_move_during_review_blocks_candidate_integrity(self):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo, branch="fix/99-example", base_sha=base_sha, head_sha=head_sha
+        )
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            # Simulate a concurrent advance of the very branch this candidate
+            # is defined by — e.g. a background `pull --ff-only` of the
+            # checked-out branch.
+            LE.git(
+                "update-ref",
+                "refs/heads/fix/99-example",
+                base_sha,
+                cwd=self.repo,
+            )
+            return _clean_review_pass(head_sha, comparison_base_sha)
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "blocked")
+        self.assertEqual(result["reason"], "candidate_integrity_failure")
+        self.assertEqual(VALIDATE.validate_terminal_result(result), [])
+        # Restore for cleanup.
+        LE.git("update-ref", "refs/heads/fix/99-example", head_sha, cwd=self.repo)
+
+    def test_own_attempt_namespace_change_during_review_blocks_candidate_integrity(
+        self,
+    ):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo,
+            branch="fix/99-example",
+            base_sha=base_sha,
+            head_sha=head_sha,
+            invocation_id="lc-attempt-ns-test",
+        )
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            LE.git(
+                "update-ref",
+                "refs/heads/review-fix-loop/attempt/lc-attempt-ns-test/1",
+                head_sha,
+                cwd=self.repo,
+            )
+            return _clean_review_pass(head_sha, comparison_base_sha)
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "blocked")
+        self.assertEqual(result["reason"], "candidate_integrity_failure")
+        self.assertEqual(VALIDATE.validate_terminal_result(result), [])
+
+
+class UnattributedRefAdvanceTests(LocalCommitRepoTestCase):
+    """Tier 2 (issue #245): an unattributed local ref change — one that is
+    not the candidate branch ref, not `HEAD`, and not this invocation's own
+    attempt namespace — is a non-gating observation by default, since the
+    ref store may be shared with other worktrees or background automation."""
+
+    def test_unrelated_local_branch_advance_still_converges(self):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo, branch="fix/99-example", base_sha=base_sha, head_sha=head_sha
+        )
+        LE.git("branch", "background/automation", base_sha, cwd=self.repo)
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            # A concurrent process — not this reviewer pass — advances an
+            # unrelated branch while the review runs.
+            LE.git(
+                "update-ref",
+                "refs/heads/background/automation",
+                head_sha,
+                cwd=self.repo,
+            )
+            return _clean_review_pass(head_sha, comparison_base_sha)
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "converged")
+        self.assertEqual(VALIDATE.validate_terminal_result(result), [])
+        final_record = result["review_records"][-1]
+        self.assertEqual([], final_record["mutation_attempts"])
+        self.assertEqual("enforced", final_record["write_isolation"])
+        self.assertTrue(
+            any(
+                "background/automation" in change
+                for change in final_record.get("observed_ref_changes", [])
+            )
+        )
+
+    def test_another_invocations_attempt_namespace_advance_still_converges(self):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo,
+            branch="fix/99-example",
+            base_sha=base_sha,
+            head_sha=head_sha,
+            invocation_id="lc-this-invocation",
+        )
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            LE.git(
+                "update-ref",
+                "refs/heads/review-fix-loop/attempt/other-invocation/1",
+                head_sha,
+                cwd=self.repo,
+            )
+            return _clean_review_pass(head_sha, comparison_base_sha)
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "converged")
+        final_record = result["review_records"][-1]
+        self.assertTrue(
+            any(
+                "other-invocation" in change
+                for change in final_record.get("observed_ref_changes", [])
+            )
+        )
+
+    def test_exclusive_ref_store_folds_unrelated_advance_into_reviewer_integrity_failure(
+        self,
+    ):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo,
+            branch="fix/99-example",
+            base_sha=base_sha,
+            head_sha=head_sha,
+            review_execution={"mode": "fresh_subagent", "exclusive_ref_store": True},
+        )
+        LE.git("branch", "background/automation", base_sha, cwd=self.repo)
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            LE.git(
+                "update-ref",
+                "refs/heads/background/automation",
+                head_sha,
+                cwd=self.repo,
+            )
+            return _clean_review_pass(head_sha, comparison_base_sha)
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "blocked")
+        self.assertEqual(result["reason"], "reviewer_integrity_failure")
+        self.assertEqual(VALIDATE.validate_terminal_result(result), [])
+        # Preserved for operator inspection, not silently cleaned up.
+        LE.git("reset", "-q", "--hard", "HEAD", cwd=self.repo)
+        LE.git("clean", "-fdq", cwd=self.repo)
+
+
+class IntegrityEvidenceTests(LocalCommitRepoTestCase):
+    """`integrity_evidence` (issue #245) distinguishes host-supplied
+    tool-trace inspection from a surface-only (snapshot-only) pass; either
+    way a clean pass converges."""
+
+    def test_no_tool_trace_supplied_records_surface_only_and_converges(self):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo, branch="fix/99-example", base_sha=base_sha, head_sha=head_sha
+        )
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            return _clean_review_pass(head_sha, comparison_base_sha)
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "converged")
+        self.assertEqual(
+            "surface_only", result["review_records"][-1]["integrity_evidence"]
+        )
+
+    def test_tool_trace_supplied_and_clean_records_tool_trace_and_converges(self):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo, branch="fix/99-example", base_sha=base_sha, head_sha=head_sha
+        )
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            return _clean_review_pass(
+                head_sha, comparison_base_sha, tool_trace_available=True
+            )
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "converged")
+        self.assertEqual(
+            "tool_trace", result["review_records"][-1]["integrity_evidence"]
+        )
+
+    def test_tool_trace_mutation_blocks_even_with_no_snapshot_change(self):
+        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
+        invocation = make_invocation(
+            self.repo, branch="fix/99-example", base_sha=base_sha, head_sha=head_sha
+        )
+
+        def reviewer(
+            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
+        ):
+            del packet, briefing, independence, sequence
+            return _clean_review_pass(
+                head_sha,
+                comparison_base_sha,
+                tool_trace_available=True,
+                mutation_attempts=["tool trace: attempted `git push origin main`"],
+            )
+
+        result = LC.run_local_commit(
+            invocation,
+            repo=self.repo,
+            reviewer=reviewer,
+            decide=accepting_decide,
+            apply_fix=fixing_apply_fix,
+        )
+        self.assertEqual(result["terminal_state"], "blocked")
+        self.assertEqual(result["reason"], "reviewer_integrity_failure")
+        final_record = result["review_records"][-1]
+        self.assertEqual("violated", final_record["write_isolation"])
+        self.assertEqual("tool_trace", final_record["integrity_evidence"])
 
 
 class MissingCapabilityTests(LocalCommitRepoTestCase):

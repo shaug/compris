@@ -122,54 +122,106 @@ tier the runtime supports, strongest first:
 3. **Read-only inspection commands only** inside the reviewer context —
    validation and diagnostic commands the invocation already recorded, never an
    ad hoc write.
-4. **Before/after state capture**: snapshot `head_sha`, local `refs` (for
-   example via `git for-each-ref`), and tracked/staged/unstaged/untracked/
-   ignored worktree state immediately before spawning the reviewer and
-   immediately after it returns — every key `REQUIRED_SNAPSHOT_KEYS` names. Pass
-   both snapshots to `detect_worktree_mutation(before, after)`, which raises
-   `ValueError` if either snapshot is missing a required key (fails closed
-   rather than silently treating an uncaptured dimension as unchanged) and
-   otherwise compares `head_sha`, `refs`, and tracked/staged/unstaged/untracked
-   paths — a reviewer that runs `git stash` or force-moves a branch without
-   touching `HEAD` or any tracked path is still caught. `refs/remotes/*` entries
-   are excluded from the comparison: an unattributed remote-tracking-ref advance
-   is the ordinary `remote_advanced` publication-race contract (issue #97/#100's
-   scope), not reviewer misconduct. `ignored` is captured (required above) but
-   deliberately not compared: authorized recorded validation commands
-   legitimately create or change ignored build artifacts (`__pycache__/`,
-   `.ruff_cache/`, `.venv/`), so comparing it would make every review pass that
-   runs validation falsely report a mutation — this mirrors the
-   invocation-cleanliness contract's own rule that ignored files "do not
-   represent an uncommitted change and are not part of what 'clean' means here."
+4. **Before/after state capture, attributed by tier**: snapshot `head_sha`,
+   local `refs` (for example via `git for-each-ref`), and
+   tracked/staged/unstaged/untracked/ignored worktree state immediately before
+   spawning the reviewer and immediately after it returns — every key
+   `REQUIRED_SNAPSHOT_KEYS` names. Pass both snapshots to
+   `detect_worktree_mutation(before, after, candidate_branch_ref=..., attempt_namespace_prefix=..., exclusive_ref_store=...)`,
+   which raises `ValueError` if either snapshot is missing a required key (fails
+   closed rather than silently treating an uncaptured dimension as unchanged)
+   and otherwise returns a `WorktreeMutationReport` that separates *what
+   changed* from *what can be attributed to this pass* — a single before/after
+   diff cannot itself tell a candidate-defining ref moving under the reviewer
+   from an unrelated ref moving beside it, so this function classifies rather
+   than flattening both into one undifferentiated mutation list:
+   - **Tier 1 — candidate-bound refs** (`candidate_mutations`): `head_sha`, the
+     candidate branch ref (`candidate_branch_ref`), and this invocation's own
+     `refs/heads/review-fix-loop/attempt/<invocation_id>/*` namespace
+     (`attempt_namespace_prefix`, from
+     `local_execution.attempt_namespace_ref_prefix(invocation_id)`). A change
+     here invalidates the candidate itself regardless of who caused it — the
+     evidence this pass reviewed no longer describes the live candidate. Stop
+     immediately and return `blocked/candidate_integrity_failure`, the same
+     reason the "resolve" workflow step already uses when a resumed live head
+     doesn't match its checkpoint, without building or appending a
+     `review_records` entry: the packet's `expected_head`/`expected_base` are
+     now stale, so a record bound to them would misrepresent the live candidate
+     rather than describe it.
+   - **Tier 2 — every other local ref** (`observed_ref_changes` by default,
+     including the comparison base ref and another invocation's own attempt
+     namespace): unattributable from the ref map alone — the ref store may be
+     shared across several worktrees, or unrelated background automation (a
+     `pull --ff-only` of `main`, a sibling worktree's own branch) may be running
+     concurrently. Non-gating: record it verbatim on the review record's
+     `observed_ref_changes` and continue — `write_isolation` stays `enforced`
+     and the pass can still reach `converged`. Set
+     `review_execution.exclusive_ref_store: true` on the invocation only for a
+     dedicated clone this invocation genuinely owns exclusively; that folds
+     every Tier 2 ref change back into `mutation_attempts` below, reproducing
+     the flat behavior this tiering replaces.
+   - Worktree path state — `tracked`/`staged`/`unstaged`/`untracked`
+     (`mutation_attempts`) — is compared exactly as before this tiering existed
+     and is never subject to Tier 1/Tier 2 attribution: a worktree's index and
+     working directory are never shared across worktrees the way a ref store can
+     be, so a path-state change stays fully attributable to this pass.
+     `refs/remotes/*` entries are excluded from every tier: an unattributed
+     remote-tracking-ref advance is the ordinary `remote_advanced`
+     publication-race contract (issue #97/#100's scope), not reviewer
+     misconduct. `ignored` is captured (required above) but deliberately not
+     compared: authorized recorded validation commands legitimately create or
+     change ignored build artifacts (`__pycache__/`, `.ruff_cache/`, `.venv/`),
+     so comparing it would make every review pass that runs validation falsely
+     report a mutation — this mirrors the invocation-cleanliness contract's own
+     rule that ignored files "do not represent an uncommitted change and are not
+     part of what 'clean' means here."
 5. **Tool-trace inspection**, when the runtime exposes one, for an attempted
-   mutation that a capability boundary already blocked.
+   mutation that a capability boundary already blocked. This is the only channel
+   that can attribute a Tier 2-shaped observation (a mutation the before/after
+   ref diff alone could not pin on this pass) to the reviewer: feed it through
+   `ReviewPass.mutation_attempts`, and set
+   `ReviewPass.tool_trace_available = True` whenever the host actually performed
+   this inspection for the pass — whether or not it found anything — so
+   `build_review_record`'s `integrity_evidence` can record `"tool_trace"` rather
+   than the default `"surface_only"`. A reader can then tell "inspected and
+   clean" from "never inspected"; a `surface_only` pass still reaches
+   `converged` when otherwise clean.
 
 Certification requires enforced write isolation; before/after verification alone
 is not sufficient by itself — it is tier 4 of five, not a replacement for tiers
 1–3 where the runtime supports them.
 
 An attempted prohibited mutation invalidates the review even when the runtime
-blocked it. Feed every mutation description `detect_worktree_mutation` returns
-(plus any tool-trace evidence) into `build_review_record`'s `mutation_attempts`.
-A non-empty `mutation_attempts` always sets `write_isolation: "violated"`,
-regardless of the aggregate verdict, and `scripts/validate.py`'s
+blocked it. Feed `detect_worktree_mutation`'s `mutation_attempts` (Tier 1 refs
+are handled separately, above) plus any tool-trace evidence into
+`build_review_record`'s own `mutation_attempts` parameter, and its
+`observed_ref_changes` into the same-named parameter. A non-empty
+`mutation_attempts` always sets `write_isolation: "violated"`, regardless of the
+aggregate verdict, and `scripts/validate.py`'s
 `_check_converged_requires_clean_evidence` already rejects `converged` for *any*
 `review_records` entry with a non-empty `mutation_attempts` — not only the
-final-head-bound one. An unattributed remote-ref advance by itself is not proof
-of reviewer misconduct; that is the ordinary `remote_advanced` publication-race
-contract (issue #97/#100's scope), not a reviewer-integrity failure.
+final-head-bound one. `observed_ref_changes` never affects `write_isolation` —
+an unattributed Tier 2 ref advance by itself is not proof of reviewer
+misconduct, exactly as an unattributed remote-ref advance already wasn't; that
+is the ordinary `remote_advanced` publication-race contract (issue #97/#100's
+scope) or unrelated concurrent activity in a shared ref store (issue #245's
+scope), not a reviewer-integrity failure.
 
 **Stop immediately on a mutation attributable to this pass.** Design assigns
 that judgment to "the phase that observed it" — this phase, the moment
-`detect_worktree_mutation` (or tool-trace evidence) returns non-empty for a pass
-this cycle just ran. Do not keep iterating on that pass's findings, and do not
-wait for a later phase to notice the tainted `review_records` entry indirectly.
-Stop the invocation and return `blocked/reviewer_integrity_failure` immediately,
-preserving the unexpected worktree/ref state for operator inspection rather than
-resetting or repairing it. The `mutation_attempts`/`write_isolation: "violated"`
-chain into `_check_converged_requires_clean_evidence` is a backstop that keeps a
-stale checkpoint from ever certifying `converged` later — it is not a substitute
-for this immediate stop.
+`detect_worktree_mutation`'s `mutation_attempts` (or tool-trace evidence)
+returns non-empty for a pass this cycle just ran. Do not keep iterating on that
+pass's findings, and do not wait for a later phase to notice the tainted
+`review_records` entry indirectly. Stop the invocation and return
+`blocked/reviewer_integrity_failure` immediately, preserving the unexpected
+worktree/ref state for operator inspection rather than resetting or repairing
+it. The `mutation_attempts`/`write_isolation: "violated"` chain into
+`_check_converged_requires_clean_evidence` is a backstop that keeps a stale
+checkpoint from ever certifying `converged` later — it is not a substitute for
+this immediate stop. A Tier 1 `candidate_mutations` change stops the invocation
+the same way, but with `blocked/candidate_integrity_failure` instead: that
+judgment is about the candidate's own identity, not about what the reviewer
+attempted, so it never touches `write_isolation` or `mutation_attempts` at all.
 
 ### The reviewer briefing
 

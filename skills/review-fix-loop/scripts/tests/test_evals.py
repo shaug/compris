@@ -51,6 +51,7 @@ EXPECTED_SCENARIO_IDS = {
     "lc-validation-failure-not-tractable",
     "lc-validation-failure-tractable-converges",
     "lc-reviewer-mutation-blocked",
+    "lc-unattributed-ref-advance-converges",
     "lc-incomplete-review-blocked-verdict",
     "lc-invalid-stale-review-result-blocked",
     "lc-missing-capability-without-override",

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, NamedTuple, Sequence
 
 HERE = Path(__file__).resolve().parent
 REVIEW_SUITE_VALIDATE_PATH = HERE.parent / "references" / "review-suite" / "validate.py"
@@ -219,10 +219,53 @@ def generate_reviewer_identity(
     return f"{independence.replace('_', '-')}-review-{sequence}"
 
 
+class WorktreeMutationReport(NamedTuple):
+    """Tiered result of `detect_worktree_mutation`.
+
+    `candidate_mutations` (Tier 1: `head_sha`, the candidate branch ref, and
+    this invocation's own attempt namespace) invalidates the candidate itself
+    regardless of who caused it — callers map a non-empty list to
+    `blocked/candidate_integrity_failure`, not `write_isolation`.
+
+    `mutation_attempts` (worktree path state — `tracked`/`staged`/`unstaged`/
+    `untracked` — plus, under `exclusive_ref_store`, every other local ref)
+    is attributable to this reviewer pass exactly as before this tiering
+    existed: feed it into `build_review_record`'s `mutation_attempts` to force
+    `write_isolation: "violated"`.
+
+    `observed_ref_changes` (Tier 2: every other local ref, when
+    `exclusive_ref_store` is `False`) is a non-gating observation only — a
+    ref this check cannot attribute to the reviewer because the ref store may
+    be shared with other worktrees or background automation.
+    """
+
+    candidate_mutations: list[str]
+    mutation_attempts: list[str]
+    observed_ref_changes: list[str]
+
+
+def _format_ref_detail(
+    *, added: Sequence[str], removed: Sequence[str], changed: Sequence[str]
+) -> str:
+    detail = []
+    if added:
+        detail.append(f"added {list(added)}")
+    if removed:
+        detail.append(f"removed {list(removed)}")
+    if changed:
+        detail.append(f"changed {list(changed)}")
+    return "refs: " + "; ".join(detail)
+
+
 def detect_worktree_mutation(
-    before: Mapping[str, Any], after: Mapping[str, Any]
-) -> list[str]:
-    """Return mutation descriptions found between two worktree snapshots.
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    *,
+    candidate_branch_ref: str | None = None,
+    attempt_namespace_prefix: str | None = None,
+    exclusive_ref_store: bool = False,
+) -> WorktreeMutationReport:
+    """Return a tiered `WorktreeMutationReport` between two worktree snapshots.
 
     `before`/`after` must each carry every `REQUIRED_SNAPSHOT_KEYS` entry:
     `head_sha`, a `refs` mapping (ref name to object ID), and the
@@ -230,17 +273,31 @@ def detect_worktree_mutation(
     `ValueError` if either is missing a key — fails closed rather than
     treating an uncaptured dimension as unchanged.
 
-    Compares `head_sha`, every `COMPARED_WORKTREE_CATEGORIES` path list, and
-    local `refs` (excluding `refs/remotes/*`, since an unattributed
+    `head_sha` and every `COMPARED_WORKTREE_CATEGORIES` path list are
+    compared exactly as before this tiering existed; `head_sha` lands in
+    `candidate_mutations` (it is always candidate-bound — Tier 1), and the
+    path lists land in `mutation_attempts` (worktree state is never shared
+    across worktrees, so it stays fully attributable to this pass). `ignored`
+    is captured but never compared. See references/reviewer-orchestration.md
+    for the full rationale.
+
+    Local `refs` (excluding `refs/remotes/*`, since an unattributed
     remote-tracking-ref advance is the ordinary `remote_advanced`
     publication-race contract, not reviewer misconduct — issue #97/#100's
-    scope). See references/reviewer-orchestration.md for the full rationale,
-    including why `ignored` is captured but not compared.
+    scope) are classified Tier 1 when the ref is `candidate_branch_ref` or
+    starts with `attempt_namespace_prefix`, and Tier 2 otherwise. A Tier 2 ref
+    change is unattributable by construction — the ref store may be shared
+    with other worktrees or unrelated background automation — so it is
+    recorded in `observed_ref_changes` rather than gating, unless
+    `exclusive_ref_store` is `True` (a dedicated clone this invocation
+    genuinely owns), which folds every Tier 2 ref change back into
+    `mutation_attempts`, reproducing the pre-tiering behavior exactly.
 
-    An empty return means no attributable change per *this* check; design
+    Every list empty means no attributable change per *this* check; design
     also requires the stronger filesystem-boundary and tool-surface controls
-    this function cannot see. A non-empty return must fail the cycle closed:
-    `build_review_record` forces `write_isolation: "violated"`, and
+    this function cannot see. A non-empty `candidate_mutations` invalidates
+    the candidate itself; a non-empty `mutation_attempts` must fail the cycle
+    closed: `build_review_record` forces `write_isolation: "violated"`, and
     `validate.py`'s `_check_converged_requires_clean_evidence` rejects
     `converged` for any review record with a non-empty `mutation_attempts`.
     """
@@ -253,11 +310,16 @@ def detect_worktree_mutation(
             f"missing {missing_after!r}"
         )
 
-    mutations: list[str] = []
+    candidate_mutations: list[str] = []
+    mutation_attempts: list[str] = []
+    observed_ref_changes: list[str] = []
+
     before_head = before["head_sha"]
     after_head = after["head_sha"]
     if before_head != after_head:
-        mutations.append(f"head_sha advanced from {before_head!r} to {after_head!r}")
+        candidate_mutations.append(
+            f"head_sha advanced from {before_head!r} to {after_head!r}"
+        )
     for category in COMPARED_WORKTREE_CATEGORIES:
         before_paths = set(before[category] or [])
         after_paths = set(after[category] or [])
@@ -269,7 +331,7 @@ def detect_worktree_mutation(
                 detail.append(f"added {added}")
             if removed:
                 detail.append(f"removed {removed}")
-            mutations.append(f"{category}: " + "; ".join(detail))
+            mutation_attempts.append(f"{category}: " + "; ".join(detail))
 
     def _local_refs(snapshot: Mapping[str, Any]) -> dict[str, str]:
         refs = snapshot["refs"] or {}
@@ -278,6 +340,13 @@ def detect_worktree_mutation(
             for name, value in refs.items()
             if not name.startswith("refs/remotes/")
         }
+
+    def _is_candidate_bound(ref_name: str) -> bool:
+        if candidate_branch_ref is not None and ref_name == candidate_branch_ref:
+            return True
+        if attempt_namespace_prefix and ref_name.startswith(attempt_namespace_prefix):
+            return True
+        return False
 
     before_refs = _local_refs(before)
     after_refs = _local_refs(after)
@@ -289,16 +358,34 @@ def detect_worktree_mutation(
             for name in set(before_refs) & set(after_refs)
             if before_refs[name] != after_refs[name]
         )
-        detail = []
-        if added:
-            detail.append(f"added {added}")
-        if removed:
-            detail.append(f"removed {removed}")
-        if changed:
-            detail.append(f"changed {changed}")
-        mutations.append("refs: " + "; ".join(detail))
 
-    return mutations
+        tier1_added = [name for name in added if _is_candidate_bound(name)]
+        tier1_removed = [name for name in removed if _is_candidate_bound(name)]
+        tier1_changed = [name for name in changed if _is_candidate_bound(name)]
+        if tier1_added or tier1_removed or tier1_changed:
+            candidate_mutations.append(
+                _format_ref_detail(
+                    added=tier1_added, removed=tier1_removed, changed=tier1_changed
+                )
+            )
+
+        tier2_added = [name for name in added if not _is_candidate_bound(name)]
+        tier2_removed = [name for name in removed if not _is_candidate_bound(name)]
+        tier2_changed = [name for name in changed if not _is_candidate_bound(name)]
+        if tier2_added or tier2_removed or tier2_changed:
+            ref_detail = _format_ref_detail(
+                added=tier2_added, removed=tier2_removed, changed=tier2_changed
+            )
+            if exclusive_ref_store:
+                mutation_attempts.append(ref_detail)
+            else:
+                observed_ref_changes.append(ref_detail)
+
+    return WorktreeMutationReport(
+        candidate_mutations=candidate_mutations,
+        mutation_attempts=mutation_attempts,
+        observed_ref_changes=observed_ref_changes,
+    )
 
 
 def build_review_record(
@@ -311,6 +398,8 @@ def build_review_record(
     independence: str,
     reviewer_identity: str,
     mutation_attempts: Sequence[str] = (),
+    observed_ref_changes: Sequence[str] = (),
+    integrity_evidence: str = "surface_only",
 ) -> dict[str, Any]:
     """Build one checkpoint-shaped `review_records` entry from a raw result.
 
@@ -319,7 +408,21 @@ def build_review_record(
 
     Any non-empty `mutation_attempts` forces `write_isolation: "violated"`
     regardless of the aggregate verdict — an attempted prohibited mutation
-    invalidates the review even if the runtime blocked it.
+    invalidates the review even if the runtime blocked it. `mutation_attempts`
+    is the attributable channel only (worktree path state and, under
+    `exclusive_ref_store`, any local ref, plus host-supplied tool-trace
+    evidence) — an unattributed Tier 2 ref change belongs in
+    `observed_ref_changes` instead and never affects `write_isolation`.
+
+    `observed_ref_changes` is recorded verbatim when non-empty and omitted
+    otherwise — a non-gating record of every local ref this pass could not
+    attribute to the reviewer.
+
+    `integrity_evidence` is `"tool_trace"` when the host supplied tool-trace
+    inspection for this pass (whether or not it found anything) and
+    `"surface_only"` (the default) when it did not, so a reader can tell
+    "inspected and clean" from "never inspected." Always recorded — a
+    `surface_only` run still reaches `converged`.
 
     `finding_dispositions` starts empty: disposing a finding
     (`accepted`/`rejected`/`deferred`) is design's "Decide" step, a later
@@ -329,7 +432,7 @@ def build_review_record(
     if errors:
         raise ReviewIntegrityError(errors)
 
-    return {
+    record: dict[str, Any] = {
         "sequence": sequence,
         "head_sha": expected_head,
         "comparison_base_sha": expected_base,
@@ -339,7 +442,13 @@ def build_review_record(
         "aggregate_verdict": result["verdict"],
         "finding_dispositions": [],
         "mutation_attempts": list(mutation_attempts),
+        "integrity_evidence": (
+            "tool_trace" if integrity_evidence == "tool_trace" else "surface_only"
+        ),
     }
+    if observed_ref_changes:
+        record["observed_ref_changes"] = list(observed_ref_changes)
+    return record
 
 
 def normalize_findings(findings: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:

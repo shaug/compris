@@ -190,7 +190,12 @@
           "mutation_attempts": {
             "type": "array",
             "items": {"type": "string", "minLength": 1}
-          }
+          },
+          "observed_ref_changes": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "integrity_evidence": {"enum": ["tool_trace", "surface_only"]}
         }
       }
     },

@@ -320,6 +320,15 @@ class GenerateReviewerIdentityTests(unittest.TestCase):
 
 
 class DetectWorktreeMutationTests(unittest.TestCase):
+    """Covers the tiered `WorktreeMutationReport` this ticket introduces:
+
+    Tier 1 (`head_sha`, the candidate branch ref, and this invocation's own
+    attempt namespace) lands in `candidate_mutations`; worktree path state
+    lands in `mutation_attempts` exactly as before this tiering existed; every
+    other local ref (Tier 2) lands in `observed_ref_changes` by default, or
+    folds into `mutation_attempts` under `exclusive_ref_store=True`.
+    """
+
     CLEAN_STATE = {
         "head_sha": HEAD,
         "refs": {"refs/heads/main": HEAD},
@@ -329,40 +338,61 @@ class DetectWorktreeMutationTests(unittest.TestCase):
         "untracked": [],
         "ignored": [],
     }
+    CANDIDATE_BRANCH_REF = "refs/heads/lc/example"
+    ATTEMPT_NAMESPACE_PREFIX = "refs/heads/review-fix-loop/attempt/lc-example/"
+
+    def _detect(self, before, after, **kwargs):
+        kwargs.setdefault("candidate_branch_ref", self.CANDIDATE_BRANCH_REF)
+        kwargs.setdefault("attempt_namespace_prefix", self.ATTEMPT_NAMESPACE_PREFIX)
+        return ORCH.detect_worktree_mutation(before, after, **kwargs)
 
     def test_identical_snapshots_report_no_mutation(self):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
-        self.assertEqual([], ORCH.detect_worktree_mutation(before, after))
+        report = self._detect(before, after)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertEqual([], report.mutation_attempts)
+        self.assertEqual([], report.observed_ref_changes)
 
-    def test_head_advance_is_detected(self):
+    def test_head_advance_is_candidate_bound(self):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
         after["head_sha"] = OTHER_HEAD
-        mutations = ORCH.detect_worktree_mutation(before, after)
-        self.assertTrue(any("head_sha advanced" in m for m in mutations))
+        report = self._detect(before, after)
+        self.assertTrue(
+            any("head_sha advanced" in m for m in report.candidate_mutations)
+        )
+        self.assertEqual([], report.mutation_attempts)
+        self.assertEqual([], report.observed_ref_changes)
 
-    def test_staged_addition_is_detected(self):
+    def test_staged_addition_is_a_mutation_attempt(self):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
         after["staged"] = ["evil.py"]
-        mutations = ORCH.detect_worktree_mutation(before, after)
-        self.assertTrue(any(m.startswith("staged:") for m in mutations))
+        report = self._detect(before, after)
+        self.assertTrue(any(m.startswith("staged:") for m in report.mutation_attempts))
+        self.assertEqual([], report.candidate_mutations)
 
-    def test_untracked_addition_is_detected(self):
+    def test_untracked_addition_is_a_mutation_attempt(self):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
         after["untracked"] = ["stray.py"]
-        mutations = ORCH.detect_worktree_mutation(before, after)
-        self.assertTrue(any(m.startswith("untracked:") for m in mutations))
+        report = self._detect(before, after)
+        self.assertTrue(
+            any(m.startswith("untracked:") for m in report.mutation_attempts)
+        )
+        self.assertEqual([], report.candidate_mutations)
 
-    def test_tracked_removal_is_detected(self):
+    def test_tracked_removal_is_a_mutation_attempt(self):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
         after["tracked"] = []
-        mutations = ORCH.detect_worktree_mutation(before, after)
+        report = self._detect(before, after)
         self.assertTrue(
-            any("removed" in m and m.startswith("tracked:") for m in mutations)
+            any(
+                "removed" in m and m.startswith("tracked:")
+                for m in report.mutation_attempts
+            )
         )
 
     def test_ignored_changes_are_not_flagged(self):
@@ -374,38 +404,133 @@ class DetectWorktreeMutationTests(unittest.TestCase):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
         after["ignored"] = ["build/output.bin"]
-        self.assertEqual([], ORCH.detect_worktree_mutation(before, after))
+        report = self._detect(before, after)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertEqual([], report.mutation_attempts)
+        self.assertEqual([], report.observed_ref_changes)
 
-    def test_new_local_ref_is_detected(self):
-        # A reviewer that runs `git stash` or creates a branch without
-        # touching HEAD or any tracked path is still a write-isolation
-        # violation.
+    def test_candidate_branch_ref_change_is_candidate_bound(self):
+        # Tier 1: the ref that *defines the candidate* moved. Gating
+        # regardless of who caused it — this is `candidate_integrity_failure`
+        # territory, not an ordinary reviewer mutation.
+        before = copy.deepcopy(self.CLEAN_STATE)
+        before["refs"] = {self.CANDIDATE_BRANCH_REF: HEAD}
+        after = copy.deepcopy(self.CLEAN_STATE)
+        after["refs"] = {self.CANDIDATE_BRANCH_REF: OTHER_HEAD}
+        report = self._detect(before, after)
+        self.assertTrue(
+            any(
+                m.startswith("refs:") and "changed" in m
+                for m in report.candidate_mutations
+            )
+        )
+        self.assertEqual([], report.mutation_attempts)
+        self.assertEqual([], report.observed_ref_changes)
+
+    def test_own_attempt_namespace_change_is_candidate_bound(self):
+        # Tier 1: this invocation's own attempt branch.
+        before = copy.deepcopy(self.CLEAN_STATE)
+        before["refs"] = {"refs/heads/main": HEAD}
+        after = copy.deepcopy(before)
+        after["refs"] = {
+            "refs/heads/main": HEAD,
+            f"{self.ATTEMPT_NAMESPACE_PREFIX}1": OTHER_HEAD,
+        }
+        report = self._detect(before, after)
+        self.assertTrue(
+            any(
+                m.startswith("refs:") and "added" in m
+                for m in report.candidate_mutations
+            )
+        )
+        self.assertEqual([], report.observed_ref_changes)
+
+    def test_another_invocations_attempt_namespace_is_tier_two(self):
+        # A sibling invocation's own attempt branch does not share this
+        # invocation's prefix — Tier 2, non-gating.
+        before = copy.deepcopy(self.CLEAN_STATE)
+        before["refs"] = {"refs/heads/main": HEAD}
+        after = copy.deepcopy(before)
+        after["refs"] = {
+            "refs/heads/main": HEAD,
+            "refs/heads/review-fix-loop/attempt/other-invocation/1": OTHER_HEAD,
+        }
+        report = self._detect(before, after)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertEqual([], report.mutation_attempts)
+        self.assertTrue(
+            any(
+                m.startswith("refs:") and "added" in m
+                for m in report.observed_ref_changes
+            )
+        )
+
+    def test_unrelated_local_ref_advance_is_tier_two_by_default(self):
+        # A reviewer that runs `git stash`, or a concurrent worktree/
+        # background process that force-moves an unrelated branch, is
+        # unattributable from the ref map alone when the ref store may be
+        # shared — this is exactly the false-positive this ticket fixes.
         before = copy.deepcopy(self.CLEAN_STATE)
         before["refs"] = {"refs/heads/main": HEAD}
         after = copy.deepcopy(before)
         after["refs"] = {"refs/heads/main": HEAD, "refs/stash": OTHER_HEAD}
-        mutations = ORCH.detect_worktree_mutation(before, after)
-        self.assertTrue(any(m.startswith("refs:") and "added" in m for m in mutations))
-
-    def test_force_moved_local_ref_is_detected(self):
-        before = copy.deepcopy(self.CLEAN_STATE)
-        before["refs"] = {"refs/heads/evil": HEAD}
-        after = copy.deepcopy(self.CLEAN_STATE)
-        after["refs"] = {"refs/heads/evil": OTHER_HEAD}
-        mutations = ORCH.detect_worktree_mutation(before, after)
+        report = self._detect(before, after)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertEqual([], report.mutation_attempts)
         self.assertTrue(
-            any(m.startswith("refs:") and "changed" in m for m in mutations)
+            any(
+                m.startswith("refs:") and "added" in m
+                for m in report.observed_ref_changes
+            )
         )
 
-    def test_removed_local_ref_is_detected(self):
+    def test_unrelated_local_ref_removal_is_tier_two_by_default(self):
         before = copy.deepcopy(self.CLEAN_STATE)
-        before["refs"] = {"refs/heads/evil": HEAD}
+        before["refs"] = {"refs/heads/main": HEAD, "refs/heads/scratch": HEAD}
         after = copy.deepcopy(self.CLEAN_STATE)
-        after["refs"] = {}
-        mutations = ORCH.detect_worktree_mutation(before, after)
+        after["refs"] = {"refs/heads/main": HEAD}
+        report = self._detect(before, after)
+        self.assertEqual([], report.candidate_mutations)
         self.assertTrue(
-            any(m.startswith("refs:") and "removed" in m for m in mutations)
+            any(
+                m.startswith("refs:") and "removed" in m
+                for m in report.observed_ref_changes
+            )
         )
+
+    def test_exclusive_ref_store_folds_tier_two_into_mutation_attempts(self):
+        # `exclusive_ref_store=True` reproduces pre-tiering behavior exactly:
+        # any local ref change is a mutation attempt, even one that would be
+        # Tier 2 (non-gating) by default.
+        before = copy.deepcopy(self.CLEAN_STATE)
+        before["refs"] = {"refs/heads/main": HEAD}
+        after = copy.deepcopy(before)
+        after["refs"] = {"refs/heads/main": HEAD, "refs/stash": OTHER_HEAD}
+        report = self._detect(before, after, exclusive_ref_store=True)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertEqual([], report.observed_ref_changes)
+        self.assertTrue(
+            any(
+                m.startswith("refs:") and "added" in m for m in report.mutation_attempts
+            )
+        )
+
+    def test_exclusive_ref_store_does_not_change_candidate_ref_classification(self):
+        # A candidate-bound ref change stays Tier 1 (`candidate_mutations`)
+        # regardless of `exclusive_ref_store` — the flag only governs whether
+        # a Tier 2 ref can be trusted, not what counts as candidate-bound.
+        before = copy.deepcopy(self.CLEAN_STATE)
+        before["refs"] = {self.CANDIDATE_BRANCH_REF: HEAD}
+        after = copy.deepcopy(self.CLEAN_STATE)
+        after["refs"] = {self.CANDIDATE_BRANCH_REF: OTHER_HEAD}
+        report = self._detect(before, after, exclusive_ref_store=True)
+        self.assertTrue(
+            any(
+                m.startswith("refs:") and "changed" in m
+                for m in report.candidate_mutations
+            )
+        )
+        self.assertEqual([], report.mutation_attempts)
 
     def test_remote_tracking_ref_change_alone_is_not_flagged(self):
         # Excluded from comparison: an unattributed remote-tracking-ref
@@ -415,7 +540,27 @@ class DetectWorktreeMutationTests(unittest.TestCase):
         before["refs"] = {"refs/remotes/origin/main": HEAD}
         after = copy.deepcopy(self.CLEAN_STATE)
         after["refs"] = {"refs/remotes/origin/main": OTHER_HEAD}
-        self.assertEqual([], ORCH.detect_worktree_mutation(before, after))
+        report = self._detect(before, after)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertEqual([], report.mutation_attempts)
+        self.assertEqual([], report.observed_ref_changes)
+
+    def test_no_candidate_ref_supplied_treats_every_ref_as_tier_two(self):
+        # Callers that don't supply candidate_branch_ref/attempt_namespace_
+        # prefix (both default None/empty) get no Tier 1 ref classification
+        # at all — every local ref change is Tier 2.
+        before = copy.deepcopy(self.CLEAN_STATE)
+        before["refs"] = {"refs/heads/evil": HEAD}
+        after = copy.deepcopy(self.CLEAN_STATE)
+        after["refs"] = {"refs/heads/evil": OTHER_HEAD}
+        report = ORCH.detect_worktree_mutation(before, after)
+        self.assertEqual([], report.candidate_mutations)
+        self.assertTrue(
+            any(
+                m.startswith("refs:") and "changed" in m
+                for m in report.observed_ref_changes
+            )
+        )
 
     def test_missing_refs_key_raises_instead_of_silently_passing(self):
         # Fails closed: a snapshot that never captured refs at all must not
@@ -426,14 +571,14 @@ class DetectWorktreeMutationTests(unittest.TestCase):
         del before["refs"]
         after = copy.deepcopy(self.CLEAN_STATE)
         with self.assertRaises(ValueError):
-            ORCH.detect_worktree_mutation(before, after)
+            self._detect(before, after)
 
     def test_missing_head_sha_key_raises_instead_of_silently_passing(self):
         before = copy.deepcopy(self.CLEAN_STATE)
         after = copy.deepcopy(self.CLEAN_STATE)
         del after["head_sha"]
         with self.assertRaises(ValueError):
-            ORCH.detect_worktree_mutation(before, after)
+            self._detect(before, after)
 
     def test_missing_ignored_key_raises_even_though_ignored_is_uncompared(self):
         # ignored is required-but-uncompared: still fails closed on its
@@ -443,11 +588,11 @@ class DetectWorktreeMutationTests(unittest.TestCase):
         after = copy.deepcopy(self.CLEAN_STATE)
         del after["ignored"]
         with self.assertRaises(ValueError):
-            ORCH.detect_worktree_mutation(before, after)
+            self._detect(before, after)
 
     def test_empty_snapshots_raise_rather_than_report_no_mutation(self):
         with self.assertRaises(ValueError):
-            ORCH.detect_worktree_mutation({}, {})
+            self._detect({}, {})
 
 
 class BuildReviewRecordTests(unittest.TestCase):
@@ -472,6 +617,7 @@ class BuildReviewRecordTests(unittest.TestCase):
                 "aggregate_verdict": "clean",
                 "finding_dispositions": [],
                 "mutation_attempts": [],
+                "integrity_evidence": "surface_only",
             },
             record,
         )
@@ -503,6 +649,76 @@ class BuildReviewRecordTests(unittest.TestCase):
         )
         self.assertEqual("violated", record["write_isolation"])
         self.assertEqual(["staged: added ['evil.py']"], record["mutation_attempts"])
+
+    def test_observed_ref_changes_recorded_without_affecting_write_isolation(self):
+        record = ORCH.build_review_record(
+            sequence=1,
+            packet=VALID_PACKET,
+            result=CLEAN_AGGREGATE,
+            expected_head=HEAD,
+            expected_base=BASE,
+            independence="fresh_subagent",
+            reviewer_identity="fresh-subagent-review-1",
+            observed_ref_changes=["refs: added ['refs/heads/main']"],
+        )
+        self.assertEqual("enforced", record["write_isolation"])
+        self.assertEqual([], record["mutation_attempts"])
+        self.assertEqual(
+            ["refs: added ['refs/heads/main']"], record["observed_ref_changes"]
+        )
+
+    def test_observed_ref_changes_omitted_when_empty(self):
+        record = ORCH.build_review_record(
+            sequence=1,
+            packet=VALID_PACKET,
+            result=CLEAN_AGGREGATE,
+            expected_head=HEAD,
+            expected_base=BASE,
+            independence="fresh_subagent",
+            reviewer_identity="fresh-subagent-review-1",
+        )
+        self.assertNotIn("observed_ref_changes", record)
+
+    def test_integrity_evidence_defaults_to_surface_only(self):
+        record = ORCH.build_review_record(
+            sequence=1,
+            packet=VALID_PACKET,
+            result=CLEAN_AGGREGATE,
+            expected_head=HEAD,
+            expected_base=BASE,
+            independence="fresh_subagent",
+            reviewer_identity="fresh-subagent-review-1",
+        )
+        self.assertEqual("surface_only", record["integrity_evidence"])
+
+    def test_integrity_evidence_records_tool_trace_when_supplied(self):
+        record = ORCH.build_review_record(
+            sequence=1,
+            packet=VALID_PACKET,
+            result=CLEAN_AGGREGATE,
+            expected_head=HEAD,
+            expected_base=BASE,
+            independence="fresh_subagent",
+            reviewer_identity="fresh-subagent-review-1",
+            integrity_evidence="tool_trace",
+        )
+        self.assertEqual("tool_trace", record["integrity_evidence"])
+
+    def test_observed_ref_changes_and_integrity_evidence_match_schema(self):
+        record = ORCH.build_review_record(
+            sequence=1,
+            packet=VALID_PACKET,
+            result=CLEAN_AGGREGATE,
+            expected_head=HEAD,
+            expected_base=BASE,
+            independence="fresh_subagent",
+            reviewer_identity="fresh-subagent-review-1",
+            observed_ref_changes=["refs: added ['refs/heads/scratch']"],
+            integrity_evidence="tool_trace",
+        )
+        schema = VALIDATE._load_schema("checkpoint")
+        item_schema = schema["properties"]["review_records"]["items"]
+        self.assertEqual([], VALIDATE.validate_schema(record, item_schema))
 
     def test_mutation_record_fails_a_converged_terminal_result_closed(self):
         """Integration: a mutation-tainted record cannot certify convergence.
