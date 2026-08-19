@@ -325,8 +325,8 @@ class DetectWorktreeMutationTests(unittest.TestCase):
     Tier 1 (`head_sha`, the candidate branch ref, and this invocation's own
     attempt namespace) lands in `candidate_mutations`; worktree path state
     lands in `mutation_attempts` exactly as before this tiering existed; every
-    other local ref (Tier 2) lands in `observed_ref_changes` by default, or
-    folds into `mutation_attempts` under `exclusive_ref_store=True`.
+    other local ref (Tier 2) lands in `observed_ref_changes`, always
+    non-gating.
     """
 
     CLEAN_STATE = {
@@ -497,40 +497,6 @@ class DetectWorktreeMutationTests(unittest.TestCase):
                 for m in report.observed_ref_changes
             )
         )
-
-    def test_exclusive_ref_store_folds_tier_two_into_mutation_attempts(self):
-        # `exclusive_ref_store=True` reproduces pre-tiering behavior exactly:
-        # any local ref change is a mutation attempt, even one that would be
-        # Tier 2 (non-gating) by default.
-        before = copy.deepcopy(self.CLEAN_STATE)
-        before["refs"] = {"refs/heads/main": HEAD}
-        after = copy.deepcopy(before)
-        after["refs"] = {"refs/heads/main": HEAD, "refs/stash": OTHER_HEAD}
-        report = self._detect(before, after, exclusive_ref_store=True)
-        self.assertEqual([], report.candidate_mutations)
-        self.assertEqual([], report.observed_ref_changes)
-        self.assertTrue(
-            any(
-                m.startswith("refs:") and "added" in m for m in report.mutation_attempts
-            )
-        )
-
-    def test_exclusive_ref_store_does_not_change_candidate_ref_classification(self):
-        # A candidate-bound ref change stays Tier 1 (`candidate_mutations`)
-        # regardless of `exclusive_ref_store` — the flag only governs whether
-        # a Tier 2 ref can be trusted, not what counts as candidate-bound.
-        before = copy.deepcopy(self.CLEAN_STATE)
-        before["refs"] = {self.CANDIDATE_BRANCH_REF: HEAD}
-        after = copy.deepcopy(self.CLEAN_STATE)
-        after["refs"] = {self.CANDIDATE_BRANCH_REF: OTHER_HEAD}
-        report = self._detect(before, after, exclusive_ref_store=True)
-        self.assertTrue(
-            any(
-                m.startswith("refs:") and "changed" in m
-                for m in report.candidate_mutations
-            )
-        )
-        self.assertEqual([], report.mutation_attempts)
 
     def test_remote_tracking_ref_change_alone_is_not_flagged(self):
         # Excluded from comparison: an unattributed remote-tracking-ref

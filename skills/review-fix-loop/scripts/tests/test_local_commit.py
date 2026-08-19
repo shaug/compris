@@ -113,7 +113,6 @@ def make_invocation(
     invocation_id: str = "local-commit-test",
     max_fix_cycles: int = 3,
     validation: list[dict[str, str]] | None = None,
-    review_execution: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     common_dir = LE.git_common_dir(repo)
     diff = LE.git("diff", base_sha, head_sha, cwd=repo).stdout
@@ -146,7 +145,7 @@ def make_invocation(
                 "nearby_patterns": [],
             },
         },
-        "review_execution": review_execution or {"mode": "fresh_subagent"},
+        "review_execution": {"mode": "fresh_subagent"},
         "fix_cycle_budget": {"max_fix_cycles": max_fix_cycles},
         "validation": validation or ALWAYS_PASS_VALIDATION,
         "publication": {"policy": "local_commit"},
@@ -1151,45 +1150,6 @@ class UnattributedRefAdvanceTests(LocalCommitRepoTestCase):
                 for change in final_record.get("observed_ref_changes", [])
             )
         )
-
-    def test_exclusive_ref_store_folds_unrelated_advance_into_reviewer_integrity_failure(
-        self,
-    ):
-        base_sha, head_sha = start_candidate(self.repo, marker="fixed")
-        invocation = make_invocation(
-            self.repo,
-            branch="fix/99-example",
-            base_sha=base_sha,
-            head_sha=head_sha,
-            review_execution={"mode": "fresh_subagent", "exclusive_ref_store": True},
-        )
-        LE.git("branch", "background/automation", base_sha, cwd=self.repo)
-
-        def reviewer(
-            *, packet, briefing, head_sha, comparison_base_sha, independence, sequence
-        ):
-            del packet, briefing, independence, sequence
-            LE.git(
-                "update-ref",
-                "refs/heads/background/automation",
-                head_sha,
-                cwd=self.repo,
-            )
-            return _clean_review_pass(head_sha, comparison_base_sha)
-
-        result = LC.run_local_commit(
-            invocation,
-            repo=self.repo,
-            reviewer=reviewer,
-            decide=accepting_decide,
-            apply_fix=fixing_apply_fix,
-        )
-        self.assertEqual(result["terminal_state"], "blocked")
-        self.assertEqual(result["reason"], "reviewer_integrity_failure")
-        self.assertEqual(VALIDATE.validate_terminal_result(result), [])
-        # Preserved for operator inspection, not silently cleaned up.
-        LE.git("reset", "-q", "--hard", "HEAD", cwd=self.repo)
-        LE.git("clean", "-fdq", cwd=self.repo)
 
 
 class IntegrityEvidenceTests(LocalCommitRepoTestCase):

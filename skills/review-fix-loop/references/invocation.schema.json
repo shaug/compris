@@ -174,8 +174,7 @@
       "required": ["mode"],
       "properties": {
         "mode": {"enum": ["fresh_subagent", "in_agent_override"]},
-        "override_authorization": {"type": "string", "minLength": 1},
-        "exclusive_ref_store": {"type": "boolean"}
+        "override_authorization": {"type": "string", "minLength": 1}
       }
     },
     "fix_cycle_budget": {

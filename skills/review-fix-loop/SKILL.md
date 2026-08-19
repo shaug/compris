@@ -133,18 +133,18 @@ summary:
    remote-write tool.
 4. Capture worktree state, including local refs (excluding `refs/remotes/*`),
    immediately before and after the pass and run `detect_worktree_mutation` on
-   the two snapshots, passing `candidate_branch_ref`, `attempt_namespace_prefix`
-   (from `local_execution.attempt_namespace_ref_prefix`), and
-   `review_execution.exclusive_ref_store` (it raises if either snapshot is
-   missing a required capture key, rather than silently treating an uncaptured
-   dimension as unchanged). It returns a `WorktreeMutationReport`, not a flat
-   list: a Tier 1 `candidate_mutations` entry (`head_sha`, the candidate branch
-   ref, or this invocation's own attempt namespace) means the candidate itself
-   moved — stop immediately and return `blocked/candidate_integrity_failure`
-   without building a `review_records` entry, since the packet's expected head
-   and base are now stale. Everything else — worktree path state plus, under
-   `exclusive_ref_store`, every other local ref — lands in `mutation_attempts`;
-   every remaining local ref lands in non-gating `observed_ref_changes`. See
+   the two snapshots, passing `candidate_branch_ref` and
+   `attempt_namespace_prefix` (from
+   `local_execution.attempt_namespace_ref_prefix`) (it raises if either snapshot
+   is missing a required capture key, rather than silently treating an
+   uncaptured dimension as unchanged). It returns a `WorktreeMutationReport`,
+   not a flat list: a Tier 1 `candidate_mutations` entry (`head_sha`, the
+   candidate branch ref, or this invocation's own attempt namespace) means the
+   candidate itself moved — stop immediately and return
+   `blocked/candidate_integrity_failure` without building a `review_records`
+   entry, since the packet's expected head and base are now stale. Worktree path
+   state lands in `mutation_attempts`; every other local ref lands in non-gating
+   `observed_ref_changes`. See
    [`references/reviewer-orchestration.md`](references/reviewer-orchestration.md)'s
    "Reviewer write prevention" tier 4 for the full attribution rationale.
 5. Build one `review_records` entry with `build_review_record`, passing both the

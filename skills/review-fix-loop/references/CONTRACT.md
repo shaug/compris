@@ -153,25 +153,23 @@ exceeds `original_cycle_budget`.
   complete cross-document invariant set described above.
 - `review_records` bind every review pass to the exact head and base it
   reviewed. `write_isolation: violated` records an attempted mutation this pass
-  can be attributed to — worktree path state, a local ref change while
-  `review_execution.exclusive_ref_store` is `true`, or host-supplied tool-trace
+  can be attributed to — worktree path state, or host-supplied tool-trace
   evidence (`integrity_evidence: tool_trace`) — never an unattributed ref change
   alone; it does not by itself imply which terminal `blocked` reason applies —
   that judgment belongs to the phase that observed it. An unattributed local ref
   change (any ref other than `HEAD`, the candidate branch ref, or this
-  invocation's own attempt namespace, when `exclusive_ref_store` is not `true`)
-  is instead recorded verbatim on `observed_ref_changes` — a non-gating
-  observation, since the ref store may be shared with other worktrees or
-  unrelated background automation — while a change to one of those three
-  candidate-bound refs invalidates the candidate itself and is never reflected
-  in `write_isolation` at all: it stops the invocation with
-  `blocked/candidate_integrity_failure` before a review record for that pass is
-  even built. `integrity_evidence` (`tool_trace` or `surface_only`) records
-  whether the host performed tool-trace inspection for this pass at all,
-  distinct from whether it found anything — a `surface_only` record still
-  supports `converged`. `reviewer_identity` (required, non-empty) is the
-  design's "reviewer identities" content: a per-pass identifier distinct from
-  the invocation-invariant `review_independence` enum, so a fresh-subagent
+  invocation's own attempt namespace) is instead recorded verbatim on
+  `observed_ref_changes` — a non-gating observation, since the ref store may be
+  shared with other worktrees or unrelated background automation — while a
+  change to one of those three candidate-bound refs invalidates the candidate
+  itself and is never reflected in `write_isolation` at all: it stops the
+  invocation with `blocked/candidate_integrity_failure` before a review record
+  for that pass is even built. `integrity_evidence` (`tool_trace` or
+  `surface_only`) records whether the host performed tool-trace inspection for
+  this pass at all, distinct from whether it found anything — a `surface_only`
+  record still supports `converged`. `reviewer_identity` (required, non-empty)
+  is the design's "reviewer identities" content: a per-pass identifier distinct
+  from the invocation-invariant `review_independence` enum, so a fresh-subagent
   reviewer's identity can actually differ from one head's review pass to the
   next, matching the design's validation-strategy requirement for "different
   reviewer identities per head."

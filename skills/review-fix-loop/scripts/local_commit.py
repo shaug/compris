@@ -1129,9 +1129,6 @@ def _run_engine(
                         sequence=review_sequence,
                     )
                     after = _worktree_snapshot(state.repo)
-                    exclusive_ref_store = bool(
-                        invocation["review_execution"].get("exclusive_ref_store", False)
-                    )
                     mutation_report = ORCH.detect_worktree_mutation(
                         before,
                         after,
@@ -1139,7 +1136,6 @@ def _run_engine(
                         attempt_namespace_prefix=LE.attempt_namespace_ref_prefix(
                             invocation["invocation_id"]
                         ),
-                        exclusive_ref_store=exclusive_ref_store,
                     )
                     if mutation_report.candidate_mutations:
                         return _finalize(

@@ -14,15 +14,15 @@ summary: Chronological history of repository and skill changes.
   with a tiered `WorktreeMutationReport`: a change to `HEAD`, the candidate
   branch ref, or this invocation's own attempt namespace still invalidates the
   candidate (`blocked/candidate_integrity_failure`), but every other local ref
-  is now a non-gating `observed_ref_changes` observation unless
-  `review_execution.exclusive_ref_store` opts a dedicated clone back into the
-  old behavior. Worktree path state and host-supplied tool-trace evidence remain
-  the only inputs that force `write_isolation: "violated"`, and a new
-  `integrity_evidence` field records whether the host actually inspected a tool
-  trace for a clean pass. Added an eval corpus scenario for the unattributed
-  third-party ref advance alongside the existing reviewer-mutation one, and
-  recorded before/after deterministic eval-corpus evidence per the eval-backed
-  change norm.
+  is now always a non-gating `observed_ref_changes` observation — no flag
+  restores the old flat comparison, since it was the source of the false
+  positives this fixes. Worktree path state and host-supplied tool-trace
+  evidence remain the only inputs that force `write_isolation: "violated"`, and
+  a new `integrity_evidence` field records whether the host actually inspected a
+  tool trace for a clean pass. Added an eval corpus scenario for the
+  unattributed third-party ref advance alongside the existing reviewer-mutation
+  one, and recorded before/after deterministic eval-corpus evidence per the
+  eval-backed change norm.
 
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 

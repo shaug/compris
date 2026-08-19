@@ -228,15 +228,14 @@ class WorktreeMutationReport(NamedTuple):
     `blocked/candidate_integrity_failure`, not `write_isolation`.
 
     `mutation_attempts` (worktree path state — `tracked`/`staged`/`unstaged`/
-    `untracked` — plus, under `exclusive_ref_store`, every other local ref)
-    is attributable to this reviewer pass exactly as before this tiering
-    existed: feed it into `build_review_record`'s `mutation_attempts` to force
-    `write_isolation: "violated"`.
+    `untracked`) is attributable to this reviewer pass exactly as before this
+    tiering existed: feed it into `build_review_record`'s `mutation_attempts`
+    to force `write_isolation: "violated"`.
 
-    `observed_ref_changes` (Tier 2: every other local ref, when
-    `exclusive_ref_store` is `False`) is a non-gating observation only — a
-    ref this check cannot attribute to the reviewer because the ref store may
-    be shared with other worktrees or background automation.
+    `observed_ref_changes` (Tier 2: every other local ref) is a non-gating
+    observation only — a ref this check cannot attribute to the reviewer
+    because the ref store may be shared with other worktrees or background
+    automation.
     """
 
     candidate_mutations: list[str]
@@ -263,7 +262,6 @@ def detect_worktree_mutation(
     *,
     candidate_branch_ref: str | None = None,
     attempt_namespace_prefix: str | None = None,
-    exclusive_ref_store: bool = False,
 ) -> WorktreeMutationReport:
     """Return a tiered `WorktreeMutationReport` between two worktree snapshots.
 
@@ -288,10 +286,7 @@ def detect_worktree_mutation(
     starts with `attempt_namespace_prefix`, and Tier 2 otherwise. A Tier 2 ref
     change is unattributable by construction — the ref store may be shared
     with other worktrees or unrelated background automation — so it is
-    recorded in `observed_ref_changes` rather than gating, unless
-    `exclusive_ref_store` is `True` (a dedicated clone this invocation
-    genuinely owns), which folds every Tier 2 ref change back into
-    `mutation_attempts`, reproducing the pre-tiering behavior exactly.
+    always recorded in `observed_ref_changes` rather than gating.
 
     Every list empty means no attributable change per *this* check; design
     also requires the stronger filesystem-boundary and tool-surface controls
@@ -373,13 +368,11 @@ def detect_worktree_mutation(
         tier2_removed = [name for name in removed if not _is_candidate_bound(name)]
         tier2_changed = [name for name in changed if not _is_candidate_bound(name)]
         if tier2_added or tier2_removed or tier2_changed:
-            ref_detail = _format_ref_detail(
-                added=tier2_added, removed=tier2_removed, changed=tier2_changed
+            observed_ref_changes.append(
+                _format_ref_detail(
+                    added=tier2_added, removed=tier2_removed, changed=tier2_changed
+                )
             )
-            if exclusive_ref_store:
-                mutation_attempts.append(ref_detail)
-            else:
-                observed_ref_changes.append(ref_detail)
 
     return WorktreeMutationReport(
         candidate_mutations=candidate_mutations,
@@ -409,9 +402,8 @@ def build_review_record(
     Any non-empty `mutation_attempts` forces `write_isolation: "violated"`
     regardless of the aggregate verdict — an attempted prohibited mutation
     invalidates the review even if the runtime blocked it. `mutation_attempts`
-    is the attributable channel only (worktree path state and, under
-    `exclusive_ref_store`, any local ref, plus host-supplied tool-trace
-    evidence) — an unattributed Tier 2 ref change belongs in
+    is the attributable channel only (worktree path state plus host-supplied
+    tool-trace evidence) — an unattributed Tier 2 ref change belongs in
     `observed_ref_changes` instead and never affects `write_isolation`.
 
     `observed_ref_changes` is recorded verbatim when non-empty and omitted

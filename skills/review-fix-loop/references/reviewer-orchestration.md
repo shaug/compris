@@ -127,7 +127,7 @@ tier the runtime supports, strongest first:
    tracked/staged/unstaged/untracked/ignored worktree state immediately before
    spawning the reviewer and immediately after it returns — every key
    `REQUIRED_SNAPSHOT_KEYS` names. Pass both snapshots to
-   `detect_worktree_mutation(before, after, candidate_branch_ref=..., attempt_namespace_prefix=..., exclusive_ref_store=...)`,
+   `detect_worktree_mutation(before, after, candidate_branch_ref=..., attempt_namespace_prefix=...)`,
    which raises `ValueError` if either snapshot is missing a required key (fails
    closed rather than silently treating an uncaptured dimension as unchanged)
    and otherwise returns a `WorktreeMutationReport` that separates *what
@@ -148,18 +148,17 @@ tier the runtime supports, strongest first:
      `review_records` entry: the packet's `expected_head`/`expected_base` are
      now stale, so a record bound to them would misrepresent the live candidate
      rather than describe it.
-   - **Tier 2 — every other local ref** (`observed_ref_changes` by default,
-     including the comparison base ref and another invocation's own attempt
-     namespace): unattributable from the ref map alone — the ref store may be
-     shared across several worktrees, or unrelated background automation (a
-     `pull --ff-only` of `main`, a sibling worktree's own branch) may be running
-     concurrently. Non-gating: record it verbatim on the review record's
+   - **Tier 2 — every other local ref** (`observed_ref_changes`, including the
+     comparison base ref and another invocation's own attempt namespace):
+     unattributable from the ref map alone — the ref store may be shared across
+     several worktrees, or unrelated background automation (a `pull --ff-only`
+     of `main`, a sibling worktree's own branch) may be running concurrently.
+     Always non-gating: record it verbatim on the review record's
      `observed_ref_changes` and continue — `write_isolation` stays `enforced`
-     and the pass can still reach `converged`. Set
-     `review_execution.exclusive_ref_store: true` on the invocation only for a
-     dedicated clone this invocation genuinely owns exclusively; that folds
-     every Tier 2 ref change back into `mutation_attempts` below, reproducing
-     the flat behavior this tiering replaces.
+     and the pass can still reach `converged`. There is no opt-out: the
+     whole-local-ref-map comparison this tiering replaces produced enough false
+     positives in ordinary practice (issue #245's own observed evidence) that no
+     configuration is offered to restore it.
    - Worktree path state — `tracked`/`staged`/`unstaged`/`untracked`
      (`mutation_attempts`) — is compared exactly as before this tiering existed
      and is never subject to Tier 1/Tier 2 attribution: a worktree's index and
