@@ -6,6 +6,28 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-19 — Taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
 
+- chore(review-fix-loop): re-record the after-stage run at the shipping head —
+  the first after run measured the prose before `exclusive_ref_store` was
+  removed below. Re-recorded at the head this branch ships: 21 of 21, unchanged,
+  so the review-driven simplification cost no measured behavior.
+
+- fix(review-fix-loop): drop exclusive_ref_store, the buggy legacy behavior had
+  no business surviving as an opt-in — review found that offering a flag to
+  restore the whole-local-ref-map comparison made no sense when that exact
+  comparison was the documented source of the false positives this ticket fixes.
+  Removed the flag from the schema, the tiering function, and the review-phase
+  call site: every Tier 2 ref change is now unconditionally a non-gating
+  `observed_ref_changes` observation, with no configuration path back to the old
+  behavior. A dedicated clone that wants stricter isolation already has tiers
+  1-3 of the write-prevention ladder (sandbox, restricted tool surface,
+  read-only commands) available to it.
+
+- chore(review-fix-loop): record after-stage eval evidence for #245 — commit the
+  after-stage deterministic eval-corpus summary for the candidate-ref-
+  attribution tiering, on top of the implementation commit, per the eval-backed
+  change norm's requirement that the run be recorded from a committed, clean
+  tree.
+
 - fix(review-fix-loop): attribute reviewer mutation, not any local ref move —
   `detect_worktree_mutation` compared the entire local ref map, so a checkout
   where several worktrees share one ref store — or any background automation
