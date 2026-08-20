@@ -6,6 +6,15 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): re-record the after-stage eval evidence at the
+  shipping head — the first after run measured the prose before the
+  validate-every-identity correction below, so it names a state this branch does
+  not ship. Re-recorded at the head it does: 64 of 64 and 15 of 15, with nothing
+  newly passing or newly failing and all 64 and all 15 unchanged, so the
+  correction cost no measured behavior. The superseded run stays committed
+  rather than deleted — it is honest evidence of an intermediate state, and it
+  is exactly the kind a squash-merge would destroy.
+
 - fix(implement-ticket): validate every returned publication identity, not the
   one — step 6's shared tail said "the returned identity", written when the
   ordinary path returned exactly one PR. It was already loose for the carved
