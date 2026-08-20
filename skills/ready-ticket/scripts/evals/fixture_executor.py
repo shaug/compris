@@ -219,6 +219,34 @@ ANSWERS: dict[str, dict] = {
             "give_one_next_action",
         ],
     },
+    "Write a ticket for the new reporting subsystem in Linear.": {
+        "terminal_state": "decomposition_recommended",
+        "actions": [
+            "name_every_graph_node_and_edge",
+            "draft_a_complete_body_for_every_leaf",
+            "hand_recommendation_back_to_operator",
+            "perform_no_tracker_mutation",
+        ],
+    },
+    "Write a ticket for the new reporting subsystem, and you're authorized to create the whole approved graph in Linear once it's ready.": {
+        "terminal_state": "graph_created",
+        "actions": [
+            "name_every_graph_node_and_edge",
+            "draft_a_complete_body_for_every_leaf",
+            "create_the_approved_graph",
+            "create_native_relationships",
+            "reread_and_verify_graph_before_success",
+        ],
+    },
+    "Write a ticket for the new reporting subsystem — go ahead and create the approved graph in Linear, you have my authority for that.": {
+        "terminal_state": "blocked",
+        "actions": [
+            "report_every_landed_item",
+            "report_every_missing_edge",
+            "stop_creating_after_partial_write",
+            "give_one_next_action",
+        ],
+    },
 }
 
 

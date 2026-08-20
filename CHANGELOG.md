@@ -4,7 +4,30 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-19 — Gave `ready-ticket` a second, endpoint-scoped authority that creates its approved draft graph natively in GitHub instead of only ever proposing it, and taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
+## 2026-08-19 — Gave `ready-ticket` a second, endpoint-scoped authority that creates its approved draft graph natively in GitHub and now Linear instead of only ever proposing it, and taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
+
+- feat(ready-ticket): extend the endpoint-scoped graph-creation authority to
+  Linear — the GitHub write path from #199 was the only adapter that defined
+  `graph_created`; a Linear-owned draft stayed `decomposition_recommended`
+  regardless of the grant, because Linear had no create-and-verify sequence to
+  reach. The Linear adapter now defines the equivalent path: create the parent
+  and every child in dependency order, create every native parent/sub-issue
+  edge and every blocking relationship the draft names, then reread every
+  created issue's stored description and the created topology before claiming
+  `graph_created` — the same partial-write and readback-mismatch honesty the
+  GitHub path already has, reported rather than papered over. `SKILL.md` and
+  the GitHub adapter drop their now-false "only GitHub defines this write
+  path" and "never authorizes a Linear mutation" language; GitHub's own create
+  sequence is untouched. Added three Linear forward-eval cases (authority
+  absent, granted and creating the graph, and a partial relationship failure)
+  and two matching contract cases, reusing the existing closed action
+  vocabulary — the graph-creation obligations it already names are
+  tracker-agnostic.
+
+- docs(ready-ticket): record the before-stage eval evidence for Linear graph
+  parity — the existing 23-case forward corpus measured against the prose as
+  it stood, ahead of any change: 22 of 23, the same single pre-existing
+  `no-authority-draft-ready` miss carried since #199.
 
 - feat(ready-ticket): create the approved graph under one endpoint-scoped grant,
   verified by readback — `decomposition_recommended` named every node and edge
@@ -30,10 +53,12 @@ summary: Chronological history of repository and skill changes.
   the fixture executor, and the prose contract tests — covering authority
   absent, granted at invocation, granted after presentation, a partial
   relationship failure, and a readback mismatch.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - docs(ready-ticket): record the before-stage eval evidence for graph creation —
   the existing 18-case forward corpus measured against the prose as it stood,
   ahead of any change: 18 of 18.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): keep graph-creation capability from tempting ceremonial
   decomposition — the first after-stage run flipped a borderline one-ticket case
@@ -46,6 +71,7 @@ summary: Chronological history of repository and skill changes.
   that already fits one ticket stays one ticket regardless of whether
   graph-creation authority is granted, and holding it is never itself a reason
   to draft a graph.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): say "choosing an answer on the requester's behalf" rather
   than "choosing for the requester" — the same after-run cost two unrelated
@@ -54,6 +80,7 @@ summary: Chronological history of repository and skill changes.
   attention diluted by the added length rather than any conflict with the new
   content. Restating the existing sentence to echo the graded vocabulary term
   more directly recovered both.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - docs(ready-ticket): record the after-stage eval evidence for graph creation —
   22 of 23 at the shipping prose, the five new graph-creation cases unanimous
@@ -63,6 +90,7 @@ summary: Chronological history of repository and skill changes.
   any corresponding edit nearby — read as pre-existing model-sampling variance
   in that action term rather than a regression this change introduced, and left
   unforced rather than chased to an artificial 23 of 23.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): remove after-stage eval evidence recorded from a dirty tree
   — the initial candidate review's correctness lens caught that all three
@@ -74,10 +102,12 @@ summary: Chronological history of repository and skill changes.
   evidence saying the run actually measured the changed prose — the exact
   silent-rot failure the eval-evidence norm exists to prevent. Removed and
   re-recorded from the now-committed, clean head.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - docs(ready-ticket): re-record the after-stage eval evidence at the committed
   head — 22 of 23, the same single pre-existing miss as the dirty-tree recording
   and no case newly failing, so the citation fix cost no measured behavior.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - chore(review-fix-loop): re-record the after-stage run at the shipping head —
   the first after run measured the prose before `exclusive_ref_store` was

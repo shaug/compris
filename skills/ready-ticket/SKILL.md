@@ -1,6 +1,6 @@
 ---
 name: ready-ticket
-description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and must be resolved before scheduling. Produces acceptance criteria as observable behaviors of the product's public surface, each directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body goes back to the caller. Validates an approved design as input rather than gathering one. Returns one of six typed terminal results. Oversized work comes back as a draft graph, proposed and never created — unless one endpoint-scoped GitHub grant authorizes creating it, verified by readback.
+description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and must be resolved before scheduling. Produces acceptance criteria as observable behaviors of the product's public surface, each directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body goes back to the caller. Validates an approved design as input rather than gathering one. Returns one of six typed terminal results. Oversized work comes back as a draft graph, proposed and never created — unless one endpoint-scoped grant authorizes creating it, verified by readback.
 ---
 
 # Ready Ticket
@@ -97,8 +97,7 @@ independent of ticket-management authority — holding one never implies the
 other. It is the one named exception to the sentence above: granted, it
 authorizes creating every node and every native relationship the returned draft
 graph names, and nothing beyond that graph. It never authorizes merging,
-closing, labeling, assigning, or implementing anything it creates, and it never
-authorizes a Linear mutation. See
+closing, labeling, assigning, or implementing anything it creates. See
 [Create the approved graph](#create-the-approved-graph).
 
 ## Require an approved design
@@ -351,13 +350,15 @@ blocks the claim of success exactly as an unreported partial write would, and is
 reported with the exact mismatch rather than treated as good enough.
 
 Nothing here authorizes more than the graph itself. Creating it never infers
-authority to merge, close, label, assign, or implement anything it creates, and
-never authorizes a Linear mutation — only the GitHub adapter currently defines
-this write path; see
-[the GitHub adapter](references/github.md#create-and-verify-the-approved-graph).
-Every created leaf still carries the full ready-ticket contract: the same
-template, the same surface-observable criteria, the same four self-review scans
-that would have applied had it been proposed rather than created.
+authority to merge, close, label, assign, or implement anything it creates. Both
+adapters define this write path for the tracker they own: follow
+[the GitHub adapter](references/github.md#create-and-verify-the-approved-graph)
+when GitHub owns the draft, and
+[the Linear adapter](references/linear.md#create-and-verify-the-approved-graph)
+when Linear does. Every created leaf still carries the full ready-ticket
+contract: the same template, the same surface-observable criteria, the same four
+self-review scans that would have applied had it been proposed rather than
+created.
 
 ## Recommend load-bearing verification when the cost is high
 

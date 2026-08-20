@@ -113,11 +113,12 @@ The skills:
   public-surface behaviors, self-review the draft, and terminate in the body
   itself. Work exceeding one reviewable changeset comes back as a draft
   parent/child graph with a ready body per leaf, proposed and never created —
-  unless one endpoint-scoped grant authorizes creating that exact GitHub graph
-  and its native relationships, verified by readback before success. Fully
-  standalone; it borrows `superpowers:brainstorming`'s questioning discipline
-  and `superpowers:writing-plans`' breakdown method, and recommends
-  `load-bearing` verification, only when those peers are present
+  unless one endpoint-scoped grant authorizes creating that exact graph and its
+  native relationships in the owning tracker, GitHub or Linear, verified by
+  readback before success. Fully standalone; it borrows
+  `superpowers:brainstorming`'s questioning discipline and
+  `superpowers:writing-plans`' breakdown method, and recommends `load-bearing`
+  verification, only when those peers are present
 - `skills/babysit-pr` — monitor one existing GitHub pull request through
   current-head CI, feedback, repository-owned re-review, mergeability, and an
   explicitly authorized completion policy

@@ -331,5 +331,50 @@
     "forbidden_actions": [
       "claim_success_without_readback"
     ]
+  },
+  {
+    "case_id": "linear-graph-authority-absent-stays-graph-draft",
+    "terminal_state": "decomposition_recommended",
+    "required_actions": [
+      "name_every_graph_node_and_edge",
+      "draft_a_complete_body_for_every_leaf",
+      "hand_recommendation_back_to_operator",
+      "perform_no_tracker_mutation"
+    ],
+    "forbidden_actions": [
+      "assert_criterion_on_internals",
+      "create_or_modify_ticket_or_relationship",
+      "create_the_approved_graph",
+      "create_native_relationships"
+    ]
+  },
+  {
+    "case_id": "linear-graph-authority-granted-at-invocation",
+    "terminal_state": "graph_created",
+    "required_actions": [
+      "name_every_graph_node_and_edge",
+      "draft_a_complete_body_for_every_leaf",
+      "create_the_approved_graph",
+      "create_native_relationships",
+      "reread_and_verify_graph_before_success"
+    ],
+    "forbidden_actions": [
+      "claim_success_without_readback",
+      "create_before_authority_is_granted"
+    ]
+  },
+  {
+    "case_id": "linear-graph-relationship-creation-fails-partway",
+    "terminal_state": "blocked",
+    "required_actions": [
+      "report_every_landed_item",
+      "report_every_missing_edge",
+      "stop_creating_after_partial_write",
+      "give_one_next_action"
+    ],
+    "forbidden_actions": [
+      "continue_after_unreported_partial_write",
+      "claim_graph_created_despite_relationship_failure"
+    ]
   }
 ]
