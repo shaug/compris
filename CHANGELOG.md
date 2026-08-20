@@ -11,34 +11,33 @@ summary: Chronological history of repository and skill changes.
   `graph_created`; a Linear-owned draft stayed `decomposition_recommended`
   regardless of the grant, because Linear had no create-and-verify sequence to
   reach. The Linear adapter now defines the equivalent path: create the parent
-  and every child in dependency order, create every native parent/sub-issue
-  edge and every blocking relationship the draft names, then reread every
-  created issue's stored description and the created topology before claiming
+  and every child in dependency order, create every native parent/sub-issue edge
+  and every blocking relationship the draft names, then reread every created
+  issue's stored description and the created topology before claiming
   `graph_created` — the same partial-write and readback-mismatch honesty the
-  GitHub path already has, reported rather than papered over. `SKILL.md` and
-  the GitHub adapter drop their now-false "only GitHub defines this write
-  path" and "never authorizes a Linear mutation" language; GitHub's own create
-  sequence is untouched. Added three Linear forward-eval cases (authority
-  absent, granted and creating the graph, and a partial relationship failure)
-  and two matching contract cases, reusing the existing closed action
-  vocabulary — the graph-creation obligations it already names are
-  tracker-agnostic.
+  GitHub path already has, reported rather than papered over. `SKILL.md` and the
+  GitHub adapter drop their now-false "only GitHub defines this write path" and
+  "never authorizes a Linear mutation" language; GitHub's own create sequence is
+  untouched. Added three Linear forward-eval cases (authority absent, granted
+  and creating the graph, and a partial relationship failure) and two matching
+  contract cases, reusing the existing closed action vocabulary — the
+  graph-creation obligations it already names are tracker-agnostic.
 
 - docs(ready-ticket): record the before-stage eval evidence for Linear graph
-  parity — the existing 23-case forward corpus measured against the prose as
-  it stood, ahead of any change: 22 of 23, the same single pre-existing
+  parity — the existing 23-case forward corpus measured against the prose as it
+  stood, ahead of any change: 22 of 23, the same single pre-existing
   `no-authority-draft-ready` miss carried since #199.
 
 - docs(ready-ticket): record the after-stage eval evidence for Linear graph
-  parity — 24 of 26 at the shipping prose, all three new Linear cases
-  unanimous across their repetitions. Two misses, neither a regression this
-  change introduced: the carried `no-authority-draft-ready` miss, and a new
-  single-vote miss (2 of 5) on `autonomous-unresolvable-rate-limit`, an
-  unrelated autonomous case whose graded action was itself marginal before
-  this change (4 of 5). An ad hoc 5-repetition recheck of that one case came
-  back 3 of 5 — a pass — confirming sampling variance around an
-  already-marginal boundary rather than a systematic effect of the added
-  prose, so left unforced rather than chased to an artificial 26 of 26.
+  parity — 24 of 26 at the shipping prose, all three new Linear cases unanimous
+  across their repetitions. Two misses, neither a regression this change
+  introduced: the carried `no-authority-draft-ready` miss, and a new single-vote
+  miss (2 of 5) on `autonomous-unresolvable-rate-limit`, an unrelated autonomous
+  case whose graded action was itself marginal before this change (4 of 5). An
+  ad hoc 5-repetition recheck of that one case came back 3 of 5 — a pass —
+  confirming sampling variance around an already-marginal boundary rather than a
+  systematic effect of the added prose, so left unforced rather than chased to
+  an artificial 26 of 26.
 
 - feat(ready-ticket): create the approved graph under one endpoint-scoped grant,
   verified by readback — `decomposition_recommended` named every node and edge
@@ -68,8 +67,7 @@ summary: Chronological history of repository and skill changes.
 
 - docs(ready-ticket): record the before-stage eval evidence for graph creation —
   the existing 18-case forward corpus measured against the prose as it stood,
-  ahead of any change: 18 of 18.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  ahead of any change: 18 of 18. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): keep graph-creation capability from tempting ceremonial
   decomposition — the first after-stage run flipped a borderline one-ticket case
@@ -81,8 +79,7 @@ summary: Chronological history of repository and skill changes.
   the new section now says so explicitly before its own mechanics: an initiative
   that already fits one ticket stays one ticket regardless of whether
   graph-creation authority is granted, and holding it is never itself a reason
-  to draft a graph.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  to draft a graph. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): say "choosing an answer on the requester's behalf" rather
   than "choosing for the requester" — the same after-run cost two unrelated
@@ -90,8 +87,7 @@ summary: Chronological history of repository and skill changes.
   autonomous run's obligation not to guess an answer nobody gave, most likely
   attention diluted by the added length rather than any conflict with the new
   content. Restating the existing sentence to echo the graded vocabulary term
-  more directly recovered both.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  more directly recovered both. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - docs(ready-ticket): record the after-stage eval evidence for graph creation —
   22 of 23 at the shipping prose, the five new graph-creation cases unanimous
