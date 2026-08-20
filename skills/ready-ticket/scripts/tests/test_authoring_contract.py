@@ -672,8 +672,7 @@ class ReadyTicketContractTests(unittest.TestCase):
             "relationship the returned draft graph names, and nothing beyond "
             "that graph",
             "It never authorizes merging, closing, labeling, assigning, or "
-            "implementing anything it creates, and it never authorizes a Linear "
-            "mutation",
+            "implementing anything it creates.",
         ):
             self.assertIn(clause, self.contract)
 
@@ -747,20 +746,65 @@ class ReadyTicketContractTests(unittest.TestCase):
             "`graph_created`",
             compact(self.github),
         )
-
-    def test_only_github_defines_the_graph_creation_write_path(self):
-        """AC: adding Linear mutation is out of scope for this write path."""
         self.assertIn(
-            "never authorizes a Linear mutation — only the GitHub adapter "
-            "currently defines this write path",
+            "reread every created issue's stored description and the created "
+            "sub-issue and blocking-relationship edges before claiming "
+            "`graph_created`",
+            compact(self.linear),
+        )
+
+    def test_both_adapters_define_the_graph_creation_write_path(self):
+        """AC: an approved Linear graph joins GitHub without changing it."""
+        self.assertIn(
+            "Both adapters define this write path for the tracker they own",
             self.contract,
         )
         self.assertIn(
-            "This is the only adapter that currently defines this write path; "
-            "Linear has none yet",
+            "The Linear adapter defines the equivalent write path for a "
+            "Linear-owned draft",
             compact(self.github),
         )
-        self.assertNotIn("graph-creation authority", compact(self.linear))
+        self.assertIn(
+            "The GitHub adapter defines the equivalent write path for a "
+            "GitHub-owned draft",
+            compact(self.linear),
+        )
+
+    def test_linear_graph_creation_authority_creates_the_graph(self):
+        """AC: an approved Linear graph stores the hierarchy and blockers natively."""
+        case_id = "linear-graph-creation-authority-granted-creates-the-graph"
+        self.assertEqual("graph_created", self.expectations[case_id]["workflow_state"])
+        actions = self.actions(case_id)
+        self.assertIn("create every node and every native relationship", actions)
+        self.assertIn("reread every created body", actions)
+
+    def test_linear_graph_authority_absent_stays_draft(self):
+        """AC: absent graph-creation authority, a Linear-owned draft is not created."""
+        forward_expectations = {
+            item["case_id"]: item
+            for item in json.loads(
+                read(SKILL_ROOT / "evals" / "forward_expectations.json")
+            )
+        }
+        case_id = "linear-graph-authority-absent-stays-graph-draft"
+        self.assertEqual(
+            "decomposition_recommended",
+            forward_expectations[case_id]["terminal_state"],
+        )
+        required = set(forward_expectations[case_id]["required_actions"])
+        self.assertIn("hand_recommendation_back_to_operator", required)
+        self.assertIn("perform_no_tracker_mutation", required)
+
+    def test_linear_relationship_failure_reports_landed_items_and_missing_edges(
+        self,
+    ):
+        """AC: partial creation reports landed items and missing relationships."""
+        case_id = "linear-graph-relationship-fails-after-issues-land"
+        self.assertEqual("blocked", self.expectations[case_id]["workflow_state"])
+        actions = self.actions(case_id)
+        self.assertIn("stop creating anything further", actions)
+        self.assertIn("report every issue that did land", actions)
+        self.assertIn("report the edge that is still missing", actions)
 
     def test_authoring_authority_never_implies_graph_or_workflow_authority(self):
         self.assertIn("Authoring a body is not graph authority", compact(self.github))

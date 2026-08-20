@@ -64,9 +64,9 @@ Report the issue identity — repository and number — with the result.
 Applies only when the draft graph produced by
 [Name every node and every edge](../SKILL.md#name-every-node-and-every-edge)
 names more than the one ticket the sections above already cover, and only once
-graph-creation authority is granted for it. This is the only adapter that
-currently defines this write path; Linear has none yet, and a Linear-owned draft
-graph stays `decomposition_recommended` regardless of this grant.
+graph-creation authority is granted for it. The Linear adapter defines the
+equivalent write path for a Linear-owned draft; see
+[the Linear adapter](linear.md#create-and-verify-the-approved-graph).
 
 Graph-creation authority is endpoint-scoped: one grant covers every node and
 every native relationship the current draft names, as a single unit. It is

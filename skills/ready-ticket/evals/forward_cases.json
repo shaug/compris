@@ -267,5 +267,41 @@
       "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
       "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the GitHub API reports every issue and every native relationship created successfully, but rereading the rollup job issue shows its stored body is missing the Required verification section it was created with"
     }
+  },
+  {
+    "id": "linear-graph-authority-absent-stays-graph-draft",
+    "request": "Write a ticket for the new reporting subsystem in Linear.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's Linear team; graph-creation authority was not granted, at invocation or otherwise",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans"
+    }
+  },
+  {
+    "id": "linear-graph-authority-granted-at-invocation",
+    "request": "Write a ticket for the new reporting subsystem, and you're authorized to create the whole approved graph in Linear once it's ready.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's Linear team; graph-creation authority granted at invocation, covering whatever draft this run produces",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the Linear API confirms every issue and every native relationship exactly as created"
+    }
+  },
+  {
+    "id": "linear-graph-relationship-creation-fails-partway",
+    "request": "Write a ticket for the new reporting subsystem — go ahead and create the approved graph in Linear, you have my authority for that.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "interactive; the requester answers questions in this run",
+      "authority": "ticket-management authority granted for the project's Linear team; graph-creation authority granted at invocation, covering whatever draft this run produces",
+      "peers": "no peer skills in the session listing",
+      "design": "an approved design settles the requirements, the acceptance criteria, the goals and non-goals, and the stakeholders and deadline for all three pieces below",
+      "elicitation": "answers reveal a metrics collector, a rollup job, and a dashboard view, each independently valuable and separately shippable; every leaf passes all four self-review scans; the Linear API creates all three issues successfully but returns an error creating the blocking relationship from the rollup job to the metrics collector"
+    }
   }
 ]
