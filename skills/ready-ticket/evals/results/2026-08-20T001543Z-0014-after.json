@@ -1,0 +1,1014 @@
+{
+  "candidate": {
+    "branch": "scott/ticket-199-691cbf",
+    "sha": "56a62eab44e36c63faee148d445b12373e6dfac0",
+    "tree": "6a7529df7f1c0abcf5ac6649d9f65797c97b7f74",
+    "trees": {
+      "skills/ready-ticket": "cfd2d7bc8a40fd11965c32de5530709884576fa3"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "autonomous-explicit-no-fill-in-export": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "give_one_next_action",
+        "name_the_absent_design_part",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "requires_brainstorming",
+      "votes": {
+        "actions": {
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 4,
+          "choose_no_tracker_on_requesters_behalf": 4,
+          "give_one_next_action": 5,
+          "hand_recommendation_back_to_operator": 1,
+          "name_the_absent_design_part": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "requires_brainstorming": 5
+        }
+      }
+    },
+    "autonomous-residue-unresolved-verification": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "elicit_only_tracker_shaped_residue",
+        "give_one_next_action",
+        "keep_reviewable_initiative_as_one_ticket",
+        "name_the_unresolved_decision_as_blocking_reason",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "blocked",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 4,
+          "elicit_only_tracker_shaped_residue": 3,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "give_one_next_action": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "name_the_unresolved_decision_as_blocking_reason": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "blocked": 5
+        }
+      }
+    },
+    "autonomous-tracker-unchosen": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "perform_no_tracker_mutation",
+        "quote_cited_repository_text",
+        "reject_internal_call_criterion",
+        "reject_placeholder_in_scan",
+        "return_complete_body_to_caller"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "draft_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 3,
+          "choose_no_tracker_on_requesters_behalf": 5,
+          "cite_volatile_collection_by_location": 2,
+          "elicit_only_tracker_shaped_residue": 3,
+          "elicit_public_surface_behavior": 3,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "perform_no_tracker_mutation": 5,
+          "quote_cited_repository_text": 5,
+          "reject_internal_call_criterion": 3,
+          "reject_placeholder_in_scan": 4,
+          "rerun_all_four_scans_after_edit": 2,
+          "restate_architectural_fact_as_value": 1,
+          "return_complete_body_to_caller": 5
+        },
+        "terminal_state": {
+          "draft_ready": 5
+        }
+      }
+    },
+    "autonomous-unresolvable-rate-limit": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "choose_no_answer_on_requesters_behalf",
+        "choose_no_tracker_on_requesters_behalf",
+        "give_one_next_action",
+        "name_the_absent_design_part",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 0.8,
+      "repetitions": 5,
+      "terminal_state": "requires_brainstorming",
+      "votes": {
+        "actions": {
+          "ask_no_question_wait_for_no_answer": 5,
+          "choose_no_answer_on_requesters_behalf": 3,
+          "choose_no_tracker_on_requesters_behalf": 3,
+          "give_one_next_action": 5,
+          "hand_recommendation_back_to_operator": 2,
+          "keep_reviewable_initiative_as_one_ticket": 1,
+          "name_the_absent_design_part": 4,
+          "name_the_unresolved_decision_as_blocking_reason": 1,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "blocked": 1,
+          "requires_brainstorming": 4
+        }
+      }
+    },
+    "design-missing-requirements": {
+      "actions": [
+        "give_one_next_action",
+        "name_the_absent_design_part",
+        "perform_no_tracker_mutation"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "requires_brainstorming",
+      "votes": {
+        "actions": {
+          "give_one_next_action": 5,
+          "name_the_absent_design_part": 5,
+          "perform_no_tracker_mutation": 5
+        },
+        "terminal_state": {
+          "requires_brainstorming": 5
+        }
+      }
+    },
+    "fits-as-one-stays-one-ticket": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "keep_validation_with_the_behavior_it_proves",
+        "meet_the_ticket_ready_readiness_target"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 1,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "keep_validation_with_the_behavior_it_proves": 3,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 1,
+          "reject_internal_call_criterion": 2,
+          "reject_placeholder_in_scan": 1
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "full-design-document-proceeds": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 2,
+          "claim_success_without_readback": 2,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 2,
+          "reject_internal_call_criterion": 2,
+          "reject_placeholder_in_scan": 4,
+          "rerun_all_four_scans_after_edit": 2,
+          "restate_architectural_fact_as_value": 2
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "generated-evidence-excluded-from-size": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "exclude_recorded_generated_evidence_from_size",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "quote_cited_repository_text",
+        "reject_placeholder_in_scan"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 1,
+          "claim_success_without_readback": 1,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "keep_validation_with_the_behavior_it_proves": 2,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 4,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 1,
+          "restate_architectural_fact_as_value": 1
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "graph-authority-absent-stays-graph-draft": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 2,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 2,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "present_draft_graph_for_approval": 1,
+          "quote_cited_repository_text": 2,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 2,
+          "reject_placeholder_in_scan": 2,
+          "rerun_all_four_scans_after_edit": 2,
+          "restate_architectural_fact_as_value": 2,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "graph-authority-granted-after-presentation": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_native_relationships",
+        "create_the_approved_graph",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "present_draft_graph_for_approval",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reread_and_verify_graph_before_success",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "graph_created",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 1,
+          "create_native_relationships": 5,
+          "create_the_approved_graph": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "present_draft_graph_for_approval": 5,
+          "quote_cited_repository_text": 1,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 1,
+          "reject_placeholder_in_scan": 1,
+          "reread_and_verify_graph_before_success": 5,
+          "rerun_all_four_scans_after_edit": 1,
+          "restate_architectural_fact_as_value": 1,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "graph_created": 5
+        }
+      }
+    },
+    "graph-authority-granted-at-invocation": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_native_relationships",
+        "create_the_approved_graph",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reread_and_verify_graph_before_success",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "graph_created",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_native_relationships": 5,
+          "create_or_modify_ticket_or_relationship": 1,
+          "create_the_approved_graph": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reread_and_verify_graph_before_success": 5,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "graph_created": 5
+        }
+      }
+    },
+    "graph-readback-mismatch-blocks-success": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_native_relationships",
+        "create_the_approved_graph",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "give_one_next_action",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_placeholder_in_scan",
+        "report_every_landed_item",
+        "report_the_exact_mismatch",
+        "reread_and_verify_graph_before_success",
+        "separate_unrelated_concern_domains",
+        "stop_creating_after_partial_write"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "blocked",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_native_relationships": 5,
+          "create_or_modify_ticket_or_relationship": 1,
+          "create_the_approved_graph": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 2,
+          "fill_every_template_slot": 5,
+          "give_one_next_action": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "name_the_unresolved_decision_as_blocking_reason": 1,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_placeholder_in_scan": 3,
+          "report_every_landed_item": 5,
+          "report_the_exact_mismatch": 5,
+          "reread_and_verify_graph_before_success": 5,
+          "separate_unrelated_concern_domains": 5,
+          "stop_creating_after_partial_write": 5
+        },
+        "terminal_state": {
+          "blocked": 5
+        }
+      }
+    },
+    "graph-relationship-creation-fails-partway": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_native_relationships",
+        "create_the_approved_graph",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "give_one_next_action",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "report_every_landed_item",
+        "report_every_missing_edge",
+        "separate_unrelated_concern_domains",
+        "stop_creating_after_partial_write"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "blocked",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "create_native_relationships": 5,
+          "create_or_modify_ticket_or_relationship": 1,
+          "create_the_approved_graph": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "give_one_next_action": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "report_every_landed_item": 5,
+          "report_every_missing_edge": 5,
+          "report_the_exact_mismatch": 1,
+          "separate_unrelated_concern_domains": 5,
+          "stop_creating_after_partial_write": 5
+        },
+        "terminal_state": {
+          "blocked": 5
+        }
+      }
+    },
+    "internal-criterion-rejected": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_internal_call_criterion",
+        "rerun_all_four_scans_after_edit"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "claim_success_without_readback": 1,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_internal_call_criterion": 5,
+          "reject_placeholder_in_scan": 1,
+          "rerun_all_four_scans_after_edit": 3
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "mechanical-and-behavioral-change-separated": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_placeholder_in_scan",
+        "separate_mechanical_restructuring_from_behavioral_change",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 1,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 2,
+          "reject_placeholder_in_scan": 4,
+          "rerun_all_four_scans_after_edit": 1,
+          "separate_mechanical_restructuring_from_behavioral_change": 5,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "multi-subsystem-decomposition": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "exclude_recorded_generated_evidence_from_size",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_internal_call_criterion",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 2,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 4,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "quote_cited_repository_text": 2,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_internal_call_criterion": 4,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 4,
+          "restate_architectural_fact_as_value": 2,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "no-authority-draft-ready": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "choose_no_tracker_on_requesters_behalf",
+        "cite_volatile_collection_by_location",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "perform_no_tracker_mutation",
+        "quote_cited_repository_text",
+        "reject_internal_call_criterion",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "restate_architectural_fact_as_value",
+        "return_complete_body_to_caller"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "draft_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "choose_no_tracker_on_requesters_behalf": 3,
+          "cite_volatile_collection_by_location": 3,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 2,
+          "perform_no_tracker_mutation": 5,
+          "quote_cited_repository_text": 3,
+          "reject_internal_call_criterion": 3,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 4,
+          "restate_architectural_fact_as_value": 3,
+          "return_complete_body_to_caller": 5,
+          "return_to_elicitation_for_missing_value": 1
+        },
+        "terminal_state": {
+          "draft_ready": 5
+        }
+      }
+    },
+    "one-sentence-bug-design-proceeds": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "claim_success_without_readback",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "claim_success_without_readback": 4,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_placeholder_in_scan": 4,
+          "rerun_all_four_scans_after_edit": 4
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "placeholder-scan-catches-first-draft": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "claim_success_without_readback",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan",
+        "rerun_all_four_scans_after_edit",
+        "return_to_elicitation_for_missing_value"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "choose_no_answer_on_requesters_behalf": 1,
+          "cite_volatile_collection_by_location": 1,
+          "claim_success_without_readback": 4,
+          "create_or_modify_ticket_or_relationship": 4,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 1,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 5,
+          "restate_architectural_fact_as_value": 1,
+          "return_to_elicitation_for_missing_value": 5
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "repository-citation-quotes-and-locates": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "cite_volatile_collection_by_location",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "quote_cited_repository_text",
+        "reject_placeholder_in_scan",
+        "restate_architectural_fact_as_value"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "cite_volatile_collection_by_location": 5,
+          "claim_success_without_readback": 1,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "quote_cited_repository_text": 5,
+          "reject_placeholder_in_scan": 3,
+          "rerun_all_four_scans_after_edit": 2,
+          "restate_architectural_fact_as_value": 5
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "unrelated-concerns-become-separate-leaves": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "reject_placeholder_in_scan",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_placeholder_in_scan": 3,
+          "separate_unrelated_concern_domains": 5
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    },
+    "vague-idea-resolved-elicitation": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "create_or_modify_ticket_or_relationship",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "keep_reviewable_initiative_as_one_ticket",
+        "meet_the_ticket_ready_readiness_target",
+        "reject_placeholder_in_scan"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "ticket_ready",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "claim_success_without_readback": 2,
+          "create_or_modify_ticket_or_relationship": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "exclude_recorded_generated_evidence_from_size": 1,
+          "fill_every_template_slot": 5,
+          "keep_reviewable_initiative_as_one_ticket": 5,
+          "keep_validation_with_the_behavior_it_proves": 1,
+          "meet_the_ticket_ready_readiness_target": 5,
+          "reject_placeholder_in_scan": 5,
+          "rerun_all_four_scans_after_edit": 2
+        },
+        "terminal_state": {
+          "ticket_ready": 5
+        }
+      }
+    },
+    "validation-stays-with-the-behavior-it-proves": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "draft_a_complete_body_for_every_leaf",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior",
+        "fill_every_template_slot",
+        "hand_recommendation_back_to_operator",
+        "keep_validation_with_the_behavior_it_proves",
+        "name_a_re_split_trigger_per_leaf",
+        "name_each_independently_valuable_part",
+        "name_every_graph_node_and_edge",
+        "perform_no_tracker_mutation",
+        "record_boundary_between_parts",
+        "record_why_each_part_independently_valuable",
+        "separate_unrelated_concern_domains"
+      ],
+      "agreement": 1.0,
+      "repetitions": 5,
+      "terminal_state": "decomposition_recommended",
+      "votes": {
+        "actions": {
+          "accept_sufficient_design_without_further_design_questions": 5,
+          "draft_a_complete_body_for_every_leaf": 5,
+          "elicit_only_tracker_shaped_residue": 5,
+          "elicit_public_surface_behavior": 5,
+          "fill_every_template_slot": 5,
+          "hand_recommendation_back_to_operator": 5,
+          "keep_validation_with_the_behavior_it_proves": 5,
+          "name_a_re_split_trigger_per_leaf": 5,
+          "name_each_independently_valuable_part": 5,
+          "name_every_graph_node_and_edge": 5,
+          "perform_no_tracker_mutation": 5,
+          "present_draft_graph_for_approval": 1,
+          "record_boundary_between_parts": 5,
+          "record_why_each_part_independently_valuable": 5,
+          "reject_placeholder_in_scan": 2,
+          "rerun_all_four_scans_after_edit": 1,
+          "separate_unrelated_concern_domains": 4
+        },
+        "terminal_state": {
+          "decomposition_recommended": 5
+        }
+      }
+    }
+  },
+  "cases": {
+    "autonomous-explicit-no-fill-in-export": "pass",
+    "autonomous-residue-unresolved-verification": "pass",
+    "autonomous-tracker-unchosen": "pass",
+    "autonomous-unresolvable-rate-limit": "pass",
+    "design-missing-requirements": "pass",
+    "fits-as-one-stays-one-ticket": "pass",
+    "full-design-document-proceeds": "pass",
+    "generated-evidence-excluded-from-size": "pass",
+    "graph-authority-absent-stays-graph-draft": "pass",
+    "graph-authority-granted-after-presentation": "pass",
+    "graph-authority-granted-at-invocation": "pass",
+    "graph-readback-mismatch-blocks-success": "pass",
+    "graph-relationship-creation-fails-partway": "pass",
+    "internal-criterion-rejected": "pass",
+    "mechanical-and-behavioral-change-separated": "pass",
+    "multi-subsystem-decomposition": "pass",
+    "no-authority-draft-ready": "fail",
+    "one-sentence-bug-design-proceeds": "pass",
+    "placeholder-scan-catches-first-draft": "pass",
+    "repository-citation-quotes-and-locates": "pass",
+    "unrelated-concerns-become-separate-leaves": "pass",
+    "vague-idea-resolved-elicitation": "pass",
+    "validation-stays-with-the-behavior-it-proves": "pass"
+  },
+  "command": [
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3",
+    "skills/ready-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/Users/scott/.local/share/mise/installs/python/3.11/bin/python3 skills/ready-ticket/scripts/evals/claude_executor.py --model claude-opus-5"
+  ],
+  "compared_to": "2026-08-19T213410Z-0013-before.json",
+  "diff": {
+    "newly_failing": [
+      "no-authority-draft-ready"
+    ],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 17
+  },
+  "exit_code": 1,
+  "failures": [
+    "no-authority-draft-ready: missing actions: meet_the_ticket_ready_readiness_target"
+  ],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": null,
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "{\n  \"failed\": 1,\n  \"failures\": [\n    \"no-authority-draft-ready: missing actions: meet_the_ticket_ready_readiness_target\"\n  ],\n  \"passed\": 22,\n  \"total\": 23\n}",
+  "recorded_at": "2026-08-20T00:15:43Z",
+  "schema": "eval-run-summary/1",
+  "skill": "ready-ticket",
+  "stage": "after",
+  "status": "failed",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": {
+    "failed": 1,
+    "passed": 22,
+    "total": 23
+  }
+}
