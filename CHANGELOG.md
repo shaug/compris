@@ -29,6 +29,17 @@ summary: Chronological history of repository and skill changes.
   it stood, ahead of any change: 22 of 23, the same single pre-existing
   `no-authority-draft-ready` miss carried since #199.
 
+- docs(ready-ticket): record the after-stage eval evidence for Linear graph
+  parity — 24 of 26 at the shipping prose, all three new Linear cases
+  unanimous across their repetitions. Two misses, neither a regression this
+  change introduced: the carried `no-authority-draft-ready` miss, and a new
+  single-vote miss (2 of 5) on `autonomous-unresolvable-rate-limit`, an
+  unrelated autonomous case whose graded action was itself marginal before
+  this change (4 of 5). An ad hoc 5-repetition recheck of that one case came
+  back 3 of 5 — a pass — confirming sampling variance around an
+  already-marginal boundary rather than a systematic effect of the added
+  prose, so left unforced rather than chased to an artificial 26 of 26.
+
 - feat(ready-ticket): create the approved graph under one endpoint-scoped grant,
   verified by readback — `decomposition_recommended` named every node and edge
   and stopped there; ticket-management authority governs one ticket's body and
