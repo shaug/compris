@@ -276,6 +276,49 @@ def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str],
     return actions, drifted
 
 
+def publish_candidate_result(
+    capabilities: dict, handoff: dict
+) -> tuple[list[str], bool, int]:
+    """Resolve the optional publication delegate at the publication boundary.
+
+    Returns the obligations, whether publication blocked, and how many PRs the
+    publication opened. The absent branch is the load-bearing one: it must
+    reproduce inline publication with nothing else changed, so it never blocks
+    and never reports a missing capability.
+    """
+    actions = ["resolve_publish_candidate"]
+    if not capabilities.get("publish_candidate"):
+        actions.append("publish_inline")
+        return actions, False, 1
+
+    actions.extend(
+        [
+            "invoke_publish_candidate",
+            "assert_review_converged",
+            "retain_tracker_transition",
+        ]
+    )
+    result = handoff.get("publish_candidate_result") or {}
+    status = result.get("status")
+    if status == "needs_author_input":
+        # The delegate named content only its author may write. Surfacing it is
+        # the whole obligation; authoring it is the failure the case grades for.
+        return actions + ["report_needs_author_input", "preserve_artifacts"], True, 0
+    published = result.get("prs") or []
+    if status != "published" or not published:
+        return (
+            actions + ["reject_stale_or_malformed_result", "reread_live_pr"],
+            True,
+            0,
+        )
+    actions.append("verify_delegated_pr_identities")
+    if len(published) > 1:
+        actions.extend(
+            ["place_closing_syntax_one_designated_pr", "verify_each_pr_gate"]
+        )
+    return actions, False, len(published)
+
+
 def implement_ticket_dependency_result(
     target: str, repository: dict
 ) -> tuple[list[str], dict | None]:
@@ -397,6 +440,8 @@ def action_result(payload: dict) -> dict:
         "implement-ticket": (
             "`review-fix-loop` and `babysit-pr` are available",
             "Map `ready PR only` to `ready_to_merge`",
+            "resolve repository-owned `publish-candidate` by stable name",
+            "`needs_author_input`",
             "`prs_open`",
             "`ready_prs`",
             "Normal ticket execution never uses `watch_until_closed`",
@@ -678,6 +723,20 @@ def action_result(payload: dict) -> dict:
             "actions": actions + ["reject_concurrent_mutation"],
         }
 
+    # Ordinary path only. The carved path owns its own publication and returned
+    # above, so a candidate reaching here is never routed through the delegate.
+    publication_actions, publication_blocked, published_prs = publish_candidate_result(
+        capabilities, handoff
+    )
+    actions.extend(publication_actions)
+    if publication_blocked:
+        return {
+            "target_skill": target,
+            "terminal_state": "blocked",
+            "actions": sorted(set(actions)),
+            "acceptance_ledger": acceptance_ledger,
+        }
+
     if pr.get("merged"):
         actions.extend(
             ["verify_merge_live", "caller_verifies_mainline_tracker_cleanup"]
@@ -694,7 +753,9 @@ def action_result(payload: dict) -> dict:
         terminal_state = "merged"
     else:
         actions.extend(["invoke_ready_to_merge", "verify_non_merge_gates"])
-        terminal_state = "ready_pr"
+        # One publication event, one lifecycle owner per PR: a delegated split
+        # reaches the terminal the carved stack already uses.
+        terminal_state = "ready_prs" if published_prs > 1 else "ready_pr"
 
     return {
         "target_skill": target,

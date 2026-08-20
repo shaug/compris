@@ -420,5 +420,52 @@
       "bind the invocation to the exact current head and comparison base",
       "publish one ready PR"
     ]
+  },
+  {
+    "case_id": "delegated-publication-one-pr",
+    "terminal_state": "ready_pr",
+    "required_actions": [
+      "resolve publish-candidate at the publication boundary",
+      "transfer publication with review_converged asserted",
+      "transfer publication with tracker_transition retained_by_caller",
+      "do not publish inline once the delegate resolved",
+      "validate the returned PR identity, head, and base against live host state",
+      "invoke babysit-pr with ready_to_merge for the one published PR",
+      "withhold merge"
+    ]
+  },
+  {
+    "case_id": "delegated-publication-split-into-several-prs",
+    "terminal_state": "ready_prs",
+    "required_actions": [
+      "resolve publish-candidate at the publication boundary",
+      "map a split ordinary publication to ready_prs",
+      "invoke babysit-pr once per published PR, one lifecycle owner each",
+      "verify the closing reference landed on exactly the one designated PR",
+      "do not require carve-changesets stack topology or whole-chain equivalence",
+      "do not invoke carve-changesets",
+      "withhold merge"
+    ]
+  },
+  {
+    "case_id": "delegated-publication-needs-author-written-content",
+    "terminal_state": "blocked",
+    "required_actions": [
+      "surface exactly the author-owned content the delegate named as missing",
+      "never author, paraphrase, or infer the missing content",
+      "preserve the converged candidate as a resumable handoff",
+      "report a publication gap rather than a failed implementation"
+    ]
+  },
+  {
+    "case_id": "no-publication-delegate-publishes-inline",
+    "terminal_state": "ready_pr",
+    "required_actions": [
+      "resolve publish-candidate at the publication boundary",
+      "publish inline: push the branch and open one focused PR",
+      "do not block or report a missing capability for the absent role",
+      "invoke babysit-pr with ready_to_merge",
+      "withhold merge"
+    ]
   }
 ]

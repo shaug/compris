@@ -296,5 +296,37 @@
     "tracker_state": "G-90 is otherwise ready and independently shippable.",
     "authority": "ready_pr_only",
     "candidate_state": "The ticket's implementation was committed in an earlier, unrelated session with no available review-fix-loop invocation or checkpoint for this candidate. The worktree is clean and every intended change is committed at the current head."
+  },
+  {
+    "id": "delegated-publication-one-pr",
+    "request": "Implement GitHub issue G-91.",
+    "tracker_state": "G-91 is ready, PR-sized, and independently shippable.",
+    "authority": "ready_pr_only",
+    "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available, and the repository also provides publish-candidate, resolvable by stable name at the publication boundary.",
+    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged at the current head and base, and within the carve-changesets guardrails. publish-candidate returns published with one open PR bound to that head, on a base ref of its own choosing, carrying a non-closing tracker reference."
+  },
+  {
+    "id": "delegated-publication-split-into-several-prs",
+    "request": "Implement GitHub issue G-92.",
+    "tracker_state": "G-92 is ready, PR-sized, and independently shippable.",
+    "authority": "ready_pr_only",
+    "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available, and the repository also provides publish-candidate, resolvable by stable name at the publication boundary.",
+    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged, and within the guardrails. publish-candidate's own rules require one class of change to land ahead of the code depending on it, so it returns published with three open PRs bound to that head, sharing one base, with the designated closing reference on exactly one of them."
+  },
+  {
+    "id": "delegated-publication-needs-author-written-content",
+    "request": "Implement GitHub issue G-93.",
+    "tracker_state": "G-93 is ready, PR-sized, and independently shippable.",
+    "authority": "ready_pr_only",
+    "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available, and the repository also provides publish-candidate, resolvable by stable name at the publication boundary.",
+    "candidate_state": "The candidate is validated, committed, worktree-clean, and review-fix-loop converged. publish-candidate returns needs_author_input, naming a body section its repository requires the change's own author to write and forbids any agent from authoring, paraphrasing, or inferring. Nothing was published."
+  },
+  {
+    "id": "no-publication-delegate-publishes-inline",
+    "request": "Implement GitHub issue G-94.",
+    "tracker_state": "G-94 is ready, PR-sized, and independently shippable.",
+    "authority": "ready_pr_only",
+    "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available. The repository provides no publish-candidate, and none resolves by stable name at the publication boundary.",
+    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged at the current head and base, and within the guardrails."
   }
 ]

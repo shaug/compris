@@ -6,6 +6,63 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- feat(implement-ticket): give the ordinary publication path an optional
+  `publish-candidate` delegate — four responsibilities already resolve by stable
+  repository-owned role name, and none of the four names a project, which is
+  what makes the skill portable. Publication was the exception: step 6 pushed
+  the branch and opened one PR inline, so a repository with real publication
+  requirements had no seam to put them behind. A mandatory non-default base
+  branch, a CI-checked title format, a pre-flight ownership-manifest entry, a
+  gate that only runs at publication time, and a mandatory split of one change
+  class into its own PR are each invisible from upstream and each belong there.
+  One of them was worse than unmet: a repository that forbids an agent from
+  authoring its PR narrative was being handed a step instructing the agent to
+  describe the ticket-wide outcome, non-goals, validation, and ledger state —
+  precisely the authoring it forbids. A fifth role fixes it, resolved by stable
+  name at the publication boundary, with
+  `references/publish-candidate-handoff.md` carrying the contract in the same
+  four structural slots its three peers use. Optionality is the load-bearing
+  property, so the role is deliberately absent from the pre-mutation dependency
+  gate `babysit-pr` uses: an unresolved `publish-candidate` selects inline
+  publication and never blocks, never reports a missing capability, and changes
+  nothing else, because a repository that defines no publication role is the
+  common case and a gate there would turn the common case into a stop. The
+  handoff carries the two caller-side assertions the overlaps require —
+  `review_converged`, so a delegate running its own review gates does not review
+  one converged candidate twice, and `tracker_transition: retained_by_caller`,
+  so a delegate that detects the tracker reference does not transition an item
+  whose ledger `implement-ticket` still owns. Both are stated rather than
+  implied, because an unstated assertion is exactly the one a repository skill's
+  own defaults will overwrite. A new terminal, `needs_author_input`, is what a
+  delegate returns when publication needs content only a human can write: it
+  maps to `blocked` with the converged candidate preserved and the missing
+  content named rather than written, so an unattended run halts there instead of
+  inventing the sentence a human owes — and it is reported as a publication gap,
+  not as a failed implementation, because the ledger already says the
+  implementation converged. Upstream learns that a delegate may demand author
+  input; it never learns what any repository requires that input to be. The
+  carved path is untouched and is explicitly not routed through the new role.
+
+- feat(implement-ticket): let one delegated publication return several PRs, and
+  say which obligations that shares with a carved stack — a repository may
+  require a schema-migration or dependency change to land and deploy ahead of
+  the code depending on it, so a publication delegate may legitimately split one
+  candidate into more than one PR. Only the carved path could publish several
+  before. Rather than a sixth terminal that `implement-epic` would have no
+  verification bullet for, a split ordinary publication maps to the terminal the
+  carved path already uses: `ready_prs`. The invariant moves from "one PR per
+  ticket" to "one publication event, and exactly one lifecycle owner per PR",
+  which is what it always actually was — `implement-ticket` still constructs one
+  `babysit-pr` handoff per published PR, and `publish-candidate` never invokes
+  `babysit-pr` itself. The sharing is in the terminal name only, so the carved
+  path's own stack obligations are re-keyed onto the carved path: ordered
+  predecessor-base topology and whole-chain equivalence are
+  `carve-changesets`'s, required of a delegated split only where the delegate
+  itself claims a chain, since several PRs sharing one base are a legitimate
+  split rather than a broken stack. `implement-epic`'s `ready_prs`
+  child-verification bullet moves with it — it presumed a chain, and would have
+  demanded chain evidence of a split that never claimed to be one.
+
 - docs(implement-ticket): record the before-stage eval evidence for the
   publication delegate — the existing 60-case forward corpus and
   `implement-epic`'s 15-case slice of it, both measured against the prose as it

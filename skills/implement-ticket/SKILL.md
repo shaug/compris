@@ -40,6 +40,10 @@ create a third shared workflow abstraction.
 - Read [the carve-changesets handoff](references/carve-changesets-handoff.md)
   after the initial review whenever the size gate classifies the candidate as
   oversized, and again before transferring candidate ownership.
+- Read [the publish-candidate handoff](references/publish-candidate-handoff.md)
+  whenever the ordinary path's publication boundary resolves a repository-owned
+  `publish-candidate`, and again before transferring publication to it. That
+  role is optional; when it does not resolve, publish inline and read nothing.
 - Always read [cleanup and result](references/cleanup-and-result.md) before a
   merge or terminal handoff.
 - When a caller supplies delegated-execution input, read and follow the
@@ -59,6 +63,10 @@ A compatible agentic runtime must be able to:
   repository-owned dependency mechanism;
 - load repository-owned `carve-changesets` by stable name at the publication
   size gate so its live guardrails and optional handoff are available;
+- resolve repository-owned `publish-candidate` by stable name at the ordinary
+  path's publication boundary when the repository provides one. This resolution
+  is conditional: its absence selects inline publication rather than reporting a
+  missing capability, so it is never an applicable-capability failure;
 - read repository instructions, tracker state, and structured relationships;
 - inspect and create isolated branch/worktree state;
 - edit files, run commands, commit, push, and manage PRs when authorized;
@@ -274,6 +282,12 @@ third-party reviewer, generic self-review, an inlined ad hoc fix loop, a private
 PR loop, runtime download, or stranded unmonitored PR path. A whole-epic
 `requires_epic` result occurs before these ticket-only dependencies are invoked.
 
+Do not add `publish-candidate` to this gate. That role is optional and is
+resolved at the publication boundary in
+[step 6](#6-publish-and-delegate-the-selected-path), where its absence selects
+inline publication. Requiring it before mutation would turn every repository
+that defines no publication role into a pre-mutation stop.
+
 The dependency graph is deliberately acyclic. The two publication paths are
 mutually exclusive:
 
@@ -282,7 +296,8 @@ implement-epic
 └── implement-ticket
     ├── review-fix-loop             # initial candidate review/fix/converge loop
     │   └── review-code-change      # each review pass inside the loop
-    ├── babysit-pr                  # ordinary single-PR lifecycle
+    ├── publish-candidate           # optional repository-owned publication
+    ├── babysit-pr                  # ordinary lifecycle, one per published PR
     │   └── review-fix-loop         # after a head-changing fix (update_pr)
     │       └── review-code-change  # each review pass inside the loop
     ├── carve-changesets            # authority-gated oversized path
@@ -299,8 +314,11 @@ Solid edges are invocation. The dashed edge is a recommendation, governed by
 [Route a not-ready ticket to `ready-ticket`](#route-a-not-ready-ticket-to-ready-ticket).
 
 `review-fix-loop`, `babysit-pr`, and `carve-changesets` must never invoke
-`implement-ticket`. `carve-changesets` must never invoke `implement-epic`. Do
-not re-enter this skill while consuming any delegated result.
+`implement-ticket`. `carve-changesets` must never invoke `implement-epic`.
+`publish-candidate` must never invoke `implement-ticket`, `babysit-pr`, or
+`carve-changesets`: it returns at the open PR, and this skill hands each
+published PR to exactly one `babysit-pr` owner. Do not re-enter this skill while
+consuming any delegated result.
 
 ## Establish source-of-truth precedence
 
@@ -481,8 +499,10 @@ cannot repair any of those.
   [worktree isolation mechanics](references/worktree-isolation.md) for
   native-tool preference, the sandbox fallback, placement precedence, the two
   path guards, and the clean-baseline run.
-- Use one ticket per candidate branch and worktree. Publication is either one PR
-  or one carved stack; never combine another ticket into either form.
+- Use one ticket per candidate branch and worktree. Publication is one event:
+  one PR, one carved stack, or the set of PRs a repository-owned publication
+  delegate splits the candidate into; never combine another ticket into any of
+  those forms.
 - Install documented dependencies and start required local services before
   classifying missing-tool failures as feature failures.
 
@@ -713,10 +733,24 @@ publish both paths for one candidate.
 
 ### 6. Publish and delegate the selected path
 
-For the ordinary path, push the candidate branch, open one focused PR, and
-follow [the babysit-pr handoff](references/babysit-pr-handoff.md). Map
-`ready PR only` to `ready_to_merge`; map both merge policies to
-`merge_when_ready`.
+For the ordinary path, first resolve repository-owned `publish-candidate` by
+stable name. That resolution decides one thing and nothing else:
+
+- **It resolves.** Follow
+  [the publish-candidate handoff](references/publish-candidate-handoff.md) and
+  transfer publication to it. Assert `review_converged` and
+  `tracker_transition: retained_by_caller` in the handoff, so the delegate
+  neither re-reviews the converged candidate nor transitions the tracker. It may
+  return one PR, or more than one when the repository's own rules require this
+  candidate to publish as several.
+- **It does not resolve.** Publish inline, unchanged: push the candidate branch
+  and open one focused PR. Never block on the role's absence, never report it as
+  a missing capability, and never let its absence alter anything else about this
+  step. Most repositories define no publication role, and this is their path.
+
+Either way, follow [the babysit-pr handoff](references/babysit-pr-handoff.md)
+once per published PR. Map `ready PR only` to `ready_to_merge`; map both merge
+policies to `merge_when_ready`. Exactly one lifecycle owner exists per PR.
 
 For the carved path, follow
 [the carve-changesets handoff](references/carve-changesets-handoff.md) and
@@ -724,17 +758,29 @@ transfer the immutable source candidate to `carve-changesets`. Map
 `ready PR only` to its publish boundary and `prs_open`; map both merge policies
 to its merge-and-propagate boundary and `all_merged`. `implement-ticket`
 performs no direct `babysit-pr` handoff, watcher, retry, feedback, fix, or merge
-loop for any stack PR. Exactly one watcher owner exists per PR.
+loop for any stack PR. Exactly one watcher owner exists per PR. Never route this
+path through `publish-candidate`: `carve-changesets` already owns its own
+publication and its own per-changeset `babysit-pr` delegations.
 
-In either path, describe the ticket-wide outcome, important non-goals, actual
-validation, and acceptance-ledger state. Use closing syntax on the one ordinary
-PR or final changeset PR only when explicit tracker-transition authority exists
-and every required acceptance item can pass before merge. Without that
-authority, or when any required item is post-merge, use `Refs #<issue>`,
-`Supports #<issue>`, or the tracker's established non-closing equivalent on all
-PRs. Transition the ticket manually only after the ledger passes and transition
-authority exists. Intermediate stack PRs always use a non-closing reference and
-remain behaviorally safe under the `carve-changesets` equivalence contract.
+The ticket-wide outcome, important non-goals, actual validation, and
+acceptance-ledger state must reach the PR body in every path. Author them
+directly when publishing inline; supply them as input to `carve-changesets` or
+`publish-candidate`, each of which owns the body of every PR it opens. Never
+author, paraphrase, or infer content a delegate reports only the ticket's author
+may supply — a delegate that says so returns `needs_author_input`, which
+[its handoff](references/publish-candidate-handoff.md#terminal-result-mapping)
+maps to `blocked` with the converged candidate preserved.
+
+Use closing syntax on exactly one PR of the publication — the one ordinary PR,
+the final changeset PR, or the one PR this run designates when a delegated
+publication splits the candidate — and only when explicit tracker-transition
+authority exists and every required acceptance item can pass before merge.
+Without that authority, or when any required item is post-merge, use
+`Refs #<issue>`, `Supports #<issue>`, or the tracker's established non-closing
+equivalent on all PRs. Transition the ticket manually only after the ledger
+passes and transition authority exists. Intermediate stack PRs always use a
+non-closing reference and remain behaviorally safe under the `carve-changesets`
+equivalence contract.
 
 Normal ticket execution never uses `watch_until_closed`. Ordinary pending CI or
 review time is not a blocker; retain task ownership through the selected
@@ -780,12 +826,21 @@ Stop and return `blocked` when:
 - a prerequisite outcome, authority, credential, approval, required
   infrastructure, or required acceptance evidence is missing;
 - correctness would materially exceed one-ticket scope;
-- review feedback requires redesigning the ticket; or
+- review feedback requires redesigning the ticket;
+- a resolved `publish-candidate` returns `needs_author_input`, meaning
+  publication requires content only a human can supply; or
 - required validation or acceptance evidence remains unavailable after
   documented bootstrap attempts.
 
 Difficulty, a long test suite, ordinary CI wait time, or independently ready
 sibling work is not a blocker.
+
+`needs_author_input` is a publication gap, not an implementation failure. The
+candidate converged and the ledger says so; what is missing is content the
+repository requires its own author to write. Surface exactly what the delegate
+named as missing, preserve the candidate, and stop. Never author, paraphrase, or
+infer it, and never retry publication with a placeholder — an unattended run
+halts here rather than inventing the sentence a human owes.
 
 ## Return one terminal handoff
 
@@ -796,17 +851,24 @@ one terminal state:
   candidate, every required pre-merge acceptance entry and applicable
   current-candidate non-merge gate has passed, merge was withheld, and this run
   owns or was explicitly handed ownership of the candidate;
-- `ready_prs`: the ticket's carved stack is open with verified topology, every
-  required pre-merge acceptance entry and per-PR non-merge gate has passed,
-  merge was withheld, and `carve-changesets` returned current-candidate
-  `prs_open` evidence;
+- `ready_prs`: this ticket's one publication event opened more than one PR, in
+  one of two shapes — a carved stack, or an ordinary publication a
+  repository-owned `publish-candidate` split. Every required pre-merge
+  acceptance entry and per-PR non-merge gate has passed, merge was withheld,
+  exactly one lifecycle owner exists per PR, and the owning delegate returned
+  current-candidate evidence: `carve-changesets`'s `prs_open` with verified
+  stack topology for a stack, or `publish-candidate`'s `published` with each
+  PR's verified identity, head, and base for a split. Stack topology and
+  whole-chain equivalence are the carved path's obligations, not the terminal
+  name's;
 - `merged`: the ordinary PR or full carved stack is verified on the base, every
   required pre-merge and post-merge acceptance entry passes for the current
   candidate/deployment and environment, and the authorized ticket transition and
   cleanup are verified;
 - `blocked`: give one concrete blocking reason and next action, preserving any
-  partial or merged delivery artifacts and identifying acceptance-pending state;
-  or
+  partial or merged delivery artifacts and identifying acceptance-pending state.
+  A `needs_author_input` publication gap is reported here, with the converged
+  candidate preserved and the author-owned content named rather than written; or
 - `requires_epic`: no mutation occurred and the handoff names `implement-epic`
   with its stable routing marker.
 

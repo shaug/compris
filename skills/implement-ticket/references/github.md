@@ -75,11 +75,15 @@ Markdown.
 
 ## Handoff and caller-owned closeout
 
-For the ordinary path, capture the exact PR head and base, effective candidate,
-worktree state, validation, initial review, required remote-gate policy,
-connector contract, completion policy, and authority required by
-[the babysit-pr handoff](babysit-pr-handoff.md), then delegate the PR to
-repository-owned `babysit-pr`.
+For the ordinary path, resolve repository-owned `publish-candidate` by stable
+name at the publication boundary. When it resolves, transfer publication to it
+with the fields [the publish-candidate handoff](publish-candidate-handoff.md)
+requires; when it does not, push the branch and open the one PR here as before.
+Then capture the exact PR head and base, effective candidate, worktree state,
+validation, initial review, required remote-gate policy, connector contract,
+completion policy, and authority required by
+[the babysit-pr handoff](babysit-pr-handoff.md), and delegate each published PR
+to repository-owned `babysit-pr`.
 
 For the carved path, capture the immutable source candidate, guardrail and
 operator-decision evidence, completion policy, tracker semantics, and authority
