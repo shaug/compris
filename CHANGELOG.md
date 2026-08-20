@@ -6,6 +6,16 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): validate every returned publication identity, not the
+  one — step 6's shared tail said "the returned identity", written when the
+  ordinary path returned exactly one PR. It was already loose for the carved
+  stack and is now wrong for a delegated split: a publication that opens three
+  PRs has three identities to reread against live host state, and a caller
+  reading the singular could reasonably verify the first and stop. The
+  publish-candidate handoff and the terminal-result contract already require
+  each returned PR to be independently reverified; this makes `SKILL.md` say the
+  same thing.
+
 - docs(implement-ticket): record the after-stage eval evidence for the
   publication delegate — 64 of 64 at the shipping prose, with the four new cases
   passing and every one of the sixty pre-existing cases holding its prior
