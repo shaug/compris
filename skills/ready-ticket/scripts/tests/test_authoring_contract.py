@@ -1,6 +1,6 @@
 """Load-bearing contract invariants for the ready-ticket skill.
 
-These tests check stable identifiers — the skill name, its five terminal
+These tests check stable identifiers — the skill name, its six terminal
 results, the approved-design input gate, the readiness target it inherits from
 implement-ticket, the recorded peer bounds, and the result-blind fixture
 pairing — not prose phrasing. Scenario coverage lives in the evaluation data
@@ -22,6 +22,7 @@ TERMINAL_RESULTS = (
     "ticket_ready",
     "draft_ready",
     "decomposition_recommended",
+    "graph_created",
     "requires_brainstorming",
     "blocked",
 )
@@ -655,6 +656,112 @@ class ReadyTicketContractTests(unittest.TestCase):
                 case_id,
             )
 
+    def test_graph_creation_authority_is_separate_and_endpoint_scoped(self):
+        """AC: one explicit grant authorizes creating the whole approved graph."""
+        for clause in (
+            "**graph-creation authority**: granted or absent, and when granted, "
+            "whether at invocation or reserved for after the draft graph is "
+            "presented",
+            "one grant authorizes creating everything the returned draft graph "
+            "names — every node and every native relationship — as a single "
+            "unit, never per item",
+            "Graph-creation authority is a further separate grant, defaulting to "
+            "off independent of ticket-management authority — holding one never "
+            "implies the other",
+            "granted, it authorizes creating every node and every native "
+            "relationship the returned draft graph names, and nothing beyond "
+            "that graph",
+            "It never authorizes merging, closing, labeling, assigning, or "
+            "implementing anything it creates, and it never authorizes a Linear "
+            "mutation",
+        ):
+            self.assertIn(clause, self.contract)
+
+        case_id = "graph-creation-authority-granted-creates-the-graph"
+        self.assertEqual("graph_created", self.expectations[case_id]["workflow_state"])
+        actions = self.actions(case_id)
+        self.assertIn("create every node and every native relationship", actions)
+        self.assertIn("reread every created body", actions)
+
+    def test_absent_authority_is_still_the_draft_ground_not_created(self):
+        """AC: absent the further grant, the draft is returned, never created."""
+        for clause in (
+            "Absent graph-creation authority, this is where the draft stops. "
+            "The draft is returned, never created",
+            "Ticket-management authority governs the body of one ticket and "
+            "grants no graph mutation: do not author a parent, create children, "
+            "or restructure a native graph",
+            "Graph-creation authority is the named exception, scoped to exactly "
+            "this draft",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_approval_is_admitted_at_invocation_or_after_presentation(self):
+        """AC: approval at invocation or after graph presentation, both admitted."""
+        for clause in (
+            "Graph-creation authority may already be granted at invocation, "
+            "covering whatever draft this run produces",
+            "present the complete draft graph — every parent, child, leaf body, "
+            "sub-issue edge, blocker edge, and re-split trigger — to the "
+            "requester before doing anything else with it",
+            "An explicit grant made in response to that presentation is this "
+            "run's graph-creation authority exactly as one made at invocation "
+            "would be; nothing before that grant creates anything",
+        ):
+            self.assertIn(clause, self.contract)
+
+    def test_a_relationship_failure_reports_landed_items_and_missing_edges(self):
+        """AC: a relationship failure reports every landed item and missing edge."""
+        for clause in (
+            "A relationship that fails to create after nodes have already "
+            "landed is not a partial success to paper over",
+            "Stop there — create nothing further — and report every item that "
+            "did land and every edge still missing",
+            "a node lands but a relationship the approved graph names fails to "
+            "create, or the reread of a created graph does not match the "
+            "approved draft exactly, so `graph_created` cannot be claimed "
+            "against live state",
+        ):
+            self.assertIn(clause, self.contract)
+
+        case_id = "graph-relationship-fails-after-issues-land"
+        self.assertEqual("blocked", self.expectations[case_id]["workflow_state"])
+        actions = self.actions(case_id)
+        self.assertIn("stop creating anything further", actions)
+        self.assertIn("report every issue that did land", actions)
+        self.assertIn("report the edge that is still missing", actions)
+
+    def test_success_requires_stored_body_equality_and_native_graph_readback(self):
+        """AC: success requires stored-body equality and native graph readback."""
+        for clause in (
+            "Success requires both: stored-body equality for every node, and a "
+            "native graph readback that matches the approved edges exactly",
+            "a stored body that does not equal its approved body, or a native "
+            "edge the reread does not confirm, blocks the claim of success "
+            "exactly as an unreported partial write would",
+        ):
+            self.assertIn(clause, self.contract)
+        self.assertIn(
+            "reread every created issue's stored body and the created "
+            "`subIssues` and `blockedBy`/`blocking` edges before claiming "
+            "`graph_created`",
+            compact(self.github),
+        )
+
+    def test_only_github_defines_the_graph_creation_write_path(self):
+        """AC: adding Linear mutation is out of scope for this write path."""
+        self.assertIn(
+            "never authorizes a Linear mutation — only the GitHub adapter "
+            "currently defines this write path",
+            self.contract,
+        )
+        self.assertIn(
+            "This is the only adapter that currently defines this write path; "
+            "Linear has none yet",
+            compact(self.github),
+        )
+        self.assertNotIn("graph-creation authority", compact(self.linear))
+
     def test_authoring_authority_never_implies_graph_or_workflow_authority(self):
         self.assertIn("Authoring a body is not graph authority", compact(self.github))
         self.assertIn(
@@ -695,7 +802,8 @@ class ReadyTicketContractTests(unittest.TestCase):
             self.contract,
         )
         self.assertIn(
-            "Do not close an open product decision by choosing for the requester",
+            "Do not close an open product decision by choosing an answer on the "
+            "requester's behalf",
             self.contract,
         )
         self.assertEqual(

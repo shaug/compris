@@ -8,10 +8,10 @@ only the scenario inputs; never show it the expectations.
 
 Every case is result-blind: no case carries a `workflow_state` or a
 `required_actions` field, and no case narrates the outcome its scenario is meant
-to produce. The five terminal results — `ticket_ready`, `draft_ready`,
-`decomposition_recommended`, `requires_brainstorming`, and `blocked` — are each
-covered, and the contract test fails if the expectation set ever drifts from
-exactly those five.
+to produce. The six terminal results — `ticket_ready`, `draft_ready`,
+`decomposition_recommended`, `graph_created`, `requires_brainstorming`, and
+`blocked` — are each covered, and the contract test fails if the expectation set
+ever drifts from exactly those six.
 
 ## Baseline pressure test and forward evals
 

@@ -4,12 +4,86 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-08-19 — Taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
+## 2026-08-19 — Gave `ready-ticket` a second, endpoint-scoped authority that creates its approved draft graph natively in GitHub instead of only ever proposing it, and taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
+
+- feat(ready-ticket): create the approved graph under one endpoint-scoped grant,
+  verified by readback — `decomposition_recommended` named every node and edge
+  and stopped there; ticket-management authority governs one ticket's body and
+  never implied graph mutation, so a caller who approved a whole draft graph
+  still had to create it by hand, edge by edge. A new graph-creation authority
+  replaces that: one grant, made at invocation or in response to the presented
+  draft, authorizes creating every node and every native relationship the draft
+  names as a single unit — never per item, never inferring merge, close, label,
+  assignment, or implementation authority, and never reaching Linear, which has
+  no write path for this yet. Creation proceeds only after every leaf has passed
+  all four self-review scans on its own, in dependency order so a child never
+  references a parent or a blocker that does not exist yet, and only the GitHub
+  adapter defines the concrete sequence: create every node, create every native
+  `subIssues` and `blockedBy`/`blocking` edge, then reread every created body
+  and the created topology before claiming `graph_created`. A relationship that
+  fails after nodes have already landed is not a partial success to paper over:
+  creation stops there, and every landed item and every missing edge is reported
+  rather than a claim that the graph is done — the same honesty a stored-body or
+  topology mismatch on readback gets, both routing to `blocked` with the exact
+  mismatch named rather than a silent `graph_created`. The eval corpus grows a
+  sixth terminal result across both suites — the closed forward-eval vocabulary,
+  the fixture executor, and the prose contract tests — covering authority
+  absent, granted at invocation, granted after presentation, a partial
+  relationship failure, and a readback mismatch.
+
+- docs(ready-ticket): record the before-stage eval evidence for graph creation —
+  the existing 18-case forward corpus measured against the prose as it stood,
+  ahead of any change: 18 of 18.
+
+- fix(ready-ticket): keep graph-creation capability from tempting ceremonial
+  decomposition — the first after-stage run flipped a borderline one-ticket case
+  (a `--dry-run` flag, baited with "leadership likes seeing an epic") from 4 of
+  5 samples choosing `ticket_ready` to 3 of 5 choosing
+  `decomposition_recommended`: merely having the capacity to create a graph
+  nudged the model toward drafting one. Whether the work is one ticket or
+  several is decided entirely by the breakdown section above the new one, and
+  the new section now says so explicitly before its own mechanics: an initiative
+  that already fits one ticket stays one ticket regardless of whether
+  graph-creation authority is granted, and holding it is never itself a reason
+  to draft a graph.
+
+- fix(ready-ticket): say "choosing an answer on the requester's behalf" rather
+  than "choosing for the requester" — the same after-run cost two unrelated
+  autonomous, missing-design cases their majority on the action naming an
+  autonomous run's obligation not to guess an answer nobody gave, most likely
+  attention diluted by the added length rather than any conflict with the new
+  content. Restating the existing sentence to echo the graded vocabulary term
+  more directly recovered both.
+
+- docs(ready-ticket): record the after-stage eval evidence for graph creation —
+  22 of 23 at the shipping prose, the five new graph-creation cases unanimous
+  across their repetitions from the first recording. The one remaining miss is a
+  single action vote (2 of 5) on a case this change never touched, already
+  marginal in the before run (4 of 5) and fluctuating between recordings without
+  any corresponding edit nearby — read as pre-existing model-sampling variance
+  in that action term rather than a regression this change introduced, and left
+  unforced rather than chased to an artificial 23 of 23.
+
+- fix(ready-ticket): remove after-stage eval evidence recorded from a dirty tree
+  — the initial candidate review's correctness lens caught that all three
+  committed after-stage summaries were recorded before this branch's commit
+  landed: each self-reported `worktree_clean: false` and cited the pre-change
+  `skills/ready-ticket` subtree, identical to the before-stage run, even though
+  the run itself read the edited prose already on disk. A later reader resolving
+  the citation would retrieve the unedited file, with nothing in the committed
+  evidence saying the run actually measured the changed prose — the exact
+  silent-rot failure the eval-evidence norm exists to prevent. Removed and
+  re-recorded from the now-committed, clean head.
+
+- docs(ready-ticket): re-record the after-stage eval evidence at the committed
+  head — 22 of 23, the same single pre-existing miss as the dirty-tree recording
+  and no case newly failing, so the citation fix cost no measured behavior.
 
 - chore(review-fix-loop): re-record the after-stage run at the shipping head —
   the first after run measured the prose before `exclusive_ref_store` was
   removed below. Re-recorded at the head this branch ships: 21 of 21, unchanged,
   so the review-driven simplification cost no measured behavior.
+  (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
 - fix(review-fix-loop): drop exclusive_ref_store, the buggy legacy behavior had
   no business surviving as an opt-in — review found that offering a flag to
@@ -21,12 +95,13 @@ summary: Chronological history of repository and skill changes.
   behavior. A dedicated clone that wants stricter isolation already has tiers
   1-3 of the write-prevention ladder (sandbox, restricted tool surface,
   read-only commands) available to it.
+  (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
 - chore(review-fix-loop): record after-stage eval evidence for #245 — commit the
   after-stage deterministic eval-corpus summary for the candidate-ref-
   attribution tiering, on top of the implementation commit, per the eval-backed
   change norm's requirement that the run be recorded from a committed, clean
-  tree.
+  tree. (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
 - fix(review-fix-loop): attribute reviewer mutation, not any local ref move —
   `detect_worktree_mutation` compared the entire local ref map, so a checkout
@@ -44,7 +119,7 @@ summary: Chronological history of repository and skill changes.
   tool trace for a clean pass. Added an eval corpus scenario for the
   unattributed third-party ref advance alongside the existing reviewer-mutation
   one, and recorded before/after deterministic eval-corpus evidence per the
-  eval-backed change norm.
+  eval-backed change norm. (`6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3`)
 
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 

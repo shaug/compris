@@ -1,6 +1,6 @@
 ---
 name: ready-ticket
-description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and must be resolved before scheduling. Produces acceptance criteria as observable behaviors of the product's public surface, each directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body goes back to the caller. Validates an approved design as input rather than gathering one. Returns one of five typed terminal results with evidence. Work exceeding one reviewable changeset comes back as a draft parent/child graph with a ready body per leaf — proposed, never created.
+description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and must be resolved before scheduling. Produces acceptance criteria as observable behaviors of the product's public surface, each directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body goes back to the caller. Validates an approved design as input rather than gathering one. Returns one of six typed terminal results. Oversized work comes back as a draft graph, proposed and never created — unless one endpoint-scoped GitHub grant authorizes creating it, verified by readback.
 ---
 
 # Ready Ticket
@@ -74,7 +74,12 @@ Before the first question, establish and record:
 - **run mode**: interactive when a requester can answer questions in this run,
   autonomous when none can;
 - **ticket-management authority**: granted or absent. Creating or updating a
-  tracker item requires it explicitly; and
+  tracker item requires it explicitly;
+- **graph-creation authority**: granted or absent, and when granted, whether at
+  invocation or reserved for after the draft graph is presented. This is
+  endpoint-scoped: one grant authorizes creating everything the returned draft
+  graph names — every node and every native relationship — as a single unit,
+  never per item; and
 - named architecture, design, contract, and rollout documents the body must stay
   consistent with.
 
@@ -86,6 +91,15 @@ infer it from tracker read access, from an existing assignment, from the word
 Authority to author a ticket never implies authority to implement it, to change
 its native relationships, to close or reprioritize a sibling, or to create
 additional tracker items.
+
+Graph-creation authority is a further separate grant, defaulting to off
+independent of ticket-management authority — holding one never implies the
+other. It is the one named exception to the sentence above: granted, it
+authorizes creating every node and every native relationship the returned draft
+graph names, and nothing beyond that graph. It never authorizes merging,
+closing, labeling, assigning, or implementing anything it creates, and it never
+authorizes a Linear mutation. See
+[Create the approved graph](#create-the-approved-graph).
 
 ## Require an approved design
 
@@ -278,10 +292,72 @@ below, stating each acceptance criterion as an observable behavior of the public
 surface, and put through all four self-review scans on its own. A leaf whose
 body would not pass those scans is not ready to be proposed as a ticket.
 
-The draft is returned, never created. Ticket-management authority governs the
-body of one ticket and grants no graph mutation: do not author a parent, create
-children, or restructure a native graph. The operator decides what to do with
-the draft.
+Absent graph-creation authority, this is where the draft stops. The draft is
+returned, never created. Ticket-management authority governs the body of one
+ticket and grants no graph mutation: do not author a parent, create children, or
+restructure a native graph. Graph-creation authority is the named exception,
+scoped to exactly this draft. The operator decides what happens to it: hold it,
+revise the request, or grant that authority — at invocation or now, in response
+to this presentation — and have it created; see
+[Create the approved graph](#create-the-approved-graph).
+
+## Create the approved graph
+
+Whether this work is one ticket or several is decided entirely by
+[the section above](#name-every-node-and-every-edge) and the doctrine it defers
+to, before this section is ever reached. This section changes nothing about that
+judgment: an initiative that already fits one reviewable ticket stays one ticket
+exactly as before, whether or not graph-creation authority is granted, and
+possessing it is never itself a reason to draft a graph. Ceremonial
+decomposition was a failure before this authority existed and remains one now.
+
+Applies only when the draft names more than the one ticket
+[Draft the body into every slot](#draft-the-body-into-every-slot) already
+covers, and only once graph-creation authority is in play for it. A single
+ticket has no graph: this section never touches the `ticket_ready` or
+`draft_ready` path.
+
+Graph-creation authority may already be granted at invocation, covering whatever
+draft this run produces. When it is not, present the complete draft graph —
+every parent, child, leaf body, sub-issue edge, blocker edge, and re-split
+trigger — to the requester before doing anything else with it, whenever an
+interactive run has a requester to present it to. An explicit grant made in
+response to that presentation is this run's graph-creation authority exactly as
+one made at invocation would be; nothing before that grant creates anything. In
+an autonomous run, or an interactive run whose requester declines or does not
+respond, no presentation-time grant is possible: return
+`decomposition_recommended` exactly as
+[the section above](#name-every-node-and-every-edge) already requires.
+
+With graph-creation authority granted — at either moment — for the current
+draft, and only after every leaf has passed all four self-review scans on its
+own:
+
+1. Create every node the draft names: the parent and every child, each with its
+   scanned body.
+2. Create every native relationship the draft names: every sub-issue edge and
+   every blocker edge.
+3. Reread every created item's stored body and the created native topology.
+   Success requires both: stored-body equality for every node, and a native
+   graph readback that matches the approved edges exactly.
+
+A relationship that fails to create after nodes have already landed is not a
+partial success to paper over. Stop there — create nothing further — and report
+every item that did land and every edge still missing, so the operator sees
+exactly what exists and what does not rather than a claim that the graph is
+done. The same honesty applies to a readback mismatch: a stored body that does
+not equal its approved body, or a native edge the reread does not confirm,
+blocks the claim of success exactly as an unreported partial write would, and is
+reported with the exact mismatch rather than treated as good enough.
+
+Nothing here authorizes more than the graph itself. Creating it never infers
+authority to merge, close, label, assign, or implement anything it creates, and
+never authorizes a Linear mutation — only the GitHub adapter currently defines
+this write path; see
+[the GitHub adapter](references/github.md#create-and-verify-the-approved-graph).
+Every created leaf still carries the full ready-ticket contract: the same
+template, the same surface-observable criteria, the same four self-review scans
+that would have applied had it been proposed rather than created.
 
 ## Recommend load-bearing verification when the cost is high
 
@@ -441,7 +517,8 @@ the result evidence that body approval was not obtainable.
 A design-owned decision that remains open after those sources is
 `requires_brainstorming` naming the missing part; a residue item that remains
 open is a `blocked` result naming the item. Do not close an open product
-decision by choosing for the requester.
+decision by choosing an answer on the requester's behalf — name the gap instead
+of guessing an answer for it.
 
 ## Return one terminal result
 
@@ -467,6 +544,14 @@ be claimed, and the caller verifies the evidence rather than the label.
   carries a complete body that fills every slot, states its criteria as
   observable public-surface behaviors, and passes all four scans; and no ticket,
   parent, child, or relationship was created or modified.
+- `graph_created` — every node the approved draft graph names now exists in the
+  owning tracker's native form, every native relationship it names now exists
+  between them, and both were reread and confirmed to match the approved draft
+  exactly: every stored body equals its approved body, and the reread topology
+  equals the approved edges. Graph-creation authority was granted — at
+  invocation or in response to presentation — and used. A relationship failure
+  or a readback mismatch after any node landed returns `blocked` with the landed
+  items and the missing or mismatched piece named, not this state.
 - `requires_brainstorming` — one of the approved design's four parts is not
   settled, in either of two shapes: it was **absent at the gate**, or it was
   **unsettled after the gate** by a verification that falsified what the design
@@ -507,7 +592,13 @@ Return `blocked` when:
 - an authorized tracker write fails, or the reread stored body does not match
   the approved body, so `ticket_ready` cannot be claimed against live state.
   Report the mutation that did occur and the exact mismatch; a write that landed
-  is delivery, and delivery is not the stored contract.
+  is delivery, and delivery is not the stored contract; or
+- a node lands but a relationship the approved graph names fails to create, or
+  the reread of a created graph does not match the approved draft exactly, so
+  `graph_created` cannot be claimed against live state. Report every item that
+  did land, every edge still missing, and the exact mismatch when there is one;
+  stop creating anything further, and never continue past a partial write left
+  unreported.
 
 A missing or insufficient approved design is not one of them, and neither is an
 objection that rests on one: both return `requires_brainstorming`, which names
