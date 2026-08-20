@@ -6,6 +6,18 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence for the
+  publication delegate — 64 of 64 at the shipping prose, with the four new cases
+  passing and every one of the sixty pre-existing cases holding its prior
+  outcome: nothing newly failing, nothing newly passing, sixty unchanged.
+  `implement-epic`'s slice of the same corpus is 15 of 15 and equally unmoved,
+  which is what its widened `ready_prs` bullet had to cost. The delegate-absent
+  case is the one that matters most here: optionality is the property that makes
+  the seam safe to ship, and a regression in that case is how it would announce
+  itself. As at the before stage, the real-model tier could not run — no
+  `claude` CLI on PATH — so both attempts are recorded with that limitation and
+  the model-behavior evidence stays deferred to the first capable run.
+
 - feat(implement-ticket): give the ordinary publication path an optional
   `publish-candidate` delegate — four responsibilities already resolve by stable
   repository-owned role name, and none of the four names a project, which is
