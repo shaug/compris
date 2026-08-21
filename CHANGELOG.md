@@ -6,6 +6,11 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence at the
+  eleventh-pass head — 74 of 74 and 16 of 16, and the note corrects the tenth
+  pass's overreaching mutation-verification claim rather than restating it.
+  Real-model tier still unavailable.
+
 - fix(implement-ticket): grade the lifecycle-owner obligation in both
   directions, and drop a stranded rationale — an eleventh review pass returned
   no blocking finding and reached the code-simplicity lens for the first time.
