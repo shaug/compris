@@ -11,10 +11,10 @@ failure. Where no `publish-candidate` resolves, this reference does not apply
 and [step 6](../SKILL.md#6-publish-and-delegate-the-selected-path) publishes
 inline exactly as it always has, with nothing else about the step changed.
 
-The reference also applies only to the ordinary single-PR publication path. The
-carved path is unchanged: `carve-changesets` already owns its own publication
-and its own per-changeset `babysit-pr` delegations, so never route a carved
-candidate through `publish-candidate`. Use
+The reference also applies only to the ordinary publication path, which may open
+one PR or several. The carved path is unchanged: `carve-changesets` already owns
+its own publication and its own per-changeset `babysit-pr` delegations, so never
+route a carved candidate through `publish-candidate`. Use
 [the carve-changesets handoff](carve-changesets-handoff.md) there instead.
 
 ## Responsibility boundary

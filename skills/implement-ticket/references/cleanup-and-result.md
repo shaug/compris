@@ -5,11 +5,13 @@ returning a terminal handoff.
 
 ## Safe per-candidate cleanup
 
-01. Confirm the ordinary PR or every carved-stack PR is merged remotely.
+01. Confirm every PR of the publication is merged remotely — the ordinary PR,
+    every PR of a delegated split, or every carved-stack PR.
 02. Fetch and prune the remote.
-03. Confirm the ordinary branch or complete stack result is represented on the
-    verified base. Use ancestry first and patch equivalence after squash or
-    rebase when needed.
+03. Confirm the publication's complete result is represented on the verified
+    base, whether that is one ordinary branch, every branch of a delegated
+    split, or the complete stack. Use ancestry first and patch equivalence after
+    squash or rebase when needed.
 04. Map the exact ticket worktree, source and published branches, upstreams, PR
     heads, and base branch. Never rely on the current directory or a branch-name
     guess.

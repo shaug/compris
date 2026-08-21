@@ -229,14 +229,15 @@ vocabulary, and deliberately so at `v2`. `implement-ticket` also reaches
 publication into several PRs sharing one base — a shape `publication.kind`
 cannot name and this contract's chain rules below reject, since they require
 every later PR to base on the previous PR's head. A run under this contract
-therefore must not publish a split: pass no
-`decompose oversized candidates into stacked changesets` equivalent for
-publication, and treat a delegate that splits anyway as a contract violation
-that returns `blocked` with its published PR identities preserved, rather than a
-`ready_prs` this validator would reject after every PR already exists.
-Representing a split needs a new `publication.kind` and its own validation
-branch, which is a versioned change to this contract and not something a caller
-may assume at `v2`.
+therefore must not publish a split: send `publication_shape: single_pr_only` in
+the `publish-candidate` handoff, per
+[that handoff's verified-handoff list](../publish-candidate-handoff.md#verified-handoff),
+and treat a delegate that splits anyway as a contract violation that returns
+`blocked` with every published PR identity preserved and each one handed a
+`babysit-pr` owner, rather than a `ready_prs` this validator would reject after
+every PR already exists. Representing a split needs a new `publication.kind` and
+its own validation branch, which is a versioned change to this contract and not
+something a caller may assume at `v2`.
 
 Except for `requires_epic`, the terminal ledger must cover the invocation's
 acceptance contract one-to-one: it may neither omit a criterion nor invent one,

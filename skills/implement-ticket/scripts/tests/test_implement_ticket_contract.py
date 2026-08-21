@@ -609,8 +609,16 @@ class ImplementTicketContractTests(unittest.TestCase):
             "verify that both `review-fix-loop` and `babysit-pr` are available",
             self.skill_compact,
         )
-        gate = compact(read(SKILL_ROOT / "references" / "babysit-pr-handoff.md"))
-        self.assertNotIn("publish-candidate", gate)
+        # Scoped to the gate section, not the whole document. The invariant is
+        # that the *gate* never names `publish-candidate`; the document as a
+        # whole must name it, because a split publication reaches `babysit-pr`
+        # once per PR through this very reference, and a reader who cannot see
+        # that here is a reader who strands the extra PRs.
+        handoff = read(SKILL_ROOT / "references" / "babysit-pr-handoff.md")
+        gate_section = handoff.split("## Pre-mutation dependency gate", 1)[1]
+        gate_section = gate_section.split("\n## ", 1)[0]
+        self.assertNotIn("publish-candidate", compact(gate_section))
+        self.assertIn("publish-candidate", compact(handoff))
 
     def test_publish_candidate_carries_both_caller_side_assertions(self):
         """Without these the candidate gets reviewed twice, or transitioned early."""

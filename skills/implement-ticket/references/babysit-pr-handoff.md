@@ -6,8 +6,12 @@ evaluations, and result contract before delegation. If its delivered contract
 differs materially from this boundary, stop and reconcile ownership rather than
 copying lifecycle mechanics into `implement-ticket`.
 
-This reference applies only to the ordinary single-PR publication path. When the
-size gate selects a carved stack, use
+This reference applies to the ordinary publication path, once per PR that path
+publishes. That is one handoff for an inline or single-PR delegated publication,
+and one per PR when a repository-owned
+[`publish-candidate`](publish-candidate-handoff.md) splits the candidate — every
+live PR gets exactly one lifecycle owner, whatever terminal the run reaches.
+When the size gate selects a carved stack instead, use
 [the carve-changesets handoff](carve-changesets-handoff.md) and perform no
 direct `babysit-pr` handoff from `implement-ticket`.
 

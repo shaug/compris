@@ -700,7 +700,6 @@
     "forbidden_actions": [
       "publish_inline",
       "author_missing_author_content",
-      "invoke_ready_to_merge",
       "invoke_merge_when_ready",
       "invoke_carve_changesets"
     ],
@@ -710,6 +709,7 @@
       "report_needs_author_input",
       "report_partial_publication",
       "verify_delegated_pr_identities",
+      "invoke_ready_to_merge",
       "preserve_artifacts"
     ],
     "target_skill": "implement-ticket",

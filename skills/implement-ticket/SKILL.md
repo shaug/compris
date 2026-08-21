@@ -131,9 +131,10 @@ Use this default authority matrix unless the user or repository is stricter:
 - `ready PR only` permits isolated implementation, validation, commit, feature
   branch push, PR creation or update, evidence-based review replies, and
   resolution of fully addressed threads;
-- `merge after gates` additionally permits merging this ticket's ordinary PR or
-  carved stack and safely deleting its verified merged feature branches, but it
-  does not permit deployment, post-merge verification, or tracker transition;
+- `merge after gates` additionally permits merging every PR of this ticket's one
+  publication — the ordinary PR, each PR of a delegated split, or the carved
+  stack — and safely deleting its verified merged feature branches, but it does
+  not permit deployment, post-merge verification, or tracker transition;
 - `merge plus manual transition` additionally permits only the explicitly
   requested status, reopen, or close transition for this ticket after its
   acceptance evidence passes;

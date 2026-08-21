@@ -277,7 +277,7 @@ def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str],
 
 
 def publish_candidate_result(
-    capabilities: dict, handoff: dict
+    capabilities: dict, handoff: dict, authority: dict
 ) -> tuple[list[str], bool, int]:
     """Resolve the optional publication delegate at the publication boundary.
 
@@ -308,6 +308,16 @@ def publish_candidate_result(
         # exists still needs a lifecycle owner.
         stopped_after = result.get("prs") or []
         if stopped_after:
+            # A PR that exists needs a lifecycle owner whatever terminal the run
+            # reaches, so the handoff is emitted here too, mapped from the
+            # completion policy exactly as the ordinary path maps it. Omitting it
+            # would grade a compliant runtime as failing and a runtime that
+            # strands the PR as passing.
+            lifecycle = (
+                "invoke_merge_when_ready"
+                if authority.get("merge")
+                else "invoke_ready_to_merge"
+            )
             return (
                 actions
                 + [
@@ -315,6 +325,7 @@ def publish_candidate_result(
                     "preserve_artifacts",
                     "verify_delegated_pr_identities",
                     "report_partial_publication",
+                    lifecycle,
                 ],
                 True,
                 len(stopped_after),
@@ -761,7 +772,7 @@ def action_result(payload: dict) -> dict:
             publication_actions,
             publication_blocked,
             published_prs,
-        ) = publish_candidate_result(capabilities, handoff)
+        ) = publish_candidate_result(capabilities, handoff, authority)
         actions.extend(publication_actions)
         if publication_blocked:
             return {

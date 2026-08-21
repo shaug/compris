@@ -6,6 +6,34 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): make the partial-publication case grade the right way
+  round, and widen the last six enumerations — a fourth review pass found the
+  new `needs_author_input` case forbidding both vocabulary tokens that express a
+  `babysit-pr` handoff while carrying one live pull request, so the case graded
+  backwards: a runtime that gave the PR a lifecycle owner failed it and a
+  runtime that stranded the PR passed. The obligation the prose had just added
+  therefore had no measuring case at all. Both the oracle and the expectation
+  now require the handoff, mapped from the completion policy exactly as the
+  ordinary path maps it, and the corrected case is verified to fail a stranding
+  runtime. The same pass found six more publication-shape enumerations — the
+  authority matrix's merge grant, cleanup steps 01 and 03, the `babysit-pr`
+  handoff's own scope paragraph, the `publish-candidate` handoff's scope line,
+  and the Claude Code agent metadata's suggested prompt. This time they were
+  found by grepping the pattern across the whole skill tree rather than by
+  inspection, which is how the previous three passes kept coming up short; five
+  further matches were checked and left alone because `ready_pr` genuinely is
+  one pull request and the publication size gate genuinely does choose between
+  ordinary and carved. The delegated-execution contract also still prescribed
+  the mechanism its own sibling document calls insufficient — "pass no
+  decomposition equivalent" rather than the `publication_shape` assertion that
+  actually reaches the delegate — so the two halves of that restriction now name
+  the same field. `test_publish_candidate_is_optional_and_never_blocks` had
+  asserted that `publish-candidate` appears nowhere in the `babysit-pr` handoff,
+  as a proxy for "not in the pre-mutation dependency gate"; the assertion is now
+  scoped to the gate section, because a split publication reaches `babysit-pr`
+  once per PR through that very reference and a reader who cannot see it there
+  is a reader who strands the extra pull requests.
+
 - docs(implement-ticket): record the after-stage eval evidence for the
   review-fix pass — 66 of 66 and 15 of 15, compared against the runs #254 landed
   on `main`, which measure this branch's exact starting prose and so serve as

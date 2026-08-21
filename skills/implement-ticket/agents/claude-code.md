@@ -5,7 +5,7 @@ does not constrain the skill's portable contract.
 
 - Display name: Implement Ticket.
 - Suggested prompt: "Use the implement-ticket skill to implement this ticket,
-  run its initial review, choose the authorized single-PR or carved-stack
+  run its initial review, choose the authorized ordinary or carved-stack
   publication path, and verify the authorized result."
 - Isolated implementation state: create the ticket branch in a dedicated git
   worktree (for example via Claude Code's worktree support) owned exclusively by
