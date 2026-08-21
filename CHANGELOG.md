@@ -6,6 +6,28 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): make the enumeration guard catch every revert it exists
+  for, and treat a delegate `blocked` as the defined status it is — an eighth
+  review pass replayed the guard's own two assertions against each corrected
+  file at the base commit and found it blind to three of the four files the
+  previous pass had fixed. The blacklist held six phrases chosen when it was
+  written, and none of them matched the wordings actually removed; the positive
+  half was still hand-listed over five names, which is why
+  `references/linear.md` — inside the glob, citing `all_merged`, carrying no
+  "split" until this work fixed it — sat uncovered by the very assertion that
+  would have caught it. The blacklist now carries every wording this work
+  removed, found by diffing base against head rather than by recall, and the
+  positive half runs over the discovered surface instead of a second
+  hand-written list. All four reverts are verified to fail it. Separately, the
+  oracle funnelled the delegate's `blocked` — a status the handoff contract
+  defines — into `reject_stale_or_malformed_result` with a zero PR count,
+  identically to an undefined status. A conformant delegate reporting where it
+  stopped was modelled as a broken one, and any PR it had already opened was
+  stranded with no lifecycle owner: the same class as the two blocking findings
+  earlier in this work. It now preserves and verifies those identities and hands
+  each one an owner, the handoff says so, and a new case measures it —
+  mutation-verified to fail when the branch is removed.
+
 - docs(implement-ticket): record the after-stage eval evidence at the
   seventh-pass head — 68 of 68 and 16 of 16, unmoved. Real-model tier still
   unavailable.

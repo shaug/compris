@@ -332,6 +332,25 @@ def publish_candidate_result(
             )
         return actions + ["report_needs_author_input", "preserve_artifacts"], True, 0
     published = result.get("prs") or []
+    if status == "blocked":
+        # A defined status, not a malformed result. Whatever it published before
+        # stopping is live, so those identities are preserved, verified, and
+        # handed a lifecycle owner; only the count of what exists is reported.
+        # Collapsing this into `reject_stale_or_malformed_result` would model a
+        # contract-conformant delegate as a broken one and strand its PRs.
+        blocked_actions = actions + ["preserve_artifacts", "report_delegate_blocked"]
+        if published:
+            lifecycle = (
+                "invoke_merge_when_ready"
+                if authority.get("merge")
+                else "invoke_ready_to_merge"
+            )
+            blocked_actions += [
+                "verify_delegated_pr_identities",
+                "report_partial_publication",
+                lifecycle,
+            ]
+        return blocked_actions, True, len(published) if published else 0
     if status != "published" or not published:
         return (
             actions + ["reject_stale_or_malformed_result", "reread_live_pr"],

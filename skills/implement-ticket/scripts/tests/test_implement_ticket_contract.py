@@ -662,6 +662,12 @@ class ImplementTicketContractTests(unittest.TestCase):
         merging a publication while being silent about the shape that has more
         than one PR.
         """
+        # Every wording this work actually removed, so reverting any corrected
+        # file fails here. The first six were listed when the guard was written;
+        # the rest were found by diffing base against head, because a phrase
+        # nobody wrote down is a phrase the blacklist cannot catch — three of the
+        # four files corrected in the pass before this one produced zero hits
+        # against the original six.
         superseded = (
             "ordinary PR or carved stack",
             "ordinary PR or every carved-stack PR",
@@ -669,6 +675,17 @@ class ImplementTicketContractTests(unittest.TestCase):
             "ordinary single-PR publication path",
             "single-PR or carved-stack",
             "either a single pull request or an explicitly authorized carved stack",
+            "one ordinary PR or one ordered carved stack",
+            "After the ordinary merge or verified `all_merged` result",
+            "the ordinary branch or complete stack result",
+            "the ordinary PR or every carved-stack PR",
+            "either one ordinary PR or one ordered carved stack",
+            "ordinary merge or `all_merged`",
+            "the selected single-PR or stack identity",
+            "PR or ordered stack identity when created",
+            "publish one ordinary PR through `babysit-pr` or an explicitly "
+            "authorized carved stack",
+            "# ordinary single-PR lifecycle",
         )
         # Search surface is every prose and metadata file the skill ships plus
         # the README, discovered rather than listed. A hand-listed surface is
@@ -694,23 +711,22 @@ class ImplementTicketContractTests(unittest.TestCase):
                     f"superseded enumeration in {path.name}: {phrase}",
                 )
 
-        # Positive direction: a document that reasons about merge verification
-        # names the split. `all_merged` is the marker for such a document — it
-        # is the carved path's merge terminal, so any file citing it is talking
-        # about verifying a merged publication.
-        for name in (
-            "SKILL.md",
-            "references/review-and-merge-gates.md",
-            "references/babysit-pr-handoff.md",
-            "references/github.md",
-            "references/cleanup-and-result.md",
-        ):
-            document = compact(read(SKILL_ROOT / name))
+        # Positive direction, over the same discovered surface rather than a
+        # second hand-written list. `all_merged` marks a document reasoning
+        # about a merged publication — the carved path's merge terminal — so any
+        # file citing it must also name the split. Hand-listing this half is
+        # what left `references/linear.md` uncovered: it is inside the glob, it
+        # cites `all_merged`, and it carried no "split" until this work fixed
+        # it, so the assertion would have caught it had the list not been
+        # written by hand.
+        for path in surface_files:
+            document = compact(read(path))
             if "all_merged" not in document:
                 continue
-            self.assertTrue(
-                "split" in document,
-                f"{name} verifies a merged publication without naming the "
+            self.assertIn(
+                "split",
+                document,
+                f"{path.name} verifies a merged publication without naming the "
                 "shape that has more than one PR",
             )
 

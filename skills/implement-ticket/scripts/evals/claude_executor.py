@@ -125,6 +125,7 @@ ACTION_VOCABULARY = (
     "report_dependency_provenance_failure",
     "report_dependency_readability_failure",
     "report_dependency_resolution_failure",
+    "report_delegate_blocked",
     "report_delivery_acceptance_separately",
     "report_mid_stack_redesign",
     "report_missing_reopen_authority",

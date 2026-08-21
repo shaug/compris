@@ -1222,5 +1222,23 @@
       "worktree": {"path": "/worktrees/g691", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-691", "split_child_result": {"child": "G-691", "prs": [{"number": 692, "state": "merged", "head": "head-691a", "base": "base-1"}, {"number": 693, "state": "open", "head": "head-691b", "base": "base-1"}]}}
     }
+  },
+  {
+    "id": "delegated-publication-delegate-blocked-with-prs",
+    "target_skill": "implement-ticket",
+    "request": "Implement G-700 to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-700", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill whose pre-flight ownership-manifest check runs per pull request"},
+      "pr": {"state": "open", "merged": false, "head": "head-700", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-700", "patch": "ticket-scoped patch", "resulting_tree": "tree-700"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-700"}]},
+      "reviews": {"initial": "clean", "head": "head-700", "connector_head": "head-700", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g700", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-700", "publish_candidate_result": {"status": "blocked", "reason": "the second pull request failed the repository's ownership-manifest pre-flight check", "prs": [{"number": 701, "state": "open", "head": "head-700a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+    }
   }
 ]

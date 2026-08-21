@@ -205,8 +205,11 @@ head other than the handed-off candidate head fails closed.
   published" would strand it unmonitored.
 - `blocked` maps to `blocked` with the delegate's concrete reason, the current
   candidate, whatever it published before stopping, and one next action. A
-  partial publication is preserved and reported by identity, never silently
-  completed inline.
+  partial publication is preserved and reported by identity, hands each PR it
+  did open a `babysit-pr` owner, and is never silently completed inline. This is
+  a status the contract defines, so treat it as one: a `blocked` carrying PR
+  identities is a conformant delegate reporting where it stopped, not a
+  malformed result to reject.
 
 `ready_prs` is shared with the carved path, and the sharing is in the terminal
 name only. Ordered predecessor-base topology and whole-chain equivalence are

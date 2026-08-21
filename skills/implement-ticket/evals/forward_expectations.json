@@ -749,5 +749,25 @@
     ],
     "target_skill": "implement-epic",
     "terminal_state": "mixed_ticket_results"
+  },
+  {
+    "case_id": "delegated-publication-delegate-blocked-with-prs",
+    "forbidden_actions": [
+      "reject_stale_or_malformed_result",
+      "publish_inline",
+      "invoke_merge_when_ready",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_delegate_blocked",
+      "verify_delegated_pr_identities",
+      "report_partial_publication",
+      "invoke_ready_to_merge",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
   }
 ]
