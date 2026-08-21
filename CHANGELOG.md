@@ -6,6 +6,20 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence for the
+  review-fix pass — 66 of 66 and 15 of 15, compared against the runs #254 landed
+  on `main`, which measure this branch's exact starting prose and so serve as
+  its before stage rather than a separate re-measurement of the same tree.
+  Nothing newly failing, nothing newly passing, 64 unchanged, and the two new
+  cases pass on their first recorded run. Earlier intermediate records from this
+  work were dropped rather than carried: a rebase onto the merged `main` left
+  their `candidate.sha` reachable only as a dangling object in one clone, which
+  AGENTS.md calls rot rather than evidence, and removing the summary is honest
+  where keeping it would leave a file asserting a state nobody can retrieve. The
+  real-model tier remains unavailable here, so all four attempts are recorded
+  with the observed `FileNotFoundError` and the model-behavior evidence stays
+  deferred.
+
 - fix(implement-ticket): close the remaining publication-shape surfaces a third
   review pass found — the `merged` widening had reached four surfaces and then
   five, and a third pass found two more plus a hole in the oracle enforcing it.
