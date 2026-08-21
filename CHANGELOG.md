@@ -6,6 +6,33 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): grade the lifecycle-owner obligation in both
+  directions, and drop a stranded rationale — an eleventh review pass returned
+  no blocking finding and reached the code-simplicity lens for the first time.
+  Its correctness finding is one this work's own recorded evidence had claimed
+  was impossible: the after-run note asserted that every oracle branch was
+  mutation-verified, and the partial-publication lifecycle handoff was verified
+  in one direction only. Both branches select the handoff from the completion
+  policy, but no case paired merge authority with a partial publication, so
+  mutating them to emit the obligation *only* when merge authority is absent — a
+  runtime that strands an already-published pull request precisely when the run
+  may merge — passed all 72 cases. The ungraded direction was the one that
+  matters: a live PR with no lifecycle owner is this work's headline failure
+  mode. Two cases now pair merge authority with each branch, and the mutation
+  that passed is verified to fail both. The recorded claim was overreaching
+  rather than false — it described the branches added, not the directions within
+  them — and the next recorded note says so rather than leaving the earlier one
+  to be read as broader than it was. The code-simplicity finding is a nine-line
+  rationale for the publication-boundary guard left stranded above the `split`
+  count when a later commit moved the guard below it and rewrote the explanation
+  at the new location; `git blame` puts both commits inside this work, so the
+  duplication is this work's own. The stranded copy is the one a reader of
+  `split` meets first, and it would have gone stale the moment the conjuncts
+  changed. Deliberately not fixed: the epic split-child branch's all-merged
+  direction is ungraded, which the review raised as non-gating — the direction
+  the prose actually corrected is measured, and two other epic cases measure the
+  generic refresh.
+
 - docs(implement-ticket): record the after-stage eval evidence at the tenth-pass
   head — 72 of 72 and 16 of 16. Real-model tier still unavailable.
 

@@ -1294,5 +1294,41 @@
       "worktree": {"path": "/worktrees/g760", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-760", "carve_terminal": "all_merged", "topology": "verified", "closing_syntax": "final_only", "stack_count": 3}
     }
+  },
+  {
+    "id": "delegated-partial-publication-under-merge-authority",
+    "target_skill": "implement-ticket",
+    "request": "Implement and merge G-780 through the repository's publication delegate.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-780", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill that requires an author-written narrative section per pull request"},
+      "pr": {"state": "open", "merged": false, "head": "head-780", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-780", "patch": "ticket-scoped patch", "resulting_tree": "tree-780"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-780"}]},
+      "reviews": {"initial": "clean", "head": "head-780", "connector_head": "head-780", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g780", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-780", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 781, "state": "open", "head": "head-780a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+    }
+  },
+  {
+    "id": "delegate-blocked-with-prs-under-merge-authority",
+    "target_skill": "implement-ticket",
+    "request": "Implement and merge G-790 through the repository's publication delegate.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-790", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill whose pre-flight ownership-manifest check runs per pull request"},
+      "pr": {"state": "open", "merged": false, "head": "head-790", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-790", "patch": "ticket-scoped patch", "resulting_tree": "tree-790"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-790"}]},
+      "reviews": {"initial": "clean", "head": "head-790", "connector_head": "head-790", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g790", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-790", "publish_candidate_result": {"status": "blocked", "reason": "the third pull request failed the repository's ownership-manifest pre-flight check", "prs": [{"number": 791, "state": "open", "head": "head-790a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 792, "state": "open", "head": "head-790b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+    }
   }
 ]

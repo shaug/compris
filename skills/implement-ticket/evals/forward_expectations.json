@@ -824,5 +824,45 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "ready_pr"
+  },
+  {
+    "case_id": "delegated-partial-publication-under-merge-authority",
+    "forbidden_actions": [
+      "publish_inline",
+      "author_missing_author_content",
+      "invoke_ready_to_merge",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_needs_author_input",
+      "report_partial_publication",
+      "verify_delegated_pr_identities",
+      "invoke_merge_when_ready",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegate-blocked-with-prs-under-merge-authority",
+    "forbidden_actions": [
+      "reject_stale_or_malformed_result",
+      "publish_inline",
+      "invoke_ready_to_merge",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_delegate_blocked",
+      "verify_delegated_pr_identities",
+      "report_partial_publication",
+      "invoke_merge_when_ready",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
   }
 ]

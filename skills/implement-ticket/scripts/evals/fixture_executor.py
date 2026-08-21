@@ -794,15 +794,6 @@ def action_result(payload: dict) -> dict:
             "actions": actions + ["reject_concurrent_mutation"],
         }
 
-    # The publication boundary, and only the ordinary path reaches it. The
-    # guard is positive rather than trusting that every carved branch returned
-    # above: an oversized candidate whose `carve_terminal` is neither
-    # `prs_open` nor a blocking value falls out of that block without
-    # returning, and routing it through the delegate is exactly what
-    # SKILL.md's "do not route the carved path through publish-candidate"
-    # forbids. A publication that never happens emits no publication
-    # obligation at all, so an already-merged or resumed candidate does not
-    # report a `publish_inline` it never performed.
     # How many PRs this ticket's one publication comprises. Read from the
     # delegate's own result, never from whether *this* run performed the
     # publication: an already-merged or resumed candidate skips the boundary
