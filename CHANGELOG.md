@@ -6,6 +6,26 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): widen the merge-verification restatements and measure
+  the two obligations that were prose only — a sixth review pass returned no
+  blocking finding for the first time, and its three recommendations were mostly
+  about coverage rather than defects. Five restatements of the merged and
+  post-merge step still enumerated two publication shapes, in a phrase family
+  the previous pass's blacklist could not match: the sharpest was
+  intra-paragraph, one sentence naming "every PR of a delegated split" and the
+  next requiring only "independent remote merge or `all_merged`". All five now
+  require every PR of the publication merged. The blacklist is inherently behind
+  the prose, so it is now paired with a positive assertion in the other
+  direction: any document citing `all_merged` — the marker of a document
+  reasoning about a merged publication — must also name the split, so a file
+  cannot discuss merging while silent about the shape with more than one PR. Two
+  obligations were also measured for the first time. The resumed-split PR count
+  could be reverted with all 66 cases still green, and the epic's split-child
+  merge verification could be deleted with every test and both slices green;
+  both now have a case, and both cases are mutation-verified to fail when the
+  fix they measure is reverted, which is the check that distinguishes a case
+  that measures something from one that merely passes.
+
 - docs(implement-ticket): record the after-stage eval evidence at the head that
   closes the fifth review pass — 66 of 66 and 15 of 15, all unchanged. Both
   regressions this pass fixed were reachable only by inputs no corpus case

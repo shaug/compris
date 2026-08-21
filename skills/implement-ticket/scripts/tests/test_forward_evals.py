@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(66, len(self.cases))
+        self.assertEqual(68, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -118,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(66, len(observations))
+        self.assertEqual(68, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(66, len(process_ids))
+        self.assertEqual(68, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -583,7 +583,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             target_skill="implement-epic",
         )
         self.assertEqual([], failures)
-        self.assertEqual(15, len(observations))
+        self.assertEqual(16, len(observations))
         self.assertTrue(
             all(
                 result["target_skill"] == "implement-epic"

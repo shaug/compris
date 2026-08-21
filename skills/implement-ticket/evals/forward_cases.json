@@ -1186,5 +1186,41 @@
       "worktree": {"path": "/worktrees/g660", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-660", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 661, "state": "open", "head": "head-660", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
     }
+  },
+  {
+    "id": "delegated-publication-resumed-split",
+    "target_skill": "implement-ticket",
+    "request": "Resume G-680 from its canonical split publication without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-680", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request"},
+      "pr": {"state": "multiple_open", "merged": false, "head": "head-680", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-680", "patch": "ticket-scoped patch", "resulting_tree": "tree-680"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-680"}]},
+      "reviews": {"initial": "clean", "head": "head-680", "connector_head": "head-680", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g680", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "resumed": true, "result_well_formed": true, "result_head": "head-680", "publish_candidate_result": {"status": "published", "prs": [{"number": 681, "state": "open", "head": "head-680a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 682, "state": "open", "head": "head-680b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 683, "state": "open", "head": "head-680c", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
+    }
+  },
+  {
+    "id": "epic-split-child-partial-merge",
+    "target_skill": "implement-epic",
+    "request": "Continue epic G-690 after child G-691's split publication partly merged.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-690", "state": "open", "whole_epic": true, "subissues": ["G-691"], "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "one ticket per PR unless the publication skill splits it", "implement_ticket_dependency": {"installed": true, "stable_name": "implement-ticket", "readable": true, "source_binding": "same_repository_suite", "contract": {"result_states": ["ready_pr", "ready_prs", "merged", "blocked", "requires_epic"], "authority_preserved": true, "one_ticket_scope": true, "repository_owned_dependencies": true}}},
+      "pr": {"state": "multiple_open", "merged": false, "head": "head-691", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-691", "patch": "child patch", "resulting_tree": "tree-691"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-691"}]},
+      "reviews": {"initial": "clean", "head": "head-691", "connector_head": "head-691", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g691", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-691", "split_child_result": {"child": "G-691", "prs": [{"number": 692, "state": "merged", "head": "head-691a", "base": "base-1"}, {"number": 693, "state": "open", "head": "head-691b", "base": "base-1"}]}}
+    }
   }
 ]

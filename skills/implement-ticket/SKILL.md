@@ -796,12 +796,12 @@ delegate until its mapped policy reaches a terminal result or a genuine
 user-help-required condition occurs.
 
 Validate every returned identity and its evidence against live GitHub state.
-After an authorized ordinary merge or `all_merged`, independently verify remote
-merge state and complete mainline representation, then run every required
-post-merge acceptance item with the separately granted environment and
-deployment authority. If any item is missing, failed, unavailable, stale, or
-bound to the wrong SHA/environment, return `blocked` with merged delivery
-preserved and keep the ticket open.
+After every PR of an authorized ordinary merge is merged, or after `all_merged`,
+independently verify remote merge state and complete mainline representation,
+then run every required post-merge acceptance item with the separately granted
+environment and deployment authority. If any item is missing, failed,
+unavailable, stale, or bound to the wrong SHA/environment, return `blocked` with
+merged delivery preserved and keep the ticket open.
 
 If closing automation already transitioned the ticket while required evidence
 remains missing, do not treat the closed state as proof. Reopen it when manual

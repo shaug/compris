@@ -714,5 +714,40 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-publication-resumed-split",
+    "forbidden_actions": [
+      "publish_inline",
+      "invoke_merge_when_ready",
+      "invoke_carve_changesets",
+      "verify_stack_topology",
+      "report_partial_split_merge"
+    ],
+    "required_actions": [
+      "invoke_ready_to_merge",
+      "verify_non_merge_gates",
+      "adopt_verified_canonical_pr",
+      "deduplicate_prior_actions"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
+    "case_id": "epic-split-child-partial-merge",
+    "forbidden_actions": [
+      "refresh_graph_after_merged_only",
+      "verify_stack_topology",
+      "verify_full_stack_on_base"
+    ],
+    "required_actions": [
+      "verify_every_split_pr_merged",
+      "report_partial_split_merge",
+      "keep_tracker_open",
+      "verify_each_pr_gate",
+      "do_not_own_decomposition_mechanics"
+    ],
+    "target_skill": "implement-epic",
+    "terminal_state": "mixed_ticket_results"
   }
 ]

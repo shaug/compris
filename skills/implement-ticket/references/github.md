@@ -97,11 +97,13 @@ all known current evidence so the babysitter can establish current-candidate
 state. Do not also poll, mutate, reply, resolve, or merge from this caller after
 ownership transfer.
 
-After a babysitter `merged` result or a carve `all_merged` result, independently
-verify PR or stack state and complete candidate representation on the base, then
-run every required post-merge acceptance item with separately granted authority.
-Transition the GitHub issue only after the ledger passes. When the ticket is an
-epic child, reread affected native relationships only after acceptance and the
-transition pass. If local worktree ownership prevents switching to the base, use
-a read-only remote verification path and perform local cleanup separately. Never
+After every PR of the publication reports merged — a babysitter `merged` per
+published PR, or a carve `all_merged` for a stack — independently verify that PR
+or stack state and complete candidate representation on the base, then run every
+required post-merge acceptance item with separately granted authority. A subset
+merged is merged delivery of a fraction and is not this step. Transition the
+GitHub issue only after the ledger passes. When the ticket is an epic child,
+reread affected native relationships only after acceptance and the transition
+pass. If local worktree ownership prevents switching to the base, use a
+read-only remote verification path and perform local cleanup separately. Never
 close a parent issue from this skill.

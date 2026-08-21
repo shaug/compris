@@ -651,11 +651,16 @@ class ImplementTicketContractTests(unittest.TestCase):
         self.assertIn("one_pr_or_several", self.publish_handoff_compact)
 
     def test_every_publication_shape_enumeration_names_all_three(self):
-        """Four review passes each found another surface still naming two.
+        """Five review passes each found another surface still naming two.
 
-        Asserted as an absence over the whole contract rather than a list of
-        known sites, because enumerating the sites by inspection is exactly
-        what kept coming up short.
+        Two complementary assertions, because neither alone is sufficient. The
+        blacklist below catches a known superseded phrasing wherever it appears,
+        but cannot catch a phrasing nobody has written yet — a blacklist is
+        necessarily behind the prose. The positive assertion that follows covers
+        the other direction: every document that reasons about merge
+        verification must name the split somewhere, so a document cannot discuss
+        merging a publication while being silent about the shape that has more
+        than one PR.
         """
         superseded = (
             "ordinary PR or carved stack",
@@ -672,6 +677,26 @@ class ImplementTicketContractTests(unittest.TestCase):
         )
         for phrase in superseded:
             self.assertNotIn(phrase, surface, f"superseded enumeration: {phrase}")
+
+        # Positive direction: a document that reasons about merge verification
+        # names the split. `all_merged` is the marker for such a document — it
+        # is the carved path's merge terminal, so any file citing it is talking
+        # about verifying a merged publication.
+        for name in (
+            "SKILL.md",
+            "references/review-and-merge-gates.md",
+            "references/babysit-pr-handoff.md",
+            "references/github.md",
+            "references/cleanup-and-result.md",
+        ):
+            document = compact(read(SKILL_ROOT / name))
+            if "all_merged" not in document:
+                continue
+            self.assertTrue(
+                "split" in document,
+                f"{name} verifies a merged publication without naming the "
+                "shape that has more than one PR",
+            )
 
     def test_needs_author_input_is_never_fabricated_and_is_not_a_failure(self):
         contract = compact(self.skill + self.publish_handoff + self.result)

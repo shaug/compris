@@ -166,6 +166,7 @@ ACTION_VOCABULARY = (
     "verify_stack_topology",
     "verify_child_acceptance_ledgers",
     "verify_epic_acceptance",
+    "verify_every_split_pr_merged",
     "verify_external_claim",
     "use_verified_external_evidence",
     "implement_verified_ticket_scope",

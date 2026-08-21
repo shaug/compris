@@ -152,7 +152,10 @@ merge evidence before mapping:
 - `merged` maps to `merged` only after the caller independently verifies remote
   merge, mainline representation, complete post-merge acceptance, tracker
   transition, dependency refresh, and cleanup. Until then it is merged delivery,
-  not accepted ticket completion.
+  not accepted ticket completion. Because this reference applies once per
+  published PR, one `merged` result maps the ticket's terminal only when it is
+  the publication's only PR; where a delegated split published several, every
+  one of them needs its own verified `merged` first.
 - `closed` maps to `blocked` with `PR closed without merge`; preserve local
   artifacts unless another canonical merged implementation is independently
   proven complete.

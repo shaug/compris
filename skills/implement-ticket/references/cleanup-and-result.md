@@ -68,8 +68,8 @@ before return. Otherwise include every applicable field:
 - `terminal_state`: `ready_pr`, `ready_prs`, `merged`, `blocked`, or
   `requires_epic`;
 - ticket identity, tracker, repository, PR host, and base identity;
-- branch, worktree, candidate head, publication path, and PR or ordered stack
-  identity when created;
+- branch, worktree, candidate head, publication path, and the identity of every
+  PR or the ordered stack when created;
 - delivery state separately from tracker/acceptance state;
 - the readiness gate's re-check of the ticket's stated assumptions: which still
   hold, and which could not be checked from the tree — `none` when the ticket

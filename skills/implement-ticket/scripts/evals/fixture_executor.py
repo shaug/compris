@@ -543,6 +543,31 @@ def action_result(payload: dict) -> dict:
                     "refresh_graph_after_merged_only",
                 ],
             }
+        if handoff.get("split_child_result"):
+            # A child whose publication delegate split the candidate. Every PR
+            # must be merged and represented before the graph refreshes, and
+            # chain evidence is not owed: several PRs sharing one base are a
+            # split, not a broken stack.
+            split = handoff["split_child_result"].get("prs") or []
+            merged_all = bool(split) and all(
+                entry.get("state") == "merged" for entry in split
+            )
+            child_actions = [
+                "verify_each_pr_gate",
+                "verify_every_split_pr_merged",
+                "do_not_own_decomposition_mechanics",
+            ]
+            if merged_all:
+                child_actions.append("refresh_graph_after_merged_only")
+            else:
+                child_actions.extend(
+                    ["report_partial_split_merge", "keep_tracker_open"]
+                )
+            return {
+                "target_skill": target,
+                "terminal_state": "mixed_ticket_results",
+                "actions": actions + child_actions,
+            }
         return {
             "target_skill": target,
             "terminal_state": "mixed_ticket_results",
