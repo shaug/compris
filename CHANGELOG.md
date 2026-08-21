@@ -6,6 +6,14 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): re-record the after-stage eval evidence at the
+  review-converged head — 66 of 66 and 15 of 15, all 66 unchanged against the
+  previous record, so the fourth pass's corrections cost no measured behavior
+  even though one of them changed how a case grades. That is the expected shape:
+  the case was inverted rather than wrong about which actions apply, so fixing
+  it moved the expectation and the oracle together. Real-model tier still
+  unavailable; all four attempts recorded with the observed limitation.
+
 - fix(implement-ticket): make the partial-publication case grade the right way
   round, and widen the last six enumerations — a fourth review pass found the
   new `needs_author_input` case forbidding both vocabulary tokens that express a
