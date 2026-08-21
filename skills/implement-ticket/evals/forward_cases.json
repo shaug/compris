@@ -1276,5 +1276,23 @@
       "worktree": {"path": "/worktrees/g740", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-740", "publish_candidate_result": {"status": "published", "prs": [{"number": 741, "state": "open", "head": "head-740a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 742, "state": "open", "head": "head-740b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 743, "state": "open", "head": "head-740c", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
     }
+  },
+  {
+    "id": "carved-candidate-never-routed-through-delegate",
+    "target_skill": "implement-ticket",
+    "request": "Publish the oversized G-760 candidate as an authorized carved stack.",
+    "authority": {"merge": false, "decompose_oversized": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-760", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "the repository provides both a publication skill and stacked-changeset carving"},
+      "pr": {"state": "multiple_open", "merged": false, "head": "head-760", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-760", "patch": "oversized but coherent patch", "resulting_tree": "tree-760", "guardrail": "oversized"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-760"}]},
+      "reviews": {"initial": "clean", "head": "head-760", "connector_head": "head-760", "per_changeset": "clean", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g760", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-760", "carve_terminal": "all_merged", "topology": "verified", "closing_syntax": "final_only", "stack_count": 3}
+    }
   }
 ]

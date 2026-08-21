@@ -6,6 +6,28 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): pin the publication-boundary guard so every conjunct is
+  measured — a tenth review pass showed the guard itself was the last unmeasured
+  branch in the oracle: replacing the whole expression with `True`, the
+  pre-change behavior, graded all 71 cases clean, and so did dropping any one of
+  its three conjuncts. The case that reaches it passed against the base oracle
+  unchanged, because the only relevant entry in its `forbidden_actions` could
+  not be emitted for that fixture at either commit. The guard had also silently
+  changed two pre-existing cases, both of which stopped emitting
+  `publish_inline` and `resolve_publish_candidate` without either expectation
+  naming them, so the correction those actions represent was invisible to
+  grading. Three expectations now forbid the publication obligations for
+  candidates that publish nothing, and a new case covers the one conjunct none
+  of them reached: an oversized carved candidate with a publication delegate
+  available, which must not be routed through it. Each of the three conjuncts is
+  now independently mutation-verified, and neutralizing the whole guard fails
+  four cases. Not changed: the terminal an oversized candidate reaches when its
+  `carve_terminal` is neither `prs_open` nor a blocking value is modelled as the
+  ordinary path's, which matches neither `cleanup-and-result.md`'s `merged` nor
+  a stop. That is a pre-existing gap in how the oracle models the carved path,
+  it predates this work, and this work's own non-goals exclude changing the
+  carved path — the new case asserts only that the delegate stays out of it.
+
 - docs(implement-ticket): record the after-stage eval evidence at the ninth-pass
   head — 71 of 71 and 16 of 16. Real-model tier still unavailable.
 

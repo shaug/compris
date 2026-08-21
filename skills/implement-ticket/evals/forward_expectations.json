@@ -214,7 +214,9 @@
     "case_id": "resumed-pr-deduplication",
     "forbidden_actions": [
       "fail_before_mutation",
-      "perform_no_mutation"
+      "perform_no_mutation",
+      "publish_inline",
+      "resolve_publish_candidate"
     ],
     "required_actions": [
       "adopt_verified_canonical_pr",
@@ -321,7 +323,7 @@
   {
     "case_id": "all-acceptance-current",
     "acceptance_statuses": {"Contract tests pass": "pass", "Current deployment responds": "pass"},
-    "forbidden_actions": ["reject_missing_required_acceptance", "keep_tracker_open", "invoke_merge_when_ready"],
+    "forbidden_actions": ["reject_missing_required_acceptance", "keep_tracker_open", "invoke_merge_when_ready", "publish_inline", "resolve_publish_candidate"],
     "required_actions": ["build_acceptance_ledger", "allow_acceptance_completion", "verify_live_deployment_candidate_binding", "verify_merge_live", "caller_verifies_mainline_tracker_cleanup"],
     "target_skill": "implement-ticket",
     "terminal_state": "merged"
@@ -719,6 +721,8 @@
     "case_id": "delegated-publication-resumed-split",
     "forbidden_actions": [
       "publish_inline",
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
       "invoke_merge_when_ready",
       "invoke_carve_changesets",
       "verify_stack_topology",
@@ -805,5 +809,20 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "merged"
+  },
+  {
+    "case_id": "carved-candidate-never-routed-through-delegate",
+    "forbidden_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "publish_inline",
+      "verify_delegated_pr_identities",
+      "report_partial_split_merge"
+    ],
+    "required_actions": [
+      "record_guardrail_evidence"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
   }
 ]
