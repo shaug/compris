@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence at the ninth-pass
+  head — 71 of 71 and 16 of 16. Real-model tier still unavailable.
+
 - fix(implement-ticket): measure the two `merged` branches nothing was reaching
   — a ninth review pass traced all 71 forward cases with `sys.settrace` and
   found the already-merged path's split guard executing zero times, then
