@@ -6,6 +6,34 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): stop an unhandled carve terminal falling through to
+  `ready_pr`, and correct the note that called it pre-existing — a thirteenth
+  review pass disagreed with the twelfth on the identical head and was right.
+  The publication-boundary guard correctly keeps a carved candidate away from
+  the delegate, but it also removed the only exit that stopped an oversized
+  candidate with an unhandled `carve_terminal` from reaching the ordinary
+  terminal selection, which answers `ready_pr` — a terminal `SKILL.md` defines
+  as "the ticket's one ordinary PR is open and mergeable", claimed for a fixture
+  that is oversized with three open stack pull requests. Worse, the previous
+  pass pinned that answer as the oracle's required result, so a runtime
+  returning the correct `blocked` would have failed the case. Measured across
+  all four unhandled terminals, base blocked and head returned `ready_pr`. The
+  oversized block now exits explicitly for any terminal other than `prs_open`,
+  which is what `carve-changesets-handoff.md`'s own mapping already said:
+  `plan_ready` and `chain_ready` cannot satisfy a publication policy,
+  `all_merged` needs merge authority a ready-PR policy withholds, and a carve
+  `blocked` is a block. Base and head now agree on every terminal, and the
+  delegate still stays out. Two corrections to earlier records go with it. The
+  tenth pass's note called this terminal modelling a pre-existing gap outside
+  this work's scope; it was not — base blocked, and only by accident, because it
+  reached the delegate and the delegate rejected an absent result. Removing that
+  accidental exit is what made it fall open, so it is this work's regression.
+  And the verification that missed it omitted `publish_candidate` from the
+  probed capabilities, testing the one configuration where the carved path never
+  meets the delegate at all. With the explicit exit in place the guard's own
+  `oversized` conjunct became unreachable and is removed as dead rather than
+  left as an unmeasurable defence.
+
 - docs(implement-ticket): record the after-stage eval evidence at the
   eleventh-pass head — 74 of 74 and 16 of 16, and the note corrects the tenth
   pass's overreaching mutation-verification claim rather than restating it.

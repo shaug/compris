@@ -817,13 +817,16 @@
       "invoke_publish_candidate",
       "publish_inline",
       "verify_delegated_pr_identities",
-      "report_partial_split_merge"
+      "report_partial_split_merge",
+      "invoke_ready_to_merge",
+      "verify_non_merge_gates"
     ],
     "required_actions": [
-      "record_guardrail_evidence"
+      "record_guardrail_evidence",
+      "stop_before_publication"
     ],
     "target_skill": "implement-ticket",
-    "terminal_state": "ready_pr"
+    "terminal_state": "blocked"
   },
   {
     "case_id": "delegated-partial-publication-under-merge-authority",

@@ -710,6 +710,25 @@ def action_result(payload: dict) -> dict:
                     "verify_each_pr_gate",
                 ],
             }
+        # Any other carve terminal stops here. `plan_ready` and `chain_ready`
+        # cannot satisfy a publication policy at all, `all_merged` needs merge
+        # authority this policy withheld, and a carve `blocked` is a block —
+        # carve-changesets-handoff.md's terminal mapping gives all four to
+        # `blocked`. Falling through instead would hand an oversized carved
+        # candidate to the ordinary terminal selection, which answers with
+        # `ready_pr`: a terminal SKILL.md defines as "the ticket's one ordinary
+        # PR", claimed for a three-PR stack. Before the publication boundary
+        # moved, this path blocked only by accident — it reached the delegate,
+        # which rejected an absent result — so the exit has to be explicit now
+        # that the delegate is correctly kept out.
+        return {
+            "target_skill": target,
+            "terminal_state": "blocked",
+            "actions": sorted(
+                set(actions + ["stop_before_publication", "reread_live_pr"])
+            ),
+            "acceptance_ledger": acceptance_ledger,
+        }
 
     if pr.get("state") == "closed" and not pr.get("merged"):
         return {
@@ -810,21 +829,15 @@ def action_result(payload: dict) -> dict:
     )
     published_prs = len(split) if split else 1
 
-    # The publication boundary. Only the ordinary path reaches it, so a carved
-    # candidate is never routed through `publish-candidate`. This *skips* the
-    # boundary rather than returning, because the guard exists to keep the
-    # delegate out of the carved path — not to change what a carved candidate
-    # returns. An oversized candidate whose `carve_terminal` is neither
-    # `prs_open` nor a blocking value falls out of the carved block above without
-    # returning, and it must reach the same terminal selection it always did.
+    # The publication boundary. Only the ordinary path reaches it: every branch
+    # of the oversized block above now returns, including the explicit exit for
+    # a carve terminal it does not handle, so a carved candidate cannot arrive
+    # here and no `guardrail != "oversized"` conjunct is needed — one was tried
+    # and removed as dead, since no reachable input could take it.
     # A publication that never happens emits no publication obligation, so an
     # already-merged or resumed candidate reports no `publish_inline` it never
     # performed.
-    reaches_publication_boundary = (
-        artifacts["diff"].get("guardrail") != "oversized"
-        and not pr.get("merged")
-        and not handoff.get("resumed")
-    )
+    reaches_publication_boundary = not pr.get("merged") and not handoff.get("resumed")
     if reaches_publication_boundary:
         (
             publication_actions,
