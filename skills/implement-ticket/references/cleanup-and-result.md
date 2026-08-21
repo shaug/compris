@@ -85,7 +85,14 @@ before return. Otherwise include every applicable field:
   surfaced for caller disposition, and whether the final cycle's `apply_fix`
   port was escalated to a fresh implementer and at what capability tier;
 - `babysit-pr` policy, terminal state, returned candidate identity, authority
-  used, mutation ownership, and independently verified live-state match;
+  used, mutation ownership, and independently verified live-state match, one
+  entry per published PR;
+- when a repository-owned `publish-candidate` owned publication: its returned
+  status, every PR identity it returned with that PR's head SHA and base ref,
+  which single PR carries the closing or non-closing tracker reference, the
+  independently verified live-state match, and — for `needs_author_input` —
+  exactly what the delegate named as author-owned and unsupplied. When no
+  `publish-candidate` resolved, record that publication was inline;
 - for a stack, `carve-changesets` source identity, guardrail and operator
   decision, authority, terminal state, ordered PR topology, equivalence,
   propagation, closing-syntax placement, and verified live-state match;
@@ -122,14 +129,30 @@ entries. Every applicable non-merge gate must pass; the only withheld action is
 merge. Post-merge entries may remain pending only with non-closing tracker
 syntax. Do not list ordinary pending CI or review as a remaining gate.
 
-For `ready_prs`, require a verified `carve-changesets: prs_open` result for the
-still-current ordered stack and passing required pre-merge acceptance entries.
-Every PR must be open, correctly based, mergeable, and at its applicable
-non-merge gate; whole-chain equivalence and correct closing/non-closing syntax
-must be verified. Report each exact base ref, base SHA, head ref, and head SHA
-so the first PR starts at the candidate base, each later PR starts at the prior
-PR head, and the final PR head equals the candidate. The only withheld actions
-are merge and propagation.
+For `ready_prs`, require passing required pre-merge acceptance entries; every PR
+open, correctly based, mergeable, and at its applicable non-merge gate; correct
+closing/non-closing syntax; exactly one lifecycle owner per PR; and each PR's
+exact base ref, base SHA, head ref, and head SHA. Which further evidence is
+required depends on which delegate published, not on the terminal name:
+
+- A carved stack requires a verified `carve-changesets: prs_open` result for the
+  still-current ordered stack, verified whole-chain equivalence, and a chain
+  topology the reported refs prove: the first PR starts at the candidate base,
+  each later PR starts at the prior PR head, and the final PR head equals the
+  candidate. The only withheld actions are merge and propagation.
+- A delegated ordinary publication requires a verified
+  `publish-candidate: published` result naming every PR it opened, each one
+  independently reverified against live host state. Do not require chain
+  topology or whole-chain equivalence of it: those are the carved path's
+  obligations, and a delegate may legitimately open several PRs sharing one base
+  because the repository requires one class of change to land ahead of another.
+  The only withheld action is merge.
+
+A `publish-candidate: needs_author_input` result is `blocked` with nothing
+published. Preserve the converged candidate and its evidence as a resumable
+handoff, report exactly the author-owned content the delegate named as missing,
+and never substitute authored, paraphrased, or inferred text for it. Report it
+as a publication gap awaiting the author, not as a failed implementation.
 
 For `merged`, require a verified `babysit-pr: merged` or
 `carve-changesets: all_merged` result plus independent mainline, complete

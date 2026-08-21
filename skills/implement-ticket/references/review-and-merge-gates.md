@@ -4,8 +4,11 @@ Apply these gates to the complete initial ticket candidate. Repository
 instructions may add stricter requirements but must not silently weaken them.
 After review, select exactly one publication path. Delegate an ordinary PR's
 continuing lifecycle to repository-owned `babysit-pr`, or delegate an oversized
-candidate's entire stacked lifecycle to repository-owned `carve-changesets`. Do
-not duplicate either delegate's mechanics here.
+candidate's entire stacked lifecycle to repository-owned `carve-changesets`. On
+the ordinary path, publication itself goes to repository-owned
+`publish-candidate` whenever that optional role resolves at the publication
+boundary, and is performed inline whenever it does not. Do not duplicate any
+delegate's mechanics here.
 
 ## Delegate the initial review and fix loop
 
@@ -74,8 +77,11 @@ Before invoking either delegate:
   tree, validation, worktree, ticket reference, and authority are internally
   consistent;
 - assemble every field required by the applicable
-  [babysit-pr](babysit-pr-handoff.md) or
-  [carve-changesets](carve-changesets-handoff.md) handoff contract;
+  [babysit-pr](babysit-pr-handoff.md),
+  [carve-changesets](carve-changesets-handoff.md), or
+  [publish-candidate](publish-candidate-handoff.md) handoff contract;
+- on the ordinary path, resolve repository-owned `publish-candidate` by stable
+  name — treating its absence as inline publication rather than a failed gate;
 - map the completion policy without broadening merge, deployment, verification,
   or tracker-transition authority; and
 - establish one exclusive mutating owner.
@@ -88,14 +94,16 @@ initial `review-fix-loop` result is `converged`.
 ## Caller-side completion verification
 
 After the selected delegate returns, reread live GitHub state and apply the
-applicable [babysit-pr](babysit-pr-handoff.md) or
-[carve-changesets](carve-changesets-handoff.md) result mapping. A `ready_pr`
+applicable [babysit-pr](babysit-pr-handoff.md),
+[carve-changesets](carve-changesets-handoff.md), or
+[publish-candidate](publish-candidate-handoff.md) result mapping. A `ready_pr`
 requires a validated current `ready_to_merge` result plus passing required
-pre-merge acceptance evidence. A `ready_prs` requires a validated current
-`prs_open` result plus the same evidence. A `merged` result requires independent
-remote merge or `all_merged`, mainline, complete current acceptance evidence,
-tracker transition, dependency refresh, and cleanup verification by
-`implement-ticket`.
+pre-merge acceptance evidence. A `ready_prs` requires the same evidence plus a
+validated current `prs_open` result from `carve-changesets` for a stack, or a
+validated current `published` result from `publish-candidate` naming every PR of
+a delegated split. A `merged` result requires independent remote merge or
+`all_merged`, mainline, complete current acceptance evidence, tracker
+transition, dependency refresh, and cleanup verification by `implement-ticket`.
 
 If the live head, base, PR state, ownership, acceptance ledger, or gate evidence
 differs from the result, reconcile the live candidate or fail closed. Never

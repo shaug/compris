@@ -46,6 +46,9 @@ class ImplementTicketContractTests(unittest.TestCase):
         cls.review_fix_loop_handoff = read(
             SKILL_ROOT / "references" / "review-fix-loop-handoff.md"
         )
+        cls.publish_handoff = read(
+            SKILL_ROOT / "references" / "publish-candidate-handoff.md"
+        )
         cls.result = read(SKILL_ROOT / "references" / "cleanup-and-result.md")
         cls.worktree_isolation = read(
             SKILL_ROOT / "references" / "worktree-isolation.md"
@@ -53,6 +56,7 @@ class ImplementTicketContractTests(unittest.TestCase):
         cls.skill_compact = compact(cls.skill)
         cls.handoff_compact = compact(cls.handoff)
         cls.review_fix_loop_handoff_compact = compact(cls.review_fix_loop_handoff)
+        cls.publish_handoff_compact = compact(cls.publish_handoff)
         cls.result_compact = compact(cls.result)
         cls.worktree_isolation_compact = compact(cls.worktree_isolation)
         cls.eval_contract = compact(
@@ -67,6 +71,7 @@ class ImplementTicketContractTests(unittest.TestCase):
             + cls.handoff
             + cls.carve_handoff
             + cls.review_fix_loop_handoff
+            + cls.publish_handoff
             + cls.result
             + cls.worktree_isolation
         )
@@ -564,6 +569,148 @@ class ImplementTicketContractTests(unittest.TestCase):
             "`carve-changesets` must never invoke `implement-epic`",
             self.skill_compact,
         )
+
+    def test_publish_candidate_handoff_matches_the_peer_handoff_slots(self):
+        """The new document occupies the same structural slots as its peers.
+
+        Its pre-mutation-gate slot deliberately carries the opposite content —
+        resolution happens at the publication boundary — so the slot is named
+        rather than dropped, and the contrast is what the section states.
+        """
+        for heading in (
+            "## Responsibility boundary",
+            "## Resolution at the publication boundary, not a pre-mutation gate",
+            "## Exclusive mutation ownership",
+            "## Verified handoff",
+            "## Policy and authority mapping",
+            "## Terminal result mapping",
+        ):
+            self.assertIn(heading, self.publish_handoff)
+
+    def test_publish_candidate_is_optional_and_never_blocks(self):
+        """Optionality is the load-bearing property of the whole seam."""
+        for required in (
+            "its absence selects inline publication rather than reporting a "
+            "missing capability",
+            "Do not add `publish-candidate` to this gate",
+            "**It does not resolve.** Publish inline, unchanged",
+        ):
+            self.assertIn(required, self.skill_compact)
+        for required in (
+            "An unresolved `publish-candidate` never blocks and never reports a "
+            "missing capability",
+            "It selects inline publication",
+        ):
+            self.assertIn(required, self.publish_handoff_compact)
+
+        # The pre-mutation dependency gate still names exactly the two roles it
+        # always did. Adding a third there is what optionality forbids.
+        self.assertIn(
+            "verify that both `review-fix-loop` and `babysit-pr` are available",
+            self.skill_compact,
+        )
+        gate = compact(read(SKILL_ROOT / "references" / "babysit-pr-handoff.md"))
+        self.assertNotIn("publish-candidate", gate)
+
+    def test_publish_candidate_carries_both_caller_side_assertions(self):
+        """Without these the candidate gets reviewed twice, or transitioned early."""
+        for surface in (self.skill_compact, self.publish_handoff_compact):
+            self.assertIn("`review_converged`", surface)
+            self.assertIn("`tracker_transition: retained_by_caller`", surface)
+        self.assertIn(
+            "The delegate must not re-review it", self.publish_handoff_compact
+        )
+        self.assertIn(
+            "the delegate must not transition the tracker",
+            self.publish_handoff_compact,
+        )
+
+    def test_needs_author_input_is_never_fabricated_and_is_not_a_failure(self):
+        contract = compact(self.skill + self.publish_handoff + self.result)
+        self.assertIn("`needs_author_input`", contract)
+        self.assertIn("Never author, paraphrase, or infer", contract)
+        self.assertIn("never retry publication with a placeholder", contract)
+        self.assertIn("not an implementation failure", contract)
+
+    def test_a_delegated_split_reuses_ready_prs_without_stack_obligations(self):
+        """The one semantic widening, and the invariant that replaces the old one."""
+        contract = compact(self.skill + self.publish_handoff + self.result)
+        self.assertIn("`published` with more than one PR maps to `ready_prs`", contract)
+        self.assertIn(
+            "One publication event, and exactly one lifecycle owner per PR",
+            contract,
+        )
+        self.assertIn(
+            "Ordered predecessor-base topology and whole-chain equivalence are "
+            "`carve-changesets`'s obligations",
+            contract,
+        )
+        self.assertIn(
+            "Stack topology and whole-chain equivalence are the carved path's "
+            "obligations, not the terminal name's",
+            self.skill_compact,
+        )
+
+    def test_the_carved_path_is_not_routed_through_publish_candidate(self):
+        self.assertIn(
+            "Never route this path through `publish-candidate`", self.skill_compact
+        )
+        self.assertIn(
+            "never route a carved candidate through `publish-candidate`",
+            self.publish_handoff_compact,
+        )
+        self.assertIn(
+            "`publish-candidate` must never invoke `implement-ticket`, "
+            "`babysit-pr`, or `carve-changesets`",
+            self.skill_compact,
+        )
+
+    def test_publish_candidate_encodes_no_repository_specific_rule(self):
+        """The abstraction is the point: upstream names the shape, not the rule.
+
+        A consuming repository adopts the seam by writing an adapter skill
+        alone, which only holds while this skill states no repository's own
+        publication policy as its own.
+        """
+        self.assertIn(
+            "do not encode any particular repository's publication rules here",
+            self.publish_handoff_compact,
+        )
+        self.assertIn(
+            "This skill knows only that a delegate may require them",
+            self.publish_handoff_compact,
+        )
+        surface = compact(self.skill + self.publish_handoff)
+        for encoded in (
+            "release train",
+            "conventional commit",
+            "CODEOWNERS",
+            "develop branch",
+        ):
+            self.assertNotIn(encoded, surface)
+
+    def test_publish_candidate_scenarios_are_contract_covered(self):
+        self.assertEqual(
+            "ready_pr",
+            self.expectations["delegated-publication-one-pr"]["terminal_state"],
+        )
+        self.assertEqual(
+            "ready_prs",
+            self.expectations["delegated-publication-split-into-several-prs"][
+                "terminal_state"
+            ],
+        )
+        self.assertEqual(
+            "blocked",
+            self.expectations["delegated-publication-needs-author-written-content"][
+                "terminal_state"
+            ],
+        )
+        absent = self.expectations["no-publication-delegate-publishes-inline"]
+        self.assertEqual("ready_pr", absent["terminal_state"])
+        actions = compact(" ".join(absent["required_actions"]))
+        self.assertIn("publish inline", actions)
+        self.assertIn("do not block or report a missing capability", actions)
 
     def test_oversized_publication_contract_is_authority_gated(self):
         contract = compact(self.skill + self.carve_handoff + self.result)

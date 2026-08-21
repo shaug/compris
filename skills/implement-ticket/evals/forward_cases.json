@@ -1078,5 +1078,77 @@
       "worktree": {"path": "/worktrees/g831", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-831"}
     }
+  },
+  {
+    "id": "delegated-publication-single-pr",
+    "target_skill": "implement-ticket",
+    "request": "Implement G-600 to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-600", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill"},
+      "pr": {"state": "open", "merged": false, "head": "head-600", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-600", "patch": "ticket-scoped patch", "resulting_tree": "tree-600"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-600"}]},
+      "reviews": {"initial": "clean", "head": "head-600", "connector_head": "head-600", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g600", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-600", "publish_candidate_result": {"status": "published", "prs": [{"number": 601, "state": "open", "head": "head-600", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+    }
+  },
+  {
+    "id": "delegated-publication-needs-author-input",
+    "target_skill": "implement-ticket",
+    "request": "Implement G-610 to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-610", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill"},
+      "pr": {"state": "open", "merged": false, "head": "head-610", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-610", "patch": "ticket-scoped patch", "resulting_tree": "tree-610"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-610"}]},
+      "reviews": {"initial": "clean", "head": "head-610", "connector_head": "head-610", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g610", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-610", "publish_candidate_result": {"status": "needs_author_input", "prs": [], "author_owned_unsupplied": "the repository requires a narrative section only the change's own author may write"}}
+    }
+  },
+  {
+    "id": "delegated-publication-split-prs",
+    "target_skill": "implement-ticket",
+    "request": "Implement G-620 to ready PRs without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-620", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request"},
+      "pr": {"state": "open", "merged": false, "head": "head-620", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-620", "patch": "ticket-scoped patch", "resulting_tree": "tree-620"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-620"}]},
+      "reviews": {"initial": "clean", "head": "head-620", "connector_head": "head-620", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g620", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-620", "publish_candidate_result": {"status": "published", "prs": [{"number": 621, "state": "open", "head": "head-620", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 622, "state": "open", "head": "head-620", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 623, "state": "open", "head": "head-620", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
+    }
+  },
+  {
+    "id": "publication-delegate-absent",
+    "target_skill": "implement-ticket",
+    "request": "Implement G-630 to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": false},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-630", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "CI and clean review required"},
+      "pr": {"state": "open", "merged": false, "head": "head-630", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-630", "patch": "ticket-scoped patch", "resulting_tree": "tree-630"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-630"}]},
+      "reviews": {"initial": "clean", "head": "head-630", "connector_head": "head-630", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g630", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-630"}
+    }
   }
 ]

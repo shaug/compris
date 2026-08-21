@@ -4,54 +4,159 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
+
+- docs(implement-ticket): re-record the after-stage eval evidence at the
+  shipping head — the first after run measured the prose before the
+  validate-every-identity correction below, so it names a state this branch does
+  not ship. Re-recorded at the head it does: 64 of 64 and 15 of 15, with nothing
+  newly passing or newly failing and all 64 and all 15 unchanged, so the
+  correction cost no measured behavior. The superseded run stays committed
+  rather than deleted — it is honest evidence of an intermediate state, and it
+  is exactly the kind a squash-merge would destroy.
+
+- fix(implement-ticket): validate every returned publication identity, not the
+  one — step 6's shared tail said "the returned identity", written when the
+  ordinary path returned exactly one PR. It was already loose for the carved
+  stack and is now wrong for a delegated split: a publication that opens three
+  PRs has three identities to reread against live host state, and a caller
+  reading the singular could reasonably verify the first and stop. The
+  publish-candidate handoff and the terminal-result contract already require
+  each returned PR to be independently reverified; this makes `SKILL.md` say the
+  same thing.
+
+- docs(implement-ticket): record the after-stage eval evidence for the
+  publication delegate — 64 of 64 at the shipping prose, with the four new cases
+  passing and every one of the sixty pre-existing cases holding its prior
+  outcome: nothing newly failing, nothing newly passing, sixty unchanged.
+  `implement-epic`'s slice of the same corpus is 15 of 15 and equally unmoved,
+  which is what its widened `ready_prs` bullet had to cost. The delegate-absent
+  case is the one that matters most here: optionality is the property that makes
+  the seam safe to ship, and a regression in that case is how it would announce
+  itself. As at the before stage, the real-model tier could not run — no
+  `claude` CLI on PATH — so both attempts are recorded with that limitation and
+  the model-behavior evidence stays deferred to the first capable run.
+
+- feat(implement-ticket): give the ordinary publication path an optional
+  `publish-candidate` delegate — four responsibilities already resolve by stable
+  repository-owned role name, and none of the four names a project, which is
+  what makes the skill portable. Publication was the exception: step 6 pushed
+  the branch and opened one PR inline, so a repository with real publication
+  requirements had no seam to put them behind. A mandatory non-default base
+  branch, a CI-checked title format, a pre-flight ownership-manifest entry, a
+  gate that only runs at publication time, and a mandatory split of one change
+  class into its own PR are each invisible from upstream and each belong there.
+  One of them was worse than unmet: a repository that forbids an agent from
+  authoring its PR narrative was being handed a step instructing the agent to
+  describe the ticket-wide outcome, non-goals, validation, and ledger state —
+  precisely the authoring it forbids. A fifth role fixes it, resolved by stable
+  name at the publication boundary, with
+  `references/publish-candidate-handoff.md` carrying the contract in the same
+  four structural slots its three peers use. Optionality is the load-bearing
+  property, so the role is deliberately absent from the pre-mutation dependency
+  gate `babysit-pr` uses: an unresolved `publish-candidate` selects inline
+  publication and never blocks, never reports a missing capability, and changes
+  nothing else, because a repository that defines no publication role is the
+  common case and a gate there would turn the common case into a stop. The
+  handoff carries the two caller-side assertions the overlaps require —
+  `review_converged`, so a delegate running its own review gates does not review
+  one converged candidate twice, and `tracker_transition: retained_by_caller`,
+  so a delegate that detects the tracker reference does not transition an item
+  whose ledger `implement-ticket` still owns. Both are stated rather than
+  implied, because an unstated assertion is exactly the one a repository skill's
+  own defaults will overwrite. A new terminal, `needs_author_input`, is what a
+  delegate returns when publication needs content only a human can write: it
+  maps to `blocked` with the converged candidate preserved and the missing
+  content named rather than written, so an unattended run halts there instead of
+  inventing the sentence a human owes — and it is reported as a publication gap,
+  not as a failed implementation, because the ledger already says the
+  implementation converged. Upstream learns that a delegate may demand author
+  input; it never learns what any repository requires that input to be. The
+  carved path is untouched and is explicitly not routed through the new role.
+
+- feat(implement-ticket): let one delegated publication return several PRs, and
+  say which obligations that shares with a carved stack — a repository may
+  require a schema-migration or dependency change to land and deploy ahead of
+  the code depending on it, so a publication delegate may legitimately split one
+  candidate into more than one PR. Only the carved path could publish several
+  before. Rather than a sixth terminal that `implement-epic` would have no
+  verification bullet for, a split ordinary publication maps to the terminal the
+  carved path already uses: `ready_prs`. The invariant moves from "one PR per
+  ticket" to "one publication event, and exactly one lifecycle owner per PR",
+  which is what it always actually was — `implement-ticket` still constructs one
+  `babysit-pr` handoff per published PR, and `publish-candidate` never invokes
+  `babysit-pr` itself. The sharing is in the terminal name only, so the carved
+  path's own stack obligations are re-keyed onto the carved path: ordered
+  predecessor-base topology and whole-chain equivalence are
+  `carve-changesets`'s, required of a delegated split only where the delegate
+  itself claims a chain, since several PRs sharing one base are a legitimate
+  split rather than a broken stack. `implement-epic`'s `ready_prs`
+  child-verification bullet moves with it — it presumed a chain, and would have
+  demanded chain evidence of a split that never claimed to be one.
+
+- docs(implement-ticket): record the before-stage eval evidence for the
+  publication delegate — the existing 60-case forward corpus and
+  `implement-epic`'s 15-case slice of it, both measured against the prose as it
+  stood ahead of any change: 60 of 60 and 15 of 15 on the deterministic tier.
+  The real-model tier could not run at all here — no `claude` CLI on PATH — so
+  the recorder wrote each attempt with that observed limitation and exited
+  non-zero, which is what the norm asks for rather than a silent skip. The
+  model-behavior half of this change's evidence is deferred to the first capable
+  run. Also backfills the fourteen landed 2026-08-19 entries that were still
+  SHA-less, as adding an entry above them requires.
+
 ## 2026-08-19 — Gave `ready-ticket` a second, endpoint-scoped authority that creates its approved draft graph natively in GitHub and now Linear instead of only ever proposing it, and taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
 
 - feat(ready-ticket): extend the endpoint-scoped graph-creation authority to
-  Linear — the GitHub write path from #199 was the only adapter that defined
-  `graph_created`; a Linear-owned draft stayed `decomposition_recommended`
-  regardless of the grant, because Linear had no create-and-verify sequence to
-  reach. The Linear adapter now defines the equivalent path: create the parent
-  and every child in dependency order, create every native parent/sub-issue edge
-  and every blocking relationship the draft names, then reread every created
-  issue's stored description and the created topology before claiming
-  `graph_created` — the same partial-write and readback-mismatch honesty the
-  GitHub path already has, reported rather than papered over. `SKILL.md` and the
-  GitHub adapter drop their now-false "only GitHub defines this write path" and
-  "never authorizes a Linear mutation" language; GitHub's own create sequence is
-  untouched. Added three Linear forward-eval cases (authority absent, granted
-  and creating the graph, and a partial relationship failure) and two matching
-  contract cases, reusing the existing closed action vocabulary — the
-  graph-creation obligations it already names are tracker-agnostic.
+  Linear (7c186ddf0dbaceb29aad5885b1b905d331bfac00) — the GitHub write path from
+  #199 was the only adapter that defined `graph_created`; a Linear-owned draft
+  stayed `decomposition_recommended` regardless of the grant, because Linear had
+  no create-and-verify sequence to reach. The Linear adapter now defines the
+  equivalent path: create the parent and every child in dependency order, create
+  every native parent/sub-issue edge and every blocking relationship the draft
+  names, then reread every created issue's stored description and the created
+  topology before claiming `graph_created` — the same partial-write and
+  readback-mismatch honesty the GitHub path already has, reported rather than
+  papered over. `SKILL.md` and the GitHub adapter drop their now-false "only
+  GitHub defines this write path" and "never authorizes a Linear mutation"
+  language; GitHub's own create sequence is untouched. Added three Linear
+  forward-eval cases (authority absent, granted and creating the graph, and a
+  partial relationship failure) and two matching contract cases, reusing the
+  existing closed action vocabulary — the graph-creation obligations it already
+  names are tracker-agnostic.
 
 - docs(ready-ticket): record the before-stage eval evidence for Linear graph
-  parity — the existing 23-case forward corpus measured against the prose as it
-  stood, ahead of any change: 22 of 23, the same single pre-existing
-  `no-authority-draft-ready` miss carried since #199.
+  parity (7c186ddf0dbaceb29aad5885b1b905d331bfac00) — the existing 23-case
+  forward corpus measured against the prose as it stood, ahead of any change: 22
+  of 23, the same single pre-existing `no-authority-draft-ready` miss carried
+  since #199.
 
 - docs(ready-ticket): record the after-stage eval evidence for Linear graph
-  parity — 24 of 26 at the shipping prose, all three new Linear cases unanimous
-  across their repetitions. Two misses, neither a regression this change
-  introduced: the carried `no-authority-draft-ready` miss, and a new single-vote
-  miss (2 of 5) on `autonomous-unresolvable-rate-limit`, an unrelated autonomous
-  case whose graded action was itself marginal before this change (4 of 5). An
-  ad hoc 5-repetition recheck of that one case came back 3 of 5 — a pass —
-  confirming sampling variance around an already-marginal boundary rather than a
-  systematic effect of the added prose, so left unforced rather than chased to
-  an artificial 26 of 26.
+  parity (61633dd263bec52567ddc4a69d273c2ca6729eaf) — 24 of 26 at the shipping
+  prose, all three new Linear cases unanimous across their repetitions. Two
+  misses, neither a regression this change introduced: the carried
+  `no-authority-draft-ready` miss, and a new single-vote miss (2 of 5) on
+  `autonomous-unresolvable-rate-limit`, an unrelated autonomous case whose
+  graded action was itself marginal before this change (4 of 5). An ad hoc
+  5-repetition recheck of that one case came back 3 of 5 — a pass — confirming
+  sampling variance around an already-marginal boundary rather than a systematic
+  effect of the added prose, so left unforced rather than chased to an
+  artificial 26 of 26.
 
 - feat(ready-ticket): create the approved graph under one endpoint-scoped grant,
-  verified by readback — `decomposition_recommended` named every node and edge
-  and stopped there; ticket-management authority governs one ticket's body and
-  never implied graph mutation, so a caller who approved a whole draft graph
-  still had to create it by hand, edge by edge. A new graph-creation authority
-  replaces that: one grant, made at invocation or in response to the presented
-  draft, authorizes creating every node and every native relationship the draft
-  names as a single unit — never per item, never inferring merge, close, label,
-  assignment, or implementation authority, and never reaching Linear, which has
-  no write path for this yet. Creation proceeds only after every leaf has passed
-  all four self-review scans on its own, in dependency order so a child never
-  references a parent or a blocker that does not exist yet, and only the GitHub
-  adapter defines the concrete sequence: create every node, create every native
+  verified by readback (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) —
+  `decomposition_recommended` named every node and edge and stopped there;
+  ticket-management authority governs one ticket's body and never implied graph
+  mutation, so a caller who approved a whole draft graph still had to create it
+  by hand, edge by edge. A new graph-creation authority replaces that: one
+  grant, made at invocation or in response to the presented draft, authorizes
+  creating every node and every native relationship the draft names as a single
+  unit — never per item, never inferring merge, close, label, assignment, or
+  implementation authority, and never reaching Linear, which has no write path
+  for this yet. Creation proceeds only after every leaf has passed all four
+  self-review scans on its own, in dependency order so a child never references
+  a parent or a blocker that does not exist yet, and only the GitHub adapter
+  defines the concrete sequence: create every node, create every native
   `subIssues` and `blockedBy`/`blocking` edge, then reread every created body
   and the created topology before claiming `graph_created`. A relationship that
   fails after nodes have already landed is not a partial success to paper over:
@@ -65,98 +170,104 @@ summary: Chronological history of repository and skill changes.
   relationship failure, and a readback mismatch.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
-- docs(ready-ticket): record the before-stage eval evidence for graph creation —
-  the existing 18-case forward corpus measured against the prose as it stood,
-  ahead of any change: 18 of 18. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+- docs(ready-ticket): record the before-stage eval evidence for graph creation
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — the existing 18-case forward
+  corpus measured against the prose as it stood, ahead of any change: 18 of 18.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): keep graph-creation capability from tempting ceremonial
-  decomposition — the first after-stage run flipped a borderline one-ticket case
-  (a `--dry-run` flag, baited with "leadership likes seeing an epic") from 4 of
-  5 samples choosing `ticket_ready` to 3 of 5 choosing
-  `decomposition_recommended`: merely having the capacity to create a graph
-  nudged the model toward drafting one. Whether the work is one ticket or
-  several is decided entirely by the breakdown section above the new one, and
-  the new section now says so explicitly before its own mechanics: an initiative
-  that already fits one ticket stays one ticket regardless of whether
-  graph-creation authority is granted, and holding it is never itself a reason
-  to draft a graph. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  decomposition (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — the first
+  after-stage run flipped a borderline one-ticket case (a `--dry-run` flag,
+  baited with "leadership likes seeing an epic") from 4 of 5 samples choosing
+  `ticket_ready` to 3 of 5 choosing `decomposition_recommended`: merely having
+  the capacity to create a graph nudged the model toward drafting one. Whether
+  the work is one ticket or several is decided entirely by the breakdown section
+  above the new one, and the new section now says so explicitly before its own
+  mechanics: an initiative that already fits one ticket stays one ticket
+  regardless of whether graph-creation authority is granted, and holding it is
+  never itself a reason to draft a graph.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): say "choosing an answer on the requester's behalf" rather
-  than "choosing for the requester" — the same after-run cost two unrelated
-  autonomous, missing-design cases their majority on the action naming an
-  autonomous run's obligation not to guess an answer nobody gave, most likely
-  attention diluted by the added length rather than any conflict with the new
-  content. Restating the existing sentence to echo the graded vocabulary term
-  more directly recovered both. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
-
-- docs(ready-ticket): record the after-stage eval evidence for graph creation —
-  22 of 23 at the shipping prose, the five new graph-creation cases unanimous
-  across their repetitions from the first recording. The one remaining miss is a
-  single action vote (2 of 5) on a case this change never touched, already
-  marginal in the before run (4 of 5) and fluctuating between recordings without
-  any corresponding edit nearby — read as pre-existing model-sampling variance
-  in that action term rather than a regression this change introduced, and left
-  unforced rather than chased to an artificial 23 of 23.
+  than "choosing for the requester" (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) —
+  the same after-run cost two unrelated autonomous, missing-design cases their
+  majority on the action naming an autonomous run's obligation not to guess an
+  answer nobody gave, most likely attention diluted by the added length rather
+  than any conflict with the new content. Restating the existing sentence to
+  echo the graded vocabulary term more directly recovered both.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+
+- docs(ready-ticket): record the after-stage eval evidence for graph creation
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — 22 of 23 at the shipping prose,
+  the five new graph-creation cases unanimous across their repetitions from the
+  first recording. The one remaining miss is a single action vote (2 of 5) on a
+  case this change never touched, already marginal in the before run (4 of 5)
+  and fluctuating between recordings without any corresponding edit nearby —
+  read as pre-existing model-sampling variance in that action term rather than a
+  regression this change introduced, and left unforced rather than chased to an
+  artificial 23 of 23. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): remove after-stage eval evidence recorded from a dirty tree
-  — the initial candidate review's correctness lens caught that all three
-  committed after-stage summaries were recorded before this branch's commit
-  landed: each self-reported `worktree_clean: false` and cited the pre-change
-  `skills/ready-ticket` subtree, identical to the before-stage run, even though
-  the run itself read the edited prose already on disk. A later reader resolving
-  the citation would retrieve the unedited file, with nothing in the committed
-  evidence saying the run actually measured the changed prose — the exact
-  silent-rot failure the eval-evidence norm exists to prevent. Removed and
-  re-recorded from the now-committed, clean head.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — the initial candidate review's
+  correctness lens caught that all three committed after-stage summaries were
+  recorded before this branch's commit landed: each self-reported
+  `worktree_clean: false` and cited the pre-change `skills/ready-ticket`
+  subtree, identical to the before-stage run, even though the run itself read
+  the edited prose already on disk. A later reader resolving the citation would
+  retrieve the unedited file, with nothing in the committed evidence saying the
+  run actually measured the changed prose — the exact silent-rot failure the
+  eval-evidence norm exists to prevent. Removed and re-recorded from the
+  now-committed, clean head. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - docs(ready-ticket): re-record the after-stage eval evidence at the committed
-  head — 22 of 23, the same single pre-existing miss as the dirty-tree recording
-  and no case newly failing, so the citation fix cost no measured behavior.
+  head (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — 22 of 23, the same single
+  pre-existing miss as the dirty-tree recording and no case newly failing, so
+  the citation fix cost no measured behavior.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
-- chore(review-fix-loop): re-record the after-stage run at the shipping head —
-  the first after run measured the prose before `exclusive_ref_store` was
-  removed below. Re-recorded at the head this branch ships: 21 of 21, unchanged,
-  so the review-driven simplification cost no measured behavior.
-  (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+- chore(review-fix-loop): re-record the after-stage run at the shipping head
+  (068ee84c12271a5c0005d93efeee499cc19183d3) — the first after run measured the
+  prose before `exclusive_ref_store` was removed below. Re-recorded at the head
+  this branch ships: 21 of 21, unchanged, so the review-driven simplification
+  cost no measured behavior. (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
 - fix(review-fix-loop): drop exclusive_ref_store, the buggy legacy behavior had
-  no business surviving as an opt-in — review found that offering a flag to
-  restore the whole-local-ref-map comparison made no sense when that exact
-  comparison was the documented source of the false positives this ticket fixes.
-  Removed the flag from the schema, the tiering function, and the review-phase
-  call site: every Tier 2 ref change is now unconditionally a non-gating
-  `observed_ref_changes` observation, with no configuration path back to the old
-  behavior. A dedicated clone that wants stricter isolation already has tiers
-  1-3 of the write-prevention ladder (sandbox, restricted tool surface,
-  read-only commands) available to it.
+  no business surviving as an opt-in (068ee84c12271a5c0005d93efeee499cc19183d3)
+  — review found that offering a flag to restore the whole-local-ref-map
+  comparison made no sense when that exact comparison was the documented source
+  of the false positives this ticket fixes. Removed the flag from the schema,
+  the tiering function, and the review-phase call site: every Tier 2 ref change
+  is now unconditionally a non-gating `observed_ref_changes` observation, with
+  no configuration path back to the old behavior. A dedicated clone that wants
+  stricter isolation already has tiers 1-3 of the write-prevention ladder
+  (sandbox, restricted tool surface, read-only commands) available to it.
   (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
-- chore(review-fix-loop): record after-stage eval evidence for #245 — commit the
-  after-stage deterministic eval-corpus summary for the candidate-ref-
-  attribution tiering, on top of the implementation commit, per the eval-backed
-  change norm's requirement that the run be recorded from a committed, clean
-  tree. (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+- chore(review-fix-loop): record after-stage eval evidence for #245
+  (068ee84c12271a5c0005d93efeee499cc19183d3) — commit the after-stage
+  deterministic eval-corpus summary for the candidate-ref- attribution tiering,
+  on top of the implementation commit, per the eval-backed change norm's
+  requirement that the run be recorded from a committed, clean tree.
+  (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
-- fix(review-fix-loop): attribute reviewer mutation, not any local ref move —
-  `detect_worktree_mutation` compared the entire local ref map, so a checkout
-  where several worktrees share one ref store — or any background automation
-  touching a branch — made an unattributed ref advance indistinguishable from
-  reviewer misconduct and killed a valid review. Replaced the flat comparison
-  with a tiered `WorktreeMutationReport`: a change to `HEAD`, the candidate
-  branch ref, or this invocation's own attempt namespace still invalidates the
-  candidate (`blocked/candidate_integrity_failure`), but every other local ref
-  is now always a non-gating `observed_ref_changes` observation — no flag
-  restores the old flat comparison, since it was the source of the false
-  positives this fixes. Worktree path state and host-supplied tool-trace
-  evidence remain the only inputs that force `write_isolation: "violated"`, and
-  a new `integrity_evidence` field records whether the host actually inspected a
-  tool trace for a clean pass. Added an eval corpus scenario for the
-  unattributed third-party ref advance alongside the existing reviewer-mutation
-  one, and recorded before/after deterministic eval-corpus evidence per the
-  eval-backed change norm. (`6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3`)
+- fix(review-fix-loop): attribute reviewer mutation, not any local ref move
+  (6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3) — `detect_worktree_mutation`
+  compared the entire local ref map, so a checkout where several worktrees share
+  one ref store — or any background automation touching a branch — made an
+  unattributed ref advance indistinguishable from reviewer misconduct and killed
+  a valid review. Replaced the flat comparison with a tiered
+  `WorktreeMutationReport`: a change to `HEAD`, the candidate branch ref, or
+  this invocation's own attempt namespace still invalidates the candidate
+  (`blocked/candidate_integrity_failure`), but every other local ref is now
+  always a non-gating `observed_ref_changes` observation — no flag restores the
+  old flat comparison, since it was the source of the false positives this
+  fixes. Worktree path state and host-supplied tool-trace evidence remain the
+  only inputs that force `write_isolation: "violated"`, and a new
+  `integrity_evidence` field records whether the host actually inspected a tool
+  trace for a clean pass. Added an eval corpus scenario for the unattributed
+  third-party ref advance alongside the existing reviewer-mutation one, and
+  recorded before/after deterministic eval-corpus evidence per the eval-backed
+  change norm. (`6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3`)
 
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 

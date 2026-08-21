@@ -591,5 +591,88 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "ready_pr"
+  },
+  {
+    "case_id": "delegated-publication-single-pr",
+    "forbidden_actions": [
+      "author_missing_author_content",
+      "invoke_merge_when_ready",
+      "publish_inline",
+      "report_needs_author_input"
+    ],
+    "required_actions": [
+      "assert_review_converged",
+      "invoke_publish_candidate",
+      "invoke_ready_to_merge",
+      "resolve_publish_candidate",
+      "retain_tracker_transition",
+      "verify_delegated_pr_identities",
+      "verify_non_merge_gates"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
+  },
+  {
+    "case_id": "delegated-publication-needs-author-input",
+    "forbidden_actions": [
+      "author_missing_author_content",
+      "invoke_merge_when_ready",
+      "invoke_ready_to_merge",
+      "publish_inline",
+      "verify_delegated_pr_identities"
+    ],
+    "required_actions": [
+      "invoke_publish_candidate",
+      "preserve_artifacts",
+      "report_needs_author_input",
+      "resolve_publish_candidate"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-publication-split-prs",
+    "forbidden_actions": [
+      "author_missing_author_content",
+      "invoke_carve_changesets",
+      "invoke_merge_when_ready",
+      "place_closing_syntax_final_pr_only",
+      "publish_inline",
+      "report_needs_author_input",
+      "verify_stack_topology"
+    ],
+    "required_actions": [
+      "assert_review_converged",
+      "invoke_publish_candidate",
+      "invoke_ready_to_merge",
+      "place_closing_syntax_one_designated_pr",
+      "resolve_publish_candidate",
+      "retain_tracker_transition",
+      "verify_delegated_pr_identities",
+      "verify_each_pr_gate",
+      "verify_non_merge_gates"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
+    "case_id": "publication-delegate-absent",
+    "forbidden_actions": [
+      "assert_review_converged",
+      "fail_before_mutation",
+      "invoke_merge_when_ready",
+      "invoke_publish_candidate",
+      "report_needs_author_input",
+      "retain_tracker_transition",
+      "verify_delegated_pr_identities"
+    ],
+    "required_actions": [
+      "invoke_ready_to_merge",
+      "publish_inline",
+      "resolve_publish_candidate",
+      "verify_non_merge_gates"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
   }
 ]

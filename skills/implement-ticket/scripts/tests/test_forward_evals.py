@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(60, len(self.cases))
+        self.assertEqual(64, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -118,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(60, len(observations))
+        self.assertEqual(64, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(60, len(process_ids))
+        self.assertEqual(64, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -137,8 +137,8 @@ class ForwardEvaluationTests(unittest.TestCase):
 
         The corpus-wide grading pass belongs to
         `test_forward_cases_execute_fresh_and_pass_separate_grading`; repeating
-        it here would redden a test named for the assumption gate whenever any
-        of the other 58 cases regressed.
+        it here would redden a single-scenario test whenever any of the other
+        cases regressed.
         """
         case = next(item for item in self.cases if item["id"] == case_id)
         return RUNNER.run_executor(
@@ -220,6 +220,122 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(case)
         )
         self.assertNotIn("reject_drifted_ticket_assumption", observed["actions"])
+
+    def test_the_publication_delegate_is_optional_and_absence_changes_nothing(self):
+        """Optionality is the load-bearing property, so it is graded directly.
+
+        A repository that defines no `publish-candidate` is the common case, and
+        its run must reach the same terminal by the same inline publication it
+        always did. A regression here means the seam became a dependency.
+        """
+        absent = self.observe("publication-delegate-absent")
+        self.assertEqual("ready_pr", absent["terminal_state"])
+        self.assertIn("publish_inline", absent["actions"])
+        for delegated in (
+            "invoke_publish_candidate",
+            "assert_review_converged",
+            "retain_tracker_transition",
+            "verify_delegated_pr_identities",
+            "report_needs_author_input",
+        ):
+            self.assertNotIn(delegated, absent["actions"])
+
+        # The pre-existing ordinary case carries no capability key at all, and
+        # still publishes inline: a missing key and an explicit false are the
+        # same absence, not two behaviors.
+        untouched = self.observe("standalone-ready-pr")
+        self.assertEqual("ready_pr", untouched["terminal_state"])
+        self.assertIn("publish_inline", untouched["actions"])
+        self.assertNotIn("invoke_publish_candidate", untouched["actions"])
+
+    def test_a_resolved_delegate_owns_publication_without_re_reviewing(self):
+        observed = self.observe("delegated-publication-single-pr")
+        self.assertEqual("ready_pr", observed["terminal_state"])
+        for required in (
+            "resolve_publish_candidate",
+            "invoke_publish_candidate",
+            "assert_review_converged",
+            "retain_tracker_transition",
+            "verify_delegated_pr_identities",
+            "invoke_ready_to_merge",
+        ):
+            self.assertIn(required, observed["actions"])
+        self.assertNotIn("publish_inline", observed["actions"])
+
+    def test_a_delegated_split_reaches_ready_prs_without_stack_obligations(self):
+        """The one semantic widening: N PRs from one ordinary publication.
+
+        `ready_prs` is shared with the carved path, so the split must reach it
+        without inheriting the chain evidence that belongs to
+        `carve-changesets`.
+        """
+        observed = self.observe("delegated-publication-split-prs")
+        self.assertEqual("ready_prs", observed["terminal_state"])
+        self.assertIn("place_closing_syntax_one_designated_pr", observed["actions"])
+        self.assertIn("verify_each_pr_gate", observed["actions"])
+        for carved in (
+            "invoke_carve_changesets",
+            "verify_stack_topology",
+            "place_closing_syntax_final_pr_only",
+        ):
+            self.assertNotIn(carved, observed["actions"])
+
+    def test_needs_author_input_stops_without_authoring_the_missing_content(self):
+        observed = self.observe("delegated-publication-needs-author-input")
+        self.assertEqual("blocked", observed["terminal_state"])
+        self.assertIn("report_needs_author_input", observed["actions"])
+        self.assertIn("preserve_artifacts", observed["actions"])
+        self.assertNotIn("author_missing_author_content", observed["actions"])
+        # Not a readiness claim: nothing was published, so no lifecycle owner
+        # was handed anything.
+        self.assertNotIn("invoke_ready_to_merge", observed["actions"])
+        self.assertNotIn("verify_delegated_pr_identities", observed["actions"])
+
+    def test_the_delegated_cases_carry_no_repository_specific_rule(self):
+        """The packets describe a delegate, never a repository's own rules.
+
+        The obligations under grading are the seam's. A packet naming a concrete
+        base branch policy, title format, or gate would grade whether a runtime
+        can restate a fixture, not whether the abstraction holds.
+        """
+        for case_id in (
+            "delegated-publication-single-pr",
+            "delegated-publication-needs-author-input",
+            "delegated-publication-split-prs",
+            "publication-delegate-absent",
+        ):
+            case = next(item for item in self.cases if item["id"] == case_id)
+            skill = RUNNER.skill_prompt(case["target_skill"])
+            with self.subTest(case=case_id):
+                for tell in ("release-2026-08", "designated"):
+                    self.assertNotIn(tell, skill)
+
+    def test_delegated_publication_cases_depend_on_the_new_skill_prose(self):
+        """Removing the prose must fail the case, not silently still pass.
+
+        Both fragments occur more than once and wrap across lines, so removal
+        happens on the whitespace-normalized text the contract check itself
+        reads. A raw-text replace would leave a second, differently wrapped
+        occurrence standing and the test would pass having removed nothing.
+        """
+        for case_id, fragment in (
+            (
+                "delegated-publication-single-pr",
+                "resolve repository-owned `publish-candidate` by stable name",
+            ),
+            ("delegated-publication-needs-author-input", "`needs_author_input`"),
+        ):
+            case = next(item for item in self.cases if item["id"] == case_id)
+            payload = RUNNER.build_payload(case)
+            compacted = FIXTURE_EXECUTOR.compact(payload["skill_prompt"])
+            self.assertIn(fragment, compacted)
+            payload["skill_prompt"] = compacted.replace(fragment, "")
+            observed = RUNNER.run_executor(
+                [sys.executable, str(EXECUTOR_PATH)], payload
+            )
+            with self.subTest(case=case_id):
+                self.assertEqual("blocked", observed["terminal_state"])
+                self.assertIn("skill_contract_incomplete", observed["actions"])
 
     def test_acceptance_cases_depend_on_the_acceptance_skill_contract(self):
         for case_id, fragment in (

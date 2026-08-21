@@ -278,11 +278,15 @@ skill returns for itself. See "Report the epic result" below for that contract.
   current-candidate non-merge gate, and has every required pre-merge acceptance
   entry passing. Do not count the child complete or unblock dependents that
   require merge or acceptance.
-- `ready_prs`: verify the reported PR count, ordered predecessor-base topology,
-  correct closing/non-closing syntax, per-PR candidate and non-merge gate
-  evidence, passing required pre-merge entries, and whole-chain equivalence. Do
-  not count the child complete or unblock dependents that require merge or
-  acceptance.
+- `ready_prs`: verify the reported PR count, correct closing/non-closing syntax,
+  per-PR candidate and non-merge gate evidence, exactly one lifecycle owner per
+  PR, and passing required pre-merge entries. `ready_prs` names one publication
+  event that opened more than one PR, not necessarily a chain: verify ordered
+  predecessor-base topology and whole-chain equivalence of a carved stack, whose
+  refs claim a chain, and do not require either of a child whose
+  repository-owned publication delegate split the candidate into PRs sharing one
+  base. Either way, do not count the child complete or unblock dependents that
+  require merge or acceptance.
 - `merged`: verify mainline, the child's complete current acceptance ledger, and
   tracker evidence before refreshing the graph. For a stacked child, also verify
   `all_merged`, every PR merge and propagation step, and full-chain
