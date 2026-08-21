@@ -6,6 +6,14 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence at the head that
+  closes the fifth review pass — 66 of 66 and 15 of 15, all unchanged. Both
+  regressions this pass fixed were reachable only by inputs no corpus case
+  carries, which is why the corpus stayed green through them and why the diff is
+  unmoved now: they were caught by reading the diff against the base
+  implementation, not by the oracle. Recorded so the shipping head is the head
+  the evidence names. Real-model tier still unavailable.
+
 - fix(implement-ticket): stop the publication-boundary guard from collapsing a
   resumed split and from rewriting the carved terminal — a fifth review pass
   found two regressions the previous pass's own guard introduced, both from the
