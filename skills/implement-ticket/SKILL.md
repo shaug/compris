@@ -719,7 +719,9 @@ normative cognitive-load guardrails. Do not copy their thresholds or substitute
 local heuristics. Record the candidate-bound guardrail evidence and classify the
 candidate before any remote publication.
 
-- When the candidate fits the guardrails, use the ordinary single-PR path.
+- When the candidate fits the guardrails, use the ordinary publication path.
+  That path opens one PR inline, or the one-or-several a repository-owned
+  `publish-candidate` decides on; either way it is one publication event.
 - When it is oversized, decide whether the ticket should be split or the branch
   should be carved. Prefer tracker-level ticket decomposition when the parts are
   independently valuable and trackable. Prefer `carve-changesets` only when the

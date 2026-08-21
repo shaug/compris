@@ -759,15 +759,31 @@ def action_result(payload: dict) -> dict:
     # forbids. A publication that never happens emits no publication
     # obligation at all, so an already-merged or resumed candidate does not
     # report a `publish_inline` it never performed.
-    published_prs = 1
-    if artifacts["diff"].get("guardrail") == "oversized":
-        return {
-            "target_skill": target,
-            "terminal_state": "blocked",
-            "actions": sorted(set(actions + ["stop_before_publication"])),
-            "acceptance_ledger": acceptance_ledger,
-        }
-    if not pr.get("merged") and not handoff.get("resumed"):
+    # How many PRs this ticket's one publication comprises. Read from the
+    # delegate's own result, never from whether *this* run performed the
+    # publication: an already-merged or resumed candidate skips the boundary
+    # below, and keying the shape off that would model a resumed three-PR split
+    # as one PR — the same collapse this whole seam exists to prevent, just on a
+    # later path. Absent a delegate result, publication is inline and is one PR.
+    split = (handoff.get("publish_candidate_result") or {}).get("prs") or []
+    published_prs = len(split) if split else 1
+
+    # The publication boundary. Only the ordinary path reaches it, so a carved
+    # candidate is never routed through `publish-candidate`. This *skips* the
+    # boundary rather than returning, because the guard exists to keep the
+    # delegate out of the carved path — not to change what a carved candidate
+    # returns. An oversized candidate whose `carve_terminal` is neither
+    # `prs_open` nor a blocking value falls out of the carved block above without
+    # returning, and it must reach the same terminal selection it always did.
+    # A publication that never happens emits no publication obligation, so an
+    # already-merged or resumed candidate reports no `publish_inline` it never
+    # performed.
+    reaches_publication_boundary = (
+        artifacts["diff"].get("guardrail") != "oversized"
+        and not pr.get("merged")
+        and not handoff.get("resumed")
+    )
+    if reaches_publication_boundary:
         (
             publication_actions,
             publication_blocked,
@@ -784,12 +800,7 @@ def action_result(payload: dict) -> dict:
 
     # A split is merged only when every PR it opened is. One merged PR of three
     # is merged delivery of a fraction, and calling it the ticket's `merged`
-    # would unblock dependents on work still open. This is read from the
-    # delegate's own result rather than from `published_prs`, which only counts
-    # a publication *this* run performed: an already-merged or resumed candidate
-    # skips the publication boundary above, so keying the check off that counter
-    # would let exactly those paths report a partial split as `merged`.
-    split = (handoff.get("publish_candidate_result") or {}).get("prs") or []
+    # would unblock dependents on work still open.
     partial_split = len(split) > 1 and not all(
         entry.get("state") == "merged" for entry in split
     )

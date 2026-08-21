@@ -6,6 +6,34 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): stop the publication-boundary guard from collapsing a
+  resumed split and from rewriting the carved terminal — a fifth review pass
+  found two regressions the previous pass's own guard introduced, both from the
+  same mistake: the PR count was computed at the publication boundary, so any
+  path that skips the boundary lost it. A resumed three-PR split therefore
+  returned `ready_pr` instead of `ready_prs`, modelling three live pull requests
+  as one — the exact collapse this seam exists to prevent, on a third path, and
+  reachable by the natural resume of a case this work itself added. The count
+  now comes from the delegate's own returned result, the same source the
+  partial-merge check was already re-keyed to; the two now agree by construction
+  rather than by coincidence. The second regression was worse in kind: the
+  positive oversized guard `return`ed rather than skipping, so an oversized
+  candidate whose `carve_terminal` was `all_merged` changed from `ready_pr` to a
+  `blocked` that asserted a stop-before-publication obligation about a stack
+  already merged. That touched the carved path, which this work's own non-goals
+  said not to change. The guard now skips the boundary instead of returning,
+  which keeps the delegate out of the carved path — its actual purpose — while
+  leaving the carved terminal exactly as it was; both are verified against the
+  base implementation in-process. Also widens step 5's own "ordinary single-PR
+  path", the last surface still labelling the path itself by a shape it no
+  longer guarantees, and binds two invariants executably that had been prose
+  only: that both halves of the delegated-execution restriction name the same
+  `publication_shape` field, and that no superseded two-shape enumeration
+  survives anywhere in the contract, the agent metadata, or the README. The
+  second is asserted as an absence over the whole surface rather than a list of
+  known sites, because enumerating the sites by inspection is what let four
+  passes each find another one.
+
 - docs(implement-ticket): re-record the after-stage eval evidence at the
   review-converged head — 66 of 66 and 15 of 15, all 66 unchanged against the
   previous record, so the fourth pass's corrections cost no measured behavior

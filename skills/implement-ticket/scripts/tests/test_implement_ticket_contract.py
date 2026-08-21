@@ -633,6 +633,46 @@ class ImplementTicketContractTests(unittest.TestCase):
             self.publish_handoff_compact,
         )
 
+    def test_publication_shape_reaches_the_delegate_from_both_halves(self):
+        """A restriction with no field to carry it strands the extra PRs.
+
+        The delegated-execution contract cannot represent a split, so it must
+        say so *to the delegate*. Both halves have to name the same field, or
+        the restricted caller follows one and the delegate never hears it.
+        """
+        for surface in (
+            self.publish_handoff_compact,
+            compact(
+                read(SKILL_ROOT / "references" / "delegated-execution" / "CONTRACT.md")
+            ),
+        ):
+            self.assertIn("publication_shape", surface)
+            self.assertIn("single_pr_only", surface)
+        self.assertIn("one_pr_or_several", self.publish_handoff_compact)
+
+    def test_every_publication_shape_enumeration_names_all_three(self):
+        """Four review passes each found another surface still naming two.
+
+        Asserted as an absence over the whole contract rather than a list of
+        known sites, because enumerating the sites by inspection is exactly
+        what kept coming up short.
+        """
+        superseded = (
+            "ordinary PR or carved stack",
+            "ordinary PR or every carved-stack PR",
+            "ordinary branch or complete stack",
+            "ordinary single-PR publication path",
+            "single-PR or carved-stack",
+            "either a single pull request or an explicitly authorized carved stack",
+        )
+        surface = compact(
+            self.all_contract
+            + read(SKILL_ROOT / "agents" / "claude-code.md")
+            + read(REPOSITORY_ROOT / "README.md")
+        )
+        for phrase in superseded:
+            self.assertNotIn(phrase, surface, f"superseded enumeration: {phrase}")
+
     def test_needs_author_input_is_never_fabricated_and_is_not_a_failure(self):
         contract = compact(self.skill + self.publish_handoff + self.result)
         self.assertIn("`needs_author_input`", contract)
