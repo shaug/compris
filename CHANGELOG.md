@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence at the tenth-pass
+  head — 72 of 72 and 16 of 16. Real-model tier still unavailable.
+
 - fix(implement-ticket): pin the publication-boundary guard so every conjunct is
   measured — a tenth review pass showed the guard itself was the last unmeasured
   branch in the oracle: replacing the whole expression with `True`, the
