@@ -1,6 +1,6 @@
 ---
 name: implement-ticket
-description: 'Use when exactly one GitHub or Linear ticket or issue — standalone, or one named child of an epic — should go from open to delivered. Scope is one ticket and one publication, either a single pull request or an explicitly authorized carved stack: it enforces readiness and authority boundaries, delegates the initial review and the published PR lifecycle to the repository-owned skills, and verifies tracker, mainline, and cleanup outcomes. Detects a whole-epic request before any mutation and routes it toward implement-epic. Returns one terminal state: ready_pr, ready_prs, merged, blocked, or requires_epic.'
+description: 'Use when exactly one GitHub or Linear ticket or issue — standalone, or one named child of an epic — should go from open to delivered. Scope is one ticket and one publication — a single pull request, the several a repository-owned publication delegate may split it into, or an explicitly authorized carved stack: it enforces readiness and authority boundaries, delegates the initial review and the published PR lifecycle to the repository-owned skills, and verifies tracker, mainline, and cleanup outcomes. Detects a whole-epic request before any mutation and routes it toward implement-epic. Returns one terminal state: ready_pr, ready_prs, merged, blocked, or requires_epic.'
 ---
 
 # Implement Ticket
@@ -390,9 +390,12 @@ unimplemented sibling is required; never absorb that sibling into this PR.
 When an open canonical PR or branch already owns the ticket, return `blocked`
 with its identity and require explicit ownership transfer before modifying it;
 do not report another worker's candidate as this run's `ready_pr` or
-`ready_prs`. When a merged PR or stack is verified on the base, return `merged`
-without new implementation state only if the criterion-specific acceptance
-ledger is current and complete and the tracker transition is correct. Otherwise
+`ready_prs`. When an existing publication is verified merged on the base —
+whether that is one PR, a full carved stack, or every PR of a split — return
+`merged` without new implementation state only if the criterion-specific
+acceptance ledger is current and complete and the tracker transition is correct.
+A publication that opened several PRs of which only some are merged is not this
+case: report merged delivery with the unmerged identities named. Otherwise
 report merged delivery with acceptance pending and continue only within the
 available post-merge verification and tracker authority.
 
@@ -772,15 +775,17 @@ may supply — a delegate that says so returns `needs_author_input`, which
 maps to `blocked` with the converged candidate preserved.
 
 Use closing syntax on exactly one PR of the publication — the one ordinary PR,
-the final changeset PR, or the one PR this run designates when a delegated
-publication splits the candidate — and only when explicit tracker-transition
-authority exists and every required acceptance item can pass before merge.
-Without that authority, or when any required item is post-merge, use
-`Refs #<issue>`, `Supports #<issue>`, or the tracker's established non-closing
-equivalent on all PRs. Transition the ticket manually only after the ledger
-passes and transition authority exists. Intermediate stack PRs always use a
-non-closing reference and remain behaviorally safe under the `carve-changesets`
-equivalence contract.
+the final changeset PR, or the last PR to merge when a delegated publication
+splits the candidate — and only when explicit tracker-transition authority
+exists and every required acceptance item can pass before merge. A split's
+carrier is fixed by that rule rather than named in advance: the delegate decides
+whether the candidate publishes as one PR or several, so no PR identity exists
+to designate at handoff time. Without that authority, or when any required item
+is post-merge, use `Refs #<issue>`, `Supports #<issue>`, or the tracker's
+established non-closing equivalent on all PRs. Transition the ticket manually
+only after the ledger passes and transition authority exists. Intermediate stack
+PRs always use a non-closing reference and remain behaviorally safe under the
+`carve-changesets` equivalence contract.
 
 Normal ticket execution never uses `watch_until_closed`. Ordinary pending CI or
 review time is not a blocker; retain task ownership through the selected
@@ -840,7 +845,11 @@ candidate converged and the ledger says so; what is missing is content the
 repository requires its own author to write. Surface exactly what the delegate
 named as missing, preserve the candidate, and stop. Never author, paraphrase, or
 infer it, and never retry publication with a placeholder — an unattended run
-halts here rather than inventing the sentence a human owes.
+halts here rather than inventing the sentence a human owes. Check whether it
+published anything before stopping: a split can open one PR and then need author
+content for the next. Report every PR that exists and hand each one to
+`babysit-pr` regardless of the terminal state, because a live PR with no
+lifecycle owner is the one outcome this skill never permits.
 
 ## Return one terminal handoff
 
@@ -861,10 +870,14 @@ one terminal state:
   PR's verified identity, head, and base for a split. Stack topology and
   whole-chain equivalence are the carved path's obligations, not the terminal
   name's;
-- `merged`: the ordinary PR or full carved stack is verified on the base, every
-  required pre-merge and post-merge acceptance entry passes for the current
-  candidate/deployment and environment, and the authorized ticket transition and
-  cleanup are verified;
+- `merged`: the publication is verified on the base in whichever shape it took —
+  the ordinary PR, the full carved stack, or every PR of an ordinary publication
+  a repository-owned `publish-candidate` split — every required pre-merge and
+  post-merge acceptance entry passes for the current candidate/deployment and
+  environment, and the authorized ticket transition and cleanup are verified. A
+  publication that opened several PRs is merged only when every one of them is;
+  one merged PR of a split is merged delivery of a fraction, and reporting it as
+  the ticket's `merged` would unblock dependents on work still open;
 - `blocked`: give one concrete blocking reason and next action, preserving any
   partial or merged delivery artifacts and identifying acceptance-pending state.
   A `needs_author_input` publication gap is reported here, with the converged

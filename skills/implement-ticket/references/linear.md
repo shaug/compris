@@ -39,10 +39,12 @@ independently.
   unavailable, migration, compatibility, rollout, and verification behavior.
 - Use the repository's required Linear reference in branch, commit, and PR
   metadata.
-- Keep one ticket per candidate. Publish it as one ordinary PR or one ordered
-  carved stack. Allow an integration-driven completion transition only when all
-  required acceptance can pass before merge; otherwise use a non-transitioning
-  reference and close manually after post-merge evidence passes.
+- Keep one ticket per candidate, and publish it exactly once — as one ordinary
+  PR, one ordered carved stack, or the several PRs a repository-owned
+  `publish-candidate` may split an ordinary publication into. Allow an
+  integration-driven completion transition only when all required acceptance can
+  pass before merge; otherwise use a non-transitioning reference and close
+  manually after post-merge evidence passes.
 - Update or reopen Linear status only when that workflow state was actually
   reached, the criterion-specific ledger passes, and the completion policy
   authorizes the transition. A completed state is not acceptance evidence.

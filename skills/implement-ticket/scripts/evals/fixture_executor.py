@@ -303,6 +303,22 @@ def publish_candidate_result(
     if status == "needs_author_input":
         # The delegate named content only its author may write. Surfacing it is
         # the whole obligation; authoring it is the failure the case grades for.
+        # A split can publish one PR before finding the next needs author
+        # content, so a stop is not proof nothing was published: any PR that
+        # exists still needs a lifecycle owner.
+        stopped_after = result.get("prs") or []
+        if stopped_after:
+            return (
+                actions
+                + [
+                    "report_needs_author_input",
+                    "preserve_artifacts",
+                    "verify_delegated_pr_identities",
+                    "report_partial_publication",
+                ],
+                True,
+                len(stopped_after),
+            )
         return actions + ["report_needs_author_input", "preserve_artifacts"], True, 0
     published = result.get("prs") or []
     if status != "published" or not published:
@@ -723,17 +739,64 @@ def action_result(payload: dict) -> dict:
             "actions": actions + ["reject_concurrent_mutation"],
         }
 
-    # Ordinary path only. The carved path owns its own publication and returned
-    # above, so a candidate reaching here is never routed through the delegate.
-    publication_actions, publication_blocked, published_prs = publish_candidate_result(
-        capabilities, handoff
-    )
-    actions.extend(publication_actions)
-    if publication_blocked:
+    # The publication boundary, and only the ordinary path reaches it. The
+    # guard is positive rather than trusting that every carved branch returned
+    # above: an oversized candidate whose `carve_terminal` is neither
+    # `prs_open` nor a blocking value falls out of that block without
+    # returning, and routing it through the delegate is exactly what
+    # SKILL.md's "do not route the carved path through publish-candidate"
+    # forbids. A publication that never happens emits no publication
+    # obligation at all, so an already-merged or resumed candidate does not
+    # report a `publish_inline` it never performed.
+    published_prs = 1
+    if artifacts["diff"].get("guardrail") == "oversized":
         return {
             "target_skill": target,
             "terminal_state": "blocked",
-            "actions": sorted(set(actions)),
+            "actions": sorted(set(actions + ["stop_before_publication"])),
+            "acceptance_ledger": acceptance_ledger,
+        }
+    if not pr.get("merged") and not handoff.get("resumed"):
+        (
+            publication_actions,
+            publication_blocked,
+            published_prs,
+        ) = publish_candidate_result(capabilities, handoff)
+        actions.extend(publication_actions)
+        if publication_blocked:
+            return {
+                "target_skill": target,
+                "terminal_state": "blocked",
+                "actions": sorted(set(actions)),
+                "acceptance_ledger": acceptance_ledger,
+            }
+
+    # A split is merged only when every PR it opened is. One merged PR of three
+    # is merged delivery of a fraction, and calling it the ticket's `merged`
+    # would unblock dependents on work still open. This is read from the
+    # delegate's own result rather than from `published_prs`, which only counts
+    # a publication *this* run performed: an already-merged or resumed candidate
+    # skips the publication boundary above, so keying the check off that counter
+    # would let exactly those paths report a partial split as `merged`.
+    split = (handoff.get("publish_candidate_result") or {}).get("prs") or []
+    partial_split = len(split) > 1 and not all(
+        entry.get("state") == "merged" for entry in split
+    )
+
+    def partial_split_result() -> dict:
+        return {
+            "target_skill": target,
+            "terminal_state": "blocked",
+            "actions": sorted(
+                set(
+                    actions
+                    + [
+                        "report_partial_split_merge",
+                        "keep_tracker_open",
+                        "report_delivery_acceptance_separately",
+                    ]
+                )
+            ),
             "acceptance_ledger": acceptance_ledger,
         }
 
@@ -741,6 +804,8 @@ def action_result(payload: dict) -> dict:
         actions.extend(
             ["verify_merge_live", "caller_verifies_mainline_tracker_cleanup"]
         )
+        if partial_split:
+            return partial_split_result()
         terminal_state = "merged"
     elif authority.get("merge"):
         actions.extend(
@@ -750,6 +815,8 @@ def action_result(payload: dict) -> dict:
                 "caller_verifies_mainline_tracker_cleanup",
             ]
         )
+        if partial_split:
+            return partial_split_result()
         terminal_state = "merged"
     else:
         actions.extend(["invoke_ready_to_merge", "verify_non_merge_gates"])

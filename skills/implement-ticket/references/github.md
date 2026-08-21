@@ -50,8 +50,10 @@ PR when canonical ownership is unresolved.
   authentication.
 - Confirm the remote base, current checkout, branch, and worktree topology.
 - Inspect open and merged PRs that reference the owning tracker ticket.
-- Use one tracker ticket per candidate. Publish that candidate as exactly one
-  ordinary PR or one ordered carved stack.
+- Use one tracker ticket per candidate, and publish that candidate exactly once.
+  The publication takes one of three shapes: one ordinary PR, one ordered carved
+  stack, or the several PRs a repository-owned `publish-candidate` may split an
+  ordinary publication into.
 - When GitHub owns ticket state and every required acceptance item can pass
   before merge, use the repository's closing syntax, normally `Fixes #<issue>`.
 - When any required item needs merged code, deployment, authentication, or

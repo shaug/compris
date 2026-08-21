@@ -223,6 +223,21 @@ state and at least one acceptance record. `ready_pr` requires exactly one PR;
 `ready_prs` requires a stack. `requires_epic` requires no implementation state
 and may have an empty ledger.
 
+`ready_prs` meaning a stack is narrower here than in the skill's own terminal
+vocabulary, and deliberately so at `v2`. `implement-ticket` also reaches
+`ready_prs` when a repository-owned `publish-candidate` splits an ordinary
+publication into several PRs sharing one base — a shape `publication.kind`
+cannot name and this contract's chain rules below reject, since they require
+every later PR to base on the previous PR's head. A run under this contract
+therefore must not publish a split: pass no
+`decompose oversized candidates into stacked changesets` equivalent for
+publication, and treat a delegate that splits anyway as a contract violation
+that returns `blocked` with its published PR identities preserved, rather than a
+`ready_prs` this validator would reject after every PR already exists.
+Representing a split needs a new `publication.kind` and its own validation
+branch, which is a versioned change to this contract and not something a caller
+may assume at `v2`.
+
 Except for `requires_epic`, the terminal ledger must cover the invocation's
 acceptance contract one-to-one: it may neither omit a criterion nor invent one,
 and its required flag, category, stage, identity basis, exact required source,

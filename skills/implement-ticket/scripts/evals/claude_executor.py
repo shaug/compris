@@ -129,6 +129,8 @@ ACTION_VOCABULARY = (
     "report_mid_stack_redesign",
     "report_missing_reopen_authority",
     "report_needs_author_input",
+    "report_partial_split_merge",
+    "report_partial_publication",
     "report_unchecked_ticket_assumption",
     "reopen_auto_closed_ticket",
     "reread_live_pr",

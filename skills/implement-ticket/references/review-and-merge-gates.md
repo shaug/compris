@@ -65,7 +65,7 @@ apply before this point is reached.
 
 ## Publication and delegation gate
 
-Before invoking either delegate:
+Before invoking any publication or lifecycle delegate:
 
 - verify the initial `review-fix-loop` result is `converged` for the exact live
   head and applicable base;
@@ -73,8 +73,9 @@ Before invoking either delegate:
   non-closing tracker syntax from whether post-merge entries exist;
 - evaluate the exact candidate against the live `carve-changesets` guardrails
   without duplicating their thresholds;
-- verify the selected single-PR or stack identity, effective diff, resulting
-  tree, validation, worktree, ticket reference, and authority are internally
+- verify the selected publication identity — one PR, every PR of a delegated
+  split, or the ordered stack — together with the effective diff, resulting
+  tree, validation, worktree, ticket reference, and authority, are internally
   consistent;
 - assemble every field required by the applicable
   [babysit-pr](babysit-pr-handoff.md),

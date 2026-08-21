@@ -1150,5 +1150,41 @@
       "worktree": {"path": "/worktrees/g630", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-630"}
     }
+  },
+  {
+    "id": "delegated-publication-split-partial-merge",
+    "target_skill": "implement-ticket",
+    "request": "Implement and merge G-640 through the repository's publication delegate.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-640", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request"},
+      "pr": {"state": "open", "merged": false, "head": "head-640", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-640", "patch": "ticket-scoped patch", "resulting_tree": "tree-640"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-640"}]},
+      "reviews": {"initial": "clean", "head": "head-640", "connector_head": "head-640", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g640", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-640", "publish_candidate_result": {"status": "published", "prs": [{"number": 641, "state": "merged", "head": "head-640", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 642, "state": "merged", "head": "head-640", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 643, "state": "open", "head": "head-640", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
+    }
+  },
+  {
+    "id": "delegated-publication-partial-then-author-input",
+    "target_skill": "implement-ticket",
+    "request": "Implement G-660 to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-660", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request and requires an author-written narrative section"},
+      "pr": {"state": "open", "merged": false, "head": "head-660", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-660", "patch": "ticket-scoped patch", "resulting_tree": "tree-660"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-660"}]},
+      "reviews": {"initial": "clean", "head": "head-660", "connector_head": "head-660", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g660", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-660", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 661, "state": "open", "head": "head-660", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+    }
   }
 ]
