@@ -48,9 +48,10 @@ independently.
 - Update or reopen Linear status only when that workflow state was actually
   reached, the criterion-specific ledger passes, and the completion policy
   authorizes the transition. A completed state is not acceptance evidence.
-- After the ordinary merge or verified `all_merged` result, verify the complete
-  result on the base and run every required post-merge acceptance item with
-  separately granted environment and deployment authority.
+- After every PR of the publication is merged, or after a verified `all_merged`
+  result, verify the complete result on the base and run every required
+  post-merge acceptance item with separately granted environment and deployment
+  authority. A subset merged does not reach this step.
 - When the ticket is an epic child, reread affected native dependency
   relationships only after acceptance and the transition pass, then report newly
   unblocked work without selecting or mutating it.

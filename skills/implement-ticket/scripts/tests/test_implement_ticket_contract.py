@@ -670,13 +670,29 @@ class ImplementTicketContractTests(unittest.TestCase):
             "single-PR or carved-stack",
             "either a single pull request or an explicitly authorized carved stack",
         )
-        surface = compact(
-            self.all_contract
-            + read(SKILL_ROOT / "agents" / "claude-code.md")
-            + read(REPOSITORY_ROOT / "README.md")
-        )
-        for phrase in superseded:
-            self.assertNotIn(phrase, surface, f"superseded enumeration: {phrase}")
+        # Search surface is every prose and metadata file the skill ships plus
+        # the README, discovered rather than listed. A hand-listed surface is
+        # how this recurred: the blacklist named the phrase `agents/openai.yaml`
+        # carried while that file sat outside the files being searched, so the
+        # guard could not see the one place its own phrase survived.
+        searched = [REPOSITORY_ROOT / "README.md"]
+        for pattern in ("*.md", "agents/*", "references/**/*.md"):
+            searched.extend(
+                path
+                for path in SKILL_ROOT.glob(pattern)
+                if path.is_file() and "/evals/results/" not in str(path)
+            )
+        surface_files = sorted(set(searched))
+        # The guard is worthless if it searches nothing; pin the floor.
+        self.assertGreaterEqual(len(surface_files), 10, surface_files)
+        for path in surface_files:
+            document = compact(read(path))
+            for phrase in superseded:
+                self.assertNotIn(
+                    phrase,
+                    document,
+                    f"superseded enumeration in {path.name}: {phrase}",
+                )
 
         # Positive direction: a document that reasons about merge verification
         # names the split. `all_merged` is the marker for such a document — it

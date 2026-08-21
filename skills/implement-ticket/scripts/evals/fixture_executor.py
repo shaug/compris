@@ -790,7 +790,14 @@ def action_result(payload: dict) -> dict:
     # below, and keying the shape off that would model a resumed three-PR split
     # as one PR — the same collapse this whole seam exists to prevent, just on a
     # later path. Absent a delegate result, publication is inline and is one PR.
-    split = (handoff.get("publish_candidate_result") or {}).get("prs") or []
+    # Only a delegate that actually ran produces a split. Reading the handoff
+    # unconditionally would let a capability-absent fixture that happens to
+    # carry a delegate result report both an inline publication and a split.
+    split = (
+        (handoff.get("publish_candidate_result") or {}).get("prs") or []
+        if capabilities.get("publish_candidate")
+        else []
+    )
     published_prs = len(split) if split else 1
 
     # The publication boundary. Only the ordinary path reaches it, so a carved
@@ -823,12 +830,14 @@ def action_result(payload: dict) -> dict:
                 "acceptance_ledger": acceptance_ledger,
             }
 
-    # A split is merged only when every PR it opened is. One merged PR of three
-    # is merged delivery of a fraction, and calling it the ticket's `merged`
-    # would unblock dependents on work still open.
-    partial_split = len(split) > 1 and not all(
-        entry.get("state") == "merged" for entry in split
-    )
+    # A split is merged only when every PR it opened is. `partial` means exactly
+    # that: some merged and some not. All-open is not partial — a freshly
+    # published split has every PR open, and under merge authority the run
+    # merges them and reports `merged`, so treating all-open as partial would
+    # answer the new shape's primary success path with a block and assert a
+    # subset-merged report where nothing is merged at all.
+    merged_count = sum(1 for entry in split if entry.get("state") == "merged")
+    partial_split = len(split) > 1 and 0 < merged_count < len(split)
 
     def partial_split_result() -> dict:
         return {

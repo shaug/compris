@@ -6,6 +6,27 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): let a freshly published split reach `merged`, and make
+  the enumeration guard search every file the skill ships — a seventh review
+  pass found the guard added two passes earlier could not see the one file still
+  carrying a phrase the guard's own blacklist names. Its search surface was
+  three hand-listed paths, so `agents/openai.yaml` sat outside it while holding
+  the exact superseded sentence its sibling `agents/claude-code.md` had been
+  fixed to drop. The surface is now discovered by glob over every prose and
+  metadata file the skill ships, with a floor assertion so a guard that searches
+  nothing cannot pass quietly, and reverting the `openai.yaml` fix is verified
+  to fail it. The same pass found `references/linear.md` still gating post-merge
+  verification on "the ordinary merge or verified `all_merged`" nine lines after
+  its own bullet had been widened to three shapes — the last singular merge
+  trigger in the skill. The third finding was a real semantic bug rather than
+  stale prose, and one this work had already deferred once: `partial_split`
+  treated any split without every PR merged as partial, so a freshly published
+  split — where every PR is open by definition — could never reach `merged`
+  under merge authority, and the subset-merged report was asserted where nothing
+  was merged at all. Partial now means what the word means, some merged and some
+  not; all three states are probed and answer correctly. Deferring it once is
+  what let it come back, which is the argument against deferring the cheap ones.
+
 - docs(implement-ticket): record the after-stage eval evidence at the head that
   closes the sixth review pass — 68 of 68 and 16 of 16, with the two new cases
   passing and every pre-existing case unmoved. Real-model tier still

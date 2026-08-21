@@ -1,4 +1,4 @@
 interface:
   display_name: "Implement Ticket"
   short_description: "Implement and publish one ticket candidate"
-  default_prompt: "Use $implement-ticket to implement this ticket, run its initial review, choose the authorized single-PR or carved-stack publication path, and verify the authorized result."
+  default_prompt: "Use $implement-ticket to implement this ticket, run its initial review, choose the authorized ordinary or carved-stack publication path, and verify the authorized result."
