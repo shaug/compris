@@ -65,7 +65,7 @@ apply before this point is reached.
 
 ## Publication and delegation gate
 
-Before invoking either delegate:
+Before invoking any publication or lifecycle delegate:
 
 - verify the initial `review-fix-loop` result is `converged` for the exact live
   head and applicable base;
@@ -73,8 +73,9 @@ Before invoking either delegate:
   non-closing tracker syntax from whether post-merge entries exist;
 - evaluate the exact candidate against the live `carve-changesets` guardrails
   without duplicating their thresholds;
-- verify the selected single-PR or stack identity, effective diff, resulting
-  tree, validation, worktree, ticket reference, and authority are internally
+- verify the selected publication identity — one PR, every PR of a delegated
+  split, or the ordered stack — together with the effective diff, resulting
+  tree, validation, worktree, ticket reference, and authority, are internally
   consistent;
 - assemble every field required by the applicable
   [babysit-pr](babysit-pr-handoff.md),
@@ -101,9 +102,11 @@ requires a validated current `ready_to_merge` result plus passing required
 pre-merge acceptance evidence. A `ready_prs` requires the same evidence plus a
 validated current `prs_open` result from `carve-changesets` for a stack, or a
 validated current `published` result from `publish-candidate` naming every PR of
-a delegated split. A `merged` result requires independent remote merge or
-`all_merged`, mainline, complete current acceptance evidence, tracker
-transition, dependency refresh, and cleanup verification by `implement-ticket`.
+a delegated split. A `merged` result requires every PR of the publication merged
+— one `babysit-pr` `merged` for an ordinary single PR, one per PR of a delegated
+split, or `carve-changesets`'s `all_merged` for a stack — plus mainline,
+complete current acceptance evidence, tracker transition, dependency refresh,
+and cleanup verification by `implement-ticket`.
 
 If the live head, base, PR state, ownership, acceptance ledger, or gate evidence
 differs from the result, reconcile the live candidate or fail closed. Never

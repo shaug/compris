@@ -92,9 +92,13 @@ ambiguously owned candidate. The source branch becomes immutable at handoff.
   authorized manual tracker transition stays with `implement-ticket` after
   mainline verification.
 
-One ticket owns one candidate. That candidate publishes as either one ordinary
-PR or one ordered carved stack. Put the tracker's closing syntax only on the
-final changeset PR, or on none when the completion policy forbids automatic
+One ticket owns one candidate, and that candidate publishes exactly once. This
+path is the ordered-carved-stack shape of that single publication; an ordinary
+publication is the others, whether it opens one PR inline or the several a
+repository-owned
+[`publish-candidate`](publish-candidate-handoff.md#terminal-result-mapping)
+delegate may split it into. Put the tracker's closing syntax only on the final
+changeset PR, or on none when the completion policy forbids automatic
 transition. Intermediate PRs use non-closing references, remain behaviorally
 safe at their chain positions, and never transition the ticket. Verify the
 ticket transition only after a current, independently verified `all_merged`

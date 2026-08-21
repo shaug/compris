@@ -214,7 +214,9 @@
     "case_id": "resumed-pr-deduplication",
     "forbidden_actions": [
       "fail_before_mutation",
-      "perform_no_mutation"
+      "perform_no_mutation",
+      "publish_inline",
+      "resolve_publish_candidate"
     ],
     "required_actions": [
       "adopt_verified_canonical_pr",
@@ -321,7 +323,7 @@
   {
     "case_id": "all-acceptance-current",
     "acceptance_statuses": {"Contract tests pass": "pass", "Current deployment responds": "pass"},
-    "forbidden_actions": ["reject_missing_required_acceptance", "keep_tracker_open", "invoke_merge_when_ready"],
+    "forbidden_actions": ["reject_missing_required_acceptance", "keep_tracker_open", "invoke_merge_when_ready", "publish_inline", "resolve_publish_candidate"],
     "required_actions": ["build_acceptance_ledger", "allow_acceptance_completion", "verify_live_deployment_candidate_binding", "verify_merge_live", "caller_verifies_mainline_tracker_cleanup"],
     "target_skill": "implement-ticket",
     "terminal_state": "merged"
@@ -674,5 +676,229 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "ready_pr"
+  },
+  {
+    "case_id": "delegated-publication-split-partial-merge",
+    "forbidden_actions": [
+      "publish_inline",
+      "invoke_carve_changesets",
+      "verify_stack_topology",
+      "report_needs_author_input",
+      "author_missing_author_content"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "verify_delegated_pr_identities",
+      "report_partial_split_merge",
+      "keep_tracker_open",
+      "report_delivery_acceptance_separately"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-publication-partial-then-author-input",
+    "forbidden_actions": [
+      "publish_inline",
+      "author_missing_author_content",
+      "invoke_merge_when_ready",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_needs_author_input",
+      "report_partial_publication",
+      "verify_delegated_pr_identities",
+      "invoke_ready_to_merge",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-publication-resumed-split",
+    "forbidden_actions": [
+      "publish_inline",
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "invoke_merge_when_ready",
+      "invoke_carve_changesets",
+      "verify_stack_topology",
+      "report_partial_split_merge"
+    ],
+    "required_actions": [
+      "invoke_ready_to_merge",
+      "verify_non_merge_gates",
+      "adopt_verified_canonical_pr",
+      "deduplicate_prior_actions"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
+    "case_id": "epic-split-child-partial-merge",
+    "forbidden_actions": [
+      "refresh_graph_after_merged_only",
+      "verify_stack_topology",
+      "verify_full_stack_on_base"
+    ],
+    "required_actions": [
+      "verify_every_split_pr_merged",
+      "report_partial_split_merge",
+      "keep_tracker_open",
+      "verify_each_pr_gate",
+      "do_not_own_decomposition_mechanics"
+    ],
+    "target_skill": "implement-epic",
+    "terminal_state": "mixed_ticket_results"
+  },
+  {
+    "case_id": "delegated-publication-delegate-blocked-with-prs",
+    "forbidden_actions": [
+      "reject_stale_or_malformed_result",
+      "publish_inline",
+      "invoke_merge_when_ready",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_delegate_blocked",
+      "verify_delegated_pr_identities",
+      "report_partial_publication",
+      "invoke_ready_to_merge",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-split-already-merged-subset",
+    "forbidden_actions": [
+      "publish_inline",
+      "invoke_carve_changesets",
+      "verify_stack_topology"
+    ],
+    "required_actions": [
+      "report_partial_split_merge",
+      "keep_tracker_open",
+      "report_delivery_acceptance_separately",
+      "verify_merge_live"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-split-all-open-under-merge-authority",
+    "forbidden_actions": [
+      "publish_inline",
+      "report_partial_split_merge",
+      "invoke_carve_changesets",
+      "verify_stack_topology",
+      "invoke_ready_to_merge"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "verify_delegated_pr_identities",
+      "invoke_merge_when_ready",
+      "verify_merge_live",
+      "caller_verifies_mainline_tracker_cleanup"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "merged"
+  },
+  {
+    "case_id": "carved-candidate-never-routed-through-delegate",
+    "forbidden_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "publish_inline",
+      "verify_delegated_pr_identities",
+      "report_partial_split_merge",
+      "invoke_ready_to_merge",
+      "verify_non_merge_gates"
+    ],
+    "required_actions": [
+      "record_guardrail_evidence",
+      "stop_before_publication"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-partial-publication-under-merge-authority",
+    "forbidden_actions": [
+      "publish_inline",
+      "author_missing_author_content",
+      "invoke_ready_to_merge",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_needs_author_input",
+      "report_partial_publication",
+      "verify_delegated_pr_identities",
+      "invoke_merge_when_ready",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegate-blocked-with-prs-under-merge-authority",
+    "forbidden_actions": [
+      "reject_stale_or_malformed_result",
+      "publish_inline",
+      "invoke_ready_to_merge",
+      "invoke_carve_changesets"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "report_delegate_blocked",
+      "verify_delegated_pr_identities",
+      "report_partial_publication",
+      "invoke_merge_when_ready",
+      "preserve_artifacts"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-split-fully-merged-completes",
+    "forbidden_actions": [
+      "report_partial_split_merge",
+      "publish_inline",
+      "invoke_carve_changesets",
+      "verify_stack_topology",
+      "keep_tracker_open"
+    ],
+    "required_actions": [
+      "verify_merge_live",
+      "caller_verifies_mainline_tracker_cleanup"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "merged"
+  },
+  {
+    "case_id": "epic-split-child-fully-merged-refreshes",
+    "forbidden_actions": [
+      "report_partial_split_merge",
+      "verify_stack_topology",
+      "verify_full_stack_on_base",
+      "keep_tracker_open"
+    ],
+    "required_actions": [
+      "verify_every_split_pr_merged",
+      "refresh_graph_after_merged_only",
+      "verify_each_pr_gate",
+      "do_not_own_decomposition_mechanics"
+    ],
+    "target_skill": "implement-epic",
+    "terminal_state": "mixed_ticket_results"
   }
 ]

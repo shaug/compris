@@ -50,8 +50,10 @@ PR when canonical ownership is unresolved.
   authentication.
 - Confirm the remote base, current checkout, branch, and worktree topology.
 - Inspect open and merged PRs that reference the owning tracker ticket.
-- Use one tracker ticket per candidate. Publish that candidate as exactly one
-  ordinary PR or one ordered carved stack.
+- Use one tracker ticket per candidate, and publish that candidate exactly once.
+  The publication takes one of three shapes: one ordinary PR, one ordered carved
+  stack, or the several PRs a repository-owned `publish-candidate` may split an
+  ordinary publication into.
 - When GitHub owns ticket state and every required acceptance item can pass
   before merge, use the repository's closing syntax, normally `Fixes #<issue>`.
 - When any required item needs merged code, deployment, authentication, or
@@ -95,11 +97,13 @@ all known current evidence so the babysitter can establish current-candidate
 state. Do not also poll, mutate, reply, resolve, or merge from this caller after
 ownership transfer.
 
-After a babysitter `merged` result or a carve `all_merged` result, independently
-verify PR or stack state and complete candidate representation on the base, then
-run every required post-merge acceptance item with separately granted authority.
-Transition the GitHub issue only after the ledger passes. When the ticket is an
-epic child, reread affected native relationships only after acceptance and the
-transition pass. If local worktree ownership prevents switching to the base, use
-a read-only remote verification path and perform local cleanup separately. Never
+After every PR of the publication reports merged — a babysitter `merged` per
+published PR, or a carve `all_merged` for a stack — independently verify that PR
+or stack state and complete candidate representation on the base, then run every
+required post-merge acceptance item with separately granted authority. A subset
+merged is merged delivery of a fraction and is not this step. Transition the
+GitHub issue only after the ledger passes. When the ticket is an epic child,
+reread affected native relationships only after acceptance and the transition
+pass. If local worktree ownership prevents switching to the base, use a
+read-only remote verification path and perform local cleanup separately. Never
 close a parent issue from this skill.

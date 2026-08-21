@@ -1,6 +1,6 @@
 ---
 name: implement-ticket
-description: 'Use when exactly one GitHub or Linear ticket or issue — standalone, or one named child of an epic — should go from open to delivered. Scope is one ticket and one publication, either a single pull request or an explicitly authorized carved stack: it enforces readiness and authority boundaries, delegates the initial review and the published PR lifecycle to the repository-owned skills, and verifies tracker, mainline, and cleanup outcomes. Detects a whole-epic request before any mutation and routes it toward implement-epic. Returns one terminal state: ready_pr, ready_prs, merged, blocked, or requires_epic.'
+description: 'Use when exactly one GitHub or Linear ticket or issue — standalone, or one named child of an epic — should go from open to delivered. Scope is one ticket and one publication — a single pull request, the several a repository-owned publication delegate may split it into, or an explicitly authorized carved stack: it enforces readiness and authority boundaries, delegates the initial review and the published PR lifecycle to the repository-owned skills, and verifies tracker, mainline, and cleanup outcomes. Detects a whole-epic request before any mutation and routes it toward implement-epic. Returns one terminal state: ready_pr, ready_prs, merged, blocked, or requires_epic.'
 ---
 
 # Implement Ticket
@@ -131,9 +131,10 @@ Use this default authority matrix unless the user or repository is stricter:
 - `ready PR only` permits isolated implementation, validation, commit, feature
   branch push, PR creation or update, evidence-based review replies, and
   resolution of fully addressed threads;
-- `merge after gates` additionally permits merging this ticket's ordinary PR or
-  carved stack and safely deleting its verified merged feature branches, but it
-  does not permit deployment, post-merge verification, or tracker transition;
+- `merge after gates` additionally permits merging every PR of this ticket's one
+  publication — the ordinary PR, each PR of a delegated split, or the carved
+  stack — and safely deleting its verified merged feature branches, but it does
+  not permit deployment, post-merge verification, or tracker transition;
 - `merge plus manual transition` additionally permits only the explicitly
   requested status, reopen, or close transition for this ticket after its
   acceptance evidence passes;
@@ -390,9 +391,12 @@ unimplemented sibling is required; never absorb that sibling into this PR.
 When an open canonical PR or branch already owns the ticket, return `blocked`
 with its identity and require explicit ownership transfer before modifying it;
 do not report another worker's candidate as this run's `ready_pr` or
-`ready_prs`. When a merged PR or stack is verified on the base, return `merged`
-without new implementation state only if the criterion-specific acceptance
-ledger is current and complete and the tracker transition is correct. Otherwise
+`ready_prs`. When an existing publication is verified merged on the base —
+whether that is one PR, a full carved stack, or every PR of a split — return
+`merged` without new implementation state only if the criterion-specific
+acceptance ledger is current and complete and the tracker transition is correct.
+A publication that opened several PRs of which only some are merged is not this
+case: report merged delivery with the unmerged identities named. Otherwise
 report merged delivery with acceptance pending and continue only within the
 available post-merge verification and tracker authority.
 
@@ -715,7 +719,9 @@ normative cognitive-load guardrails. Do not copy their thresholds or substitute
 local heuristics. Record the candidate-bound guardrail evidence and classify the
 candidate before any remote publication.
 
-- When the candidate fits the guardrails, use the ordinary single-PR path.
+- When the candidate fits the guardrails, use the ordinary publication path.
+  That path opens one PR inline, or the one-or-several a repository-owned
+  `publish-candidate` decides on; either way it is one publication event.
 - When it is oversized, decide whether the ticket should be split or the branch
   should be carved. Prefer tracker-level ticket decomposition when the parts are
   independently valuable and trackable. Prefer `carve-changesets` only when the
@@ -772,15 +778,17 @@ may supply — a delegate that says so returns `needs_author_input`, which
 maps to `blocked` with the converged candidate preserved.
 
 Use closing syntax on exactly one PR of the publication — the one ordinary PR,
-the final changeset PR, or the one PR this run designates when a delegated
-publication splits the candidate — and only when explicit tracker-transition
-authority exists and every required acceptance item can pass before merge.
-Without that authority, or when any required item is post-merge, use
-`Refs #<issue>`, `Supports #<issue>`, or the tracker's established non-closing
-equivalent on all PRs. Transition the ticket manually only after the ledger
-passes and transition authority exists. Intermediate stack PRs always use a
-non-closing reference and remain behaviorally safe under the `carve-changesets`
-equivalence contract.
+the final changeset PR, or the last PR to merge when a delegated publication
+splits the candidate — and only when explicit tracker-transition authority
+exists and every required acceptance item can pass before merge. A split's
+carrier is fixed by that rule rather than named in advance: the delegate decides
+whether the candidate publishes as one PR or several, so no PR identity exists
+to designate at handoff time. Without that authority, or when any required item
+is post-merge, use `Refs #<issue>`, `Supports #<issue>`, or the tracker's
+established non-closing equivalent on all PRs. Transition the ticket manually
+only after the ledger passes and transition authority exists. Intermediate stack
+PRs always use a non-closing reference and remain behaviorally safe under the
+`carve-changesets` equivalence contract.
 
 Normal ticket execution never uses `watch_until_closed`. Ordinary pending CI or
 review time is not a blocker; retain task ownership through the selected
@@ -788,12 +796,12 @@ delegate until its mapped policy reaches a terminal result or a genuine
 user-help-required condition occurs.
 
 Validate every returned identity and its evidence against live GitHub state.
-After an authorized ordinary merge or `all_merged`, independently verify remote
-merge state and complete mainline representation, then run every required
-post-merge acceptance item with the separately granted environment and
-deployment authority. If any item is missing, failed, unavailable, stale, or
-bound to the wrong SHA/environment, return `blocked` with merged delivery
-preserved and keep the ticket open.
+After every PR of an authorized ordinary merge is merged, or after `all_merged`,
+independently verify remote merge state and complete mainline representation,
+then run every required post-merge acceptance item with the separately granted
+environment and deployment authority. If any item is missing, failed,
+unavailable, stale, or bound to the wrong SHA/environment, return `blocked` with
+merged delivery preserved and keep the ticket open.
 
 If closing automation already transitioned the ticket while required evidence
 remains missing, do not treat the closed state as proof. Reopen it when manual
@@ -840,7 +848,11 @@ candidate converged and the ledger says so; what is missing is content the
 repository requires its own author to write. Surface exactly what the delegate
 named as missing, preserve the candidate, and stop. Never author, paraphrase, or
 infer it, and never retry publication with a placeholder — an unattended run
-halts here rather than inventing the sentence a human owes.
+halts here rather than inventing the sentence a human owes. Check whether it
+published anything before stopping: a split can open one PR and then need author
+content for the next. Report every PR that exists and hand each one to
+`babysit-pr` regardless of the terminal state, because a live PR with no
+lifecycle owner is the one outcome this skill never permits.
 
 ## Return one terminal handoff
 
@@ -861,10 +873,14 @@ one terminal state:
   PR's verified identity, head, and base for a split. Stack topology and
   whole-chain equivalence are the carved path's obligations, not the terminal
   name's;
-- `merged`: the ordinary PR or full carved stack is verified on the base, every
-  required pre-merge and post-merge acceptance entry passes for the current
-  candidate/deployment and environment, and the authorized ticket transition and
-  cleanup are verified;
+- `merged`: the publication is verified on the base in whichever shape it took —
+  the ordinary PR, the full carved stack, or every PR of an ordinary publication
+  a repository-owned `publish-candidate` split — every required pre-merge and
+  post-merge acceptance entry passes for the current candidate/deployment and
+  environment, and the authorized ticket transition and cleanup are verified. A
+  publication that opened several PRs is merged only when every one of them is;
+  one merged PR of a split is merged delivery of a fraction, and reporting it as
+  the ticket's `merged` would unblock dependents on work still open;
 - `blocked`: give one concrete blocking reason and next action, preserving any
   partial or merged delivery artifacts and identifying acceptance-pending state.
   A `needs_author_input` publication gap is reported here, with the converged

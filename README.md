@@ -124,10 +124,11 @@ The skills:
   explicitly authorized completion policy
 - `skills/implement-ticket` — implement exactly one standalone ticket or named
   epic child through isolated execution and initial repository-owned review,
-  publish one ordinary PR through `babysit-pr` or an explicitly authorized
-  carved stack through `carve-changesets`, then verify tracker, mainline, and
-  cleanup outcomes; this is the canonical owner of generic single-ticket
-  execution rules consumed by `implement-epic`
+  publish it once — inline, through an optional repository-owned
+  `publish-candidate`, or as an explicitly authorized carved stack through
+  `carve-changesets` — hand every published PR to `babysit-pr`, then verify
+  tracker, mainline, and cleanup outcomes; this is the canonical owner of
+  generic single-ticket execution rules consumed by `implement-epic`
 - `skills/implement-epic` — traverse live GitHub or Linear epic graphs and
   delegate each selected child to `implement-ticket`, then refresh graph state
   and verify separately authorized epic closeout
@@ -162,7 +163,8 @@ implement-epic
 └── implement-ticket
     ├── review-fix-loop             # initial candidate review/fix/converge loop
     │   └── review-code-change      # each review pass inside the loop
-    ├── babysit-pr                  # ordinary single-PR lifecycle
+    ├── publish-candidate           # optional repository-owned publication
+    ├── babysit-pr                  # ordinary lifecycle, one per published PR
     │   └── review-fix-loop         # after a head-changing fix (update_pr)
     │       └── review-code-change  # each review pass inside the loop
     ├── carve-changesets            # authority-gated oversized path

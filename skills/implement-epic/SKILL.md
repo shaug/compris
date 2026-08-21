@@ -290,7 +290,10 @@ skill returns for itself. See "Report the epic result" below for that contract.
 - `merged`: verify mainline, the child's complete current acceptance ledger, and
   tracker evidence before refreshing the graph. For a stacked child, also verify
   `all_merged`, every PR merge and propagation step, and full-chain
-  representation on the base. Do not reproduce decomposition or propagation
+  representation on the base. For a child whose publication delegate split the
+  candidate, verify every PR it opened is merged and represented — a subset
+  merged is not a merged child, and refreshing the graph on it would unblock
+  dependents on work still open. Do not reproduce decomposition or propagation
   mechanics while verifying the result.
 - `blocked`: preserve the exact reason and partial artifacts, including a merged
   delivery whose post-merge acceptance is pending. Never count it as complete. A

@@ -11,10 +11,10 @@ failure. Where no `publish-candidate` resolves, this reference does not apply
 and [step 6](../SKILL.md#6-publish-and-delegate-the-selected-path) publishes
 inline exactly as it always has, with nothing else about the step changed.
 
-The reference also applies only to the ordinary single-PR publication path. The
-carved path is unchanged: `carve-changesets` already owns its own publication
-and its own per-changeset `babysit-pr` delegations, so never route a carved
-candidate through `publish-candidate`. Use
+The reference also applies only to the ordinary publication path, which may open
+one PR or several. The carved path is unchanged: `carve-changesets` already owns
+its own publication and its own per-changeset `babysit-pr` delegations, so never
+route a carved candidate through `publish-candidate`. Use
 [the carve-changesets handoff](carve-changesets-handoff.md) there instead.
 
 ## Responsibility boundary
@@ -109,11 +109,29 @@ Immediately before delegation, capture and verify:
   State this for the same reason — a repository publication skill typically
   detects the tracker reference and updates the item itself;
 - the tracker reference and closing-syntax decision this run selected at the
-  acceptance stage, including which single PR carries it when the delegate
-  publishes several; and
+  acceptance stage, expressed as a rule the delegate applies rather than a PR
+  identity the caller names. Whether the candidate publishes as one PR or
+  several is the delegate's own decision, so at handoff time the caller cannot
+  know which PR would carry the reference — only the rule that resolves it:
+  exactly one published PR carries the closing syntax and it is the last to
+  merge, every other PR carries the non-closing reference, or no PR carries
+  closing syntax at all when the completion policy forbids an automatic
+  transition. This mirrors
+  [the carved path's rule](carve-changesets-handoff.md#policy-and-tracker-mapping),
+  which designates the final changeset PR the same way and for the same reason;
+  and
 - every granted and withheld authority: push, PR creation, and PR update are
   granted; review, merge, branch deletion, tracker mutation, deployment,
-  destructive operations, and human-authored communication stay withheld.
+  destructive operations, and human-authored communication stay withheld; and
+- `publication_shape`: `one_pr_or_several` ordinarily, or `single_pr_only` when
+  this run cannot accept a split. The delegate decides the shape within what
+  this assertion allows, and a delegate that exceeds it is a contract violation.
+  State it explicitly rather than leaving the ordinary case implied, because the
+  only caller that must restrict it — a run under
+  [the delegated-execution contract](delegated-execution/CONTRACT.md#terminal-result),
+  whose `ready_prs` names a stack and cannot represent a split — otherwise has
+  no way to say so, and a delegate that split anyway would open every PR before
+  the caller discovered it could not report them.
 
 Supply the ticket-wide outcome, important non-goals, actual validation, and
 acceptance-ledger state as evidence the delegate may use. The delegate owns the
@@ -160,16 +178,17 @@ head other than the handed-off candidate head fails closed.
   [the babysit-pr handoff](babysit-pr-handoff.md#terminal-result-mapping)
   specifies: `ready_pr` under `ready PR only`, `merged` under either merge
   policy.
-- `published` with more than one PR maps to `ready_prs` under `ready PR only`
-  and to `merged` under either merge policy. This is the one semantic widening
-  the role introduces, and it is deliberate: a delegate may legitimately split
-  one candidate into several PRs, because a repository may require a
+- `published` with more than one PR maps to `ready_prs` under `ready PR only`,
+  and to `merged` under either merge policy only once every PR it opened is
+  merged and represented on the base. This is the one semantic widening the role
+  introduces, and it is deliberate: a delegate may legitimately split one
+  candidate into several PRs, because a repository may require a
   schema-migration or dependency change to land and deploy ahead of the code
   depending on it. Verify every returned PR is open and correctly based, that
-  the closing-syntax decision landed on exactly the one PR this run designated
-  and on no other, and that each PR has exactly one `babysit-pr` owner. The
-  invariant is one publication event and one lifecycle owner per PR, not one PR
-  per ticket.
+  the closing-syntax rule resolved to exactly one PR and no other, and that each
+  PR has exactly one `babysit-pr` owner. The invariant is one publication event
+  and one lifecycle owner per PR, not one PR per ticket — and one merged PR of a
+  split is merged delivery of a fraction, never the ticket's `merged`.
 - `needs_author_input` maps to `blocked`. Publication requires content only a
   human can supply — most often a narrative section the repository requires its
   author to write. Surface exactly what the delegate named as missing, preserve
@@ -178,11 +197,19 @@ head other than the handed-off candidate head fails closed.
   publication with a placeholder. Report it as a publication gap awaiting the
   author, not as an implementation failure: the implementation converged and the
   ledger says so, and an unattended run halts here rather than inventing the
-  sentence a human owes.
+  sentence a human owes. A `needs_author_input` may carry PR identities: a
+  delegate splitting one candidate can publish the first PR and then find the
+  second needs author-owned content. Report every PR it did open, hand each one
+  a `babysit-pr` owner, and name the publication as partial — a published PR is
+  live whatever stopped the run after it, and reporting the stop as "nothing
+  published" would strand it unmonitored.
 - `blocked` maps to `blocked` with the delegate's concrete reason, the current
   candidate, whatever it published before stopping, and one next action. A
-  partial publication is preserved and reported by identity, never silently
-  completed inline.
+  partial publication is preserved and reported by identity, hands each PR it
+  did open a `babysit-pr` owner, and is never silently completed inline. This is
+  a status the contract defines, so treat it as one: a `blocked` carrying PR
+  identities is a conformant delegate reporting where it stopped, not a
+  malformed result to reject.
 
 `ready_prs` is shared with the carved path, and the sharing is in the terminal
 name only. Ordered predecessor-base topology and whole-chain equivalence are
@@ -190,6 +217,20 @@ name only. Ordered predecessor-base topology and whole-chain equivalence are
 [its handoff](carve-changesets-handoff.md#terminal-result-mapping). Require them
 of a delegated split only where the delegate itself claims a chain; several PRs
 sharing one base are a legitimate split, not a broken stack.
+
+One caller cannot accept a split at all. The optional
+[delegated-execution contract](delegated-execution/CONTRACT.md#terminal-result)
+defines `ready_prs` as a stack specifically: its `publication.kind` has no name
+for a split, and its validator requires every later PR to base on the previous
+PR's head. Such a run sends `publication_shape: single_pr_only` in the verified
+handoff above, which is what actually reaches the delegate — saying "withhold
+split authority" with no field to carry it would convert the dead end rather
+than close it, leaving a splitting delegate to open every PR before the caller
+discovered it could report none of them. A delegate that splits despite the
+assertion is a contract violation: return `blocked`, preserve and report every
+published PR identity, and hand each one a `babysit-pr` owner anyway, because
+PRs that exist are PRs someone must watch. Outside delegated execution the
+assertion is `one_pr_or_several` and a split maps as described above.
 
 A status this contract does not define, a `published` result carrying no PR
 identity, or a head this run never handed over is a contract violation: return

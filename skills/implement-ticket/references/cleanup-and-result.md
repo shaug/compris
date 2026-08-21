@@ -5,11 +5,13 @@ returning a terminal handoff.
 
 ## Safe per-candidate cleanup
 
-01. Confirm the ordinary PR or every carved-stack PR is merged remotely.
+01. Confirm every PR of the publication is merged remotely — the ordinary PR,
+    every PR of a delegated split, or every carved-stack PR.
 02. Fetch and prune the remote.
-03. Confirm the ordinary branch or complete stack result is represented on the
-    verified base. Use ancestry first and patch equivalence after squash or
-    rebase when needed.
+03. Confirm the publication's complete result is represented on the verified
+    base, whether that is one ordinary branch, every branch of a delegated
+    split, or the complete stack. Use ancestry first and patch equivalence after
+    squash or rebase when needed.
 04. Map the exact ticket worktree, source and published branches, upstreams, PR
     heads, and base branch. Never rely on the current directory or a branch-name
     guess.
@@ -66,8 +68,8 @@ before return. Otherwise include every applicable field:
 - `terminal_state`: `ready_pr`, `ready_prs`, `merged`, `blocked`, or
   `requires_epic`;
 - ticket identity, tracker, repository, PR host, and base identity;
-- branch, worktree, candidate head, publication path, and PR or ordered stack
-  identity when created;
+- branch, worktree, candidate head, publication path, and the identity of every
+  PR or the ordered stack when created;
 - delivery state separately from tracker/acceptance state;
 - the readiness gate's re-check of the ticket's stated assumptions: which still
   hold, and which could not be checked from the tree — `none` when the ticket
@@ -148,19 +150,35 @@ required depends on which delegate published, not on the terminal name:
   because the repository requires one class of change to land ahead of another.
   The only withheld action is merge.
 
-A `publish-candidate: needs_author_input` result is `blocked` with nothing
-published. Preserve the converged candidate and its evidence as a resumable
-handoff, report exactly the author-owned content the delegate named as missing,
-and never substitute authored, paraphrased, or inferred text for it. Report it
-as a publication gap awaiting the author, not as a failed implementation.
+A `publish-candidate: needs_author_input` result is `blocked`. Preserve the
+converged candidate and its evidence as a resumable handoff, report exactly the
+author-owned content the delegate named as missing, and never substitute
+authored, paraphrased, or inferred text for it. Report it as a publication gap
+awaiting the author, not as a failed implementation. Usually nothing was
+published, but do not record that as a given: a delegate splitting one candidate
+can open the first PR and then find the second needs author-owned content, so
+report every PR it did open, give each one a `babysit-pr` owner, and describe
+the publication as partial. A published PR nobody is watching is the outcome
+this skill exists to prevent, and "nothing published" is the wording that
+produces it.
 
-For `merged`, require a verified `babysit-pr: merged` or
-`carve-changesets: all_merged` result plus independent mainline, complete
-criterion-specific acceptance evidence, tracker transition, dependency refresh,
-and cleanup checks. A merged delivery with pending acceptance remains `blocked`,
-even if automation closed the tracker. A `closed` babysitter result becomes
-`blocked` with `PR closed without merge` and preserves local artifacts unless
-another canonical completion is proven.
+For `merged`, require independent mainline, complete criterion-specific
+acceptance evidence, tracker transition, dependency refresh, and cleanup checks,
+plus the merge evidence the publication's own shape produces:
+
+- an ordinary single PR requires one verified `babysit-pr: merged`;
+- a carved stack requires a verified `carve-changesets: all_merged` covering
+  every sequential merge and propagation step; and
+- an ordinary publication a `publish-candidate` delegate split requires one
+  verified `babysit-pr: merged` per PR it opened, and every one of them must be
+  merged. A subset is merged delivery of a fraction: report it as merged
+  delivery with the unmerged identities named and return `blocked`, exactly as a
+  pending post-merge acceptance entry would.
+
+A merged delivery with pending acceptance remains `blocked`, even if automation
+closed the tracker. A `closed` babysitter result becomes `blocked` with
+`PR closed without merge` and preserves local artifacts unless another canonical
+completion is proven.
 
 For `requires_epic`, require all of:
 

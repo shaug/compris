@@ -1,0 +1,46 @@
+{
+  "candidate": {
+    "branch": "scott/publication-delegate-review-fixes",
+    "sha": "80be06511cdb665f9bca3601da850f7442f3b3a2",
+    "tree": "1f8ea5af3c01b5d9b8391d09f4b6dac79d2bbb75",
+    "trees": {
+      "skills/implement-epic": "2917a5a3859a2d1e5c68091f05a0f0e1e8a71b74",
+      "skills/implement-ticket": "ec43c0f59fae73214623c1f8b3130e0cec86957b"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {},
+  "cases": {},
+  "command": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "skills/implement-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/opt/homebrew/opt/python@3.14/bin/python3.14 skills/implement-ticket/scripts/evals/claude_executor.py --model claude-opus-5",
+    "--target-skill",
+    "implement-epic"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 1,
+  "failures": [],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": "eval command exited 1 without an aggregate summary; model-behavior evidence not collected",
+  "model": "claude-opus-5",
+  "note": "After-stage run for the review-fix pass over #254. The before-stage baseline is the run recorded at 4e99157 and landed on main by #254, which measures this branch's exact starting prose; recording a separate before here would re-measure that same tree.",
+  "output_tail": "\u2026ent/futures/thread.py\", line 73, in run\n    return fn(*args, **kwargs)\n  File \"/Users/scott.haug/Projects/shaug/compris/.claude/worktrees/implement-ticket-publication-delegate-e7ba04/skills/implement-ticket/scripts/evals/claude_executor.py\", line 443, in <lambda>\n    lambda _: draw(prompt, claude_bin, model), range(repetitions)\n              ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott.haug/Projects/shaug/compris/.claude/worktrees/implement-ticket-publication-delegate-e7ba04/skills/implement-ticket/scripts/evals/claude_executor.py\", line 427, in draw\n    return run_claude(prompt, claude_bin, model)\n  File \"/Users/scott.haug/Projects/shaug/compris/.claude/worktrees/implement-ticket-publication-delegate-e7ba04/skills/implement-ticket/scripts/evals/claude_executor.py\", line 243, in run_claude\n    completed = subprocess.run(\n        command,\n    ...<3 lines>...\n        check=False,\n    )\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 555, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ~~~~~^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1039, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n                        pass_fds, cwd, env,\n                        ^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n                        gid, gids, uid, umask,\n                        ^^^^^^^^^^^^^^^^^^^^^^\n                        start_new_session, process_group)\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1990, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'claude'",
+  "recorded_at": "2026-08-21T15:19:33Z",
+  "schema": "eval-run-summary/1",
+  "skill": "implement-epic",
+  "stage": "after",
+  "status": "attempted",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": null
+}

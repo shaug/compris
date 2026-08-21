@@ -609,8 +609,16 @@ class ImplementTicketContractTests(unittest.TestCase):
             "verify that both `review-fix-loop` and `babysit-pr` are available",
             self.skill_compact,
         )
-        gate = compact(read(SKILL_ROOT / "references" / "babysit-pr-handoff.md"))
-        self.assertNotIn("publish-candidate", gate)
+        # Scoped to the gate section, not the whole document. The invariant is
+        # that the *gate* never names `publish-candidate`; the document as a
+        # whole must name it, because a split publication reaches `babysit-pr`
+        # once per PR through this very reference, and a reader who cannot see
+        # that here is a reader who strands the extra PRs.
+        handoff = read(SKILL_ROOT / "references" / "babysit-pr-handoff.md")
+        gate_section = handoff.split("## Pre-mutation dependency gate", 1)[1]
+        gate_section = gate_section.split("\n## ", 1)[0]
+        self.assertNotIn("publish-candidate", compact(gate_section))
+        self.assertIn("publish-candidate", compact(handoff))
 
     def test_publish_candidate_carries_both_caller_side_assertions(self):
         """Without these the candidate gets reviewed twice, or transitioned early."""
@@ -624,6 +632,103 @@ class ImplementTicketContractTests(unittest.TestCase):
             "the delegate must not transition the tracker",
             self.publish_handoff_compact,
         )
+
+    def test_publication_shape_reaches_the_delegate_from_both_halves(self):
+        """A restriction with no field to carry it strands the extra PRs.
+
+        The delegated-execution contract cannot represent a split, so it must
+        say so *to the delegate*. Both halves have to name the same field, or
+        the restricted caller follows one and the delegate never hears it.
+        """
+        for surface in (
+            self.publish_handoff_compact,
+            compact(
+                read(SKILL_ROOT / "references" / "delegated-execution" / "CONTRACT.md")
+            ),
+        ):
+            self.assertIn("publication_shape", surface)
+            self.assertIn("single_pr_only", surface)
+        self.assertIn("one_pr_or_several", self.publish_handoff_compact)
+
+    def test_every_publication_shape_enumeration_names_all_three(self):
+        """Five review passes each found another surface still naming two.
+
+        Two complementary assertions, because neither alone is sufficient. The
+        blacklist below catches a known superseded phrasing wherever it appears,
+        but cannot catch a phrasing nobody has written yet — a blacklist is
+        necessarily behind the prose. The positive assertion that follows covers
+        the other direction: every document that reasons about merge
+        verification must name the split somewhere, so a document cannot discuss
+        merging a publication while being silent about the shape that has more
+        than one PR.
+        """
+        # Every wording this work actually removed, so reverting any corrected
+        # file fails here. The first six were listed when the guard was written;
+        # the rest were found by diffing base against head, because a phrase
+        # nobody wrote down is a phrase the blacklist cannot catch — three of the
+        # four files corrected in the pass before this one produced zero hits
+        # against the original six.
+        superseded = (
+            "ordinary PR or carved stack",
+            "ordinary PR or every carved-stack PR",
+            "ordinary branch or complete stack",
+            "ordinary single-PR publication path",
+            "single-PR or carved-stack",
+            "either a single pull request or an explicitly authorized carved stack",
+            "one ordinary PR or one ordered carved stack",
+            "After the ordinary merge or verified `all_merged` result",
+            "the ordinary branch or complete stack result",
+            "the ordinary PR or every carved-stack PR",
+            "either one ordinary PR or one ordered carved stack",
+            "ordinary merge or `all_merged`",
+            "the selected single-PR or stack identity",
+            "PR or ordered stack identity when created",
+            "publish one ordinary PR through `babysit-pr` or an explicitly "
+            "authorized carved stack",
+            "# ordinary single-PR lifecycle",
+        )
+        # Search surface is every prose and metadata file the skill ships plus
+        # the README, discovered rather than listed. A hand-listed surface is
+        # how this recurred: the blacklist named the phrase `agents/openai.yaml`
+        # carried while that file sat outside the files being searched, so the
+        # guard could not see the one place its own phrase survived.
+        searched = [REPOSITORY_ROOT / "README.md"]
+        for pattern in ("*.md", "agents/*", "references/**/*.md"):
+            searched.extend(
+                path
+                for path in SKILL_ROOT.glob(pattern)
+                if path.is_file() and "/evals/results/" not in str(path)
+            )
+        surface_files = sorted(set(searched))
+        # The guard is worthless if it searches nothing; pin the floor.
+        self.assertGreaterEqual(len(surface_files), 10, surface_files)
+        for path in surface_files:
+            document = compact(read(path))
+            for phrase in superseded:
+                self.assertNotIn(
+                    phrase,
+                    document,
+                    f"superseded enumeration in {path.name}: {phrase}",
+                )
+
+        # Positive direction, over the same discovered surface rather than a
+        # second hand-written list. `all_merged` marks a document reasoning
+        # about a merged publication — the carved path's merge terminal — so any
+        # file citing it must also name the split. Hand-listing this half is
+        # what left `references/linear.md` uncovered: it is inside the glob, it
+        # cites `all_merged`, and it carried no "split" until this work fixed
+        # it, so the assertion would have caught it had the list not been
+        # written by hand.
+        for path in surface_files:
+            document = compact(read(path))
+            if "all_merged" not in document:
+                continue
+            self.assertIn(
+                "split",
+                document,
+                f"{path.name} verifies a merged publication without naming the "
+                "shape that has more than one PR",
+            )
 
     def test_needs_author_input_is_never_fabricated_and_is_not_a_failure(self):
         contract = compact(self.skill + self.publish_handoff + self.result)

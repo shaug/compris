@@ -277,7 +277,7 @@ def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str],
 
 
 def publish_candidate_result(
-    capabilities: dict, handoff: dict
+    capabilities: dict, handoff: dict, authority: dict
 ) -> tuple[list[str], bool, int]:
     """Resolve the optional publication delegate at the publication boundary.
 
@@ -303,8 +303,54 @@ def publish_candidate_result(
     if status == "needs_author_input":
         # The delegate named content only its author may write. Surfacing it is
         # the whole obligation; authoring it is the failure the case grades for.
+        # A split can publish one PR before finding the next needs author
+        # content, so a stop is not proof nothing was published: any PR that
+        # exists still needs a lifecycle owner.
+        stopped_after = result.get("prs") or []
+        if stopped_after:
+            # A PR that exists needs a lifecycle owner whatever terminal the run
+            # reaches, so the handoff is emitted here too, mapped from the
+            # completion policy exactly as the ordinary path maps it. Omitting it
+            # would grade a compliant runtime as failing and a runtime that
+            # strands the PR as passing.
+            lifecycle = (
+                "invoke_merge_when_ready"
+                if authority.get("merge")
+                else "invoke_ready_to_merge"
+            )
+            return (
+                actions
+                + [
+                    "report_needs_author_input",
+                    "preserve_artifacts",
+                    "verify_delegated_pr_identities",
+                    "report_partial_publication",
+                    lifecycle,
+                ],
+                True,
+                len(stopped_after),
+            )
         return actions + ["report_needs_author_input", "preserve_artifacts"], True, 0
     published = result.get("prs") or []
+    if status == "blocked":
+        # A defined status, not a malformed result. Whatever it published before
+        # stopping is live, so those identities are preserved, verified, and
+        # handed a lifecycle owner; only the count of what exists is reported.
+        # Collapsing this into `reject_stale_or_malformed_result` would model a
+        # contract-conformant delegate as a broken one and strand its PRs.
+        blocked_actions = actions + ["preserve_artifacts", "report_delegate_blocked"]
+        if published:
+            lifecycle = (
+                "invoke_merge_when_ready"
+                if authority.get("merge")
+                else "invoke_ready_to_merge"
+            )
+            blocked_actions += [
+                "verify_delegated_pr_identities",
+                "report_partial_publication",
+                lifecycle,
+            ]
+        return blocked_actions, True, len(published) if published else 0
     if status != "published" or not published:
         return (
             actions + ["reject_stale_or_malformed_result", "reread_live_pr"],
@@ -516,6 +562,31 @@ def action_result(payload: dict) -> dict:
                     "refresh_graph_after_merged_only",
                 ],
             }
+        if handoff.get("split_child_result"):
+            # A child whose publication delegate split the candidate. Every PR
+            # must be merged and represented before the graph refreshes, and
+            # chain evidence is not owed: several PRs sharing one base are a
+            # split, not a broken stack.
+            split = handoff["split_child_result"].get("prs") or []
+            merged_all = bool(split) and all(
+                entry.get("state") == "merged" for entry in split
+            )
+            child_actions = [
+                "verify_each_pr_gate",
+                "verify_every_split_pr_merged",
+                "do_not_own_decomposition_mechanics",
+            ]
+            if merged_all:
+                child_actions.append("refresh_graph_after_merged_only")
+            else:
+                child_actions.extend(
+                    ["report_partial_split_merge", "keep_tracker_open"]
+                )
+            return {
+                "target_skill": target,
+                "terminal_state": "mixed_ticket_results",
+                "actions": actions + child_actions,
+            }
         return {
             "target_skill": target,
             "terminal_state": "mixed_ticket_results",
@@ -639,6 +710,25 @@ def action_result(payload: dict) -> dict:
                     "verify_each_pr_gate",
                 ],
             }
+        # Any other carve terminal stops here. `plan_ready` and `chain_ready`
+        # cannot satisfy a publication policy at all, `all_merged` needs merge
+        # authority this policy withheld, and a carve `blocked` is a block —
+        # carve-changesets-handoff.md's terminal mapping gives all four to
+        # `blocked`. Falling through instead would hand an oversized carved
+        # candidate to the ordinary terminal selection, which answers with
+        # `ready_pr`: a terminal SKILL.md defines as "the ticket's one ordinary
+        # PR", claimed for a three-PR stack. Before the publication boundary
+        # moved, this path blocked only by accident — it reached the delegate,
+        # which rejected an absent result — so the exit has to be explicit now
+        # that the delegate is correctly kept out.
+        return {
+            "target_skill": target,
+            "terminal_state": "blocked",
+            "actions": sorted(
+                set(actions + ["stop_before_publication", "reread_live_pr"])
+            ),
+            "acceptance_ledger": acceptance_ledger,
+        }
 
     if pr.get("state") == "closed" and not pr.get("merged"):
         return {
@@ -723,17 +813,69 @@ def action_result(payload: dict) -> dict:
             "actions": actions + ["reject_concurrent_mutation"],
         }
 
-    # Ordinary path only. The carved path owns its own publication and returned
-    # above, so a candidate reaching here is never routed through the delegate.
-    publication_actions, publication_blocked, published_prs = publish_candidate_result(
-        capabilities, handoff
+    # How many PRs this ticket's one publication comprises. Read from the
+    # delegate's own result, never from whether *this* run performed the
+    # publication: an already-merged or resumed candidate skips the boundary
+    # below, and keying the shape off that would model a resumed three-PR split
+    # as one PR — the same collapse this whole seam exists to prevent, just on a
+    # later path. Absent a delegate result, publication is inline and is one PR.
+    # Only a delegate that actually ran produces a split. Reading the handoff
+    # unconditionally would let a capability-absent fixture that happens to
+    # carry a delegate result report both an inline publication and a split.
+    split = (
+        (handoff.get("publish_candidate_result") or {}).get("prs") or []
+        if capabilities.get("publish_candidate")
+        else []
     )
-    actions.extend(publication_actions)
-    if publication_blocked:
+    published_prs = len(split) if split else 1
+
+    # The publication boundary. Only the ordinary path reaches it: every branch
+    # of the oversized block above now returns, including the explicit exit for
+    # a carve terminal it does not handle, so a carved candidate cannot arrive
+    # here and no `guardrail != "oversized"` conjunct is needed — one was tried
+    # and removed as dead, since no reachable input could take it.
+    # A publication that never happens emits no publication obligation, so an
+    # already-merged or resumed candidate reports no `publish_inline` it never
+    # performed.
+    reaches_publication_boundary = not pr.get("merged") and not handoff.get("resumed")
+    if reaches_publication_boundary:
+        (
+            publication_actions,
+            publication_blocked,
+            published_prs,
+        ) = publish_candidate_result(capabilities, handoff, authority)
+        actions.extend(publication_actions)
+        if publication_blocked:
+            return {
+                "target_skill": target,
+                "terminal_state": "blocked",
+                "actions": sorted(set(actions)),
+                "acceptance_ledger": acceptance_ledger,
+            }
+
+    # A split is merged only when every PR it opened is. `partial` means exactly
+    # that: some merged and some not. All-open is not partial — a freshly
+    # published split has every PR open, and under merge authority the run
+    # merges them and reports `merged`, so treating all-open as partial would
+    # answer the new shape's primary success path with a block and assert a
+    # subset-merged report where nothing is merged at all.
+    merged_count = sum(1 for entry in split if entry.get("state") == "merged")
+    partial_split = len(split) > 1 and 0 < merged_count < len(split)
+
+    def partial_split_result() -> dict:
         return {
             "target_skill": target,
             "terminal_state": "blocked",
-            "actions": sorted(set(actions)),
+            "actions": sorted(
+                set(
+                    actions
+                    + [
+                        "report_partial_split_merge",
+                        "keep_tracker_open",
+                        "report_delivery_acceptance_separately",
+                    ]
+                )
+            ),
             "acceptance_ledger": acceptance_ledger,
         }
 
@@ -741,6 +883,8 @@ def action_result(payload: dict) -> dict:
         actions.extend(
             ["verify_merge_live", "caller_verifies_mainline_tracker_cleanup"]
         )
+        if partial_split:
+            return partial_split_result()
         terminal_state = "merged"
     elif authority.get("merge"):
         actions.extend(
@@ -750,6 +894,8 @@ def action_result(payload: dict) -> dict:
                 "caller_verifies_mainline_tracker_cleanup",
             ]
         )
+        if partial_split:
+            return partial_split_result()
         terminal_state = "merged"
     else:
         actions.extend(["invoke_ready_to_merge", "verify_non_merge_gates"])

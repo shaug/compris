@@ -6,78 +6,465 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
-- docs(implement-ticket): re-record the after-stage eval evidence at the
-  shipping head — the first after run measured the prose before the
-  validate-every-identity correction below, so it names a state this branch does
-  not ship. Re-recorded at the head it does: 64 of 64 and 15 of 15, with nothing
-  newly passing or newly failing and all 64 and all 15 unchanged, so the
-  correction cost no measured behavior. The superseded run stays committed
-  rather than deleted — it is honest evidence of an intermediate state, and it
-  is exactly the kind a squash-merge would destroy.
+- docs(implement-ticket): record the after-stage eval evidence at the
+  fourteenth-pass head — 76 of 76 and 17 of 17. Real-model tier still
+  unavailable.
 
-- fix(implement-ticket): validate every returned publication identity, not the
-  one — step 6's shared tail said "the returned identity", written when the
-  ordinary path returned exactly one PR. It was already loose for the carved
-  stack and is now wrong for a delegated split: a publication that opens three
-  PRs has three identities to reread against live host state, and a caller
-  reading the singular could reasonably verify the first and stop. The
-  publish-candidate handoff and the terminal-result contract already require
-  each returned PR to be independently reverified; this makes `SKILL.md` say the
-  same thing.
+- fix(implement-ticket): grade split completeness in both directions, ticket and
+  epic — a fourteenth review pass returned `clean` on all three lenses and left
+  one non-gating finding: both branches deciding when a split publication counts
+  as complete were graded in one direction only. Every split case carried a
+  non-all-merged shape — two of three merged, one of two, none of three — so
+  weakening `partial_split`'s upper bound, which makes a fully merged split
+  return `blocked` instead of `merged`, passed all 74 cases, and so did deleting
+  the epic's post-merge graph refresh. The over-trigger direction was graded;
+  the success state was not. Both now have a case and both named mutations are
+  caught. The epic half is the finding this work declined at the eleventh and
+  twelfth passes, on the argument that the direction the prose corrected was
+  measured. That argument was sound on its own terms and inconsistent once the
+  eleventh pass's directional gap in the lifecycle handoff was accepted as worth
+  closing: the same reasoning applies to both, and applying it to one and not
+  the other was the actual error. Reversing the earlier call is cheaper than
+  defending it, and the reviewer's own reason for deferring — that the
+  correcting case would pass at base too — is already accepted for one shipped
+  guard case.
+
+- docs(implement-ticket): record the after-stage eval evidence at the
+  thirteenth-pass head — 74 of 74 and 16 of 16. Real-model tier still
+  unavailable.
+
+- fix(implement-ticket): stop an unhandled carve terminal falling through to
+  `ready_pr`, and correct the note that called it pre-existing — a thirteenth
+  review pass disagreed with the twelfth on the identical head and was right.
+  The publication-boundary guard correctly keeps a carved candidate away from
+  the delegate, but it also removed the only exit that stopped an oversized
+  candidate with an unhandled `carve_terminal` from reaching the ordinary
+  terminal selection, which answers `ready_pr` — a terminal `SKILL.md` defines
+  as "the ticket's one ordinary PR is open and mergeable", claimed for a fixture
+  that is oversized with three open stack pull requests. Worse, the previous
+  pass pinned that answer as the oracle's required result, so a runtime
+  returning the correct `blocked` would have failed the case. Measured across
+  all four unhandled terminals, base blocked and head returned `ready_pr`. The
+  oversized block now exits explicitly for any terminal other than `prs_open`,
+  which is what `carve-changesets-handoff.md`'s own mapping already said:
+  `plan_ready` and `chain_ready` cannot satisfy a publication policy,
+  `all_merged` needs merge authority a ready-PR policy withholds, and a carve
+  `blocked` is a block. Base and head now agree on every terminal, and the
+  delegate still stays out. Two corrections to earlier records go with it. The
+  tenth pass's note called this terminal modelling a pre-existing gap outside
+  this work's scope; it was not — base blocked, and only by accident, because it
+  reached the delegate and the delegate rejected an absent result. Removing that
+  accidental exit is what made it fall open, so it is this work's regression.
+  And the verification that missed it omitted `publish_candidate` from the
+  probed capabilities, testing the one configuration where the carved path never
+  meets the delegate at all. With the explicit exit in place the guard's own
+  `oversized` conjunct became unreachable and is removed as dead rather than
+  left as an unmeasurable defence.
+
+- docs(implement-ticket): record the after-stage eval evidence at the
+  eleventh-pass head — 74 of 74 and 16 of 16, and the note corrects the tenth
+  pass's overreaching mutation-verification claim rather than restating it.
+  Real-model tier still unavailable.
+
+- fix(implement-ticket): grade the lifecycle-owner obligation in both
+  directions, and drop a stranded rationale — an eleventh review pass returned
+  no blocking finding and reached the code-simplicity lens for the first time.
+  Its correctness finding is one this work's own recorded evidence had claimed
+  was impossible: the after-run note asserted that every oracle branch was
+  mutation-verified, and the partial-publication lifecycle handoff was verified
+  in one direction only. Both branches select the handoff from the completion
+  policy, but no case paired merge authority with a partial publication, so
+  mutating them to emit the obligation *only* when merge authority is absent — a
+  runtime that strands an already-published pull request precisely when the run
+  may merge — passed all 72 cases. The ungraded direction was the one that
+  matters: a live PR with no lifecycle owner is this work's headline failure
+  mode. Two cases now pair merge authority with each branch, and the mutation
+  that passed is verified to fail both. The recorded claim was overreaching
+  rather than false — it described the branches added, not the directions within
+  them — and the next recorded note says so rather than leaving the earlier one
+  to be read as broader than it was. The code-simplicity finding is a nine-line
+  rationale for the publication-boundary guard left stranded above the `split`
+  count when a later commit moved the guard below it and rewrote the explanation
+  at the new location; `git blame` puts both commits inside this work, so the
+  duplication is this work's own. The stranded copy is the one a reader of
+  `split` meets first, and it would have gone stale the moment the conjuncts
+  changed. Deliberately not fixed: the epic split-child branch's all-merged
+  direction is ungraded, which the review raised as non-gating — the direction
+  the prose actually corrected is measured, and two other epic cases measure the
+  generic refresh.
+
+- docs(implement-ticket): record the after-stage eval evidence at the tenth-pass
+  head — 72 of 72 and 16 of 16. Real-model tier still unavailable.
+
+- fix(implement-ticket): pin the publication-boundary guard so every conjunct is
+  measured — a tenth review pass showed the guard itself was the last unmeasured
+  branch in the oracle: replacing the whole expression with `True`, the
+  pre-change behavior, graded all 71 cases clean, and so did dropping any one of
+  its three conjuncts. The case that reaches it passed against the base oracle
+  unchanged, because the only relevant entry in its `forbidden_actions` could
+  not be emitted for that fixture at either commit. The guard had also silently
+  changed two pre-existing cases, both of which stopped emitting
+  `publish_inline` and `resolve_publish_candidate` without either expectation
+  naming them, so the correction those actions represent was invisible to
+  grading. Three expectations now forbid the publication obligations for
+  candidates that publish nothing, and a new case covers the one conjunct none
+  of them reached: an oversized carved candidate with a publication delegate
+  available, which must not be routed through it. Each of the three conjuncts is
+  now independently mutation-verified, and neutralizing the whole guard fails
+  four cases. Not changed: the terminal an oversized candidate reaches when its
+  `carve_terminal` is neither `prs_open` nor a blocking value is modelled as the
+  ordinary path's, which matches neither `cleanup-and-result.md`'s `merged` nor
+  a stop. That is a pre-existing gap in how the oracle models the carved path,
+  it predates this work, and this work's own non-goals exclude changing the
+  carved path — the new case asserts only that the delegate stays out of it.
+
+- docs(implement-ticket): record the after-stage eval evidence at the ninth-pass
+  head — 71 of 71 and 16 of 16. Real-model tier still unavailable.
+
+- fix(implement-ticket): measure the two `merged` branches nothing was reaching
+  — a ninth review pass traced all 71 forward cases with `sys.settrace` and
+  found the already-merged path's split guard executing zero times, then
+  confirmed it by deleting the branch in memory and grading clean. Its sibling
+  on the merge- authority path executes once, so the asymmetry was specific
+  rather than a gap in the corpus generally: the guard `SKILL.md` and the oracle
+  both grew for the already-merged path was never exercised, and neither was
+  `reaches_publication_boundary`, whose neutralization to the base behavior also
+  graded clean. The second was the `0 < merged_count` term, which exists solely
+  so a freshly published all-open split under merge authority still reaches
+  `merged` rather than reporting a subset that does not exist; no case combined
+  a split with merge authority and all PRs open, so relaxing the term graded
+  clean too. Both branches now have a case and both cases are mutation-verified
+  to fail when the branch they measure is removed. Also corrects a recorded test
+  count: earlier commit messages in this work said 1394, 1396, and 1397 by
+  incrementing rather than re-counting; the actual figure is 1393, and the
+  review caught the drift.
+
+- docs(implement-ticket): record the after-stage eval evidence at the
+  eighth-pass head — 69 of 69 and 16 of 16. Real-model tier still unavailable.
+
+- fix(implement-ticket): make the enumeration guard catch every revert it exists
+  for, and treat a delegate `blocked` as the defined status it is — an eighth
+  review pass replayed the guard's own two assertions against each corrected
+  file at the base commit and found it blind to three of the four files the
+  previous pass had fixed. The blacklist held six phrases chosen when it was
+  written, and none of them matched the wordings actually removed; the positive
+  half was still hand-listed over five names, which is why
+  `references/linear.md` — inside the glob, citing `all_merged`, carrying no
+  "split" until this work fixed it — sat uncovered by the very assertion that
+  would have caught it. The blacklist now carries every wording this work
+  removed, found by diffing base against head rather than by recall, and the
+  positive half runs over the discovered surface instead of a second
+  hand-written list. All four reverts are verified to fail it. Separately, the
+  oracle funnelled the delegate's `blocked` — a status the handoff contract
+  defines — into `reject_stale_or_malformed_result` with a zero PR count,
+  identically to an undefined status. A conformant delegate reporting where it
+  stopped was modelled as a broken one, and any PR it had already opened was
+  stranded with no lifecycle owner: the same class as the two blocking findings
+  earlier in this work. It now preserves and verifies those identities and hands
+  each one an owner, the handoff says so, and a new case measures it —
+  mutation-verified to fail when the branch is removed.
+
+- docs(implement-ticket): record the after-stage eval evidence at the
+  seventh-pass head — 68 of 68 and 16 of 16, unmoved. Real-model tier still
+  unavailable.
+
+- fix(implement-ticket): let a freshly published split reach `merged`, and make
+  the enumeration guard search every file the skill ships — a seventh review
+  pass found the guard added two passes earlier could not see the one file still
+  carrying a phrase the guard's own blacklist names. Its search surface was
+  three hand-listed paths, so `agents/openai.yaml` sat outside it while holding
+  the exact superseded sentence its sibling `agents/claude-code.md` had been
+  fixed to drop. The surface is now discovered by glob over every prose and
+  metadata file the skill ships, with a floor assertion so a guard that searches
+  nothing cannot pass quietly, and reverting the `openai.yaml` fix is verified
+  to fail it. The same pass found `references/linear.md` still gating post-merge
+  verification on "the ordinary merge or verified `all_merged`" nine lines after
+  its own bullet had been widened to three shapes — the last singular merge
+  trigger in the skill. The third finding was a real semantic bug rather than
+  stale prose, and one this work had already deferred once: `partial_split`
+  treated any split without every PR merged as partial, so a freshly published
+  split — where every PR is open by definition — could never reach `merged`
+  under merge authority, and the subset-merged report was asserted where nothing
+  was merged at all. Partial now means what the word means, some merged and some
+  not; all three states are probed and answer correctly. Deferring it once is
+  what let it come back, which is the argument against deferring the cheap ones.
+
+- docs(implement-ticket): record the after-stage eval evidence at the head that
+  closes the sixth review pass — 68 of 68 and 16 of 16, with the two new cases
+  passing and every pre-existing case unmoved. Real-model tier still
+  unavailable.
+
+- fix(implement-ticket): widen the merge-verification restatements and measure
+  the two obligations that were prose only — a sixth review pass returned no
+  blocking finding for the first time, and its three recommendations were mostly
+  about coverage rather than defects. Five restatements of the merged and
+  post-merge step still enumerated two publication shapes, in a phrase family
+  the previous pass's blacklist could not match: the sharpest was
+  intra-paragraph, one sentence naming "every PR of a delegated split" and the
+  next requiring only "independent remote merge or `all_merged`". All five now
+  require every PR of the publication merged. The blacklist is inherently behind
+  the prose, so it is now paired with a positive assertion in the other
+  direction: any document citing `all_merged` — the marker of a document
+  reasoning about a merged publication — must also name the split, so a file
+  cannot discuss merging while silent about the shape with more than one PR. Two
+  obligations were also measured for the first time. The resumed-split PR count
+  could be reverted with all 66 cases still green, and the epic's split-child
+  merge verification could be deleted with every test and both slices green;
+  both now have a case, and both cases are mutation-verified to fail when the
+  fix they measure is reverted, which is the check that distinguishes a case
+  that measures something from one that merely passes.
+
+- docs(implement-ticket): record the after-stage eval evidence at the head that
+  closes the fifth review pass — 66 of 66 and 15 of 15, all unchanged. Both
+  regressions this pass fixed were reachable only by inputs no corpus case
+  carries, which is why the corpus stayed green through them and why the diff is
+  unmoved now: they were caught by reading the diff against the base
+  implementation, not by the oracle. Recorded so the shipping head is the head
+  the evidence names. Real-model tier still unavailable.
+
+- fix(implement-ticket): stop the publication-boundary guard from collapsing a
+  resumed split and from rewriting the carved terminal — a fifth review pass
+  found two regressions the previous pass's own guard introduced, both from the
+  same mistake: the PR count was computed at the publication boundary, so any
+  path that skips the boundary lost it. A resumed three-PR split therefore
+  returned `ready_pr` instead of `ready_prs`, modelling three live pull requests
+  as one — the exact collapse this seam exists to prevent, on a third path, and
+  reachable by the natural resume of a case this work itself added. The count
+  now comes from the delegate's own returned result, the same source the
+  partial-merge check was already re-keyed to; the two now agree by construction
+  rather than by coincidence. The second regression was worse in kind: the
+  positive oversized guard `return`ed rather than skipping, so an oversized
+  candidate whose `carve_terminal` was `all_merged` changed from `ready_pr` to a
+  `blocked` that asserted a stop-before-publication obligation about a stack
+  already merged. That touched the carved path, which this work's own non-goals
+  said not to change. The guard now skips the boundary instead of returning,
+  which keeps the delegate out of the carved path — its actual purpose — while
+  leaving the carved terminal exactly as it was; both are verified against the
+  base implementation in-process. Also widens step 5's own "ordinary single-PR
+  path", the last surface still labelling the path itself by a shape it no
+  longer guarantees, and binds two invariants executably that had been prose
+  only: that both halves of the delegated-execution restriction name the same
+  `publication_shape` field, and that no superseded two-shape enumeration
+  survives anywhere in the contract, the agent metadata, or the README. The
+  second is asserted as an absence over the whole surface rather than a list of
+  known sites, because enumerating the sites by inspection is what let four
+  passes each find another one.
+
+- docs(implement-ticket): re-record the after-stage eval evidence at the
+  review-converged head — 66 of 66 and 15 of 15, all 66 unchanged against the
+  previous record, so the fourth pass's corrections cost no measured behavior
+  even though one of them changed how a case grades. That is the expected shape:
+  the case was inverted rather than wrong about which actions apply, so fixing
+  it moved the expectation and the oracle together. Real-model tier still
+  unavailable; all four attempts recorded with the observed limitation.
+
+- fix(implement-ticket): make the partial-publication case grade the right way
+  round, and widen the last six enumerations — a fourth review pass found the
+  new `needs_author_input` case forbidding both vocabulary tokens that express a
+  `babysit-pr` handoff while carrying one live pull request, so the case graded
+  backwards: a runtime that gave the PR a lifecycle owner failed it and a
+  runtime that stranded the PR passed. The obligation the prose had just added
+  therefore had no measuring case at all. Both the oracle and the expectation
+  now require the handoff, mapped from the completion policy exactly as the
+  ordinary path maps it, and the corrected case is verified to fail a stranding
+  runtime. The same pass found six more publication-shape enumerations — the
+  authority matrix's merge grant, cleanup steps 01 and 03, the `babysit-pr`
+  handoff's own scope paragraph, the `publish-candidate` handoff's scope line,
+  and the Claude Code agent metadata's suggested prompt. This time they were
+  found by grepping the pattern across the whole skill tree rather than by
+  inspection, which is how the previous three passes kept coming up short; five
+  further matches were checked and left alone because `ready_pr` genuinely is
+  one pull request and the publication size gate genuinely does choose between
+  ordinary and carved. The delegated-execution contract also still prescribed
+  the mechanism its own sibling document calls insufficient — "pass no
+  decomposition equivalent" rather than the `publication_shape` assertion that
+  actually reaches the delegate — so the two halves of that restriction now name
+  the same field. `test_publish_candidate_is_optional_and_never_blocks` had
+  asserted that `publish-candidate` appears nowhere in the `babysit-pr` handoff,
+  as a proxy for "not in the pre-mutation dependency gate"; the assertion is now
+  scoped to the gate section, because a split publication reaches `babysit-pr`
+  once per PR through that very reference and a reader who cannot see it there
+  is a reader who strands the extra pull requests.
 
 - docs(implement-ticket): record the after-stage eval evidence for the
-  publication delegate — 64 of 64 at the shipping prose, with the four new cases
-  passing and every one of the sixty pre-existing cases holding its prior
-  outcome: nothing newly failing, nothing newly passing, sixty unchanged.
-  `implement-epic`'s slice of the same corpus is 15 of 15 and equally unmoved,
-  which is what its widened `ready_prs` bullet had to cost. The delegate-absent
-  case is the one that matters most here: optionality is the property that makes
-  the seam safe to ship, and a regression in that case is how it would announce
-  itself. As at the before stage, the real-model tier could not run — no
-  `claude` CLI on PATH — so both attempts are recorded with that limitation and
-  the model-behavior evidence stays deferred to the first capable run.
+  review-fix pass — 66 of 66 and 15 of 15, compared against the runs #254 landed
+  on `main`, which measure this branch's exact starting prose and so serve as
+  its before stage rather than a separate re-measurement of the same tree.
+  Nothing newly failing, nothing newly passing, 64 unchanged, and the two new
+  cases pass on their first recorded run. Earlier intermediate records from this
+  work were dropped rather than carried: a rebase onto the merged `main` left
+  their `candidate.sha` reachable only as a dangling object in one clone, which
+  AGENTS.md calls rot rather than evidence, and removing the summary is honest
+  where keeping it would leave a file asserting a state nobody can retrieve. The
+  real-model tier remains unavailable here, so all four attempts are recorded
+  with the observed `FileNotFoundError` and the model-behavior evidence stays
+  deferred.
+
+- fix(implement-ticket): close the remaining publication-shape surfaces a third
+  review pass found — the `merged` widening had reached four surfaces and then
+  five, and a third pass found two more plus a hole in the oracle enforcing it.
+  `SKILL.md`'s already-merged path still described two shapes, and the oracle
+  read its split guard off a counter that only a publication *this* run
+  performed sets, so the already-merged and resumed paths could report a partial
+  split as `merged` — the exact case the guard exists for. The guard now reads
+  the delegate's own returned PR states and fires on every path; both holes are
+  probe-confirmed closed. The delegated-execution restriction added last pass
+  converted its dead end rather than closing it: "withhold split authority" was
+  addressed to the caller with no field to carry it to the delegate, so a
+  splitting delegate would still have opened every PR before the caller
+  discovered it could report none of them. There is now a `publication_shape`
+  assertion in the verified handoff, and a delegate that exceeds it returns
+  `blocked` with every published PR still handed a `babysit-pr` owner. The same
+  reasoning applied to `needs_author_input`, which two documents asserted meant
+  "nothing published": a split can open its first PR and then need author-owned
+  content for the second, so the stop is now reported as a partial publication
+  with a lifecycle owner per live PR. A live PR nobody watches is the one
+  outcome this suite never permits, and "nothing published" is the wording that
+  produces it. Also propagates the publication-shape enumeration to
+  `README.md`'s copy of the dependency chain and its `implement-ticket` summary,
+  to `references/review-and-merge-gates.md`'s "either delegate" framing, and to
+  the frontmatter description — which ships without triggering-suite evidence,
+  since no real-model triggering executor is available here, and is an additive
+  clarification that keeps every existing trigger keyword. Two new cases,
+  `delegated-publication-split-partial-merge` reaching both merged paths and
+  `delegated-publication-partial-then-author-input`, hold the two corrected
+  obligations to measured outcomes. 66 of 66 forward cases and 15 of 15 for
+  `implement-epic`.
+
+- fix(changelog): stop double-citing eleven 2026-08-19 entries — the backfill
+  that accompanied the publication-delegate work added a title-parenthetical SHA
+  to all fourteen entries in that section, but eleven already carried their
+  landing commit in the `` (`sha`) `` form, so those eleven ended up naming the
+  same commit twice in one entry. AGENTS.md's carve-out is for a backticked SHA
+  *outside* parentheses, which pins a peer repository's commit; these were
+  inside, and were already citations. Removes the eleven redundant
+  parentheticals, keeps the pre-existing form, and corrects the claim to
+  backfill "the three landed 2026-08-19 entries that were still SHA-less".
+
+- fix(implement-ticket): close the delegated-execution dead end the `ready_prs`
+  widening opened — a second review pass found a fifth surface the widening
+  never reached, and the only one that enforces the old meaning in executable
+  code. The optional delegated-execution contract defines `ready_prs` as a stack
+  specifically: `result.schema.json`'s `publication.kind` has no name for a
+  split, and `validate.py` requires every later PR to base on the previous PR's
+  head. A run under that contract whose `publish-candidate` split the candidate
+  would therefore publish every PR and then fail its own mandatory pre-return
+  validation, able neither to retreat to `ready_pr` nor to honestly claim a
+  stack. Rather than bump a separately versioned cross-system contract inside a
+  change about the publication seam, the restriction is now stated where both
+  sides can see it: a delegated-execution run withholds split authority, and a
+  delegate that splits anyway is a contract violation returning `blocked` with
+  its published identities preserved. Representing a split needs a new
+  `publication.kind` and its own validation branch, which is a versioned change
+  and its own ticket. Also finishes the publication-shape enumeration in
+  `references/github.md` and `references/linear.md`, which the first pass
+  widened in `SKILL.md` and the carve handoff but not in the two adapters.
+
+- fix(implement-ticket): finish the `ready_prs` widening at the `merged`
+  terminal — repository review of the publication delegate found the widening
+  half-applied. `ready_prs` was carefully rewritten to cover both shapes a
+  multi-PR publication can take, but `merged` was left reading "the ordinary PR
+  or full carved stack", `cleanup-and-result.md` still required one
+  `babysit-pr: merged`, and `implement-epic`'s `merged` bullet had only a
+  stacked-child clause. A three-PR delegated split under `merge after gates`
+  could therefore be reported `merged` — and the epic could unblock dependents —
+  once a single PR of the three had merged. All four surfaces now say that a
+  split is merged only when every PR it opened is, and that a subset is merged
+  delivery of a fraction, reported with the unmerged identities named. This is
+  the same singular/plural class the validate-every-identity fix below caught
+  one paragraph earlier; the review found the paragraph that fix did not reach.
+  Alongside it: the closing-syntax decision is now expressed as a rule the
+  delegate applies rather than a PR identity the caller names, because whether
+  the candidate publishes as one PR or several is the delegate's own decision,
+  so no identity exists to designate at handoff time — the carved path already
+  designates its final changeset PR by rule for exactly that reason. The
+  publication-shape enumeration in `carve-changesets-handoff.md` is no longer
+  asserted as exhaustive. The eval oracle's own publication step now sits behind
+  a positive ordinary-path guard instead of trusting that every carved branch
+  returned before reaching it: an oversized candidate whose `carve_terminal` was
+  neither `prs_open` nor a blocking value fell through and emitted
+  `invoke_publish_candidate`, the one routing the skill forbids, and two shipped
+  cases reported a `publish_inline` for a publication that never happened. A new
+  case, `delegated-publication-split-partial-merge`, holds the widened `merged`
+  obligation to a measured outcome, which none of the four original delegate
+  cases did — every one of them withheld merge, so the merge path was
+  unmeasured. 65 of 65 forward cases and 15 of 15 for `implement-epic`.
+
+- docs(implement-ticket): re-record the after-stage eval evidence at the
+  shipping head (4e99157806786aa425b27781bde8cb73fef5e46e) — the first after run
+  measured the prose before the validate-every-identity correction below, so it
+  names a state this branch does not ship. Re-recorded at the head it does: 64
+  of 64 and 15 of 15, with nothing newly passing or newly failing and all 64 and
+  all 15 unchanged, so the correction cost no measured behavior. The superseded
+  run stays committed rather than deleted — it is honest evidence of an
+  intermediate state, and it is exactly the kind a squash-merge would destroy.
+
+- fix(implement-ticket): validate every returned publication identity, not the
+  one (6c954e6b4647bddbf1db0648aa20ee44141417c4) — step 6's shared tail said
+  "the returned identity", written when the ordinary path returned exactly one
+  PR. It was already loose for the carved stack and is now wrong for a delegated
+  split: a publication that opens three PRs has three identities to reread
+  against live host state, and a caller reading the singular could reasonably
+  verify the first and stop. The publish-candidate handoff and the
+  terminal-result contract already require each returned PR to be independently
+  reverified; this makes `SKILL.md` say the same thing.
+
+- docs(implement-ticket): record the after-stage eval evidence for the
+  publication delegate (fa9adfabf9d5d8fc2f42dafb81d3677ff14cc3d5) — 64 of 64 at
+  the shipping prose, with the four new cases passing and every one of the sixty
+  pre-existing cases holding its prior outcome: nothing newly failing, nothing
+  newly passing, sixty unchanged. `implement-epic`'s slice of the same corpus is
+  15 of 15 and equally unmoved, which is what its widened `ready_prs` bullet had
+  to cost. The delegate-absent case is the one that matters most here:
+  optionality is the property that makes the seam safe to ship, and a regression
+  in that case is how it would announce itself. As at the before stage, the
+  real-model tier could not run — no `claude` CLI on PATH — so both attempts are
+  recorded with that limitation and the model-behavior evidence stays deferred
+  to the first capable run.
 
 - feat(implement-ticket): give the ordinary publication path an optional
-  `publish-candidate` delegate — four responsibilities already resolve by stable
-  repository-owned role name, and none of the four names a project, which is
-  what makes the skill portable. Publication was the exception: step 6 pushed
-  the branch and opened one PR inline, so a repository with real publication
-  requirements had no seam to put them behind. A mandatory non-default base
-  branch, a CI-checked title format, a pre-flight ownership-manifest entry, a
-  gate that only runs at publication time, and a mandatory split of one change
-  class into its own PR are each invisible from upstream and each belong there.
-  One of them was worse than unmet: a repository that forbids an agent from
-  authoring its PR narrative was being handed a step instructing the agent to
-  describe the ticket-wide outcome, non-goals, validation, and ledger state —
-  precisely the authoring it forbids. A fifth role fixes it, resolved by stable
-  name at the publication boundary, with
-  `references/publish-candidate-handoff.md` carrying the contract in the same
-  four structural slots its three peers use. Optionality is the load-bearing
-  property, so the role is deliberately absent from the pre-mutation dependency
-  gate `babysit-pr` uses: an unresolved `publish-candidate` selects inline
-  publication and never blocks, never reports a missing capability, and changes
-  nothing else, because a repository that defines no publication role is the
-  common case and a gate there would turn the common case into a stop. The
-  handoff carries the two caller-side assertions the overlaps require —
-  `review_converged`, so a delegate running its own review gates does not review
-  one converged candidate twice, and `tracker_transition: retained_by_caller`,
-  so a delegate that detects the tracker reference does not transition an item
-  whose ledger `implement-ticket` still owns. Both are stated rather than
-  implied, because an unstated assertion is exactly the one a repository skill's
-  own defaults will overwrite. A new terminal, `needs_author_input`, is what a
-  delegate returns when publication needs content only a human can write: it
-  maps to `blocked` with the converged candidate preserved and the missing
-  content named rather than written, so an unattended run halts there instead of
-  inventing the sentence a human owes — and it is reported as a publication gap,
-  not as a failed implementation, because the ledger already says the
-  implementation converged. Upstream learns that a delegate may demand author
-  input; it never learns what any repository requires that input to be. The
-  carved path is untouched and is explicitly not routed through the new role.
+  `publish-candidate` delegate (3f27c5eda997d32e286c5698ae6d01f99243bfa4) — four
+  responsibilities already resolve by stable repository-owned role name, and
+  none of the four names a project, which is what makes the skill portable.
+  Publication was the exception: step 6 pushed the branch and opened one PR
+  inline, so a repository with real publication requirements had no seam to put
+  them behind. A mandatory non-default base branch, a CI-checked title format, a
+  pre-flight ownership-manifest entry, a gate that only runs at publication
+  time, and a mandatory split of one change class into its own PR are each
+  invisible from upstream and each belong there. One of them was worse than
+  unmet: a repository that forbids an agent from authoring its PR narrative was
+  being handed a step instructing the agent to describe the ticket-wide outcome,
+  non-goals, validation, and ledger state — precisely the authoring it forbids.
+  A fifth role fixes it, resolved by stable name at the publication boundary,
+  with `references/publish-candidate-handoff.md` carrying the contract in the
+  same four structural slots its three peers use. Optionality is the
+  load-bearing property, so the role is deliberately absent from the
+  pre-mutation dependency gate `babysit-pr` uses: an unresolved
+  `publish-candidate` selects inline publication and never blocks, never reports
+  a missing capability, and changes nothing else, because a repository that
+  defines no publication role is the common case and a gate there would turn the
+  common case into a stop. The handoff carries the two caller-side assertions
+  the overlaps require — `review_converged`, so a delegate running its own
+  review gates does not review one converged candidate twice, and
+  `tracker_transition: retained_by_caller`, so a delegate that detects the
+  tracker reference does not transition an item whose ledger `implement-ticket`
+  still owns. Both are stated rather than implied, because an unstated assertion
+  is exactly the one a repository skill's own defaults will overwrite. A new
+  terminal, `needs_author_input`, is what a delegate returns when publication
+  needs content only a human can write: it maps to `blocked` with the converged
+  candidate preserved and the missing content named rather than written, so an
+  unattended run halts there instead of inventing the sentence a human owes —
+  and it is reported as a publication gap, not as a failed implementation,
+  because the ledger already says the implementation converged. Upstream learns
+  that a delegate may demand author input; it never learns what any repository
+  requires that input to be. The carved path is untouched and is explicitly not
+  routed through the new role.
 
 - feat(implement-ticket): let one delegated publication return several PRs, and
-  say which obligations that shares with a carved stack — a repository may
-  require a schema-migration or dependency change to land and deploy ahead of
-  the code depending on it, so a publication delegate may legitimately split one
+  say which obligations that shares with a carved stack
+  (3f27c5eda997d32e286c5698ae6d01f99243bfa4) — a repository may require a
+  schema-migration or dependency change to land and deploy ahead of the code
+  depending on it, so a publication delegate may legitimately split one
   candidate into more than one PR. Only the carved path could publish several
   before. Rather than a sixth terminal that `implement-epic` would have no
   verification bullet for, a split ordinary publication maps to the terminal the
@@ -95,15 +482,17 @@ summary: Chronological history of repository and skill changes.
   demanded chain evidence of a split that never claimed to be one.
 
 - docs(implement-ticket): record the before-stage eval evidence for the
-  publication delegate — the existing 60-case forward corpus and
-  `implement-epic`'s 15-case slice of it, both measured against the prose as it
-  stood ahead of any change: 60 of 60 and 15 of 15 on the deterministic tier.
-  The real-model tier could not run at all here — no `claude` CLI on PATH — so
-  the recorder wrote each attempt with that observed limitation and exited
-  non-zero, which is what the norm asks for rather than a silent skip. The
-  model-behavior half of this change's evidence is deferred to the first capable
-  run. Also backfills the fourteen landed 2026-08-19 entries that were still
-  SHA-less, as adding an entry above them requires.
+  publication delegate (d1664a8ec32e956d7d0b4c3312257a21ba1f1ad4) — the existing
+  60-case forward corpus and `implement-epic`'s 15-case slice of it, both
+  measured against the prose as it stood ahead of any change: 60 of 60 and 15 of
+  15 on the deterministic tier. The real-model tier could not run at all here —
+  no `claude` CLI on PATH — so the recorder wrote each attempt with that
+  observed limitation and exited non-zero, which is what the norm asks for
+  rather than a silent skip. The model-behavior half of this change's evidence
+  is deferred to the first capable run. Also backfills the three landed
+  2026-08-19 entries that were still SHA-less, as adding an entry above them
+  requires. The other eleven entries in that section already carried their
+  landing commit in the `` (`sha`) `` form and needed nothing.
 
 ## 2026-08-19 — Gave `ready-ticket` a second, endpoint-scoped authority that creates its approved draft graph natively in GitHub and now Linear instead of only ever proposing it, and taught `review-fix-loop` to attribute a reviewer mutation to the reviewer instead of to any local ref that happened to move
 
@@ -144,19 +533,18 @@ summary: Chronological history of repository and skill changes.
   artificial 26 of 26.
 
 - feat(ready-ticket): create the approved graph under one endpoint-scoped grant,
-  verified by readback (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) —
-  `decomposition_recommended` named every node and edge and stopped there;
-  ticket-management authority governs one ticket's body and never implied graph
-  mutation, so a caller who approved a whole draft graph still had to create it
-  by hand, edge by edge. A new graph-creation authority replaces that: one
-  grant, made at invocation or in response to the presented draft, authorizes
-  creating every node and every native relationship the draft names as a single
-  unit — never per item, never inferring merge, close, label, assignment, or
-  implementation authority, and never reaching Linear, which has no write path
-  for this yet. Creation proceeds only after every leaf has passed all four
-  self-review scans on its own, in dependency order so a child never references
-  a parent or a blocker that does not exist yet, and only the GitHub adapter
-  defines the concrete sequence: create every node, create every native
+  verified by readback — `decomposition_recommended` named every node and edge
+  and stopped there; ticket-management authority governs one ticket's body and
+  never implied graph mutation, so a caller who approved a whole draft graph
+  still had to create it by hand, edge by edge. A new graph-creation authority
+  replaces that: one grant, made at invocation or in response to the presented
+  draft, authorizes creating every node and every native relationship the draft
+  names as a single unit — never per item, never inferring merge, close, label,
+  assignment, or implementation authority, and never reaching Linear, which has
+  no write path for this yet. Creation proceeds only after every leaf has passed
+  all four self-review scans on its own, in dependency order so a child never
+  references a parent or a blocker that does not exist yet, and only the GitHub
+  adapter defines the concrete sequence: create every node, create every native
   `subIssues` and `blockedBy`/`blocking` edge, then reread every created body
   and the created topology before claiming `graph_created`. A relationship that
   fails after nodes have already landed is not a partial success to paper over:
@@ -170,104 +558,98 @@ summary: Chronological history of repository and skill changes.
   relationship failure, and a readback mismatch.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
-- docs(ready-ticket): record the before-stage eval evidence for graph creation
-  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — the existing 18-case forward
-  corpus measured against the prose as it stood, ahead of any change: 18 of 18.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+- docs(ready-ticket): record the before-stage eval evidence for graph creation —
+  the existing 18-case forward corpus measured against the prose as it stood,
+  ahead of any change: 18 of 18. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): keep graph-creation capability from tempting ceremonial
-  decomposition (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — the first
-  after-stage run flipped a borderline one-ticket case (a `--dry-run` flag,
-  baited with "leadership likes seeing an epic") from 4 of 5 samples choosing
-  `ticket_ready` to 3 of 5 choosing `decomposition_recommended`: merely having
-  the capacity to create a graph nudged the model toward drafting one. Whether
-  the work is one ticket or several is decided entirely by the breakdown section
-  above the new one, and the new section now says so explicitly before its own
-  mechanics: an initiative that already fits one ticket stays one ticket
-  regardless of whether graph-creation authority is granted, and holding it is
-  never itself a reason to draft a graph.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  decomposition — the first after-stage run flipped a borderline one-ticket case
+  (a `--dry-run` flag, baited with "leadership likes seeing an epic") from 4 of
+  5 samples choosing `ticket_ready` to 3 of 5 choosing
+  `decomposition_recommended`: merely having the capacity to create a graph
+  nudged the model toward drafting one. Whether the work is one ticket or
+  several is decided entirely by the breakdown section above the new one, and
+  the new section now says so explicitly before its own mechanics: an initiative
+  that already fits one ticket stays one ticket regardless of whether
+  graph-creation authority is granted, and holding it is never itself a reason
+  to draft a graph. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): say "choosing an answer on the requester's behalf" rather
-  than "choosing for the requester" (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) —
-  the same after-run cost two unrelated autonomous, missing-design cases their
-  majority on the action naming an autonomous run's obligation not to guess an
-  answer nobody gave, most likely attention diluted by the added length rather
-  than any conflict with the new content. Restating the existing sentence to
-  echo the graded vocabulary term more directly recovered both.
-  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  than "choosing for the requester" — the same after-run cost two unrelated
+  autonomous, missing-design cases their majority on the action naming an
+  autonomous run's obligation not to guess an answer nobody gave, most likely
+  attention diluted by the added length rather than any conflict with the new
+  content. Restating the existing sentence to echo the graded vocabulary term
+  more directly recovered both. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
-- docs(ready-ticket): record the after-stage eval evidence for graph creation
-  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — 22 of 23 at the shipping prose,
-  the five new graph-creation cases unanimous across their repetitions from the
-  first recording. The one remaining miss is a single action vote (2 of 5) on a
-  case this change never touched, already marginal in the before run (4 of 5)
-  and fluctuating between recordings without any corresponding edit nearby —
-  read as pre-existing model-sampling variance in that action term rather than a
-  regression this change introduced, and left unforced rather than chased to an
-  artificial 23 of 23. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+- docs(ready-ticket): record the after-stage eval evidence for graph creation —
+  22 of 23 at the shipping prose, the five new graph-creation cases unanimous
+  across their repetitions from the first recording. The one remaining miss is a
+  single action vote (2 of 5) on a case this change never touched, already
+  marginal in the before run (4 of 5) and fluctuating between recordings without
+  any corresponding edit nearby — read as pre-existing model-sampling variance
+  in that action term rather than a regression this change introduced, and left
+  unforced rather than chased to an artificial 23 of 23.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
 - fix(ready-ticket): remove after-stage eval evidence recorded from a dirty tree
-  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — the initial candidate review's
-  correctness lens caught that all three committed after-stage summaries were
-  recorded before this branch's commit landed: each self-reported
-  `worktree_clean: false` and cited the pre-change `skills/ready-ticket`
-  subtree, identical to the before-stage run, even though the run itself read
-  the edited prose already on disk. A later reader resolving the citation would
-  retrieve the unedited file, with nothing in the committed evidence saying the
-  run actually measured the changed prose — the exact silent-rot failure the
-  eval-evidence norm exists to prevent. Removed and re-recorded from the
-  now-committed, clean head. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
-
-- docs(ready-ticket): re-record the after-stage eval evidence at the committed
-  head (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26) — 22 of 23, the same single
-  pre-existing miss as the dirty-tree recording and no case newly failing, so
-  the citation fix cost no measured behavior.
+  — the initial candidate review's correctness lens caught that all three
+  committed after-stage summaries were recorded before this branch's commit
+  landed: each self-reported `worktree_clean: false` and cited the pre-change
+  `skills/ready-ticket` subtree, identical to the before-stage run, even though
+  the run itself read the edited prose already on disk. A later reader resolving
+  the citation would retrieve the unedited file, with nothing in the committed
+  evidence saying the run actually measured the changed prose — the exact
+  silent-rot failure the eval-evidence norm exists to prevent. Removed and
+  re-recorded from the now-committed, clean head.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
 
-- chore(review-fix-loop): re-record the after-stage run at the shipping head
-  (068ee84c12271a5c0005d93efeee499cc19183d3) — the first after run measured the
-  prose before `exclusive_ref_store` was removed below. Re-recorded at the head
-  this branch ships: 21 of 21, unchanged, so the review-driven simplification
-  cost no measured behavior. (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+- docs(ready-ticket): re-record the after-stage eval evidence at the committed
+  head — 22 of 23, the same single pre-existing miss as the dirty-tree recording
+  and no case newly failing, so the citation fix cost no measured behavior.
+  (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+
+- chore(review-fix-loop): re-record the after-stage run at the shipping head —
+  the first after run measured the prose before `exclusive_ref_store` was
+  removed below. Re-recorded at the head this branch ships: 21 of 21, unchanged,
+  so the review-driven simplification cost no measured behavior.
+  (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
 - fix(review-fix-loop): drop exclusive_ref_store, the buggy legacy behavior had
-  no business surviving as an opt-in (068ee84c12271a5c0005d93efeee499cc19183d3)
-  — review found that offering a flag to restore the whole-local-ref-map
-  comparison made no sense when that exact comparison was the documented source
-  of the false positives this ticket fixes. Removed the flag from the schema,
-  the tiering function, and the review-phase call site: every Tier 2 ref change
-  is now unconditionally a non-gating `observed_ref_changes` observation, with
-  no configuration path back to the old behavior. A dedicated clone that wants
-  stricter isolation already has tiers 1-3 of the write-prevention ladder
-  (sandbox, restricted tool surface, read-only commands) available to it.
+  no business surviving as an opt-in — review found that offering a flag to
+  restore the whole-local-ref-map comparison made no sense when that exact
+  comparison was the documented source of the false positives this ticket fixes.
+  Removed the flag from the schema, the tiering function, and the review-phase
+  call site: every Tier 2 ref change is now unconditionally a non-gating
+  `observed_ref_changes` observation, with no configuration path back to the old
+  behavior. A dedicated clone that wants stricter isolation already has tiers
+  1-3 of the write-prevention ladder (sandbox, restricted tool surface,
+  read-only commands) available to it.
   (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
-- chore(review-fix-loop): record after-stage eval evidence for #245
-  (068ee84c12271a5c0005d93efeee499cc19183d3) — commit the after-stage
-  deterministic eval-corpus summary for the candidate-ref- attribution tiering,
-  on top of the implementation commit, per the eval-backed change norm's
-  requirement that the run be recorded from a committed, clean tree.
-  (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+- chore(review-fix-loop): record after-stage eval evidence for #245 — commit the
+  after-stage deterministic eval-corpus summary for the candidate-ref-
+  attribution tiering, on top of the implementation commit, per the eval-backed
+  change norm's requirement that the run be recorded from a committed, clean
+  tree. (`068ee84c12271a5c0005d93efeee499cc19183d3`)
 
-- fix(review-fix-loop): attribute reviewer mutation, not any local ref move
-  (6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3) — `detect_worktree_mutation`
-  compared the entire local ref map, so a checkout where several worktrees share
-  one ref store — or any background automation touching a branch — made an
-  unattributed ref advance indistinguishable from reviewer misconduct and killed
-  a valid review. Replaced the flat comparison with a tiered
-  `WorktreeMutationReport`: a change to `HEAD`, the candidate branch ref, or
-  this invocation's own attempt namespace still invalidates the candidate
-  (`blocked/candidate_integrity_failure`), but every other local ref is now
-  always a non-gating `observed_ref_changes` observation — no flag restores the
-  old flat comparison, since it was the source of the false positives this
-  fixes. Worktree path state and host-supplied tool-trace evidence remain the
-  only inputs that force `write_isolation: "violated"`, and a new
-  `integrity_evidence` field records whether the host actually inspected a tool
-  trace for a clean pass. Added an eval corpus scenario for the unattributed
-  third-party ref advance alongside the existing reviewer-mutation one, and
-  recorded before/after deterministic eval-corpus evidence per the eval-backed
-  change norm. (`6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3`)
+- fix(review-fix-loop): attribute reviewer mutation, not any local ref move —
+  `detect_worktree_mutation` compared the entire local ref map, so a checkout
+  where several worktrees share one ref store — or any background automation
+  touching a branch — made an unattributed ref advance indistinguishable from
+  reviewer misconduct and killed a valid review. Replaced the flat comparison
+  with a tiered `WorktreeMutationReport`: a change to `HEAD`, the candidate
+  branch ref, or this invocation's own attempt namespace still invalidates the
+  candidate (`blocked/candidate_integrity_failure`), but every other local ref
+  is now always a non-gating `observed_ref_changes` observation — no flag
+  restores the old flat comparison, since it was the source of the false
+  positives this fixes. Worktree path state and host-supplied tool-trace
+  evidence remain the only inputs that force `write_isolation: "violated"`, and
+  a new `integrity_evidence` field records whether the host actually inspected a
+  tool trace for a clean pass. Added an eval corpus scenario for the
+  unattributed third-party ref advance alongside the existing reviewer-mutation
+  one, and recorded before/after deterministic eval-corpus evidence per the
+  eval-backed change norm. (`6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3`)
 
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 

@@ -6,8 +6,12 @@ evaluations, and result contract before delegation. If its delivered contract
 differs materially from this boundary, stop and reconcile ownership rather than
 copying lifecycle mechanics into `implement-ticket`.
 
-This reference applies only to the ordinary single-PR publication path. When the
-size gate selects a carved stack, use
+This reference applies to the ordinary publication path, once per PR that path
+publishes. That is one handoff for an inline or single-PR delegated publication,
+and one per PR when a repository-owned
+[`publish-candidate`](publish-candidate-handoff.md) splits the candidate — every
+live PR gets exactly one lifecycle owner, whatever terminal the run reaches.
+When the size gate selects a carved stack instead, use
 [the carve-changesets handoff](carve-changesets-handoff.md) and perform no
 direct `babysit-pr` handoff from `implement-ticket`.
 
@@ -148,7 +152,10 @@ merge evidence before mapping:
 - `merged` maps to `merged` only after the caller independently verifies remote
   merge, mainline representation, complete post-merge acceptance, tracker
   transition, dependency refresh, and cleanup. Until then it is merged delivery,
-  not accepted ticket completion.
+  not accepted ticket completion. Because this reference applies once per
+  published PR, one `merged` result maps the ticket's terminal only when it is
+  the publication's only PR; where a delegated split published several, every
+  one of them needs its own verified `merged` first.
 - `closed` maps to `blocked` with `PR closed without merge`; preserve local
   artifacts unless another canonical merged implementation is independently
   proven complete.
