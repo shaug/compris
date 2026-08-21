@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence at the
+  eighth-pass head — 69 of 69 and 16 of 16. Real-model tier still unavailable.
+
 - fix(implement-ticket): make the enumeration guard catch every revert it exists
   for, and treat a delegate `blocked` as the defined status it is — an eighth
   review pass replayed the guard's own two assertions against each corrected
