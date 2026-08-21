@@ -6,6 +6,10 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- docs(implement-ticket): record the after-stage eval evidence at the
+  fourteenth-pass head — 76 of 76 and 17 of 17. Real-model tier still
+  unavailable.
+
 - fix(implement-ticket): grade split completeness in both directions, ticket and
   epic — a fourteenth review pass returned `clean` on all three lenses and left
   one non-gating finding: both branches deciding when a split publication counts
