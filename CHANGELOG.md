@@ -6,6 +6,25 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): grade split completeness in both directions, ticket and
+  epic — a fourteenth review pass returned `clean` on all three lenses and left
+  one non-gating finding: both branches deciding when a split publication counts
+  as complete were graded in one direction only. Every split case carried a
+  non-all-merged shape — two of three merged, one of two, none of three — so
+  weakening `partial_split`'s upper bound, which makes a fully merged split
+  return `blocked` instead of `merged`, passed all 74 cases, and so did deleting
+  the epic's post-merge graph refresh. The over-trigger direction was graded;
+  the success state was not. Both now have a case and both named mutations are
+  caught. The epic half is the finding this work declined at the eleventh and
+  twelfth passes, on the argument that the direction the prose corrected was
+  measured. That argument was sound on its own terms and inconsistent once the
+  eleventh pass's directional gap in the lifecycle handoff was accepted as worth
+  closing: the same reasoning applies to both, and applying it to one and not
+  the other was the actual error. Reversing the earlier call is cheaper than
+  defending it, and the reviewer's own reason for deferring — that the
+  correcting case would pass at base too — is already accepted for one shipped
+  guard case.
+
 - docs(implement-ticket): record the after-stage eval evidence at the
   thirteenth-pass head — 74 of 74 and 16 of 16. Real-model tier still
   unavailable.

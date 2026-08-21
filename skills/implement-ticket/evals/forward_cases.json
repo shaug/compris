@@ -1330,5 +1330,41 @@
       "worktree": {"path": "/worktrees/g790", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-790", "publish_candidate_result": {"status": "blocked", "reason": "the third pull request failed the repository's ownership-manifest pre-flight check", "prs": [{"number": 791, "state": "open", "head": "head-790a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 792, "state": "open", "head": "head-790b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
     }
+  },
+  {
+    "id": "delegated-split-fully-merged-completes",
+    "target_skill": "implement-ticket",
+    "request": "Complete G-800 after every pull request of its split publication merged.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-800", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request"},
+      "pr": {"state": "merged", "merged": true, "head": "head-800", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-800", "patch": "ticket-scoped patch", "resulting_tree": "tree-800"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-800"}]},
+      "reviews": {"initial": "clean", "head": "head-800", "connector_head": "head-800", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g800", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-800", "publish_candidate_result": {"status": "published", "prs": [{"number": 801, "state": "merged", "head": "head-800a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 802, "state": "merged", "head": "head-800b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 803, "state": "merged", "head": "head-800c", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
+    }
+  },
+  {
+    "id": "epic-split-child-fully-merged-refreshes",
+    "target_skill": "implement-epic",
+    "request": "Continue epic G-810 after child G-811's split publication fully merged.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-810", "state": "open", "whole_epic": true, "subissues": ["G-811"], "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "one ticket per PR unless the publication skill splits it", "implement_ticket_dependency": {"installed": true, "stable_name": "implement-ticket", "readable": true, "source_binding": "same_repository_suite", "contract": {"result_states": ["ready_pr", "ready_prs", "merged", "blocked", "requires_epic"], "authority_preserved": true, "one_ticket_scope": true, "repository_owned_dependencies": true}}},
+      "pr": {"state": "merged", "merged": true, "head": "head-811", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-811", "patch": "child patch", "resulting_tree": "tree-811"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-811"}]},
+      "reviews": {"initial": "clean", "head": "head-811", "connector_head": "head-811", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g811", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-811", "split_child_result": {"child": "G-811", "prs": [{"number": 812, "state": "merged", "head": "head-811a", "base": "base-1"}, {"number": 813, "state": "merged", "head": "head-811b", "base": "base-1"}]}}
+    }
   }
 ]
