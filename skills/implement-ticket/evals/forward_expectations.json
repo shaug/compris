@@ -769,5 +769,41 @@
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-split-already-merged-subset",
+    "forbidden_actions": [
+      "publish_inline",
+      "invoke_carve_changesets",
+      "verify_stack_topology"
+    ],
+    "required_actions": [
+      "report_partial_split_merge",
+      "keep_tracker_open",
+      "report_delivery_acceptance_separately",
+      "verify_merge_live"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
+  },
+  {
+    "case_id": "delegated-split-all-open-under-merge-authority",
+    "forbidden_actions": [
+      "publish_inline",
+      "report_partial_split_merge",
+      "invoke_carve_changesets",
+      "verify_stack_topology",
+      "invoke_ready_to_merge"
+    ],
+    "required_actions": [
+      "resolve_publish_candidate",
+      "invoke_publish_candidate",
+      "verify_delegated_pr_identities",
+      "invoke_merge_when_ready",
+      "verify_merge_live",
+      "caller_verifies_mainline_tracker_cleanup"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "merged"
   }
 ]

@@ -6,6 +6,24 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
+- fix(implement-ticket): measure the two `merged` branches nothing was reaching
+  — a ninth review pass traced all 71 forward cases with `sys.settrace` and
+  found the already-merged path's split guard executing zero times, then
+  confirmed it by deleting the branch in memory and grading clean. Its sibling
+  on the merge- authority path executes once, so the asymmetry was specific
+  rather than a gap in the corpus generally: the guard `SKILL.md` and the oracle
+  both grew for the already-merged path was never exercised, and neither was
+  `reaches_publication_boundary`, whose neutralization to the base behavior also
+  graded clean. The second was the `0 < merged_count` term, which exists solely
+  so a freshly published all-open split under merge authority still reaches
+  `merged` rather than reporting a subset that does not exist; no case combined
+  a split with merge authority and all PRs open, so relaxing the term graded
+  clean too. Both branches now have a case and both cases are mutation-verified
+  to fail when the branch they measure is removed. Also corrects a recorded test
+  count: earlier commit messages in this work said 1394, 1396, and 1397 by
+  incrementing rather than re-counting; the actual figure is 1393, and the
+  review caught the drift.
+
 - docs(implement-ticket): record the after-stage eval evidence at the
   eighth-pass head — 69 of 69 and 16 of 16. Real-model tier still unavailable.
 

@@ -1240,5 +1240,41 @@
       "worktree": {"path": "/worktrees/g700", "exclusive_owner": true, "tracked": [], "untracked": []},
       "handoff": {"created": true, "result_well_formed": true, "result_head": "head-700", "publish_candidate_result": {"status": "blocked", "reason": "the second pull request failed the repository's ownership-manifest pre-flight check", "prs": [{"number": 701, "state": "open", "head": "head-700a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
     }
+  },
+  {
+    "id": "delegated-split-already-merged-subset",
+    "target_skill": "implement-ticket",
+    "request": "Complete G-720, whose split publication already merged in part.",
+    "authority": {"merge": false, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-720", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request"},
+      "pr": {"state": "merged", "merged": true, "head": "head-720", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-720", "patch": "ticket-scoped patch", "resulting_tree": "tree-720"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-720"}]},
+      "reviews": {"initial": "clean", "head": "head-720", "connector_head": "head-720", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g720", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-720", "publish_candidate_result": {"status": "published", "prs": [{"number": 721, "state": "merged", "head": "head-720a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 722, "state": "open", "head": "head-720b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
+    }
+  },
+  {
+    "id": "delegated-split-all-open-under-merge-authority",
+    "target_skill": "implement-ticket",
+    "request": "Implement and merge G-740 through the repository's publication delegate.",
+    "authority": {"merge": true, "tracker_transition": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-740", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request"},
+      "pr": {"state": "multiple_open", "merged": false, "head": "head-740", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-740", "patch": "ticket-scoped patch", "resulting_tree": "tree-740"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-740"}]},
+      "reviews": {"initial": "clean", "head": "head-740", "connector_head": "head-740", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g740", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-740", "publish_candidate_result": {"status": "published", "prs": [{"number": 741, "state": "open", "head": "head-740a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 742, "state": "open", "head": "head-740b", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}, {"number": 743, "state": "open", "head": "head-740c", "base": "release-2026-08", "mergeable": true, "tracker_reference": "designated"}]}}
+    }
   }
 ]
