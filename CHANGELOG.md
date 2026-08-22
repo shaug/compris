@@ -4,6 +4,44 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-08-21 — Ran the real-model eval tier for the first time and recorded what it found: the publication-delegate prose does not reliably govern a model on the split paths
+
+- docs(implement-ticket): record the first real-model eval evidence for this
+  corpus — the `claude` CLI became available after the publication-delegate work
+  merged, so every real-model attempt recorded during that work was
+  `status: attempted` with no model-behavior evidence at all. This is the first
+  run that produced any: 41 of 76 for `implement-ticket` and 8 of 17 for
+  `implement-epic`, both `status: failed`, both committed as the norm requires
+  rather than discarded. Read against the deterministic tier's 76 of 76, the gap
+  is the whole point of the norm — the fixture oracle agrees with the
+  expectations by construction and cannot observe a model misreading prose. The
+  load-bearing property holds: `publication-delegate-absent`,
+  `standalone-ready-pr`, and `delegated-publication-single-pr` all pass, so
+  optionality and the single-PR delegated path govern a real model. What does
+  not is the split semantics — 9 of 19 delegate cases pass, and all nine
+  failures the recorded `diff` hides are delegate cases, because a case absent
+  from the comparison baseline appears in neither `newly_failing` nor
+  `still_failing`. That blind spot is worth naming: the diff is the field the
+  norm asks a reader to trust, and it reports nothing about a case that is new
+  and failing. Three causes are identifiable from the recorded per-case evidence
+  rather than supposed. On `delegated-publication-split-prs` the model reached
+  the correct `ready_prs` with unanimous agreement and missed exactly one
+  action, `place_closing_syntax_one_designated_pr` — a token still saying
+  "designated" after the prose was deliberately rewritten to say the carrier is
+  "the last to merge". A reviewer raised that mismatch and it was dismissed as
+  naming only; the real-model tier shows it is not, because a model cannot map
+  the rule onto the token. On `delegated-publication-needs-author-input` the
+  model emitted the lifecycle handoff for a publication with zero pull requests,
+  which is `SKILL.md`'s own "hand each one to `babysit-pr` regardless of the
+  terminal state" applied literally — the clause generalizes past the condition
+  it was written for. And on `carved-candidate-never-routed-through-delegate`
+  the model verified delegated PR identities for a carved candidate, the one
+  routing the skill forbids outright. At least one failure looks like the
+  expectation rather than the prose: on
+  `delegated-split-all-open-under-merge-authority` the model answered
+  `ready_prs` where the oracle requires `merged`, and reporting a publication
+  merged before its pull requests are merged is a reading worth re-examining.
+
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
 - docs(implement-ticket): record the after-stage eval evidence at the
