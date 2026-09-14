@@ -454,6 +454,21 @@ class ForwardEvaluationTests(unittest.TestCase):
         falsified = observations["shape-prediction-falsified-by-carving"]
         self.assertEqual("ready_prs", falsified["terminal_state"])
         self.assertIn("record_shape_prediction_falsified", falsified["actions"])
+        carved_case = next(
+            case
+            for case in self.cases
+            if case["id"] == "shape-prediction-falsified-by-carving"
+        )
+        carved_handoff = carved_case["artifacts"]["handoff"]
+        self.assertNotEqual(
+            carved_handoff["result_head"],
+            carved_handoff["publication_artifacts"][-1]["head"],
+        )
+        self.assertTrue(carved_handoff["whole_chain_equivalent"])
+        self.assertIn(
+            "bind_shape_telemetry_to_candidate_and_publication",
+            falsified["actions"],
+        )
 
         missing = observations["shape-prediction-missing"]
         self.assertEqual("ready_pr", missing["terminal_state"])

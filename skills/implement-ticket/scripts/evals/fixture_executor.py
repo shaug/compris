@@ -309,7 +309,16 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
     actions = ["preserve_shape_telemetry_non_gating"]
     predicted = ticket.get("predicted_shape")
     path, artifacts, trigger = publication_shape_evidence(pr, handoff)
-    candidate_head = pr.get("head") or handoff.get("result_head")
+    candidate_head = handoff.get("result_head") or pr.get("head")
+    carved_publication_verified = (
+        path == "carved"
+        and handoff.get("topology") == "verified"
+        and handoff.get("whole_chain_equivalent") is True
+        and handoff.get("changeset_identities")
+        and len(handoff["changeset_identities"]) == handoff.get("stack_count")
+        and len(artifacts) == handoff.get("stack_count")
+        and all(artifact.get("id") and artifact.get("head") for artifact in artifacts)
+    )
     has_prediction = bool(
         predicted
         and predicted.get("identity")
@@ -326,13 +335,7 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
         and artifacts[0].get("head") == candidate_head
     ):
         actions.append("record_shape_prediction_held")
-    elif (
-        path == "carved"
-        and handoff.get("changeset_identities")
-        and len(handoff["changeset_identities"]) == handoff.get("stack_count")
-        and len(artifacts) == handoff.get("stack_count")
-        and artifacts[-1].get("head") == candidate_head
-    ) or (
+    elif (carved_publication_verified) or (
         path == "ordinary"
         and len(artifacts) > 1
         and artifacts[-1].get("head") == candidate_head
@@ -350,7 +353,10 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
         and candidate_head
         and artifacts
         and all(artifact.get("id") and artifact.get("head") for artifact in artifacts)
-        and artifacts[-1].get("head") == candidate_head
+        and (
+            carved_publication_verified
+            or (path == "ordinary" and artifacts[-1].get("head") == candidate_head)
+        )
     ):
         actions.append("bind_shape_telemetry_to_candidate_and_publication")
     return actions
