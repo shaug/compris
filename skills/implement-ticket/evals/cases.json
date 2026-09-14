@@ -148,7 +148,7 @@
   {
     "id": "oversized-without-decomposition-authority",
     "request": "Implement GitHub issue G-42 to a ready publication.",
-    "tracker_state": "G-42 is one coherent ticket, but its completed validated review-clean candidate exceeds the live carve-changesets cognitive-load guardrails.",
+    "tracker_state": "G-42 is one coherent ticket, but its completed validated review-clean candidate exceeds the canonical cognitive-shaping doctrine's standard.",
     "authority": "ready_pr_only; decomposition authority absent"
   },
   {

@@ -4,6 +4,14 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-13 — Bound implement-ticket's publication gate to the canonical shaping doctrine
+
+- fix(implement-ticket): read the bundled canonical cognitive-shaping doctrine
+  before publication-size classification, drift-check it through
+  `sync-contracts`, and grade the obligation with a forward case while
+  preserving the ordinary and carved publication paths and their authority
+  boundaries.
+
 ## 2026-08-21 — Ran the real-model eval tier for the first time and recorded what it found: the publication-delegate prose does not reliably govern a model on the split paths
 
 - docs(implement-ticket): record the first real-model eval evidence for this
@@ -41,12 +49,13 @@ summary: Chronological history of repository and skill changes.
   `delegated-split-all-open-under-merge-authority` the model answered
   `ready_prs` where the oracle requires `merged`, and reporting a publication
   merged before its pull requests are merged is a reading worth re-examining.
+  (51c0e4fbdccee6deee25a7c84183c44c0674453c)
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   fourteenth-pass head — 76 of 76 and 17 of 17. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): grade split completeness in both directions, ticket and
   epic — a fourteenth review pass returned `clean` on all three lenses and left
@@ -65,11 +74,11 @@ summary: Chronological history of repository and skill changes.
   the other was the actual error. Reversing the earlier call is cheaper than
   defending it, and the reviewer's own reason for deferring — that the
   correcting case would pass at base too — is already accepted for one shipped
-  guard case.
+  guard case. (111266c171af137593c776380af3a461f9c72099)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   thirteenth-pass head — 74 of 74 and 16 of 16. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): stop an unhandled carve terminal falling through to
   `ready_pr`, and correct the note that called it pre-existing — a thirteenth
@@ -97,12 +106,12 @@ summary: Chronological history of repository and skill changes.
   probed capabilities, testing the one configuration where the carved path never
   meets the delegate at all. With the explicit exit in place the guard's own
   `oversized` conjunct became unreachable and is removed as dead rather than
-  left as an unmeasurable defence.
+  left as an unmeasurable defence. (8042fe3a62617d698cc802956d9b46843501d2d1)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   eleventh-pass head — 74 of 74 and 16 of 16, and the note corrects the tenth
   pass's overreaching mutation-verification claim rather than restating it.
-  Real-model tier still unavailable.
+  Real-model tier still unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): grade the lifecycle-owner obligation in both
   directions, and drop a stranded rationale — an eleventh review pass returned
@@ -129,10 +138,11 @@ summary: Chronological history of repository and skill changes.
   changed. Deliberately not fixed: the epic split-child branch's all-merged
   direction is ungraded, which the review raised as non-gating — the direction
   the prose actually corrected is measured, and two other epic cases measure the
-  generic refresh.
+  generic refresh. (0010438cd2d391b6283eae3fb34ddf44537f6d77)
 
 - docs(implement-ticket): record the after-stage eval evidence at the tenth-pass
   head — 72 of 72 and 16 of 16. Real-model tier still unavailable.
+  (53db447e0113ec32fb9630247a1ed0bd2c2aa8c2)
 
 - fix(implement-ticket): pin the publication-boundary guard so every conjunct is
   measured — a tenth review pass showed the guard itself was the last unmeasured
@@ -155,9 +165,11 @@ summary: Chronological history of repository and skill changes.
   a stop. That is a pre-existing gap in how the oracle models the carved path,
   it predates this work, and this work's own non-goals exclude changing the
   carved path — the new case asserts only that the delegate stays out of it.
+  (20ae1d654cc03985a1b24db9e022be8c098caa98)
 
 - docs(implement-ticket): record the after-stage eval evidence at the ninth-pass
   head — 71 of 71 and 16 of 16. Real-model tier still unavailable.
+  (b522abe4244af8c6738fe53219ecca9226b4f1c0)
 
 - fix(implement-ticket): measure the two `merged` branches nothing was reaching
   — a ninth review pass traced all 71 forward cases with `sys.settrace` and
@@ -175,10 +187,11 @@ summary: Chronological history of repository and skill changes.
   to fail when the branch they measure is removed. Also corrects a recorded test
   count: earlier commit messages in this work said 1394, 1396, and 1397 by
   incrementing rather than re-counting; the actual figure is 1393, and the
-  review caught the drift.
+  review caught the drift. (0a2ef12786001c567479456a82a09a1b5449ef32)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   eighth-pass head — 69 of 69 and 16 of 16. Real-model tier still unavailable.
+  (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): make the enumeration guard catch every revert it exists
   for, and treat a delegate `blocked` as the defined status it is — an eighth
@@ -201,10 +214,11 @@ summary: Chronological history of repository and skill changes.
   earlier in this work. It now preserves and verifies those identities and hands
   each one an owner, the handoff says so, and a new case measures it —
   mutation-verified to fail when the branch is removed.
+  (ea948e9b69b29317fbf33c5580e27eb1d213e2d5)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   seventh-pass head — 68 of 68 and 16 of 16, unmoved. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): let a freshly published split reach `merged`, and make
   the enumeration guard search every file the skill ships — a seventh review
@@ -226,11 +240,12 @@ summary: Chronological history of repository and skill changes.
   was merged at all. Partial now means what the word means, some merged and some
   not; all three states are probed and answer correctly. Deferring it once is
   what let it come back, which is the argument against deferring the cheap ones.
+  (6c621bc5ea9f7670c29300a5352244850a1e106c)
 
 - docs(implement-ticket): record the after-stage eval evidence at the head that
   closes the sixth review pass — 68 of 68 and 16 of 16, with the two new cases
   passing and every pre-existing case unmoved. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): widen the merge-verification restatements and measure
   the two obligations that were prose only — a sixth review pass returned no
@@ -251,6 +266,7 @@ summary: Chronological history of repository and skill changes.
   both now have a case, and both cases are mutation-verified to fail when the
   fix they measure is reverted, which is the check that distinguishes a case
   that measures something from one that merely passes.
+  (d5aa6f3461265e0cb57052b67492a7b37c4f4dd0)
 
 - docs(implement-ticket): record the after-stage eval evidence at the head that
   closes the fifth review pass — 66 of 66 and 15 of 15, all unchanged. Both
@@ -259,6 +275,7 @@ summary: Chronological history of repository and skill changes.
   unmoved now: they were caught by reading the diff against the base
   implementation, not by the oracle. Recorded so the shipping head is the head
   the evidence names. Real-model tier still unavailable.
+  (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): stop the publication-boundary guard from collapsing a
   resumed split and from rewriting the carved terminal — a fifth review pass
@@ -286,7 +303,7 @@ summary: Chronological history of repository and skill changes.
   survives anywhere in the contract, the agent metadata, or the README. The
   second is asserted as an absence over the whole surface rather than a list of
   known sites, because enumerating the sites by inspection is what let four
-  passes each find another one.
+  passes each find another one. (1bd647bfa8ae91e4f204bb4c8163715ca8d17932)
 
 - docs(implement-ticket): re-record the after-stage eval evidence at the
   review-converged head — 66 of 66 and 15 of 15, all 66 unchanged against the
@@ -295,6 +312,7 @@ summary: Chronological history of repository and skill changes.
   the case was inverted rather than wrong about which actions apply, so fixing
   it moved the expectation and the oracle together. Real-model tier still
   unavailable; all four attempts recorded with the observed limitation.
+  (4e99157806786aa425b27781bde8cb73fef5e46e)
 
 - fix(implement-ticket): make the partial-publication case grade the right way
   round, and widen the last six enumerations — a fourth review pass found the
@@ -323,6 +341,7 @@ summary: Chronological history of repository and skill changes.
   scoped to the gate section, because a split publication reaches `babysit-pr`
   once per PR through that very reference and a reader who cannot see it there
   is a reader who strands the extra pull requests.
+  (ee2c76c1142d67b659ba65faea1eb7eb5ebd7e55)
 
 - docs(implement-ticket): record the after-stage eval evidence for the
   review-fix pass — 66 of 66 and 15 of 15, compared against the runs #254 landed
@@ -336,7 +355,7 @@ summary: Chronological history of repository and skill changes.
   where keeping it would leave a file asserting a state nobody can retrieve. The
   real-model tier remains unavailable here, so all four attempts are recorded
   with the observed `FileNotFoundError` and the model-behavior evidence stays
-  deferred.
+  deferred. (fa9adfabf9d5d8fc2f42dafb81d3677ff14cc3d5)
 
 - fix(implement-ticket): close the remaining publication-shape surfaces a third
   review pass found — the `merged` widening had reached four surfaces and then
@@ -367,7 +386,7 @@ summary: Chronological history of repository and skill changes.
   `delegated-publication-split-partial-merge` reaching both merged paths and
   `delegated-publication-partial-then-author-input`, hold the two corrected
   obligations to measured outcomes. 66 of 66 forward cases and 15 of 15 for
-  `implement-epic`.
+  `implement-epic`. (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - fix(changelog): stop double-citing eleven 2026-08-19 entries — the backfill
   that accompanied the publication-delegate work added a title-parenthetical SHA
@@ -378,6 +397,7 @@ summary: Chronological history of repository and skill changes.
   inside, and were already citations. Removes the eleven redundant
   parentheticals, keeps the pre-existing form, and corrects the claim to
   backfill "the three landed 2026-08-19 entries that were still SHA-less".
+  (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - fix(implement-ticket): close the delegated-execution dead end the `ready_prs`
   widening opened — a second review pass found a fifth surface the widening
@@ -397,6 +417,7 @@ summary: Chronological history of repository and skill changes.
   and its own ticket. Also finishes the publication-shape enumeration in
   `references/github.md` and `references/linear.md`, which the first pass
   widened in `SKILL.md` and the carve handoff but not in the two adapters.
+  (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - fix(implement-ticket): finish the `ready_prs` widening at the `merged`
   terminal — repository review of the publication delegate found the widening
@@ -427,6 +448,7 @@ summary: Chronological history of repository and skill changes.
   obligation to a measured outcome, which none of the four original delegate
   cases did — every one of them withheld merge, so the merge path was
   unmeasured. 65 of 65 forward cases and 15 of 15 for `implement-epic`.
+  (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - docs(implement-ticket): re-record the after-stage eval evidence at the
   shipping head (4e99157806786aa425b27781bde8cb73fef5e46e) — the first after run
@@ -595,10 +617,12 @@ summary: Chronological history of repository and skill changes.
   absent, granted at invocation, granted after presentation, a partial
   relationship failure, and a readback mismatch.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - docs(ready-ticket): record the before-stage eval evidence for graph creation —
   the existing 18-case forward corpus measured against the prose as it stood,
   ahead of any change: 18 of 18. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - fix(ready-ticket): keep graph-creation capability from tempting ceremonial
   decomposition — the first after-stage run flipped a borderline one-ticket case
@@ -611,6 +635,7 @@ summary: Chronological history of repository and skill changes.
   that already fits one ticket stays one ticket regardless of whether
   graph-creation authority is granted, and holding it is never itself a reason
   to draft a graph. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - fix(ready-ticket): say "choosing an answer on the requester's behalf" rather
   than "choosing for the requester" — the same after-run cost two unrelated
@@ -619,6 +644,7 @@ summary: Chronological history of repository and skill changes.
   attention diluted by the added length rather than any conflict with the new
   content. Restating the existing sentence to echo the graded vocabulary term
   more directly recovered both. (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - docs(ready-ticket): record the after-stage eval evidence for graph creation —
   22 of 23 at the shipping prose, the five new graph-creation cases unanimous
@@ -629,6 +655,7 @@ summary: Chronological history of repository and skill changes.
   in that action term rather than a regression this change introduced, and left
   unforced rather than chased to an artificial 23 of 23.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - fix(ready-ticket): remove after-stage eval evidence recorded from a dirty tree
   — the initial candidate review's correctness lens caught that all three
@@ -641,17 +668,20 @@ summary: Chronological history of repository and skill changes.
   silent-rot failure the eval-evidence norm exists to prevent. Removed and
   re-recorded from the now-committed, clean head.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - docs(ready-ticket): re-record the after-stage eval evidence at the committed
   head — 22 of 23, the same single pre-existing miss as the dirty-tree recording
   and no case newly failing, so the citation fix cost no measured behavior.
   (`c426c2be7eea2b0ef7e090b82238d6dcfcd57c26`)
+  (c426c2be7eea2b0ef7e090b82238d6dcfcd57c26)
 
 - chore(review-fix-loop): re-record the after-stage run at the shipping head —
   the first after run measured the prose before `exclusive_ref_store` was
   removed below. Re-recorded at the head this branch ships: 21 of 21, unchanged,
   so the review-driven simplification cost no measured behavior.
   (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+  (068ee84c12271a5c0005d93efeee499cc19183d3)
 
 - fix(review-fix-loop): drop exclusive_ref_store, the buggy legacy behavior had
   no business surviving as an opt-in — review found that offering a flag to
@@ -664,12 +694,14 @@ summary: Chronological history of repository and skill changes.
   1-3 of the write-prevention ladder (sandbox, restricted tool surface,
   read-only commands) available to it.
   (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+  (068ee84c12271a5c0005d93efeee499cc19183d3)
 
 - chore(review-fix-loop): record after-stage eval evidence for #245 — commit the
   after-stage deterministic eval-corpus summary for the candidate-ref-
   attribution tiering, on top of the implementation commit, per the eval-backed
   change norm's requirement that the run be recorded from a committed, clean
   tree. (`068ee84c12271a5c0005d93efeee499cc19183d3`)
+  (068ee84c12271a5c0005d93efeee499cc19183d3)
 
 - fix(review-fix-loop): attribute reviewer mutation, not any local ref move —
   `detect_worktree_mutation` compared the entire local ref map, so a checkout
@@ -688,6 +720,7 @@ summary: Chronological history of repository and skill changes.
   unattributed third-party ref advance alongside the existing reviewer-mutation
   one, and recorded before/after deterministic eval-corpus evidence per the
   eval-backed change norm. (`6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3`)
+  (6ab1ace09bf8ca34ff1d260d7fefe16a2204f7c3)
 
 ## 2026-08-16 — Gave `ready-ticket` the breakdown that decides how many tickets the work is, made a ticket's stated assumptions answer for themselves at pickup, hardened the harness that measured it, designed one owner for the policy that grades it, and brought the citation guard's own prose in line with the merge method
 
@@ -2667,6 +2700,7 @@ summary: Chronological history of repository and skill changes.
   suite claims at the moment work changes hands, and joins the French naming
   convention shared with `atelier` and `savoir`
   (`d12fc1cd6d65c0c3f0c81be83fb33d47933b1fc8`)
+  (d12fc1cd6d65c0c3f0c81be83fb33d47933b1fc8)
 
 ## 2026-08-05 — Proposed, hardened, and planned rebuilding carve-changesets on GitHub's native stacked pull request engine, fixed the intermittent claude_executor real-model parsing failure blocking implement-ticket eval evidence, added scoped per-finding re-review and escalated final-cycle execution to implement-ticket's fix loop, then made installed-distribution drift detectable and drove that check through five adversarial review rounds until it no longer had the silent successes it exists to catch, then separately triaged the real-model forward-eval failures that run surfaced, fixed implement-epic's terminal-state passthrough and implement-ticket's acceptance-ledger currency/correctness conflation, ran a 3-round adversarial read-only review loop against those two fixes to convergence verified with a fresh real-model run, and closed epic #118 by documenting how the two peer libraries compose end to end
 
@@ -2713,36 +2747,47 @@ summary: Chronological history of repository and skill changes.
   caught too — moving a ticket between the two tuples is the edit that keeps the
   table enforceable, since nothing in the suite observes GitHub directly
   (`8f11ad584c7591a21f5d4d561ba9c10f6fd309bb`)
+  (8f11ad584c7591a21f5d4d561ba9c10f6fd309bb)
 
 - docs(carve-changesets): add gh stack implementation plan
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): scope native fences and close publication gaps
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): complete native state and equivalence fences
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): close native adoption and rebase bypasses
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): fence every native mutation state
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): bind native mutations to exact heads
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): simplify native metadata adoption
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): establish one native metadata authority
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): correct native stack operation contracts
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - docs(carve-changesets): propose rebuilding on gh stack
   (`0aa07474344e7deb4d150cf602eeb924816c8836`)
+  (0aa07474344e7deb4d150cf602eeb924816c8836)
 
 - chore(implement-ticket): record final real-model eval verification for the
   adversarial review loop — commits the summary
@@ -2758,6 +2803,7 @@ summary: Chronological history of repository and skill changes.
   terminal state; its remaining failure is a narrower, pre-existing
   ledger-completeness gap, not the terminal-state regression this loop fixed
   (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - fix(implement-epic): trim redundant parenthetical from round-3 fix — removes
   "(`ready_pr`, `merged`, even a routine `blocked`)" from the
@@ -2766,6 +2812,7 @@ summary: Chronological history of repository and skill changes.
   found this specific redundancy while confirming the rest of the round-3 fix
   was evidence-backed and appropriately shaped
   (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - fix(implement-epic): make stop-condition precedence explicit before
   `mixed_ticket_results` — "Report the epic result" now states that the stop
@@ -2789,6 +2836,7 @@ summary: Chronological history of repository and skill changes.
   unrelated change outside this loop's scope, and investigation didn't show a
   real contradiction in the first place
   (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - fix(implement-ticket): edit the readiness-gate bullet itself, not just
   adjacent prose — the prior commit reconciled the acceptance-ledger section's
@@ -2806,6 +2854,7 @@ summary: Chronological history of repository and skill changes.
   independently re-verified round 1's claimed fix and found it had worked around
   the conflicting bullet instead of correcting it
   (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - fix(implement-epic,implement-ticket): resolve adversarial-review findings on
   the terminal-state and ledger fixes — round 1 of the same review loop found
@@ -2831,6 +2880,7 @@ summary: Chronological history of repository and skill changes.
   summaries, and `implement-ticket`'s contrary example is explained by it being
   consumed as a dependency by `implement-epic`, which `implement-epic` itself is
   not (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - chore(implement-ticket): record after-eval for epic terminal-state and
   acceptance-ledger prose fixes — commits the real-model forward-eval `after`
@@ -2850,6 +2900,7 @@ summary: Chronological history of repository and skill changes.
   earlier, overly broad version of the acceptance-ledger wording; that
   intermediate evidence was discarded rather than committed, since it reflected
   a superseded prose state (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - fix(implement-ticket): scope missing-acceptance-contract blocker to when one
   is required — corrects the acceptance-ledger wording added in the previous
@@ -2864,6 +2915,7 @@ summary: Chronological history of repository and skill changes.
   (whose repository instructions literally require "acceptance contract
   observation... before readiness") warrants the blocker
   (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - fix(implement-ticket,implement-epic): clarify epic terminal state and
   acceptance-status semantics — triage of the 26/58 real-model forward-eval
@@ -2896,6 +2948,7 @@ summary: Chronological history of repository and skill changes.
   under the `mixed_ticket_results` label before this change, showing the
   expectation was reachable, just untaught
   (`b86bf985d0c12346a3205455a905558179903429`).
+  (b86bf985d0c12346a3205455a905558179903429)
 
 - test(scripts): pin the install-directory identity guard where CI can see it
   (fifth adversarial review round) — the regression test for the previous commit
@@ -3093,6 +3146,7 @@ summary: Chronological history of repository and skill changes.
   failure. Not a skill-prose change, so the eval-evidence norm's recorded-run
   requirement does not apply; the diagnostic evidence above is the record
   (`1001595a0c06c604bd1e02ea9b6c73bba881d0ed`).
+  (1001595a0c06c604bd1e02ea9b6c73bba881d0ed)
 
 - feat(implement-ticket): add scoped per-finding re-review and escalated
   final-cycle execution to the fix loop (issue #132, epic #119) — the fix loop
@@ -3144,6 +3198,7 @@ summary: Chronological history of repository and skill changes.
   intermittently, not durably, functional. Model-behavior evidence for this
   specific prose change remains unavailable
   (`ca613b8f8887f1d147193a32de9b8b815569cf5c`).
+  (ca613b8f8887f1d147193a32de9b8b815569cf5c)
 
 ## 2026-08-04 — Authored `ready-ticket` and wired `implement-ticket`'s not-ready dead end into it, moved review-packet and dispatch context onto files, instituted the eval-evidence norm, then gave the implementation phase a peer-independent change-demonstrating-test evidence contract with availability-conditioned peer methodology slots, and established the house-owned consumption disciplines for review findings and PR feedback, bundled into `implement-ticket`, `babysit-pr`, and `carve-changesets`, then built the triggering-and-composition corpus that asks the prior question of which skill loads at all, then pressure-tested `ready-ticket` from a real recorded baseline, then sized and de-steered every dispatch the pipeline composes
 
@@ -3228,6 +3283,7 @@ summary: Chronological history of repository and skill changes.
   the eight summaries this branch recorded from unclean trees are recorded as
   follow-ups rather than absorbed here
   (`bb31f34d3d311ca5b1fd44c09ba57826de36f91d`)
+  (bb31f34d3d311ca5b1fd44c09ba57826de36f91d)
 
 - feat(ready-ticket): pressure-test from a real baseline and record the
   before/after (issue #137, epic #120, the epic's third and final leaf) — #124
@@ -3263,6 +3319,7 @@ summary: Chronological history of repository and skill changes.
   Registered in `record_eval_run.py`'s suite registry alongside the existing
   skills. Thirty-eight behavioral tests bound to the ticket's acceptance
   criteria (`c657611bd41d87a2822137c1ac16d8633d8b923b`)
+  (c657611bd41d87a2822137c1ac16d8633d8b923b)
 
 - feat(review-suite): establish house-owned review and PR-feedback consumption
   discipline (issue #127, epic #118) — add
@@ -3311,6 +3368,7 @@ summary: Chronological history of repository and skill changes.
   records nothing for it and that gap is stated rather than papered over with
   its unit tests, which cannot observe `SKILL.md` prose
   (`a1ee71cc43ab04af221667a184f7dbf3edac77f1`)
+  (a1ee71cc43ab04af221667a184f7dbf3edac77f1)
 
 - feat(evals): build the triggering-and-composition test corpus (issue #136,
   epic #120, the epic's second leaf) — forward evals ask whether a skill's prose
@@ -3362,6 +3420,7 @@ summary: Chronological history of repository and skill changes.
   to the ticket's acceptance criteria, wired into `just test` and CI, each
   observed failing at the state it guards
   (`e7dd726b59e7ee35dea7a856163e86793dbc01e2`)
+  (e7dd726b59e7ee35dea7a856163e86793dbc01e2)
 
 - feat(implement-ticket): add the behavioral-test evidence contract and peer
   methodology slots (issue #126, epic #118) — give the implementation phase a
@@ -3409,6 +3468,7 @@ summary: Chronological history of repository and skill changes.
   baseline recorded and deferred to #145, so model-behavior evidence for this
   change is deferred to the first capable run
   (`12c25845b40a19b7f3262406fa170cc4422512ca`)
+  (12c25845b40a19b7f3262406fa170cc4422512ca)
 
 - feat(evals): institute the eval-evidence norm for skill-prose changes (issue
   #135, epic #120, the epic's first leaf and the gate on its other two) — a
@@ -3468,6 +3528,7 @@ summary: Chronological history of repository and skill changes.
   diagnosis alongside a deterministic baseline passing 54/54, and the real-model
   baseline is deferred to #145. A real-model adapter for `carve-changesets` is
   deferred to #144 (`67ff0dbce8c534bcf82bde033f5534bb3f2db265`)
+  (67ff0dbce8c534bcf82bde033f5534bb3f2db265)
 
 - feat(implement-ticket): route not-ready blocked results to ready-ticket (issue
   #125, epic #118) — give `implement-ticket`'s not-ready `blocked` result a
@@ -3497,6 +3558,7 @@ summary: Chronological history of repository and skill changes.
   corrects the README's plugin-installation count from nine skills to ten, stale
   since `ready-ticket` landed earlier today
   (`ee4b8d7bdbf573fccc8c1b8dc11b937357e38604`)
+  (ee4b8d7bdbf573fccc8c1b8dc11b937357e38604)
 
 - feat(review-suite,skills): deliver review-packet and epic-dispatch context via
   files instead of inlined context (issue #130, epic #119, the epic's only
@@ -3550,6 +3612,7 @@ summary: Chronological history of repository and skill changes.
   orchestration eval case proving the fail-closed path, and twelve behavioral
   tests bound to the ticket's acceptance criteria, each observed failing at base
   `73f1aa8` and passing at head (`8f3f0adb7607ff1e4a880b224c8eff475c28fbb2`)
+  (8f3f0adb7607ff1e4a880b224c8eff475c28fbb2)
 
 - feat(skills): add the ready-ticket skill for peer-aware ticket authoring
   (issue #124, epic #118, the epic's first seam leaf) — add
@@ -3595,6 +3658,7 @@ summary: Chronological history of repository and skill changes.
   pressure-testing from baseline is #137's, so the rationalization table carries
   anticipated rather than verbatim wording and says so
   (`73f1aa8e2fc34fa93f989c0e146efacfe41133e7`)
+  (73f1aa8e2fc34fa93f989c0e146efacfe41133e7)
 
 ## 2026-08-03 — Established the written skill-authoring methodology including the house testing doctrine, then added the peer-skill convention with a complete named-peer registry and rewrote all nine trigger descriptions to the description-states-when rule
 
@@ -3646,6 +3710,7 @@ summary: Chronological history of repository and skill changes.
   use, the scope boundary, and the terminal result shape a caller needs to
   route. This is a deliberate triggering-behavior change; #136's corpus verifies
   it after the fact (`83a526bbee6598ef6c508550485ea20d1ebc4daa`)
+  (83a526bbee6598ef6c508550485ea20d1ebc4daa)
 - docs: write the skill-authoring methodology document with the house testing
   doctrine (issue #122, epic #117, the epic's first child) — add
   `docs/skill-authoring.md` combining empirical prose discipline with this
@@ -3700,6 +3765,7 @@ summary: Chronological history of repository and skill changes.
   with an authoring checklist. Scope held to doctrine: the peer-skill convention
   and named-peer registry remain with issue #123, and retrofitting existing
   skills remains with epic #119 (`4e60776d1fea8b966754f8be6da5bebd99478e67`)
+  (4e60776d1fea8b966754f8be6da5bebd99478e67)
 
 ## 2026-07-31 — Unified the duplicated JSON-schema validation engine between review-suite and review-fix-loop, packaged and documented the standalone review-fix-loop skill, added the review-fix-loop cross-cutting evaluation corpus, recorded the first review-fix-loop `update_pr` fix cycle
 
@@ -3724,6 +3790,7 @@ summary: Chronological history of repository and skill changes.
   review-fix-loop tests and 318 pre-existing review-suite tests continue to pass
   unchanged, plus the 9 new tests this change adds
   (`c400d77fc93e84d166658edf8f7dee0b08e0b612`)
+  (c400d77fc93e84d166658edf8f7dee0b08e0b612)
 - feat(review-fix-loop): package and document the standalone skill for discovery
   (issue #102, epic #95, the epic's final child) — list `skills/review-fix-loop`
   in the README's "Current reusable agent skills" section with its
@@ -3742,6 +3809,7 @@ summary: Chronological history of repository and skill changes.
   publishes exactly once, and that every non-converged terminal result reports
   its retained unpushed commits via `unpushed_commits`/`operator_action`
   (`a1623de4d1222d2ae08c53d5e2ee19b7d5693281`)
+  (a1623de4d1222d2ae08c53d5e2ee19b7d5693281)
 - fix(review-fix-loop): configure `user.email`/`user.name` on both git clones
   `scripts/evals/corpus.py`'s
   `up_sequential_publication_race_second_clone_loses` scenario creates,
@@ -3753,6 +3821,7 @@ summary: Chronological history of repository and skill changes.
   passed; reproduced the exact CI failure locally under a forced no-identity
   condition, confirmed the fix resolves it, and confirmed GitHub Actions' own
   `ci` check on PR #113 is green (`c14c912d87373fa84eaefb221ccefe936cc58a02`)
+  (c14c912d87373fa84eaefb221ccefe936cc58a02)
 - fix(review-fix-loop): consolidate `scripts/evals/helpers.py`'s five fixtures
   that were byte-identical or functionally identical to
   `scripts/tests/helpers.py`'s own (`init_repo`, `CLEAN_TEMPLATE`,
@@ -3764,6 +3833,7 @@ summary: Chronological history of repository and skill changes.
   fixture (`make_expanding_findings_reviewer`) left over from a descoped
   scenario, closing the one code-simplicity gap the first review-code-change
   pass on #101 found (`c14c912d87373fa84eaefb221ccefe936cc58a02`)
+  (c14c912d87373fa84eaefb221ccefe936cc58a02)
 - feat(review-fix-loop): add the cross-cutting, result-blind evaluation corpus
   (issue #101, epic #95) covering convergence, repeated findings,
   invalid/incomplete reviews, declined findings, budget exhaustion, interruption
@@ -3780,6 +3850,7 @@ summary: Chronological history of repository and skill changes.
   fixture that cannot actually converge, and runs the whole corpus under
   `just test`; `just eval-review-fix-loop` is the standalone entry point
   (`c14c912d87373fa84eaefb221ccefe936cc58a02`)
+  (c14c912d87373fa84eaefb221ccefe936cc58a02)
 - fix(review-fix-loop): extract the test fixtures shared between
   `test_local_commit.py` and `test_update_pr.py` (the module loader, a bare
   local repository, the always-passing validation commands, the
@@ -3788,6 +3859,7 @@ summary: Chronological history of repository and skill changes.
   `carve-changesets/scripts/tests/helpers.py`'s established precedent, closing
   the one code-simplicity gap the first review-code-change pass on #100 found
   (`729135bb11d5bd8f0efa3a66d1c1ab1f978a3f6d`)
+  (729135bb11d5bd8f0efa3a66d1c1ab1f978a3f6d)
 
 ## 2026-07-30 — Delivered and evaluated the standalone review-fix-loop `update_pr` workflow, delivered and evaluated the standalone review-fix-loop `local_commit` workflow, implemented the review-fix-loop reviewer isolation and complete-review orchestration and local execution substrate (common-directory locking, isolated attempts, checkpoint persistence, and recovery), defined the review-fix-loop invocation, checkpoint, and terminal-result contracts, removed the unproven verification-sufficiency pass and its required-evidence field from review-correctness, and simplified the review-fix-loop design around local coordination and Git-native publication safety
 
@@ -3809,6 +3881,7 @@ summary: Chronological history of repository and skill changes.
   `_run_engine` both entry points share, with `run_local_commit`'s own behavior
   and its 21 existing tests unchanged
   (`729135bb11d5bd8f0efa3a66d1c1ab1f978a3f6d`)
+  (729135bb11d5bd8f0efa3a66d1c1ab1f978a3f6d)
 - feat(review-fix-loop): compose the contract, local-execution, and
   reviewer-orchestration leaves into the end-to-end standalone `local_commit`
   workflow (`scripts/local_commit.py`'s `run_local_commit`), enforcing the
@@ -3820,17 +3893,20 @@ summary: Chronological history of repository and skill changes.
   input (declined finding and scope expansion), expanding/oscillating finding
   sets, repeated failed attempts, and interrupted-attempt recovery
   (`eaa1ded44eef0fa29d874d93196ffa7d3e0e1e79`)
+  (eaa1ded44eef0fa29d874d93196ffa7d3e0e1e79)
 - fix(review-fix-loop): remove three subsumed/redundant tests and cut
   `reviewer_orchestration.py`'s docstring/comment density from roughly one line
   of prose per line of code down to sibling-module levels, replacing restated
   rationale with single pointers to `references/reviewer-orchestration.md`,
   closing the two code-simplicity gaps the sixth review-code-change pass on #98
   found (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - fix(review-fix-loop): correct an off-by-one changelog SHA attribution left by
   the previous fix cycle's own rebase cleanup — the duplicate-test entry and the
   `ignored`-comparison entry each carried the other's identity, closing the gap
   the fifth review-code-change pass on #98 found
   (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - fix(review-fix-loop): rebase onto the merged #97 local-execution substrate,
   document that a mutation attributable to a review pass must stop the
   invocation with `blocked/reviewer_integrity_failure` immediately rather than
@@ -3840,11 +3916,13 @@ summary: Chronological history of repository and skill changes.
   `review_gate.evaluate_bound` reuse (cycle 1) is kept as the deliberate design
   after correctness confirmed it changes no accept/reject outcome for
   `implement-ticket`/`babysit-pr` (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - fix(review-fix-loop): remove a byte-identical duplicate test and trim
   history-narrating/triplicated docstring prose in `reviewer_orchestration.py`
   and `reviewer-orchestration.md` down to one owner per rationale, closing the
   two code-simplicity gaps the third review-code-change pass on #98 found
   (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - fix(review-fix-loop): stop comparing `ignored` worktree state for reviewer
   mutation (authorized validation commands legitimately create ignored build
   artifacts, which previously made `converged` unreachable), fail closed instead
@@ -3855,6 +3933,7 @@ summary: Chronological history of repository and skill changes.
   no caller can legitimately use the weaker path), closing the two blocking gaps
   and the one strong-recommendation gap the second review-code-change pass on
   #98 found (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - fix(review-fix-loop): detect refs mutation (not only `head_sha`) between
   before/after reviewer snapshots, reconcile the packet/result evaluator with a
   contract-legal identity-omitting `blocked` result while still binding the
@@ -3863,12 +3942,14 @@ summary: Chronological history of repository and skill changes.
   and now `review-fix-loop`) instead of a second candidate-binding
   implementation, closing the three gaps the first review-code-change pass on
   #98 found (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - feat(review-fix-loop): implement reviewer isolation and complete-review
   orchestration — fixed lens resolution, default fresh-subagent review execution
   with an explicit in-agent override, before/after mutation detection that fails
   a cycle closed, checkpoint-shaped review-record construction, and
   deterministic finding normalization/selection (#98)
   (`8ef6db199526beb6e44408f3848f679dd88edb58`)
+  (8ef6db199526beb6e44408f3848f679dd88edb58)
 - feat(review-fix-loop): add `scripts/local_execution.py` implementing #97's
   local execution substrate — non-blocking common-Git-common-directory candidate
   locking (local-ref lock before the optional `update_pr` remote-target lock,
@@ -3882,34 +3963,43 @@ summary: Chronological history of repository and skill changes.
   tests against real temporary Git repositories covering contention,
   interruption, stale state, dirty worktrees, promotion races, and cleanup
   safety (`26b4cf47168dc8432f7d6e5e4597439af6391a51`)
+  (26b4cf47168dc8432f7d6e5e4597439af6391a51)
 - fix(review-fix-loop): reject `converged` when any `review_records` entry — not
   only the final-head-bound one — recorded a mutation attempt, closing the gap
   the tenth (final) review-code-change pass on #96 found
   (`0187dfc77444fbf410b5ed86a42a12e4d088e7b3`)
+  (99094f87d31f018ce162c4a08ab78fe5f0bb6bc1)
 - fix(review-fix-loop): add a per-pass `reviewer_identity` field to
   `review_records` in both checkpoint and terminal-result, and reject a dirty
   `candidate.worktree` (`staged`/`unstaged`/`untracked`) in
   `validate_invocation`, closing the two gaps the ninth review-code-change pass
   on #96 found (`4daa2a67a38be3baa7741380eb689581ce31a1db`)
+  (80690173571678bb14d14703451a8ab6d29b2cba)
 - docs: record the ninth review-fix-loop fix cycle in the changelog
   (`80690173571678bb14d14703451a8ab6d29b2cba`)
+  (99094f87d31f018ce162c4a08ab78fe5f0bb6bc1)
 - fix(review-fix-loop): complete the terminal-result schema against the design's
   Terminal result contract field list (`worktree`, `resume_status`,
   `unresolved_or_deferred_findings`) and require `ahead_by`/`behind_by`
   alongside the head fields whenever a source is `bound`, closing the gaps the
   eighth review-code-change pass on #96 found
   (`adf2ef5062038836d750b01e19f1549373ce1aad`)
+  (65a256a32b3087d064efb5e4a24725cfb1762467)
 - docs: record the eighth review-fix-loop fix cycle in the changelog
   (`65a256a32b3087d064efb5e4a24725cfb1762467`)
+  (80690173571678bb14d14703451a8ab6d29b2cba)
 - fix(review-fix-loop): complete the checkpoint schema against the design's
   durable-checkpoint field list (`preserved_failed_attempts`, `pull_request`)
   and extend the optional pull-request identity cross-check to both
   cross-document functions, closing the gap the seventh review-code-change pass
   on #96 found (`e7a955a321bafab1cd6f20b77758aa26670567bc`)
+  (f6d1adccea4ee1e6571c911b10053aa4c27e00ba)
 - docs: record the seventh review-fix-loop fix cycle in the changelog
   (`f6d1adccea4ee1e6571c911b10053aa4c27e00ba`)
+  (65a256a32b3087d064efb5e4a24725cfb1762467)
 - docs: record the sixth review-fix-loop fix cycle in the changelog
   (`31789481f000567a4b69cb0a1d5ba77b8d8c4dba`)
+  (f6d1adccea4ee1e6571c911b10053aa4c27e00ba)
 - fix(review-fix-loop): systematically close cross-document identity checks and
   commit provenance, enumerating the complete invariant field set
   (`invocation_id`, `repository`, `branch`, original fix-cycle budget,
@@ -3919,50 +4009,63 @@ summary: Chronological history of repository and skill changes.
   commit-provenance gap (`created_commits`/`fix_commit_sha` linkage) the sixth
   review-code-change pass on #96 found
   (`040ae824fae708efe46ca772f378c30378c9c695`)
+  (31789481f000567a4b69cb0a1d5ba77b8d8c4dba)
 - fix(review-fix-loop): add the missing repository/branch/publication.policy
   checkpoint cross-check, the design-enumerated `allowed_remediation_scope`,
   `worktree`, and `validation_outcomes` schema fields, and correct a
   misattributed changelog SHA, closing all three items the fifth
   review-code-change pass on #96 found
   (`a6178b8da086fab80bd52596babb0208304163a1`)
+  (e71ea93ad98beec7b39cf6bb6c2a123743e820cf)
 - docs: record the fifth review-fix-loop fix cycle in the changelog
   (`e71ea93ad98beec7b39cf6bb6c2a123743e820cf`)
+  (31789481f000567a4b69cb0a1d5ba77b8d8c4dba)
 - fix(review-fix-loop): add validate_checkpoint_against_invocation cross-check,
   symmetric to the existing `validate_terminal_against_checkpoint`, closing the
   gap the fourth review-code-change pass on #96 found: nothing inside a
   checkpoint document alone could prove `base_revision_history[0]` was the
   invocation's real original comparison base
   (`c625bb87b7aefb2371b992b20e4ce07b12b1c270`)
+  (2f3addbdceefb0a952fa1fb035475d0a9d31ebfb)
 - docs: record the coordinator-authorized fourth fix cycle in the changelog
   (`2f3addbdceefb0a952fa1fb035475d0a9d31ebfb`)
+  (e71ea93ad98beec7b39cf6bb6c2a123743e820cf)
 - fix(review-fix-loop): require non-empty scoped validation and full base
   history match, closing two remaining gaps the third review-code-change pass on
   #96 found: an empty or scope-incomplete `validation_summary` could still claim
   `converged`, and the checkpoint/terminal-result cross-check compared only the
   final comparison base, never the initial one
   (`3d240c6be6a33bf131aa7ccee2544c59a36614c1`)
+  (86c7df20d44d0c398c34bee5b8272dca4b239cf7)
 - docs: record the third review-fix-loop fix cycle in the changelog
   (`86c7df20d44d0c398c34bee5b8272dca4b239cf7`)
+  (e71ea93ad98beec7b39cf6bb6c2a123743e820cf)
 - docs: record the comparison_base cross-check fix in the changelog
   (`7d206acd32151405865c4ade4e9e7399ea739f57`)
+  (86c7df20d44d0c398c34bee5b8272dca4b239cf7)
 - fix(review-fix-loop): check comparison_base in the checkpoint/terminal-result
   cross-check, closing a gap where `validate_terminal_against_checkpoint`
   silently omitted the base-identity leg CONTRACT.md already documented it as
   covering, found by the second review-code-change pass on #96
   (`e18f1469cf6d5f5cff1d99045dd041cdc5e77b71`)
+  (7d206acd32151405865c4ade4e9e7399ea739f57)
 - docs: record the converged-evidence fix in the changelog
   (`1c9fcdc5f4ae5765414f4b25839c07122c3bb151`)
+  (7d206acd32151405865c4ade4e9e7399ea739f57)
 - fix(review-fix-loop): reject converged results with non-clean embedded
   evidence, closing a gap where `validate_terminal_result` never inspected
   `review_records` or `validation_summary`, found by the initial
   review-code-change pass on #96 (`fc701b0bb29047af7b2ad24f25fb1db739718f89`)
+  (1c9fcdc5f4ae5765414f4b25839c07122c3bb151)
 - docs: record the review-fix-loop contracts changelog entry
   (`461db19fdd89e65afdf1c13fb870c5c427c00b67`)
+  (1c9fcdc5f4ae5765414f4b25839c07122c3bb151)
 - feat(review-fix-loop): define invocation, checkpoint, and terminal-result
   contracts, adding the skill-local schemas, a dependency-free validator, and 62
   unit tests covering valid, invalid, boundary, cross-document, and
   round-trip/determinism cases for both `local_commit` and `update_pr` (#96)
   (`0689cda71833751249ebc5e65b766d231cf2c093`)
+  (461db19fdd89e65afdf1c13fb870c5c427c00b67)
 - feat(review-suite)!: remove the verification-sufficiency pass and its
   mandatory `verification_sufficiency_evidence` field from `review-correctness`
   and the shared review-result contract, advancing `schema_version` `1.3 → 1.4`;
@@ -3971,8 +4074,10 @@ summary: Chronological history of repository and skill changes.
   no demonstrated value for the removed pass plus a confirmed, twice-reproduced
   false-positive regression when it ran without the traversal pass (#93)
   (`b91e12b063ea6d7ed49f152ee359f1f0eb326363`)
+  (b91e12b063ea6d7ed49f152ee359f1f0eb326363)
 - docs: simplify the review-fix-loop design
   (`2e7a8cd93af9f2c8cec36d6c393694f7849adedb`)
+  (2e7a8cd93af9f2c8cec36d6c393694f7849adedb)
 
 ## 2026-07-29 — Sourced two harder discriminating cases for the traversal and verification-sufficiency passes, designed the review-fix-loop skill, migrated implement-ticket and babysit-pr to consume the final review-result contract, rechecked the s2/s3 strata under grader 1.1 for the same surface-in-prose defect, added connector-outcome curation and promotion tooling, added a skill-root override for mechanism ablation runs, ran the preregistered v2 ablation and integration closeout, and confirmed the session-continuation-summary verification-only regression with an independent rerun
 
@@ -3981,184 +4086,264 @@ summary: Chronological history of repository and skill changes.
   the way, and report the traversal pass discriminates while the
   verification-sufficiency pass still does not (#89)
   (`5e9b3de63335e23d80781a85de49c43c231d9d07`)
+  (5e9b3de63335e23d80781a85de49c43c231d9d07)
 - feat(review-suite): source two harder discriminating
   `s1-correctness-orchestrator` cases for the traversal and
   verification-sufficiency passes and preregister their validation ceiling (#89)
   (`8386abb6641be4bd6e431f70fd9c336b8be617c6`)
+  (8386abb6641be4bd6e431f70fd9c336b8be617c6)
 - docs: design the review-fix-loop skill
   (`06538e5c097ff8e6ef15b12d5fbf61b3d959abf7`)
+  (06538e5c097ff8e6ef15b12d5fbf61b3d959abf7)
 - docs(review-suite): add a confirming rerun of the session-continuation-summary
   verification-only regression (#57 follow-up)
   (`cd8efa444018d036a5749a1955e1f34ebe06b51f`)
+  (cd8efa444018d036a5749a1955e1f34ebe06b51f)
 - docs(review-suite): run the preregistered v2 s1 ablation matrix and
   integration closeout (#57) (`b4e061f7847b3fc911a05fe4c8e50218f4f957b7`)
+  (b4e061f7847b3fc911a05fe4c8e50218f4f957b7)
 - docs: add the CHANGELOG entry for the skill-root ablation override
   (`b4e061f7847b3fc911a05fe4c8e50218f4f957b7`)
+  (b4e061f7847b3fc911a05fe4c8e50218f4f957b7)
 - feat(review-suite): add a skill-root override for mechanism ablation runs
   (`b4e061f7847b3fc911a05fe4c8e50218f4f957b7`)
+  (b4e061f7847b3fc911a05fe4c8e50218f4f957b7)
 - refactor(review-suite): simplify duplicate-chain resolution and unify its
   membership check (`16fc32a90eaea16ac98ff2a34bbabafed7a4681f`)
+  (16fc32a90eaea16ac98ff2a34bbabafed7a4681f)
 - fix(review-suite): resolve a duplicate's disposition through its duplicate_of
   chain (`16fc32a90eaea16ac98ff2a34bbabafed7a4681f`)
+  (16fc32a90eaea16ac98ff2a34bbabafed7a4681f)
 - feat(review-suite): add connector-outcome curation and promotion tooling,
   including the mechanical disclosure guardrail
   (`16fc32a90eaea16ac98ff2a34bbabafed7a4681f`)
+  (16fc32a90eaea16ac98ff2a34bbabafed7a4681f)
 - docs: fix stale CHANGELOG SHAs left by the main rebase
   (`fa6d05f30b6252b1e1664239232b856ea593eac1`)
+  (fa6d05f30b6252b1e1664239232b856ea593eac1)
 - docs: backfill the CHANGELOG entry for the review_gate.py canonicalization fix
   (`fa6d05f30b6252b1e1664239232b856ea593eac1`)
+  (fa6d05f30b6252b1e1664239232b856ea593eac1)
 - fix: canonicalize review_gate.py through the existing sync-contracts mechanism
   (`fa6d05f30b6252b1e1664239232b856ea593eac1`)
+  (fa6d05f30b6252b1e1664239232b856ea593eac1)
 - feat: migrate implement-ticket and babysit-pr to the schema 1.3 review-result
   contract (`fa6d05f30b6252b1e1664239232b856ea593eac1`)
+  (fa6d05f30b6252b1e1664239232b856ea593eac1)
 - docs(review-suite): recheck s2/s3 strata under grader 1.1 for the same
   surface-in-prose defect (`7cf4a3b3fe3dd38f3d1a9da2e6ab82058a77f064`)
+  (7cf4a3b3fe3dd38f3d1a9da2e6ab82058a77f064)
 
 ## 2026-07-28 — Added correctness traversal and verification-sufficiency passes, consumer/impact-traversal evidence, and required passing validation and current-head lens evidence for a clean review verdict
 
 - feat: add correctness traversal and verification-sufficiency passes
   (`85ccf13b45bad8f162d81963a3ac910ea0b49590`)
+  (85ccf13b45bad8f162d81963a3ac910ea0b49590)
 - feat: add consumer/impact-traversal evidence to the shared review contract
   (`8e4fdbdaad8f70751d45f8c2ca87e88288f8ba5b`)
+  (8e4fdbdaad8f70751d45f8c2ca87e88288f8ba5b)
 - feat: require passing validation and current-head lens evidence for a clean
   review verdict (`b1e51979628652e4ef60adad44089bf54f4551e7`)
+  (b1e51979628652e4ef60adad44089bf54f4551e7)
 
 ## 2026-07-27 — Made database comparison output ephemeral, enforced untrusted-content boundaries, bound epic delegation, hardened command execution, populated the solution-simplicity and code-simplicity strata, enforced acceptance-gated closeout, populated the correctness stratum, recovered carved suffixes, folded owner adjudications, and ran the frozen v1 baseline
 
 - fix: keep database comparison output ephemeral by default
   (`2f13a2d6c27fda2ced66558460a72c11c4d43c26`)
+  (2f13a2d6c27fda2ced66558460a72c11c4d43c26)
 - feat: enforce untrusted content boundaries
   (`ff3f4b9cca9b062a7113b95ab08bd1d36331a27c`)
+  (ff3f4b9cca9b062a7113b95ab08bd1d36331a27c)
 - docs: record the small-sample caveat the frozen protocol's step 6 requires
   (`e720e656cd3729a857aa4bcb6f6592fae1facc57`)
+  (e720e656cd3729a857aa4bcb6f6592fae1facc57)
 - fix: enforce owner_disposition exactly when owner_confirmed
   (`e720e656cd3729a857aa4bcb6f6592fae1facc57`)
+  (e720e656cd3729a857aa4bcb6f6592fae1facc57)
 - feat: run the frozen v1 baseline and record real scored results
   (`e720e656cd3729a857aa4bcb6f6592fae1facc57`)
+  (e720e656cd3729a857aa4bcb6f6592fae1facc57)
 - docs: freeze the v1 configuration for scoring, before any scored output
   (`e720e656cd3729a857aa4bcb6f6592fae1facc57`)
+  (e720e656cd3729a857aa4bcb6f6592fae1facc57)
 - feat: fold owner adjudications into the corpus and mark all strata scored
   (`e720e656cd3729a857aa4bcb6f6592fae1facc57`)
+  (e720e656cd3729a857aa4bcb6f6592fae1facc57)
 - fix: score a partial or ambiguous match as referred, not a silent
   reviewer-miss (`e720e656cd3729a857aa4bcb6f6592fae1facc57`)
+  (e720e656cd3729a857aa4bcb6f6592fae1facc57)
 - feat: bind epic delegation to trusted ticket skill
   (`569b11ec60977c19c66092690ffdada0dbac1eb4`)
+  (569b11ec60977c19c66092690ffdada0dbac1eb4)
 - fix: execute carve commands from explicit argv
   (`7da1a75ad585bddec6be1cc4743e77a1744c4e98`)
+  (7da1a75ad585bddec6be1cc4743e77a1744c4e98)
 - fix: correct a stale reference, a stale validation entry, and an inverted case
   (`c7a80c0e05ea76c0a7626c02dbf0b1605da37739`)
+  (c7a80c0e05ea76c0a7626c02dbf0b1605da37739)
 - fix: make the last two before-state and sanitization defects actually resolved
   (`41de65daadc5d53bfbb299cb4ecd6d040ac47ab9`)
+  (41de65daadc5d53bfbb299cb4ecd6d040ac47ab9)
 - fix: sanitize the repository-history case and correct the changelog order
   (`3d9fe4925c8908a311453c87ae740bfcf4de20bd`)
+  (3d9fe4925c8908a311453c87ae740bfcf4de20bd)
 - fix: reconcile records after folding s2 and s3 into one delivery
   (`5070cf1bbea438e74149dfe0cf9b171a6f7cdb92`)
+  (3d9fe4925c8908a311453c87ae740bfcf4de20bd)
 - docs: record the code-simplicity delivery and close out corpus population
   (`875091c32301eafd807d2d5a3e2b402e7ffaca53`)
+  (875091c32301eafd807d2d5a3e2b402e7ffaca53)
 - feat: populate the code-simplicity stratum with four adjudicated cases
   (`f3c064a7bbaf3f89f7a6a5495846b254a54e9a0b`)
+  (875091c32301eafd807d2d5a3e2b402e7ffaca53)
 - fix: sweep sanitization across every reviewer-visible field, not only the diff
   (`ab3921a904ec7835bc4d03ed40b7c8a28d12d2c1`)
+  (ab3921a904ec7835bc4d03ed40b7c8a28d12d2c1)
 - fix: make every s2 packet internally consistent after the sanitization rename
   (`1ec231bb17cd0c1db82258756aa7a78e8e7f63ab`)
+  (1ec231bb17cd0c1db82258756aa7a78e8e7f63ab)
 - fix: sanitize the solution-simplicity cases against source-vocabulary leakage
   (`2b56c022c91a925b574a5748112e63bdcbbbf8f2`)
+  (2b56c022c91a925b574a5748112e63bdcbbbf8f2)
 - docs: record the solution-simplicity delivery and settle the grading method
   (`da8f53b06072ba0380d01ce06fc4f4a324a6219e`)
+  (5070cf1bbea438e74149dfe0cf9b171a6f7cdb92)
 - feat: populate the solution-simplicity stratum with four adjudicated cases
   (`3105b8e84da78c691f4f93883f39887ff9ae784f`)
+  (da8f53b06072ba0380d01ce06fc4f4a324a6219e)
 - feat: require acceptance evidence for workflow closeout
   (`a3597c25ee2d76135d1f0c8642a620e673fc8e57`)
+  (a3597c25ee2d76135d1f0c8642a620e673fc8e57)
 - fix: make every packet diff a valid patch, and gate the adjudication record
   (`06a5679643a0a5bcb1944c8bff4bd4986f4f77e1`)
+  (06a5679643a0a5bcb1944c8bff4bd4986f4f77e1)
 - fix: stop a grader formulation being quotable from its own packet
   (`fa772a7d770bd3d07f3fdd9bdc45a0c237b1d14e`)
+  (fa772a7d770bd3d07f3fdd9bdc45a0c237b1d14e)
 - docs: record the batch-2 delivery, the clean-control standard, and its limits
   (`e83da75687f06ec9ff6a82df5ac4845c6e6fb23f`)
+  (e83da75687f06ec9ff6a82df5ac4845c6e6fb23f)
 - feat: adjudicate the correctness cases by executable oracle
   (`6dcfeabc7acd325d1dcaae4ed341fa780df94bc9`)
+  (e83da75687f06ec9ff6a82df5ac4845c6e6fb23f)
 - feat: populate the correctness stratum with seven adjudicated cases
   (`43deec617ee06e22e1a937234eea2a4d99b5d836`)
+  (43deec617ee06e22e1a937234eea2a4d99b5d836)
 - feat: recover corrected carved suffixes
   (`ba12e0744a938fc71af16eeeaa0eea98e7c2c63e`)
+  (ba12e0744a938fc71af16eeeaa0eea98e7c2c63e)
 
 ## 2026-07-26 — Added the replay evaluator, then froze the v1 baseline configuration
 
 - fix: reconcile every recorded figure with its retained artifact
   (`d013507956aa0ab328140a72c87fdbb151f2b1ec`)
+  (d013507956aa0ab328140a72c87fdbb151f2b1ec)
 - fix: attribute the pilot to a reproducible commit and correct the records
   (`3a8388d42e355e4bc9731b98b6dcd42ffd13ff2f`)
+  (3a8388d42e355e4bc9731b98b6dcd42ffd13ff2f)
 - feat: report the stratum a run evaluated
   (`2ae0d23c18f247f49d3cc5e76f26d1cf9610c83e`)
+  (2ae0d23c18f247f49d3cc5e76f26d1cf9610c83e)
 - fix: make the frozen baseline record auditable, and measure the envelope
   (`f7787dcba681db1de079f57ce1f2f2941e0923b2`)
+  (2ae0d23c18f247f49d3cc5e76f26d1cf9610c83e)
 - feat: add baseline strata, grader calibration, and the frozen v1 record
   (`16b77e447dbcc844edd8f3fb58728d96826e177c`)
+  (16b77e447dbcc844edd8f3fb58728d96826e177c)
 - fix: skip the recipe-execution tests when `just` is absent
   (`f544aa0c19d97dd4f1aabd7dfab3df08b2ee6a6b`)
+  (f544aa0c19d97dd4f1aabd7dfab3df08b2ee6a6b)
 - feat: record the evaluated skill closure with every run
   (`b605051a7385dd310b0eff9dbf14c10dda87c633`)
+  (b605051a7385dd310b0eff9dbf14c10dda87c633)
 - docs: record the measured smoke evaluation and its variance
   (`87ec303d949301c908c3a29cb220bed22d44c775`)
+  (87ec303d949301c908c3a29cb220bed22d44c775)
 - fix: evaluate the target skill's whole declared closure
   (`62a9ed8fab166c7d380724e426449f0585714b07`)
+  (62a9ed8fab166c7d380724e426449f0585714b07)
 - docs: pin the recorded smoke evaluation to its run
   (`f00ce2db80ed3a7bed6afb4962cf0bb5a68390fe`)
+  (f00ce2db80ed3a7bed6afb4962cf0bb5a68390fe)
 - fix: complete the evaluated skill text and the audit ordering
   (`67efd94339034674de6ca250f2b03e4a0213fc8b`)
+  (67efd94339034674de6ca250f2b03e4a0213fc8b)
 - fix: close the replay evaluator's review-gate gaps
   (`6ef8e25ce2e0183ef270111549660461493da5f4`)
+  (6ef8e25ce2e0183ef270111549660461493da5f4)
 - fix: stop misattributing review failures in the replay evaluator
   (`e46184d6e856199fe0792d43e7f6e0c5a86e131f`)
+  (6ef8e25ce2e0183ef270111549660461493da5f4)
 - feat: add the result-blind review replay evaluator
   (`8f0e9d646ec4e959d7adc7448f5fc7a82f4334d8`)
+  (8f0e9d646ec4e959d7adc7448f5fc7a82f4334d8)
 
 ## 2026-07-25 — Added coordinator-neutral delegated ticket execution
 
 - fix: pin CI to the established Ruff rule set so dependency drift cannot
   redefine the repository-wide lint gate
   (`901dc3596207a88b6c8edcf548b5be3151ca7ab2`)
+  (901dc3596207a88b6c8edcf548b5be3151ca7ab2)
 - feat: add a versioned delegated-execution contract for `implement-ticket`
   (`b53efa674e929c181bdaac63ff0306cb756386db`)
+  (b53efa674e929c181bdaac63ff0306cb756386db)
 
 ## 2026-07-21 — Completed carve-changesets and integrated ticket publication
 
 - feat: package the workflow suite as a plugin
   (`b7ec1b593b9d211cd91101d94d0406c355b2ecd7`)
+  (b7ec1b593b9d211cd91101d94d0406c355b2ecd7)
 - fix: fail closed on invalid carved handoffs
   (`dc4f5c1f3e33c25ad6258f7365506bd33255ed82`)
+  (dc4f5c1f3e33c25ad6258f7365506bd33255ed82)
 - feat: integrate carved ticket publication
   (`54c67f7cd7ace3269eee4fe628f974b090a4d699`)
+  (54c67f7cd7ace3269eee4fe628f974b090a4d699)
 - refactor: derive the eval action vocabulary from expectations
   (`e30b5f1021538d673eb931b2978287cfd21ae4ae`)
+  (e30b5f1021538d673eb931b2978287cfd21ae4ae)
 - fix: require the two-part source freshness override
   (`eb8612300d75d1483995677d75f54fe1a32b60d7`)
+  (eb8612300d75d1483995677d75f54fe1a32b60d7)
 - test: complete the carve-changesets verification suite
   (`f669d322985c435daf9b0c7296889d8a3bdd270c`)
+  (f669d322985c435daf9b0c7296889d8a3bdd270c)
 - feat: package the carve-changesets skill
   (`a8e19110380e048e0aaf85e820c114fe2a07cc7f`)
+  (a8e19110380e048e0aaf85e820c114fe2a07cc7f)
 - docs: define carve-changesets suite handoffs
   (`2df5136e2a7226666bc136e30905c2442a579c78`)
+  (2df5136e2a7226666bc136e30905c2442a579c78)
 - feat: add stateless changeset merge and propagation
   (`925affa807c203824127a0fe5e0fb084f14f378d`)
+  (925affa807c203824127a0fe5e0fb084f14f378d)
 - refactor: make strict apply use one proof
   (`c8ca89566562d7d154bfe1a1711140323e3ba9f8`)
+  (c8ca89566562d7d154bfe1a1711140323e3ba9f8)
 - fix: bind GitHub operations to the selected remote
   (`cfdddb0aeb792fabfb4021173e25738b45329083`)
+  (cfdddb0aeb792fabfb4021173e25738b45329083)
 - fix: close consolidated carve CLI review gaps
   (`d4b071ff46b7b4f2bf8b256f9071d76325e4d146`)
+  (d4b071ff46b7b4f2bf8b256f9071d76325e4d146)
 - feat: add the consolidated carve-changesets CLI
   (`0d942c50cff2d9472b664e74d423661c9f1693cb`)
+  (0d942c50cff2d9472b664e74d423661c9f1693cb)
 - fix: bind changeset validation to current live refs
   (`721a1ea07c0e8d8af1265bbf70326afaf286aa4a`)
+  (721a1ea07c0e8d8af1265bbf70326afaf286aa4a)
 - feat: validate changeset chains from live git
   (`df24771983819b05110670a8d03d43e003d23d28`)
+  (df24771983819b05110670a8d03d43e003d23d28)
 - feat: add self-describing changeset identity
   (`e88bf87e9cb1a4e04bdf8b051ce8ca0f0dcb96e6`)
+  (e88bf87e9cb1a4e04bdf8b051ce8ca0f0dcb96e6)
 - fix: clarify published terminal evidence
   (`edeb2f5f5f7b4cfa4e73e8289d34157b192f92ab`)
+  (edeb2f5f5f7b4cfa4e73e8289d34157b192f92ab)
 - docs: define the carve-changesets operating contract
   (`77865c25190e7205142318229f17c1d3f18e1fef`)
+  (77865c25190e7205142318229f17c1d3f18e1fef)
 
 ## 2026-07-20 — Portability, watcher resilience, and Claude adaptation
 
@@ -4167,18 +4352,21 @@ summary: Chronological history of repository and skill changes.
   failed-PR-check policy inside `is_github_candidate_clear`; all three agreement
   sites now structurally share one predicate
   (`93516194388116f4841fc191a8c78c191d0da5b1`)
+  (93516194388116f4841fc191a8c78c191d0da5b1)
 - fix: share one failed-PR-check predicate across the watcher — the initial
   `review-code-change` pass on PR #27 found the retry gate refusing retries that
   `recommend_actions` recommends for failed-runs-only states; extract
   `has_failed_pr_checks` and use it in both sites, and match repository case
   insensitively in state-target validation
   (`625dae641a9652368f03b6be825f48d9addab056`)
+  (625dae641a9652368f03b6be825f48d9addab056)
 - fix: close the final low-severity review findings — mirror the clear predicate
   in `has_failed_pr_checks` so a PR-check-backed failed run never reads as
   `idle`, case-normalize repositories before deriving state files and locks,
   match fragment run links, reject `--repo` without an explicit `--pr`, make
   boolean schema constants reject numeric one, and document `--poll-seconds` and
   `--max-flaky-retries` (`f79266a390e970cd25cf8af1bed6b9bd9cf154ee`)
+  (f79266a390e970cd25cf8af1bed6b9bd9cf154ee)
 - fix: align retry gating and delegation tooling with review round four — accept
   cancelled-only check failures in the retry gate so a recommended retry is
   never refused, grant the review orchestrator the subagent and skill tools its
@@ -4186,6 +4374,7 @@ summary: Chronological history of repository and skill changes.
   query-string run links, add a repo digest to default state filenames, keep
   `diagnose_ci_failure` visible after retry exhaustion, and document zero-check
   `--stop-when-clear` pairing (`ddb29d0ce0409554cec61ed54b2c6e7ed6d84c6a`)
+  (ddb29d0ce0409554cec61ed54b2c6e7ed6d84c6a)
 - fix: close adversarial-review findings — resolve bundled-validator schemas in
   both layouts and execute every bundled copy in place, scope failed workflow
   runs to the PR's own checks so push/schedule failures cannot wedge the
@@ -4196,6 +4385,7 @@ summary: Chronological history of repository and skill changes.
   validators in review-skill tests, and document eval flag pre-classification,
   the gh 2.37 floor, and state-file durability
   (`48b6f614d15d50dae4ba5c63d7b3e3471647dd1a`)
+  (48b6f614d15d50dae4ba5c63d7b3e3471647dd1a)
 - fix: close independent-review findings — count cancelled checks and failed
   runs/jobs in the watcher's clear predicate, run review-suite tests in CI,
   bundle the dependency-free packet validator into each review skill, make
@@ -4205,6 +4395,7 @@ summary: Chronological history of repository and skill changes.
   forbidden-action forward grading, unify `observed_sequence` tokens, and rename
   `agents/claude.md` to `agents/claude-code.md` to avoid the case-insensitive
   CLAUDE.md memory-file collision (`b5bf81b81a6dd521edcdfc561988ca621a566d39`)
+  (b5bf81b81a6dd521edcdfc561988ca621a566d39)
 - fix: make skills self-contained and adapt the suite to Claude runtimes —
   bundle the review-suite contract into each review skill with a
   `just sync-contracts` target and drift test, use skill-root-relative watcher
@@ -4215,32 +4406,43 @@ summary: Chronological history of repository and skill changes.
   executor, add `agents/claude.md` adapters, `allowed-tools` on review skills,
   and trigger-oriented skill descriptions, and trim contract tests to
   load-bearing invariants (`474756bea51237376b81ad7d593eef2d8de273f1`)
+  (474756bea51237376b81ad7d593eef2d8de273f1)
 
 ## 2026-07-20 — Composed ticket and PR execution
 
 - fix: execute result-blind forward evaluations in fresh contexts
   (`f452db4cf47e56b3f8fea560977a3ce98ca26caa`)
+  (f452db4cf47e56b3f8fea560977a3ce98ca26caa)
 - feat: delegate the `implement-ticket` PR lifecycle to `babysit-pr`
   (`d5838d49587ab34a00973441a870cd525cfcd773`)
+  (d5838d49587ab34a00973441a870cd525cfcd773)
 
 ## 2026-07-20 — Repository-owned PR babysitting
 
 - fix: bind each watcher lock to an immutable repository and pull request target
   (`3666b3d5beb9182b3dab221d2489a7acf23323b7`)
+  (3666b3d5beb9182b3dab221d2489a7acf23323b7)
 - fix: validate the locked PR state path before any snapshot read or write
   (`322a83c6b31d5668e6648df8f0fabe3732c3e74f`)
+  (322a83c6b31d5668e6648df8f0fabe3732c3e74f)
 - fix: serialize every watcher state mutation through one repository/PR lock
   (`8c64b05daa9cde6832fb128c7c6786896fb57108`)
+  (8c64b05daa9cde6832fb128c7c6786896fb57108)
 - fix: serialize retry mutation and durably reserve each per-head retry cycle
   (`4ecdd65767164e7f0f112d4049a856c6e8ea53ed`)
+  (4ecdd65767164e7f0f112d4049a856c6e8ea53ed)
 - fix: scope CI retries to explicitly diagnosed current-PR runs
   (`7f559ead6a4373bc2f0bd441b5af853d66260753`)
+  (4ecdd65767164e7f0f112d4049a856c6e8ea53ed)
 - fix: fail closed on partial review data and remove inert polling state
   (`b14dca750337eacd0f34f5b705afbe81591174b7`)
+  (4ecdd65767164e7f0f112d4049a856c6e8ea53ed)
 - fix: hide pending inline review threads until publication
   (`76ed0f6090f23e7a9c0aae14897ae48948922a37`)
+  (4ecdd65767164e7f0f112d4049a856c6e8ea53ed)
 - feat: add the portable `babysit-pr` skill with candidate-bound CI, feedback,
   review, and merge gates (`b57bd0f3625d7aba9fe4ba32e2abb3f2c7b0df91`)
+  (b57bd0f3625d7aba9fe4ba32e2abb3f2c7b0df91)
 
 ## 2026-07-20 — Portable ticket and epic execution
 

@@ -714,13 +714,16 @@ Finish with every intended change committed, a clean worktree, and a `converged`
 ### 5. Choose exactly one publication path
 
 After the candidate is complete, validated, committed, clean, and review-clean,
-load `carve-changesets` by stable repository-owned name and read its live
-normative cognitive-load guardrails. Do not copy their thresholds or substitute
-local heuristics. Record the candidate-bound guardrail evidence and classify the
-candidate before any remote publication.
+read [the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md)
+before classifying publication size. It is compris's canonical statement of the
+standard, bundled here from the repository-root doctrine and kept
+byte-identical. Cite it for the candidate-bound shape evidence and
+classification; this skill does not restate, extend, or locally override the
+standard. Return `blocked` when the doctrine is unavailable rather than
+substituting a local heuristic.
 
-- When the candidate fits the guardrails, use the ordinary publication path.
-  That path opens one PR inline, or the one-or-several a repository-owned
+- When the candidate fits the doctrine's standard, use the ordinary publication
+  path. That path opens one PR inline, or the one-or-several a repository-owned
   `publish-candidate` decides on; either way it is one publication event.
 - When it is oversized, decide whether the ticket should be split or the branch
   should be carved. Prefer tracker-level ticket decomposition when the parts are
