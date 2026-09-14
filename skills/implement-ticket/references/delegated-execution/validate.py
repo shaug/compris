@@ -245,22 +245,38 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
         artifacts = shape["publication_artifacts"]
         changesets = shape["changesets"]
         if candidate is None:
-            if shape["candidate_sha"] is not None:
+            if implementation == "local" and shape["candidate_sha"] is None:
                 errors.append(
-                    "$.shape_telemetry.candidate_sha: absent candidate requires null"
+                    "$.shape_telemetry.candidate_sha: local implementation requires exact source candidate"
+                )
+            elif implementation != "local" and shape["candidate_sha"] is not None:
+                errors.append(
+                    "$.shape_telemetry.candidate_sha: no implementation requires null"
+                )
+            if shape["publication_candidate_sha"] is not None:
+                errors.append(
+                    "$.shape_telemetry.publication_candidate_sha: absent publication candidate requires null"
                 )
             if shape["actual_path"] is not None or artifacts or changesets:
                 errors.append(
                     "$.shape_telemetry: absent candidate forbids publication identities"
+                )
+            if shape["publication_complete"]:
+                errors.append(
+                    "$.shape_telemetry.publication_complete: absent candidate requires false"
                 )
             if shape["comparison"] not in {"missing", "unavailable"}:
                 errors.append(
                     "$.shape_telemetry.comparison: absent candidate is not observable"
                 )
         else:
-            if shape["candidate_sha"] != candidate["head_sha"]:
+            if shape["candidate_sha"] != candidate["source_head_sha"]:
                 errors.append(
-                    "$.shape_telemetry.candidate_sha: does not match result candidate"
+                    "$.shape_telemetry.candidate_sha: does not match source candidate"
+                )
+            if shape["publication_candidate_sha"] != candidate["head_sha"]:
+                errors.append(
+                    "$.shape_telemetry.publication_candidate_sha: does not match publication candidate"
                 )
             pull_requests = candidate["publication"]["pull_requests"]
             expected_path = None
@@ -283,11 +299,31 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                     "$.shape_telemetry.publication_artifacts: do not match candidate publication"
                 )
 
+            if (
+                terminal in {"ready_pr", "ready_prs", "merged"}
+                and not shape["publication_complete"]
+            ):
+                errors.append(
+                    "$.shape_telemetry.publication_complete: delivery terminal requires true"
+                )
+            if shape["publication_complete"] and not pull_requests:
+                errors.append(
+                    "$.shape_telemetry.publication_complete: requires publication artifacts"
+                )
+
             if prediction["status"] == "available":
                 expected_comparison = "unavailable"
-                if expected_path == "ordinary" and len(artifacts) == 1:
+                if (
+                    shape["publication_complete"]
+                    and expected_path == "ordinary"
+                    and len(artifacts) == 1
+                ):
                     expected_comparison = "held"
-                elif expected_path in {"ordinary", "carved"} and artifacts:
+                elif (
+                    shape["publication_complete"]
+                    and expected_path in {"ordinary", "carved"}
+                    and artifacts
+                ):
                     expected_comparison = "falsified"
                 if shape["comparison"] != expected_comparison:
                     errors.append(
@@ -322,12 +358,17 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                 prediction["status"] != "available"
                 or shape["actual_path"] != "ordinary"
                 or len(artifacts) != 1
+                or not shape["publication_complete"]
             ):
                 errors.append(
                     "$.shape_telemetry.comparison: held requires one ordinary artifact and an available prediction"
                 )
         if shape["comparison"] == "falsified":
-            if prediction["status"] != "available" or not artifacts:
+            if (
+                prediction["status"] != "available"
+                or not artifacts
+                or not shape["publication_complete"]
+            ):
                 errors.append(
                     "$.shape_telemetry.comparison: falsified requires an available prediction and publication artifacts"
                 )

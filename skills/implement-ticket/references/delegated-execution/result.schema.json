@@ -121,6 +121,7 @@
         "remote_url",
         "remote_ref",
         "base_sha",
+        "source_head_sha",
         "head_sha",
         "publication"
       ],
@@ -138,6 +139,10 @@
           "pattern": "^refs/.+$"
         },
         "base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "source_head_sha": {
           "type": "string",
           "pattern": "^[0-9a-f]{40,64}$"
         },
@@ -211,6 +216,8 @@
         "comparison",
         "ticket",
         "candidate_sha",
+        "publication_candidate_sha",
+        "publication_complete",
         "publication_artifacts",
         "fired_trigger",
         "changesets"
@@ -240,6 +247,13 @@
         "candidate_sha": {
           "type": ["string", "null"],
           "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "publication_candidate_sha": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "publication_complete": {
+          "type": "boolean"
         },
         "publication_artifacts": {
           "type": "array",

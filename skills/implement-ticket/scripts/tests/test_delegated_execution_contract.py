@@ -14,6 +14,7 @@ CONTRACT_ROOT = SKILL_ROOT / "references" / "delegated-execution"
 SHA_A = "a" * 40
 SHA_B = "b" * 40
 SHA_C = "c" * 40
+SHA_D = "d" * 40
 
 
 def load_validator() -> ModuleType:
@@ -103,6 +104,7 @@ def candidate(kind: str = "ordinary") -> dict[str, object]:
         "remote_url": "git@github.com:example/project.git",
         "remote_ref": "refs/heads/example-work",
         "base_sha": SHA_A,
+        "source_head_sha": SHA_B,
         "head_sha": SHA_B,
         "publication": {
             "kind": kind,
@@ -153,6 +155,8 @@ def result() -> dict[str, object]:
             "comparison": "held",
             "ticket": {"provider": "github", "id": "123"},
             "candidate_sha": SHA_B,
+            "publication_candidate_sha": SHA_B,
+            "publication_complete": True,
             "publication_artifacts": [{"id": "456", "head_sha": SHA_B}],
             "fired_trigger": None,
             "changesets": [],
@@ -230,6 +234,7 @@ def record_tracker_transition(
 def checkpoint_request(phase: str = "pre_external_mutation") -> dict[str, object]:
     published_candidate = candidate()
     published_candidate.pop("publication")
+    published_candidate.pop("source_head_sha")
     return {
         "schema": "compris.implement-ticket/checkpoint-request/v2",
         "capability": "compris.implement-ticket/delegated-execution/v2",
@@ -326,7 +331,9 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             {
                 "actual_path": None,
                 "comparison": "unavailable",
-                "candidate_sha": None,
+                "candidate_sha": SHA_B,
+                "publication_candidate_sha": None,
+                "publication_complete": False,
                 "publication_artifacts": [],
             }
         )
@@ -335,6 +342,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
     def test_shape_telemetry_accepts_bound_carved_falsification(self) -> None:
         value = result()
         value["terminal_state"] = "ready_prs"
+        value["candidate"]["source_head_sha"] = SHA_D
         value["candidate"]["publication"] = {
             "kind": "stack",
             "pull_requests": [
@@ -362,6 +370,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             {
                 "actual_path": "carved",
                 "comparison": "falsified",
+                "candidate_sha": SHA_D,
                 "publication_artifacts": [
                     {"id": "455", "head_sha": SHA_C},
                     {"id": "456", "head_sha": SHA_B},
@@ -394,6 +403,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
     ) -> None:
         value = result()
         value["terminal_state"] = "ready_prs"
+        value["candidate"]["source_head_sha"] = SHA_D
         value["candidate"]["publication"] = {
             "kind": "stack",
             "pull_requests": [
@@ -422,6 +432,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
                 "prediction": {"status": "missing", "identity": None, "source": None},
                 "actual_path": "carved",
                 "comparison": "missing",
+                "candidate_sha": SHA_D,
                 "publication_artifacts": [
                     {"id": "455", "head_sha": SHA_C},
                     {"id": "456", "head_sha": SHA_B},
@@ -463,6 +474,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             {
                 "actual_path": None,
                 "comparison": "unavailable",
+                "publication_complete": False,
                 "publication_artifacts": [],
                 "fired_trigger": "invented trigger",
                 "changesets": [
@@ -485,11 +497,38 @@ class DelegatedExecutionContractTest(unittest.TestCase):
         errors = self.validator.validate("result", value)
         self.assertIn("$.shape_telemetry.ticket: does not match result ticket", errors)
         self.assertIn(
-            "$.shape_telemetry.candidate_sha: does not match result candidate", errors
+            "$.shape_telemetry.candidate_sha: does not match source candidate", errors
         )
         self.assertIn(
             "$.shape_telemetry.publication_artifacts: do not match candidate publication",
             errors,
+        )
+
+    def test_shape_telemetry_preserves_source_and_publication_identities(self) -> None:
+        value = result()
+        value["candidate"]["source_head_sha"] = SHA_C
+        value["shape_telemetry"]["candidate_sha"] = SHA_C
+        self.assertEqual([], self.validator.validate("result", value))
+
+        value["shape_telemetry"]["publication_candidate_sha"] = SHA_A
+        self.assertIn(
+            "$.shape_telemetry.publication_candidate_sha: does not match publication candidate",
+            self.validator.validate("result", value),
+        )
+
+    def test_shape_telemetry_marks_partial_publication_unavailable(self) -> None:
+        value = result()
+        value["terminal_state"] = "blocked"
+        value["blocking_reason"] = "publication needs author input"
+        value["shape_telemetry"].update(
+            {"comparison": "unavailable", "publication_complete": False}
+        )
+        self.assertEqual([], self.validator.validate("result", value))
+
+        value["shape_telemetry"]["comparison"] = "held"
+        self.assertIn(
+            "$.shape_telemetry.comparison: does not match observed publication topology",
+            self.validator.validate("result", value),
         )
 
     def test_unknown_invocation_field_fails_closed(self) -> None:
@@ -628,7 +667,9 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             {
                 "actual_path": None,
                 "comparison": "unavailable",
-                "candidate_sha": None,
+                "candidate_sha": SHA_B,
+                "publication_candidate_sha": None,
+                "publication_complete": False,
                 "publication_artifacts": [],
             }
         )
@@ -643,6 +684,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             {
                 "actual_path": None,
                 "comparison": "unavailable",
+                "publication_complete": False,
                 "publication_artifacts": [],
             }
         )
