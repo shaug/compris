@@ -114,6 +114,7 @@ ACTION_VOCABULARY = (
     "publish_inline",
     "rebuild_remote_gates",
     "record_guardrail_evidence",
+    "record_shape_carved_evidence",
     "record_shape_prediction_falsified",
     "record_shape_prediction_held",
     "refresh_graph_after_merged_only",

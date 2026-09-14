@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(83, len(self.cases))
+        self.assertEqual(84, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -118,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(83, len(observations))
+        self.assertEqual(84, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(83, len(process_ids))
+        self.assertEqual(84, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -441,6 +441,7 @@ class ForwardEvaluationTests(unittest.TestCase):
                 "shape-prediction-held",
                 "shape-prediction-falsified-by-carving",
                 "shape-prediction-missing",
+                "shape-prediction-missing-after-carving",
                 "shape-prediction-falsified-by-delegated-split",
                 "shape-prediction-falsified-by-delegated-split-missing-trigger",
                 "delegated-publication-partial-then-author-input",
@@ -474,6 +475,16 @@ class ForwardEvaluationTests(unittest.TestCase):
         missing = observations["shape-prediction-missing"]
         self.assertEqual("ready_pr", missing["terminal_state"])
         self.assertIn("report_missing_shape_prediction", missing["actions"])
+
+        missing_after_carving = observations["shape-prediction-missing-after-carving"]
+        self.assertEqual("ready_prs", missing_after_carving["terminal_state"])
+        self.assertIn(
+            "report_missing_shape_prediction", missing_after_carving["actions"]
+        )
+        self.assertIn("record_shape_carved_evidence", missing_after_carving["actions"])
+        self.assertNotIn(
+            "record_shape_prediction_falsified", missing_after_carving["actions"]
+        )
 
         split = observations["shape-prediction-falsified-by-delegated-split"]
         self.assertEqual("ready_prs", split["terminal_state"])

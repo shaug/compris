@@ -358,6 +358,12 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
     else:
         actions.append("report_shape_publication_unavailable")
 
+    if carved_publication_verified:
+        if trigger:
+            actions.append("record_shape_carved_evidence")
+        else:
+            actions.append("report_missing_shape_trigger")
+
     if ticket.get("id") and candidate_head:
         actions.append("bind_shape_telemetry_to_ticket_and_candidate")
     if (

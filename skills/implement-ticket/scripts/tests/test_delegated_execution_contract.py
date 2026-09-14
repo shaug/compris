@@ -385,7 +385,93 @@ class DelegatedExecutionContractTest(unittest.TestCase):
 
         value["shape_telemetry"]["fired_trigger"] = None
         self.assertIn(
-            "$.shape_telemetry: carved falsification requires trigger and changesets",
+            "$.shape_telemetry: carved publication requires fired trigger",
+            self.validator.validate("result", value),
+        )
+
+    def test_shape_telemetry_binds_carved_trigger_when_prediction_is_missing(
+        self,
+    ) -> None:
+        value = result()
+        value["terminal_state"] = "ready_prs"
+        value["candidate"]["publication"] = {
+            "kind": "stack",
+            "pull_requests": [
+                {
+                    "id": "455",
+                    "url": "https://github.com/example/project/pull/455",
+                    "base_ref": "refs/heads/main",
+                    "base_sha": SHA_A,
+                    "head_ref": "refs/heads/example-work-1",
+                    "head_sha": SHA_C,
+                    "state": "open",
+                },
+                {
+                    "id": "456",
+                    "url": "https://github.com/example/project/pull/456",
+                    "base_ref": "refs/heads/example-work-1",
+                    "base_sha": SHA_C,
+                    "head_ref": "refs/heads/example-work",
+                    "head_sha": SHA_B,
+                    "state": "open",
+                },
+            ],
+        }
+        value["shape_telemetry"].update(
+            {
+                "prediction": {"status": "missing", "identity": None, "source": None},
+                "actual_path": "carved",
+                "comparison": "missing",
+                "publication_artifacts": [
+                    {"id": "455", "head_sha": SHA_C},
+                    {"id": "456", "head_sha": SHA_B},
+                ],
+                "fired_trigger": "review surface exceeded the authored boundary",
+                "changesets": [
+                    {"id": "contract", "pull_request_id": "455", "head_sha": SHA_C},
+                    {
+                        "id": "implementation",
+                        "pull_request_id": "456",
+                        "head_sha": SHA_B,
+                    },
+                ],
+            }
+        )
+        self.assertEqual([], self.validator.validate("result", value))
+
+        value["shape_telemetry"]["fired_trigger"] = None
+        self.assertIn(
+            "$.shape_telemetry: carved publication requires fired trigger",
+            self.validator.validate("result", value),
+        )
+
+    def test_shape_telemetry_forbids_carved_evidence_without_publication(self) -> None:
+        value = result()
+        value.update(
+            {
+                "terminal_state": "blocked",
+                "implementation_state": "local",
+                "blocking_reason": "publication was not authorized",
+                "handoff": {
+                    "transferable": False,
+                    "reason": "publication was not authorized",
+                },
+            }
+        )
+        value["candidate"]["publication"] = {"kind": "ordinary", "pull_requests": []}
+        value["shape_telemetry"].update(
+            {
+                "actual_path": None,
+                "comparison": "unavailable",
+                "publication_artifacts": [],
+                "fired_trigger": "invented trigger",
+                "changesets": [
+                    {"id": "invented", "pull_request_id": "455", "head_sha": SHA_C}
+                ],
+            }
+        )
+        self.assertIn(
+            "$.shape_telemetry: unavailable publication forbids carved trigger and changesets",
             self.validator.validate("result", value),
         )
 

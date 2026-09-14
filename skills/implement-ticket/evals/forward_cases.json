@@ -126,6 +126,24 @@
     }
   },
   {
+    "id": "shape-prediction-missing-after-carving",
+    "target_skill": "implement-ticket",
+    "request": "Publish the oversized G-304MC candidate as its authorized carved stack and preserve the fired trigger even though no predicted shape was recorded.",
+    "authority": {"merge": false, "decompose_oversized": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-304MC", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "shape telemetry is observational"},
+      "pr": {"state": "multiple_open", "merged": false, "head": "stack-head-304mc-2", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "source-head-304mc", "patch": "oversized coherent candidate", "resulting_tree": "tree-304mc", "guardrail": "oversized"},
+      "checks": {"status": "success", "items": [{"name": "ci-1", "head": "stack-head-304mc-1"}, {"name": "ci-2", "head": "stack-head-304mc-2"}]},
+      "reviews": {"initial": "clean", "head": "source-head-304mc", "per_changeset": "clean", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g304mc", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "source-head-304mc", "publication_path": "carved", "carve_terminal": "prs_open", "stack_count": 2, "topology": "verified", "whole_chain_equivalent": true, "closing_syntax": "final_only", "fired_re_split_trigger": "review surface exceeded the authored boundary", "changeset_identities": ["G-304MC/C1", "G-304MC/C2"], "publication_artifacts": [{"kind": "pull_request", "id": "PR-3045", "head": "stack-head-304mc-1"}, {"kind": "pull_request", "id": "PR-3046", "head": "stack-head-304mc-2"}]}
+    }
+  },
+  {
     "id": "authorized-merge-closeout",
     "target_skill": "implement-ticket",
     "request": "Implement and merge G-305.",

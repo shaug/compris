@@ -105,6 +105,25 @@
     "terminal_state": "ready_pr"
   },
   {
+    "case_id": "shape-prediction-missing-after-carving",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_falsified",
+      "record_shape_prediction_held",
+      "report_missing_shape_trigger"
+    ],
+    "required_actions": [
+      "report_missing_shape_prediction",
+      "record_shape_carved_evidence",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating",
+      "invoke_carve_changesets",
+      "verify_stack_topology"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
     "case_id": "authorized-merge-closeout",
     "forbidden_actions": [
       "fail_before_mutation",

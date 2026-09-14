@@ -300,6 +300,10 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                     "$.shape_telemetry: ordinary publication forbids carved trigger and changesets"
                 )
         elif shape["actual_path"] == "carved":
+            if not shape["fired_trigger"]:
+                errors.append(
+                    "$.shape_telemetry: carved publication requires fired trigger"
+                )
             change_artifacts = [
                 {"id": item["pull_request_id"], "head_sha": item["head_sha"]}
                 for item in changesets
@@ -308,6 +312,10 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                 errors.append(
                     "$.shape_telemetry.changesets: do not bind every publication artifact"
                 )
+        elif shape["fired_trigger"] is not None or changesets:
+            errors.append(
+                "$.shape_telemetry: unavailable publication forbids carved trigger and changesets"
+            )
 
         if shape["comparison"] == "held":
             if (
@@ -322,12 +330,6 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
             if prediction["status"] != "available" or not artifacts:
                 errors.append(
                     "$.shape_telemetry.comparison: falsified requires an available prediction and publication artifacts"
-                )
-            if shape["actual_path"] == "carved" and (
-                not shape["fired_trigger"] or not changesets
-            ):
-                errors.append(
-                    "$.shape_telemetry: carved falsification requires trigger and changesets"
                 )
 
     for collection in ("validation", "reviews"):
