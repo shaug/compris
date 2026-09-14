@@ -38,7 +38,7 @@ sync-contracts:
     cp review-suite/scripts/tests/test_review_gate.py "$tests_dest/test_review_gate.py"; \
     echo "Synced $scripts_dest/review_gate.py and $tests_dest/test_review_gate.py"; \
   done
-  @for skill in review-solution-simplicity carve-changesets ready-ticket; do \
+  @for skill in review-solution-simplicity carve-changesets ready-ticket implement-ticket; do \
     dest="{{skills_dir}}/$skill/references"; \
     mkdir -p "$dest"; \
     cp docs/cognitive-shaping-doctrine.md "$dest/cognitive-shaping-doctrine.md"; \

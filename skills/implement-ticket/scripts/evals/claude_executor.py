@@ -134,6 +134,7 @@ ACTION_VOCABULARY = (
     "report_partial_publication",
     "report_unchecked_ticket_assumption",
     "reopen_auto_closed_ticket",
+    "read_cognitive_shaping_doctrine",
     "reread_live_pr",
     "resolve_publish_candidate",
     "retain_tracker_transition",

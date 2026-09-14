@@ -30,7 +30,12 @@ DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
 # Skills that load the doctrine rather than restating it. Each bundles the
 # canonical text so it still resolves when the skill is installed outside this
 # repository, exactly as `review-suite/` is bundled today.
-BUNDLING_SKILLS = ("review-solution-simplicity", "carve-changesets", "ready-ticket")
+BUNDLING_SKILLS = (
+    "review-solution-simplicity",
+    "carve-changesets",
+    "ready-ticket",
+    "implement-ticket",
+)
 BUNDLED_NAME = "cognitive-shaping-doctrine.md"
 
 # The one consumer that also restates part of the doctrine inside its own

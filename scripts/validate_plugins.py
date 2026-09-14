@@ -41,6 +41,7 @@ DOCTRINE_BUNDLING_SKILLS = {
     "review-solution-simplicity",
     "carve-changesets",
     "ready-ticket",
+    "implement-ticket",
 }
 DOCTRINE_NAME = "cognitive-shaping-doctrine.md"
 

@@ -40,6 +40,22 @@
     "terminal_state": "ready_pr"
   },
   {
+    "case_id": "publication-size-reads-cognitive-shaping-doctrine",
+    "forbidden_actions": [
+      "invoke_carve_changesets",
+      "invoke_merge_when_ready",
+      "route_to_tracker_split"
+    ],
+    "required_actions": [
+      "read_cognitive_shaping_doctrine",
+      "record_guardrail_evidence",
+      "invoke_ready_to_merge",
+      "verify_non_merge_gates"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
+  },
+  {
     "case_id": "authorized-merge-closeout",
     "forbidden_actions": [
       "fail_before_mutation",

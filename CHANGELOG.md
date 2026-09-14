@@ -4,6 +4,14 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-13 — Bound implement-ticket's publication gate to the canonical shaping doctrine
+
+- fix(implement-ticket): read the bundled canonical cognitive-shaping doctrine
+  before publication-size classification, drift-check it through
+  `sync-contracts`, and grade the obligation with a forward case while
+  preserving the ordinary and carved publication paths and their authority
+  boundaries.
+
 ## 2026-08-21 — Ran the real-model eval tier for the first time and recorded what it found: the publication-delegate prose does not reliably govern a model on the split paths
 
 - docs(implement-ticket): record the first real-model eval evidence for this
@@ -41,12 +49,13 @@ summary: Chronological history of repository and skill changes.
   `delegated-split-all-open-under-merge-authority` the model answered
   `ready_prs` where the oracle requires `merged`, and reporting a publication
   merged before its pull requests are merged is a reading worth re-examining.
+  (51c0e4fbdccee6deee25a7c84183c44c0674453c)
 
 ## 2026-08-20 — Gave `implement-ticket` an optional fifth delegated role so a consuming repository can own its own pull-request publication step, without the skill learning any repository's publication rules
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   fourteenth-pass head — 76 of 76 and 17 of 17. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): grade split completeness in both directions, ticket and
   epic — a fourteenth review pass returned `clean` on all three lenses and left
@@ -65,11 +74,11 @@ summary: Chronological history of repository and skill changes.
   the other was the actual error. Reversing the earlier call is cheaper than
   defending it, and the reviewer's own reason for deferring — that the
   correcting case would pass at base too — is already accepted for one shipped
-  guard case.
+  guard case. (111266c171af137593c776380af3a461f9c72099)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   thirteenth-pass head — 74 of 74 and 16 of 16. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): stop an unhandled carve terminal falling through to
   `ready_pr`, and correct the note that called it pre-existing — a thirteenth
@@ -97,12 +106,12 @@ summary: Chronological history of repository and skill changes.
   probed capabilities, testing the one configuration where the carved path never
   meets the delegate at all. With the explicit exit in place the guard's own
   `oversized` conjunct became unreachable and is removed as dead rather than
-  left as an unmeasurable defence.
+  left as an unmeasurable defence. (8042fe3a62617d698cc802956d9b46843501d2d1)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   eleventh-pass head — 74 of 74 and 16 of 16, and the note corrects the tenth
   pass's overreaching mutation-verification claim rather than restating it.
-  Real-model tier still unavailable.
+  Real-model tier still unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): grade the lifecycle-owner obligation in both
   directions, and drop a stranded rationale — an eleventh review pass returned
@@ -129,10 +138,11 @@ summary: Chronological history of repository and skill changes.
   changed. Deliberately not fixed: the epic split-child branch's all-merged
   direction is ungraded, which the review raised as non-gating — the direction
   the prose actually corrected is measured, and two other epic cases measure the
-  generic refresh.
+  generic refresh. (0010438cd2d391b6283eae3fb34ddf44537f6d77)
 
 - docs(implement-ticket): record the after-stage eval evidence at the tenth-pass
   head — 72 of 72 and 16 of 16. Real-model tier still unavailable.
+  (53db447e0113ec32fb9630247a1ed0bd2c2aa8c2)
 
 - fix(implement-ticket): pin the publication-boundary guard so every conjunct is
   measured — a tenth review pass showed the guard itself was the last unmeasured
@@ -155,9 +165,11 @@ summary: Chronological history of repository and skill changes.
   a stop. That is a pre-existing gap in how the oracle models the carved path,
   it predates this work, and this work's own non-goals exclude changing the
   carved path — the new case asserts only that the delegate stays out of it.
+  (20ae1d654cc03985a1b24db9e022be8c098caa98)
 
 - docs(implement-ticket): record the after-stage eval evidence at the ninth-pass
   head — 71 of 71 and 16 of 16. Real-model tier still unavailable.
+  (b522abe4244af8c6738fe53219ecca9226b4f1c0)
 
 - fix(implement-ticket): measure the two `merged` branches nothing was reaching
   — a ninth review pass traced all 71 forward cases with `sys.settrace` and
@@ -175,10 +187,11 @@ summary: Chronological history of repository and skill changes.
   to fail when the branch they measure is removed. Also corrects a recorded test
   count: earlier commit messages in this work said 1394, 1396, and 1397 by
   incrementing rather than re-counting; the actual figure is 1393, and the
-  review caught the drift.
+  review caught the drift. (0a2ef12786001c567479456a82a09a1b5449ef32)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   eighth-pass head — 69 of 69 and 16 of 16. Real-model tier still unavailable.
+  (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): make the enumeration guard catch every revert it exists
   for, and treat a delegate `blocked` as the defined status it is — an eighth
@@ -201,10 +214,11 @@ summary: Chronological history of repository and skill changes.
   earlier in this work. It now preserves and verifies those identities and hands
   each one an owner, the handoff says so, and a new case measures it —
   mutation-verified to fail when the branch is removed.
+  (ea948e9b69b29317fbf33c5580e27eb1d213e2d5)
 
 - docs(implement-ticket): record the after-stage eval evidence at the
   seventh-pass head — 68 of 68 and 16 of 16, unmoved. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): let a freshly published split reach `merged`, and make
   the enumeration guard search every file the skill ships — a seventh review
@@ -226,11 +240,12 @@ summary: Chronological history of repository and skill changes.
   was merged at all. Partial now means what the word means, some merged and some
   not; all three states are probed and answer correctly. Deferring it once is
   what let it come back, which is the argument against deferring the cheap ones.
+  (6c621bc5ea9f7670c29300a5352244850a1e106c)
 
 - docs(implement-ticket): record the after-stage eval evidence at the head that
   closes the sixth review pass — 68 of 68 and 16 of 16, with the two new cases
   passing and every pre-existing case unmoved. Real-model tier still
-  unavailable.
+  unavailable. (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): widen the merge-verification restatements and measure
   the two obligations that were prose only — a sixth review pass returned no
@@ -251,6 +266,7 @@ summary: Chronological history of repository and skill changes.
   both now have a case, and both cases are mutation-verified to fail when the
   fix they measure is reverted, which is the check that distinguishes a case
   that measures something from one that merely passes.
+  (d5aa6f3461265e0cb57052b67492a7b37c4f4dd0)
 
 - docs(implement-ticket): record the after-stage eval evidence at the head that
   closes the fifth review pass — 66 of 66 and 15 of 15, all unchanged. Both
@@ -259,6 +275,7 @@ summary: Chronological history of repository and skill changes.
   unmoved now: they were caught by reading the diff against the base
   implementation, not by the oracle. Recorded so the shipping head is the head
   the evidence names. Real-model tier still unavailable.
+  (7883c02aa11bce648ca864da935aa9d984efc9c3)
 
 - fix(implement-ticket): stop the publication-boundary guard from collapsing a
   resumed split and from rewriting the carved terminal — a fifth review pass
@@ -286,7 +303,7 @@ summary: Chronological history of repository and skill changes.
   survives anywhere in the contract, the agent metadata, or the README. The
   second is asserted as an absence over the whole surface rather than a list of
   known sites, because enumerating the sites by inspection is what let four
-  passes each find another one.
+  passes each find another one. (1bd647bfa8ae91e4f204bb4c8163715ca8d17932)
 
 - docs(implement-ticket): re-record the after-stage eval evidence at the
   review-converged head — 66 of 66 and 15 of 15, all 66 unchanged against the
@@ -295,6 +312,7 @@ summary: Chronological history of repository and skill changes.
   the case was inverted rather than wrong about which actions apply, so fixing
   it moved the expectation and the oracle together. Real-model tier still
   unavailable; all four attempts recorded with the observed limitation.
+  (4e99157806786aa425b27781bde8cb73fef5e46e)
 
 - fix(implement-ticket): make the partial-publication case grade the right way
   round, and widen the last six enumerations — a fourth review pass found the
@@ -323,6 +341,7 @@ summary: Chronological history of repository and skill changes.
   scoped to the gate section, because a split publication reaches `babysit-pr`
   once per PR through that very reference and a reader who cannot see it there
   is a reader who strands the extra pull requests.
+  (ee2c76c1142d67b659ba65faea1eb7eb5ebd7e55)
 
 - docs(implement-ticket): record the after-stage eval evidence for the
   review-fix pass — 66 of 66 and 15 of 15, compared against the runs #254 landed
@@ -336,7 +355,7 @@ summary: Chronological history of repository and skill changes.
   where keeping it would leave a file asserting a state nobody can retrieve. The
   real-model tier remains unavailable here, so all four attempts are recorded
   with the observed `FileNotFoundError` and the model-behavior evidence stays
-  deferred.
+  deferred. (fa9adfabf9d5d8fc2f42dafb81d3677ff14cc3d5)
 
 - fix(implement-ticket): close the remaining publication-shape surfaces a third
   review pass found — the `merged` widening had reached four surfaces and then
@@ -367,7 +386,7 @@ summary: Chronological history of repository and skill changes.
   `delegated-publication-split-partial-merge` reaching both merged paths and
   `delegated-publication-partial-then-author-input`, hold the two corrected
   obligations to measured outcomes. 66 of 66 forward cases and 15 of 15 for
-  `implement-epic`.
+  `implement-epic`. (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - fix(changelog): stop double-citing eleven 2026-08-19 entries — the backfill
   that accompanied the publication-delegate work added a title-parenthetical SHA
@@ -378,6 +397,7 @@ summary: Chronological history of repository and skill changes.
   inside, and were already citations. Removes the eleven redundant
   parentheticals, keeps the pre-existing form, and corrects the claim to
   backfill "the three landed 2026-08-19 entries that were still SHA-less".
+  (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - fix(implement-ticket): close the delegated-execution dead end the `ready_prs`
   widening opened — a second review pass found a fifth surface the widening
@@ -397,6 +417,7 @@ summary: Chronological history of repository and skill changes.
   and its own ticket. Also finishes the publication-shape enumeration in
   `references/github.md` and `references/linear.md`, which the first pass
   widened in `SKILL.md` and the carve handoff but not in the two adapters.
+  (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - fix(implement-ticket): finish the `ready_prs` widening at the `merged`
   terminal — repository review of the publication delegate found the widening
@@ -427,6 +448,7 @@ summary: Chronological history of repository and skill changes.
   obligation to a measured outcome, which none of the four original delegate
   cases did — every one of them withheld merge, so the merge path was
   unmeasured. 65 of 65 forward cases and 15 of 15 for `implement-epic`.
+  (80be06511cdb665f9bca3601da850f7442f3b3a2)
 
 - docs(implement-ticket): re-record the after-stage eval evidence at the
   shipping head (4e99157806786aa425b27781bde8cb73fef5e46e) — the first after run

@@ -627,14 +627,8 @@ def action_result(payload: dict) -> dict:
         }
     actions.extend(assumption_actions)
 
-    if artifacts["diff"].get("guardrail") == "oversized" and not capabilities.get(
-        "carve_changesets"
-    ):
-        return {
-            "target_skill": target,
-            "terminal_state": "blocked",
-            "actions": ["stop_before_publication", "name_missing_carve_changesets"],
-        }
+    if artifacts["diff"].get("publication_size_classification_required"):
+        actions.extend(["read_cognitive_shaping_doctrine", "record_guardrail_evidence"])
 
     if not handoff.get("result_well_formed", True) or handoff.get("result_stale"):
         return {
@@ -665,6 +659,15 @@ def action_result(payload: dict) -> dict:
                     "stop_before_publication",
                     "do_not_publish_monolithic_pr",
                     "do_not_invoke_carve_changesets",
+                ],
+            }
+        if not capabilities.get("carve_changesets"):
+            return {
+                "target_skill": target,
+                "terminal_state": "blocked",
+                "actions": [
+                    "stop_before_publication",
+                    "name_missing_carve_changesets",
                 ],
             }
         if handoff.get("mid_stack_redesign"):

@@ -196,10 +196,12 @@ to something checkable: a field in a returned result, the outcome of a live
 query, or a threshold owned by a named authority elsewhere.
 
 The publication size gate is the pattern: `implement-ticket` does not carry its
-own size heuristic, it reads `carve-changesets`' live guardrails and classifies
-the candidate against them. So is the choice between closing and non-closing
-tracker syntax, which is decided by the checkable fact of whether any required
-acceptance item is post-merge.
+own size heuristic; it reads its bundled canonical cognitive-shaping doctrine
+and classifies the candidate against that standard. Only an oversized coherent
+classification, an operator branch-carving choice, and explicit decomposition
+authority make `carve-changesets` applicable. So is the choice between closing
+and non-closing tracker syntax, which is decided by the checkable fact of
+whether any required acceptance item is post-merge.
 
 ### Choosing the form
 

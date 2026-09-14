@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(76, len(self.cases))
+        self.assertEqual(77, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -118,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(76, len(observations))
+        self.assertEqual(77, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(76, len(process_ids))
+        self.assertEqual(77, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -414,6 +414,12 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertIn(
             "route_to_tracker_split",
             observations["oversized-ticket-split-rubric"]["actions"],
+        )
+        self.assertIn(
+            "read_cognitive_shaping_doctrine",
+            observations["publication-size-reads-cognitive-shaping-doctrine"][
+                "actions"
+            ],
         )
         self.assertIn(
             "verify_full_stack_on_base",
