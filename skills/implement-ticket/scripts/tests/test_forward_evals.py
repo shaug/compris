@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(80, len(self.cases))
+        self.assertEqual(82, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -441,6 +441,8 @@ class ForwardEvaluationTests(unittest.TestCase):
                 "shape-prediction-held",
                 "shape-prediction-falsified-by-carving",
                 "shape-prediction-missing",
+                "shape-prediction-falsified-by-delegated-split",
+                "shape-prediction-blocked-before-publication",
             )
         }
 
@@ -456,13 +458,32 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertEqual("ready_pr", missing["terminal_state"])
         self.assertIn("report_missing_shape_prediction", missing["actions"])
 
-        for observed in observations.values():
+        split = observations["shape-prediction-falsified-by-delegated-split"]
+        self.assertEqual("ready_prs", split["terminal_state"])
+        self.assertIn("record_shape_prediction_falsified", split["actions"])
+        self.assertIn(
+            "bind_shape_telemetry_to_candidate_and_publication", split["actions"]
+        )
+
+        blocked = observations["shape-prediction-blocked-before-publication"]
+        self.assertEqual("blocked", blocked["terminal_state"])
+        self.assertIn("report_shape_publication_unavailable", blocked["actions"])
+        self.assertIn(
+            "bind_shape_telemetry_to_ticket_and_candidate", blocked["actions"]
+        )
+        self.assertNotIn(
+            "bind_shape_telemetry_to_candidate_and_publication", blocked["actions"]
+        )
+
+        for observed in (held, falsified, missing, split):
             self.assertIn(
                 "bind_shape_telemetry_to_candidate_and_publication",
                 observed["actions"],
             )
             self.assertIn("preserve_shape_telemetry_non_gating", observed["actions"])
             self.assertNotIn("block_on_shape_telemetry", observed["actions"])
+        self.assertIn("preserve_shape_telemetry_non_gating", blocked["actions"])
+        self.assertNotIn("block_on_shape_telemetry", blocked["actions"])
 
     def test_acceptance_cases_fail_closed_or_complete_from_raw_evidence(self):
         observations, failures = RUNNER.evaluate(

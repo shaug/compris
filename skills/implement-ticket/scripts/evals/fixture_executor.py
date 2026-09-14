@@ -276,44 +276,76 @@ def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str],
     return actions, drifted
 
 
+def publication_shape_evidence(pr: dict, handoff: dict) -> tuple[str | None, list[dict], str | None]:
+    """Derive actual topology from the publication contracts' canonical fields."""
+    delegated = (handoff.get("publish_candidate_result") or {}).get("prs") or []
+    if delegated:
+        artifacts = [
+            {"id": f"PR-{entry.get('number')}", "head": entry.get("head")}
+            for entry in delegated
+        ]
+        return "ordinary", artifacts, handoff.get("publication_trigger")
+
+    if handoff.get("publication_path") == "carved" or handoff.get("carve_terminal"):
+        return (
+            "carved",
+            list(handoff.get("publication_artifacts") or []),
+            handoff.get("fired_re_split_trigger"),
+        )
+
+    if pr.get("number"):
+        return (
+            "ordinary",
+            [{"id": f"PR-{pr['number']}", "head": pr.get("head")}],
+            None,
+        )
+    return handoff.get("publication_path"), [], None
+
+
 def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
-    """Report the observed prediction outcome without changing delivery state."""
+    """Finalize observed shape telemetry without changing delivery state."""
     actions = ["preserve_shape_telemetry_non_gating"]
     predicted = ticket.get("predicted_shape")
-    artifacts = handoff.get("publication_artifacts") or []
-    candidate_head = pr.get("head")
-
-    if predicted is None:
-        outcome = "report_missing_shape_prediction"
-    elif (
-        predicted.get("identity")
+    path, artifacts, trigger = publication_shape_evidence(pr, handoff)
+    candidate_head = pr.get("head") or handoff.get("result_head")
+    has_prediction = bool(
+        predicted
+        and predicted.get("identity")
         and predicted.get("source")
         and predicted.get("publication") == "one_pr"
-        and handoff.get("publication_path") == "ordinary"
+    )
+
+    if not has_prediction:
+        actions.append("report_missing_shape_prediction")
+    elif (
+        path == "ordinary"
         and len(artifacts) == 1
         and artifacts[0].get("id")
         and artifacts[0].get("head") == candidate_head
     ):
-        outcome = "record_shape_prediction_held"
+        actions.append("record_shape_prediction_held")
     elif (
-        predicted.get("identity")
-        and predicted.get("source")
-        and predicted.get("publication") == "one_pr"
-        and handoff.get("publication_path") == "carved"
-        and handoff.get("fired_re_split_trigger")
-        in (predicted.get("re_split_triggers") or [])
+        path == "carved"
+        and trigger in (predicted.get("re_split_triggers") or [])
         and handoff.get("changeset_identities")
         and len(handoff["changeset_identities"]) == handoff.get("stack_count")
         and len(artifacts) == handoff.get("stack_count")
         and artifacts[-1].get("head") == candidate_head
+    ) or (
+        path == "ordinary"
+        and len(artifacts) > 1
+        and trigger in (predicted.get("re_split_triggers") or [])
+        and artifacts[-1].get("head") == candidate_head
     ):
-        outcome = "record_shape_prediction_falsified"
+        actions.append("record_shape_prediction_falsified")
     else:
-        return actions
+        actions.append("report_shape_publication_unavailable")
 
-    actions.append(outcome)
+    if ticket.get("id") and candidate_head:
+        actions.append("bind_shape_telemetry_to_ticket_and_candidate")
     if (
-        candidate_head
+        ticket.get("id")
+        and candidate_head
         and artifacts
         and all(artifact.get("id") and artifact.get("head") for artifact in artifacts)
         and artifacts[-1].get("head") == candidate_head
@@ -525,7 +557,7 @@ def external_content_result(
     }
 
 
-def action_result(payload: dict) -> dict:
+def _action_result(payload: dict) -> dict:
     target = payload["target_skill"]
     prompt = compact(payload["skill_prompt"])
     required_contract = {
@@ -644,7 +676,6 @@ def action_result(payload: dict) -> dict:
             ],
         }
 
-    actions.extend(shape_telemetry_actions(ticket, pr, handoff))
 
     if ticket.get("whole_epic"):
         return {
@@ -960,6 +991,25 @@ def action_result(payload: dict) -> dict:
         "actions": sorted(set(actions)),
         "acceptance_ledger": acceptance_ledger,
     }
+
+
+def action_result(payload: dict) -> dict:
+    """Finalize implement-ticket telemetry at its one terminal boundary."""
+    result = _action_result(payload)
+    if (
+        payload.get("target_skill") == "implement-ticket"
+        and result.get("terminal_state") != "requires_epic"
+    ):
+        artifacts = payload["artifacts"]
+        result["actions"] = sorted(
+            set(
+                result.get("actions", [])
+                + shape_telemetry_actions(
+                    artifacts["ticket"], artifacts["pr"], artifacts["handoff"]
+                )
+            )
+        )
+    return result
 
 
 def main() -> int:

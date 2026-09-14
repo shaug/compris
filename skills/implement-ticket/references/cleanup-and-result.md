@@ -72,7 +72,7 @@ before return. Otherwise include every applicable field:
   PR or the ordered stack when created;
 - shape telemetry: the predicted shape identity and its exact authoritative
   source, or `missing`; the actual `ordinary` or `carved` path; comparison
-  outcome `held`, `falsified`, or `missing`; and bindings to the exact ticket,
+  outcome `held`, `falsified`, `missing`, or `unavailable`; and bindings to the exact ticket,
   candidate SHA, and exact publication artifacts. For a carved publication,
   include the named pre-authored re-split trigger that fired and every resulting
   changeset identity. Do not invent a prediction or fired trigger. This evidence

@@ -135,6 +135,8 @@ ACTION_VOCABULARY = (
     "report_mid_stack_redesign",
     "report_missing_reopen_authority",
     "report_missing_shape_prediction",
+    "report_shape_publication_unavailable",
+    "bind_shape_telemetry_to_ticket_and_candidate",
     "report_needs_author_input",
     "report_partial_split_merge",
     "report_partial_publication",

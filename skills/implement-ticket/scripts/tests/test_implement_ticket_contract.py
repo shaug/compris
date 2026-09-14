@@ -859,7 +859,7 @@ class ImplementTicketContractTests(unittest.TestCase):
             "A carved publication falsifies a one-PR prediction; it is not a "
             "doctrine violation",
             "Do not invent a prediction or fired trigger",
-            "`held`, `falsified`, or `missing`",
+            "`held`, `falsified`, `missing`, or `unavailable`",
             "never changes delivery gates, authority, or terminal-state mapping",
         ):
             self.assertIn(required, contract)

@@ -965,5 +965,38 @@
     ],
     "target_skill": "implement-epic",
     "terminal_state": "mixed_ticket_results"
+  },
+  {
+    "case_id": "shape-prediction-falsified-by-delegated-split",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_held",
+      "report_missing_shape_prediction"
+    ],
+    "required_actions": [
+      "record_shape_prediction_falsified",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating",
+      "invoke_ready_to_merge"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
+    "case_id": "shape-prediction-blocked-before-publication",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_held",
+      "record_shape_prediction_falsified",
+      "bind_shape_telemetry_to_candidate_and_publication"
+    ],
+    "required_actions": [
+      "report_shape_publication_unavailable",
+      "bind_shape_telemetry_to_ticket_and_candidate",
+      "preserve_shape_telemetry_non_gating",
+      "name_missing_babysit_pr"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "blocked"
   }
 ]

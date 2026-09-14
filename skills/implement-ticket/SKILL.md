@@ -841,7 +841,7 @@ Before every terminal handoff except `requires_epic`, record shape telemetry
 bound to the exact ticket, candidate SHA, and exact publication artifacts that
 exist. Preserve the predicted shape identity and source, or `missing`; name the
 actual publication path as `ordinary` or `carved`; and classify the comparison
-as `held`, `falsified`, or `missing`:
+as `held`, `falsified`, `missing`, or `unavailable`:
 
 - `held` means the authoritative one-PR prediction produced exactly one ordinary
   PR whose verified head is the reported candidate.
@@ -852,6 +852,9 @@ as `held`, `falsified`, or `missing`:
   violation.
 - `missing` means no authoritative prediction was available. Record the actual
   path and artifacts anyway. Do not invent a prediction or fired trigger.
+- `unavailable` means a prediction exists but implementation or publication
+  stopped before the actual topology could be observed. Preserve every ticket
+  and candidate binding that does exist without fabricating a PR.
 
 When a repository-owned ordinary publication delegate opens several PRs, keep
 the actual path `ordinary`, record every PR, and compare that topology with the
