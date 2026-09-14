@@ -1,0 +1,43 @@
+{
+  "candidate": {
+    "branch": "codex/194-shape-telemetry",
+    "sha": "48ce6c30b52e24ec9daf41a827cda0cf543cba47",
+    "tree": "55fc35fb6d5dd6f5a98d76de7e8b9fa3e8f7699e",
+    "trees": {
+      "skills/implement-ticket": "1a3576df006242dfc114b51110bd3daa30526eda"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {},
+  "cases": {},
+  "command": [
+    "/tmp/compris-194-tools.FwzrKP/bin/python3",
+    "skills/implement-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/tmp/compris-194-tools.FwzrKP/bin/python3 skills/implement-ticket/scripts/evals/claude_executor.py --model claude-opus-5"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 1,
+  "failures": [],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": "eval command exited 1 without an aggregate summary; model-behavior evidence not collected",
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "\u2026v/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py\", line 449, in result\n    return self.__get_result()\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py\", line 401, in __get_result\n    raise self._exception\n  File \"/Users/scott/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/concurrent/futures/thread.py\", line 59, in run\n    result = self.fn(*self.args, **self.kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-194-shape-telemetry/skills/implement-ticket/scripts/evals/claude_executor.py\", line 452, in <lambda>\n    lambda _: draw(prompt, claude_bin, model), range(repetitions)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-194-shape-telemetry/skills/implement-ticket/scripts/evals/claude_executor.py\", line 436, in draw\n    return run_claude(prompt, claude_bin, model)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/.claude/worktrees/compris/ticket-194-shape-telemetry/skills/implement-ticket/scripts/evals/claude_executor.py\", line 252, in run_claude\n    completed = subprocess.run(\n                ^^^^^^^^^^^^^^^\n  File \"/Users/scott/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/subprocess.py\", line 548, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/subprocess.py\", line 1026, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n  File \"/Users/scott/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/subprocess.py\", line 1955, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'claude'",
+  "recorded_at": "2026-09-14T12:27:44Z",
+  "schema": "eval-run-summary/1",
+  "skill": "implement-ticket",
+  "stage": "after",
+  "status": "attempted",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": null
+}
