@@ -58,7 +58,7 @@
     "target_skill": "implement-ticket",
     "request": "Classify and publish the completed G-304D candidate to a ready PR without merging.",
     "authority": {"merge": false},
-    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": false},
     "artifacts": {
       "ticket": {"tracker": "github", "id": "G-304D", "state": "open", "whole_epic": false, "acceptance_evidence": []},
       "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "shape judgment is read-only and publication policy remains caller-owned"},
@@ -346,7 +346,7 @@
     "target_skill": "implement-ticket",
     "request": "Publish the completed G-323 candidate to readiness.",
     "authority": {"merge": false, "decompose_oversized": false},
-    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": false},
     "artifacts": {
       "ticket": {"tracker": "github", "id": "G-323", "state": "open", "whole_epic": false, "acceptance_evidence": []},
       "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "one ticket per candidate"},
@@ -382,7 +382,7 @@
     "target_skill": "implement-ticket",
     "request": "Publish the completed G-325 candidate.",
     "authority": {"merge": false, "decompose_oversized": true, "ticket_management": true},
-    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": false},
     "artifacts": {
       "ticket": {"tracker": "github", "id": "G-325", "state": "open", "whole_epic": false, "acceptance_evidence": []},
       "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "split independently valuable outcomes at tracker level"},
