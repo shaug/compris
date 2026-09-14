@@ -588,7 +588,7 @@ class ImplementTicketContractTests(unittest.TestCase):
             + read(SKILL_ROOT / "evals" / "cases.json")
             + read(SKILL_ROOT / "evals" / "expectations.json")
         ).lower()
-        self.assertNotIn("cognitive-load guardrail", prose_and_fixtures)
+        self.assertNotIn("cognitive-load " + "guardrail", prose_and_fixtures)
         self.assertNotIn("carve-changesets guardrail", prose_and_fixtures)
         self.assertNotIn("within the guardrails", prose_and_fixtures)
 
