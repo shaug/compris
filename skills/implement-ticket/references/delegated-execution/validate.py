@@ -233,9 +233,13 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                     "$.shape_telemetry.comparison: available prediction forbids missing"
                 )
         else:
-            if prediction["identity"] is not None or prediction["source"] is not None:
+            if (
+                prediction["identity"] is not None
+                or prediction["source"] is not None
+                or prediction["re_split_triggers"]
+            ):
                 errors.append(
-                    "$.shape_telemetry.prediction: missing requires null identity and source"
+                    "$.shape_telemetry.prediction: missing requires null identity and source and no re-split triggers"
                 )
             if shape["comparison"] != "missing":
                 errors.append(
@@ -339,6 +343,26 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
             if not shape["fired_trigger"]:
                 errors.append(
                     "$.shape_telemetry: carved publication requires fired trigger"
+                )
+            elif (
+                prediction["status"] == "available"
+                and shape["fired_trigger"] not in prediction["re_split_triggers"]
+            ):
+                errors.append(
+                    "$.shape_telemetry.fired_trigger: does not match an authored re-split trigger"
+                )
+            changeset_ids = [item["id"] for item in changesets]
+            duplicate_changeset_ids = sorted(
+                {
+                    changeset_id
+                    for changeset_id in changeset_ids
+                    if changeset_ids.count(changeset_id) > 1
+                }
+            )
+            if duplicate_changeset_ids:
+                errors.append(
+                    "$.shape_telemetry.changesets: duplicate changeset identities "
+                    + ", ".join(duplicate_changeset_ids)
                 )
             change_artifacts = [
                 {"id": item["pull_request_id"], "head_sha": item["head_sha"]}

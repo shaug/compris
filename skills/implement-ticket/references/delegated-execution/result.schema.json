@@ -226,11 +226,16 @@
         "prediction": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "identity", "source"],
+          "required": ["status", "identity", "source", "re_split_triggers"],
           "properties": {
             "status": {"enum": ["available", "missing"]},
             "identity": {"type": ["string", "null"]},
-            "source": {"type": ["string", "null"]}
+            "source": {"type": ["string", "null"]},
+            "re_split_triggers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            }
           }
         },
         "actual_path": {"enum": ["ordinary", "carved", null]},
