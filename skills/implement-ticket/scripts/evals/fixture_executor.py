@@ -276,6 +276,52 @@ def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str],
     return actions, drifted
 
 
+def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
+    """Report the observed prediction outcome without changing delivery state."""
+    actions = ["preserve_shape_telemetry_non_gating"]
+    predicted = ticket.get("predicted_shape")
+    artifacts = handoff.get("publication_artifacts") or []
+    candidate_head = pr.get("head")
+
+    if predicted is None:
+        outcome = "report_missing_shape_prediction"
+    elif (
+        predicted.get("identity")
+        and predicted.get("source")
+        and predicted.get("publication") == "one_pr"
+        and handoff.get("publication_path") == "ordinary"
+        and len(artifacts) == 1
+        and artifacts[0].get("id")
+        and artifacts[0].get("head") == candidate_head
+    ):
+        outcome = "record_shape_prediction_held"
+    elif (
+        predicted.get("identity")
+        and predicted.get("source")
+        and predicted.get("publication") == "one_pr"
+        and handoff.get("publication_path") == "carved"
+        and handoff.get("fired_re_split_trigger")
+        in (predicted.get("re_split_triggers") or [])
+        and handoff.get("changeset_identities")
+        and len(handoff["changeset_identities"]) == handoff.get("stack_count")
+        and len(artifacts) == handoff.get("stack_count")
+        and artifacts[-1].get("head") == candidate_head
+    ):
+        outcome = "record_shape_prediction_falsified"
+    else:
+        return actions
+
+    actions.append(outcome)
+    if (
+        candidate_head
+        and artifacts
+        and all(artifact.get("id") and artifact.get("head") for artifact in artifacts)
+        and artifacts[-1].get("head") == candidate_head
+    ):
+        actions.append("bind_shape_telemetry_to_candidate_and_publication")
+    return actions
+
+
 def publish_candidate_result(
     capabilities: dict, handoff: dict, authority: dict
 ) -> tuple[list[str], bool, int]:
@@ -597,6 +643,8 @@ def action_result(payload: dict) -> dict:
                 "refresh_graph_after_merged_only",
             ],
         }
+
+    actions.extend(shape_telemetry_actions(ticket, pr, handoff))
 
     if ticket.get("whole_epic"):
         return {

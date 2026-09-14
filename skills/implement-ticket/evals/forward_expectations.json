@@ -56,6 +56,55 @@
     "terminal_state": "ready_pr"
   },
   {
+    "case_id": "shape-prediction-held",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_falsified",
+      "report_missing_shape_prediction"
+    ],
+    "required_actions": [
+      "record_shape_prediction_held",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating",
+      "invoke_ready_to_merge"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
+  },
+  {
+    "case_id": "shape-prediction-falsified-by-carving",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_held",
+      "report_missing_shape_prediction"
+    ],
+    "required_actions": [
+      "record_shape_prediction_falsified",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating",
+      "invoke_carve_changesets",
+      "verify_stack_topology"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
+    "case_id": "shape-prediction-missing",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_falsified",
+      "record_shape_prediction_held"
+    ],
+    "required_actions": [
+      "report_missing_shape_prediction",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating",
+      "invoke_ready_to_merge"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr"
+  },
+  {
     "case_id": "authorized-merge-closeout",
     "forbidden_actions": [
       "fail_before_mutation",

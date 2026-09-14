@@ -72,6 +72,60 @@
     }
   },
   {
+    "id": "shape-prediction-held",
+    "target_skill": "implement-ticket",
+    "request": "Publish the completed G-304H candidate to one ready PR and report its predicted shape outcome.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-304H", "state": "open", "whole_epic": false, "acceptance_evidence": [], "predicted_shape": {"identity": "G-304H:shape-v1", "publication": "one_pr", "source": "ticket contract", "re_split_triggers": ["an independent behavior appears"]}},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "shape telemetry is observational"},
+      "pr": {"state": "open", "merged": false, "number": 3041, "head": "head-304h", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-304h", "patch": "one coherent candidate", "resulting_tree": "tree-304h", "guardrail": "fits"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-304h"}]},
+      "reviews": {"initial": "clean", "head": "head-304h", "connector_head": "head-304h", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g304h", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-304h", "publication_path": "ordinary", "publication_artifacts": [{"kind": "pull_request", "id": "PR-3041", "head": "head-304h"}]}
+    }
+  },
+  {
+    "id": "shape-prediction-falsified-by-carving",
+    "target_skill": "implement-ticket",
+    "request": "Publish the oversized but coherent G-304F candidate as its authorized ready carved stack and report its predicted shape outcome.",
+    "authority": {"merge": false, "decompose_oversized": true},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-304F", "state": "open", "whole_epic": false, "acceptance_evidence": [], "predicted_shape": {"identity": "G-304F:shape-v1", "publication": "one_pr", "source": "ticket contract", "re_split_triggers": ["review requires separate mechanical and behavioral changes"]}},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "shape telemetry is observational"},
+      "pr": {"state": "multiple_open", "merged": false, "head": "head-304f", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-304f", "patch": "oversized coherent candidate", "resulting_tree": "tree-304f", "guardrail": "oversized"},
+      "checks": {"status": "success", "items": [{"name": "ci-1", "head": "head-304f-1"}, {"name": "ci-2", "head": "head-304f"}]},
+      "reviews": {"initial": "clean", "head": "head-304f", "per_changeset": "clean", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g304f", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-304f", "publication_path": "carved", "carve_terminal": "prs_open", "stack_count": 2, "topology": "verified", "closing_syntax": "final_only", "fired_re_split_trigger": "review requires separate mechanical and behavioral changes", "changeset_identities": ["G-304F/C1", "G-304F/C2"], "publication_artifacts": [{"kind": "pull_request", "id": "PR-3042", "head": "head-304f-1"}, {"kind": "pull_request", "id": "PR-3043", "head": "head-304f"}]}
+    }
+  },
+  {
+    "id": "shape-prediction-missing",
+    "target_skill": "implement-ticket",
+    "request": "Publish the completed G-304M candidate to one ready PR even though the ticket records no predicted shape.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-304M", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "shape telemetry is observational"},
+      "pr": {"state": "open", "merged": false, "number": 3044, "head": "head-304m", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-304m", "patch": "one coherent candidate", "resulting_tree": "tree-304m", "guardrail": "fits"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-304m"}]},
+      "reviews": {"initial": "clean", "head": "head-304m", "connector_head": "head-304m", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g304m", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-304m", "publication_path": "ordinary", "publication_artifacts": [{"kind": "pull_request", "id": "PR-3044", "head": "head-304m"}]}
+    }
+  },
+  {
     "id": "authorized-merge-closeout",
     "target_skill": "implement-ticket",
     "request": "Implement and merge G-305.",

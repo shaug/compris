@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(77, len(self.cases))
+        self.assertEqual(80, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -118,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(77, len(observations))
+        self.assertEqual(80, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(77, len(process_ids))
+        self.assertEqual(80, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -433,6 +433,36 @@ class ForwardEvaluationTests(unittest.TestCase):
             "reject_stale_or_malformed_result",
             observations["stale-carved-result"]["actions"],
         )
+
+    def test_shape_outcomes_are_candidate_bound_and_never_gate_delivery(self):
+        observations = {
+            case_id: self.observe(case_id)
+            for case_id in (
+                "shape-prediction-held",
+                "shape-prediction-falsified-by-carving",
+                "shape-prediction-missing",
+            )
+        }
+
+        held = observations["shape-prediction-held"]
+        self.assertEqual("ready_pr", held["terminal_state"])
+        self.assertIn("record_shape_prediction_held", held["actions"])
+
+        falsified = observations["shape-prediction-falsified-by-carving"]
+        self.assertEqual("ready_prs", falsified["terminal_state"])
+        self.assertIn("record_shape_prediction_falsified", falsified["actions"])
+
+        missing = observations["shape-prediction-missing"]
+        self.assertEqual("ready_pr", missing["terminal_state"])
+        self.assertIn("report_missing_shape_prediction", missing["actions"])
+
+        for observed in observations.values():
+            self.assertIn(
+                "bind_shape_telemetry_to_candidate_and_publication",
+                observed["actions"],
+            )
+            self.assertIn("preserve_shape_telemetry_non_gating", observed["actions"])
+            self.assertNotIn("block_on_shape_telemetry", observed["actions"])
 
     def test_acceptance_cases_fail_closed_or_complete_from_raw_evidence(self):
         observations, failures = RUNNER.evaluate(
