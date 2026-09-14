@@ -443,6 +443,7 @@ class ForwardEvaluationTests(unittest.TestCase):
                 "shape-prediction-missing",
                 "shape-prediction-falsified-by-delegated-split",
                 "shape-prediction-falsified-by-delegated-split-missing-trigger",
+                "delegated-publication-partial-then-author-input",
                 "shape-prediction-blocked-before-publication",
             )
         }
@@ -480,6 +481,18 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertIn(
             "bind_shape_telemetry_to_candidate_and_publication", split["actions"]
         )
+        split_case = next(
+            case
+            for case in self.cases
+            if case["id"] == "shape-prediction-falsified-by-delegated-split"
+        )
+        split_handoff = split_case["artifacts"]["handoff"]
+        self.assertTrue(
+            all(
+                pr["head"] != split_handoff["result_head"]
+                for pr in split_handoff["publish_candidate_result"]["prs"]
+            )
+        )
         split_missing_trigger = observations[
             "shape-prediction-falsified-by-delegated-split-missing-trigger"
         ]
@@ -491,6 +504,15 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertNotIn(
             "report_shape_publication_unavailable", split_missing_trigger["actions"]
         )
+
+        partial = observations["delegated-publication-partial-then-author-input"]
+        self.assertEqual("blocked", partial["terminal_state"])
+        self.assertIn("report_shape_publication_unavailable", partial["actions"])
+        self.assertIn(
+            "bind_shape_telemetry_to_candidate_and_publication", partial["actions"]
+        )
+        self.assertNotIn("record_shape_prediction_held", partial["actions"])
+        self.assertNotIn("record_shape_prediction_falsified", partial["actions"])
 
         blocked = observations["shape-prediction-blocked-before-publication"]
         self.assertEqual("blocked", blocked["terminal_state"])

@@ -777,7 +777,11 @@
       "report_partial_publication",
       "verify_delegated_pr_identities",
       "invoke_ready_to_merge",
-      "preserve_artifacts"
+      "preserve_artifacts",
+      "report_shape_publication_unavailable",
+      "bind_shape_telemetry_to_ticket_and_candidate",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating"
     ],
     "target_skill": "implement-ticket",
     "terminal_state": "blocked"

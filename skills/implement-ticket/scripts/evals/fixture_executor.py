@@ -310,6 +310,18 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
     predicted = ticket.get("predicted_shape")
     path, artifacts, trigger = publication_shape_evidence(pr, handoff)
     candidate_head = handoff.get("result_head") or pr.get("head")
+    delegate_result = handoff.get("publish_candidate_result") or {}
+    delegated_artifacts = bool(delegate_result.get("prs"))
+    artifact_identities_complete = bool(artifacts) and all(
+        artifact.get("id") and artifact.get("head") for artifact in artifacts
+    )
+    delegated_split_complete = (
+        path == "ordinary"
+        and delegated_artifacts
+        and delegate_result.get("status") == "published"
+        and len(artifacts) > 1
+        and artifact_identities_complete
+    )
     carved_publication_verified = (
         path == "carved"
         and handoff.get("topology") == "verified"
@@ -333,13 +345,10 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
         and len(artifacts) == 1
         and artifacts[0].get("id")
         and artifacts[0].get("head") == candidate_head
+        and (not delegated_artifacts or delegate_result.get("status") == "published")
     ):
         actions.append("record_shape_prediction_held")
-    elif (carved_publication_verified) or (
-        path == "ordinary"
-        and len(artifacts) > 1
-        and artifacts[-1].get("head") == candidate_head
-    ):
+    elif carved_publication_verified or delegated_split_complete:
         actions.append("record_shape_prediction_falsified")
         if trigger not in (predicted.get("re_split_triggers") or []):
             actions.append("report_missing_shape_trigger")
@@ -352,9 +361,10 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
         ticket.get("id")
         and candidate_head
         and artifacts
-        and all(artifact.get("id") and artifact.get("head") for artifact in artifacts)
+        and artifact_identities_complete
         and (
             carved_publication_verified
+            or (path == "ordinary" and delegated_artifacts)
             or (path == "ordinary" and artifacts[-1].get("head") == candidate_head)
         )
     ):

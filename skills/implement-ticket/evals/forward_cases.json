@@ -1248,7 +1248,7 @@
     "authority": {"merge": false},
     "capabilities": {"review_code_change": true, "babysit_pr": true, "publish_candidate": true},
     "artifacts": {
-      "ticket": {"tracker": "github", "id": "G-660", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "ticket": {"tracker": "github", "id": "G-660", "state": "open", "whole_epic": false, "acceptance_evidence": [], "predicted_shape": {"identity": "G-660:shape-v1", "publication": "one_pr", "source": "ticket contract", "re_split_triggers": ["repository publication policy requires separate PRs"]}},
       "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "publication is owned by a repository-provided publication skill, which requires some change classes to publish as their own pull request and requires an author-written narrative section"},
       "pr": {"state": "open", "merged": false, "head": "head-660", "base": "base-1", "mergeable": true},
       "diff": {"base": "base-1", "head": "head-660", "patch": "ticket-scoped patch", "resulting_tree": "tree-660"},
@@ -1256,7 +1256,7 @@
       "reviews": {"initial": "clean", "head": "head-660", "connector_head": "head-660", "items": []},
       "threads": {"items": [], "unresolved": 0},
       "worktree": {"path": "/worktrees/g660", "exclusive_owner": true, "tracked": [], "untracked": []},
-      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-660", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 661, "state": "open", "head": "head-660", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-660", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 661, "state": "open", "head": "head-660a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
     }
   },
   {
@@ -1523,7 +1523,7 @@
             {
               "number": 3046,
               "state": "open",
-              "head": "head-304s",
+              "head": "head-304s-2",
               "base": "base-1",
               "mergeable": true,
               "tracker_reference": "non_closing"
@@ -1616,7 +1616,7 @@
             {
               "number": 3048,
               "state": "open",
-              "head": "head-304m",
+              "head": "head-304m-2",
               "base": "base-1",
               "mergeable": true,
               "tracker_reference": "non_closing"
