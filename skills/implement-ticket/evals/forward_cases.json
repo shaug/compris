@@ -54,6 +54,24 @@
     }
   },
   {
+    "id": "publication-size-reads-cognitive-shaping-doctrine",
+    "target_skill": "implement-ticket",
+    "request": "Classify and publish the completed G-304D candidate to a ready PR without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true, "carve_changesets": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-304D", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "shape judgment is read-only and publication policy remains caller-owned"},
+      "pr": {"state": "open", "merged": false, "head": "head-304d", "base": "base-1", "mergeable": true},
+      "diff": {"base": "base-1", "head": "head-304d", "patch": "one coherent candidate with its focused tests", "resulting_tree": "tree-304d", "publication_size_classification_required": true},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-304d"}]},
+      "reviews": {"initial": "clean", "head": "head-304d", "connector_head": "head-304d", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g304d", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-304d"}
+    }
+  },
+  {
     "id": "authorized-merge-closeout",
     "target_skill": "implement-ticket",
     "request": "Implement and merge G-305.",

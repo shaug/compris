@@ -627,6 +627,9 @@ def action_result(payload: dict) -> dict:
         }
     actions.extend(assumption_actions)
 
+    if artifacts["diff"].get("publication_size_classification_required"):
+        actions.extend(["read_cognitive_shaping_doctrine", "record_guardrail_evidence"])
+
     if artifacts["diff"].get("guardrail") == "oversized" and not capabilities.get(
         "carve_changesets"
     ):
