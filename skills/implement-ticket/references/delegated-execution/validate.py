@@ -205,6 +205,116 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
     authority_used = set(value.get("authority_used", []))
     acceptance = value.get("acceptance_evidence", [])
     tracker_transition = value.get("tracker_transition", {})
+    shape = value.get("shape_telemetry")
+
+    if terminal == "requires_epic":
+        if shape is not None:
+            errors.append("$.shape_telemetry: requires_epic requires null")
+    elif shape is None:
+        errors.append(
+            "$.shape_telemetry: every non-requires_epic terminal requires telemetry"
+        )
+    else:
+        expected_ticket = {
+            "provider": value.get("ticket", {}).get("provider"),
+            "id": value.get("ticket", {}).get("id"),
+        }
+        if shape["ticket"] != expected_ticket:
+            errors.append("$.shape_telemetry.ticket: does not match result ticket")
+
+        prediction = shape["prediction"]
+        if prediction["status"] == "available":
+            if not prediction["identity"] or not prediction["source"]:
+                errors.append(
+                    "$.shape_telemetry.prediction: available requires identity and source"
+                )
+            if shape["comparison"] == "missing":
+                errors.append(
+                    "$.shape_telemetry.comparison: available prediction forbids missing"
+                )
+        else:
+            if prediction["identity"] is not None or prediction["source"] is not None:
+                errors.append(
+                    "$.shape_telemetry.prediction: missing requires null identity and source"
+                )
+            if shape["comparison"] != "missing":
+                errors.append(
+                    "$.shape_telemetry.comparison: missing prediction requires missing"
+                )
+
+        artifacts = shape["publication_artifacts"]
+        changesets = shape["changesets"]
+        if candidate is None:
+            if shape["candidate_sha"] is not None:
+                errors.append(
+                    "$.shape_telemetry.candidate_sha: absent candidate requires null"
+                )
+            if shape["actual_path"] is not None or artifacts or changesets:
+                errors.append(
+                    "$.shape_telemetry: absent candidate forbids publication identities"
+                )
+            if shape["comparison"] not in {"missing", "unavailable"}:
+                errors.append(
+                    "$.shape_telemetry.comparison: absent candidate is not observable"
+                )
+        else:
+            if shape["candidate_sha"] != candidate["head_sha"]:
+                errors.append(
+                    "$.shape_telemetry.candidate_sha: does not match result candidate"
+                )
+            expected_path = (
+                "ordinary"
+                if candidate["publication"]["kind"] == "ordinary"
+                else "carved"
+            )
+            if shape["actual_path"] != expected_path:
+                errors.append(
+                    "$.shape_telemetry.actual_path: does not match candidate publication"
+                )
+            expected_artifacts = [
+                {"id": item["id"], "head_sha": item["head_sha"]}
+                for item in candidate["publication"]["pull_requests"]
+            ]
+            if artifacts != expected_artifacts:
+                errors.append(
+                    "$.shape_telemetry.publication_artifacts: do not match candidate publication"
+                )
+
+        if shape["actual_path"] == "ordinary":
+            if shape["fired_trigger"] is not None or changesets:
+                errors.append(
+                    "$.shape_telemetry: ordinary publication forbids carved trigger and changesets"
+                )
+        elif shape["actual_path"] == "carved":
+            change_artifacts = [
+                {"id": item["pull_request_id"], "head_sha": item["head_sha"]}
+                for item in changesets
+            ]
+            if change_artifacts != artifacts:
+                errors.append(
+                    "$.shape_telemetry.changesets: do not bind every publication artifact"
+                )
+
+        if shape["comparison"] == "held":
+            if (
+                prediction["status"] != "available"
+                or shape["actual_path"] != "ordinary"
+                or len(artifacts) != 1
+            ):
+                errors.append(
+                    "$.shape_telemetry.comparison: held requires one ordinary artifact and an available prediction"
+                )
+        if shape["comparison"] == "falsified":
+            if prediction["status"] != "available" or not artifacts:
+                errors.append(
+                    "$.shape_telemetry.comparison: falsified requires an available prediction and publication artifacts"
+                )
+            if shape["actual_path"] == "carved" and (
+                not shape["fired_trigger"] or not changesets
+            ):
+                errors.append(
+                    "$.shape_telemetry: carved falsification requires trigger and changesets"
+                )
 
     for collection in ("validation", "reviews"):
         names = [observation["name"] for observation in value[collection]]

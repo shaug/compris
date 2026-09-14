@@ -13,6 +13,7 @@
     "tracker_transition",
     "implementation_state",
     "candidate",
+    "shape_telemetry",
     "handoff",
     "checkpoint",
     "validation",
@@ -201,6 +202,56 @@
         }
       }
     },
+    "shape_telemetry": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "prediction",
+        "actual_path",
+        "comparison",
+        "ticket",
+        "candidate_sha",
+        "publication_artifacts",
+        "fired_trigger",
+        "changesets"
+      ],
+      "properties": {
+        "prediction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "identity", "source"],
+          "properties": {
+            "status": {"enum": ["available", "missing"]},
+            "identity": {"type": ["string", "null"]},
+            "source": {"type": ["string", "null"]}
+          }
+        },
+        "actual_path": {"enum": ["ordinary", "carved", null]},
+        "comparison": {"enum": ["held", "falsified", "missing", "unavailable"]},
+        "ticket": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "id"],
+          "properties": {
+            "provider": {"enum": ["github", "linear"]},
+            "id": {"type": "string", "minLength": 1}
+          }
+        },
+        "candidate_sha": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "publication_artifacts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/shape_artifact"}
+        },
+        "fired_trigger": {"type": ["string", "null"]},
+        "changesets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/shape_changeset"}
+        }
+      }
+    },
     "handoff": {
       "type": "object",
       "additionalProperties": false,
@@ -289,6 +340,25 @@
     }
   },
   "$defs": {
+    "shape_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "head_sha"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      }
+    },
+    "shape_changeset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "pull_request_id", "head_sha"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "pull_request_id": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      }
+    },
     "acceptance_record": {
       "type": "object",
       "additionalProperties": false,

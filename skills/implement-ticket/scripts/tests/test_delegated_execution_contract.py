@@ -143,6 +143,20 @@ def result() -> dict[str, object]:
             "observed_at": "2026-07-25T12:11:30Z",
         },
         "candidate": candidate(),
+        "shape_telemetry": {
+            "prediction": {
+                "status": "available",
+                "identity": "one cognitively shaped changeset / one PR",
+                "source": "ticket 123",
+            },
+            "actual_path": "ordinary",
+            "comparison": "held",
+            "ticket": {"provider": "github", "id": "123"},
+            "candidate_sha": SHA_B,
+            "publication_artifacts": [{"id": "456", "head_sha": SHA_B}],
+            "fired_trigger": None,
+            "changesets": [],
+        },
         "handoff": {"transferable": True, "reason": None},
         "checkpoint": {
             "last_sequence": 4,
@@ -277,6 +291,121 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             self.validator.validate_result_for_invocation(source, value),
         )
 
+    def test_shape_telemetry_accepts_held_missing_and_unavailable(self) -> None:
+        held = result()
+        self.assertEqual([], self.validator.validate("result", held))
+
+        missing = result()
+        missing["shape_telemetry"].update(
+            {
+                "prediction": {
+                    "status": "missing",
+                    "identity": None,
+                    "source": None,
+                },
+                "comparison": "missing",
+            }
+        )
+        self.assertEqual([], self.validator.validate("result", missing))
+
+        unavailable = result()
+        unavailable.update(
+            {
+                "terminal_state": "blocked",
+                "implementation_state": "local",
+                "candidate": None,
+                "handoff": {
+                    "transferable": False,
+                    "reason": "publication was not authorized",
+                },
+                "blocking_reason": "publication was not authorized",
+            }
+        )
+        unavailable["authority_used"] = ["repository.candidate.create"]
+        unavailable["shape_telemetry"].update(
+            {
+                "actual_path": None,
+                "comparison": "unavailable",
+                "candidate_sha": None,
+                "publication_artifacts": [],
+            }
+        )
+        self.assertEqual([], self.validator.validate("result", unavailable))
+
+    def test_shape_telemetry_accepts_bound_carved_falsification(self) -> None:
+        value = result()
+        value["terminal_state"] = "ready_prs"
+        value["candidate"]["publication"] = {
+            "kind": "stack",
+            "pull_requests": [
+                {
+                    "id": "455",
+                    "url": "https://github.com/example/project/pull/455",
+                    "base_ref": "refs/heads/main",
+                    "base_sha": SHA_A,
+                    "head_ref": "refs/heads/example-work-1",
+                    "head_sha": SHA_C,
+                    "state": "open",
+                },
+                {
+                    "id": "456",
+                    "url": "https://github.com/example/project/pull/456",
+                    "base_ref": "refs/heads/example-work-1",
+                    "base_sha": SHA_C,
+                    "head_ref": "refs/heads/example-work",
+                    "head_sha": SHA_B,
+                    "state": "open",
+                },
+            ],
+        }
+        value["shape_telemetry"].update(
+            {
+                "actual_path": "carved",
+                "comparison": "falsified",
+                "publication_artifacts": [
+                    {"id": "455", "head_sha": SHA_C},
+                    {"id": "456", "head_sha": SHA_B},
+                ],
+                "fired_trigger": "review surface exceeded the authored boundary",
+                "changesets": [
+                    {
+                        "id": "contract",
+                        "pull_request_id": "455",
+                        "head_sha": SHA_C,
+                    },
+                    {
+                        "id": "implementation",
+                        "pull_request_id": "456",
+                        "head_sha": SHA_B,
+                    },
+                ],
+            }
+        )
+        self.assertEqual([], self.validator.validate("result", value))
+
+        value["shape_telemetry"]["fired_trigger"] = None
+        self.assertIn(
+            "$.shape_telemetry: carved falsification requires trigger and changesets",
+            self.validator.validate("result", value),
+        )
+
+    def test_shape_telemetry_fails_closed_on_identity_mismatch(self) -> None:
+        value = result()
+        value["shape_telemetry"]["ticket"]["id"] = "other"
+        value["shape_telemetry"]["candidate_sha"] = SHA_C
+        value["shape_telemetry"]["publication_artifacts"] = [
+            {"id": "456", "head_sha": SHA_C}
+        ]
+        errors = self.validator.validate("result", value)
+        self.assertIn("$.shape_telemetry.ticket: does not match result ticket", errors)
+        self.assertIn(
+            "$.shape_telemetry.candidate_sha: does not match result candidate", errors
+        )
+        self.assertIn(
+            "$.shape_telemetry.publication_artifacts: do not match candidate publication",
+            errors,
+        )
+
     def test_unknown_invocation_field_fails_closed(self) -> None:
         value = invocation()
         value["coordinator"] = "atelier"
@@ -409,6 +538,14 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             }
         )
         value["authority_used"] = ["repository.candidate.create"]
+        value["shape_telemetry"].update(
+            {
+                "actual_path": None,
+                "comparison": "unavailable",
+                "candidate_sha": None,
+                "publication_artifacts": [],
+            }
+        )
         self.assertEqual([], self.validator.validate("result", value))
 
     def test_published_blocked_state_preserves_transferable_candidate(self) -> None:
@@ -416,6 +553,9 @@ class DelegatedExecutionContractTest(unittest.TestCase):
         value["terminal_state"] = "blocked"
         value["blocking_reason"] = "Coordinator unavailable after publication"
         value["candidate"]["publication"]["pull_requests"] = []
+        value["shape_telemetry"].update(
+            {"comparison": "unavailable", "publication_artifacts": []}
+        )
         self.assertEqual([], self.validator.validate("result", value))
 
     def test_ready_pr_rejects_stack_or_local_only_candidate(self) -> None:
@@ -1043,6 +1183,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
                 "terminal_state": "requires_epic",
                 "implementation_state": "none",
                 "candidate": None,
+                "shape_telemetry": None,
                 "handoff": {
                     "transferable": False,
                     "reason": "Whole epic requires implement-epic",
