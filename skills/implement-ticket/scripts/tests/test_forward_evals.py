@@ -63,7 +63,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "worktree",
             "handoff",
         }
-        self.assertEqual(82, len(self.cases))
+        self.assertEqual(83, len(self.cases))
         for case in self.cases:
             self.assertEqual(required, set(case["artifacts"]), case["id"])
 
@@ -118,9 +118,9 @@ class ForwardEvaluationTests(unittest.TestCase):
             [sys.executable, str(EXECUTOR_PATH)],
         )
         self.assertEqual([], failures)
-        self.assertEqual(82, len(observations))
+        self.assertEqual(83, len(observations))
         process_ids = {result["executor_pid"] for result in observations.values()}
-        self.assertEqual(82, len(process_ids))
+        self.assertEqual(83, len(process_ids))
 
     def test_reference_executor_evaluates_the_supplied_skill_prompt(self):
         payload = RUNNER.build_payload(self.cases[2])
@@ -442,6 +442,7 @@ class ForwardEvaluationTests(unittest.TestCase):
                 "shape-prediction-falsified-by-carving",
                 "shape-prediction-missing",
                 "shape-prediction-falsified-by-delegated-split",
+                "shape-prediction-falsified-by-delegated-split-missing-trigger",
                 "shape-prediction-blocked-before-publication",
             )
         }
@@ -464,6 +465,17 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertIn(
             "bind_shape_telemetry_to_candidate_and_publication", split["actions"]
         )
+        split_missing_trigger = observations[
+            "shape-prediction-falsified-by-delegated-split-missing-trigger"
+        ]
+        self.assertEqual("ready_prs", split_missing_trigger["terminal_state"])
+        self.assertIn(
+            "record_shape_prediction_falsified", split_missing_trigger["actions"]
+        )
+        self.assertIn("report_missing_shape_trigger", split_missing_trigger["actions"])
+        self.assertNotIn(
+            "report_shape_publication_unavailable", split_missing_trigger["actions"]
+        )
 
         blocked = observations["shape-prediction-blocked-before-publication"]
         self.assertEqual("blocked", blocked["terminal_state"])
@@ -475,7 +487,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "bind_shape_telemetry_to_candidate_and_publication", blocked["actions"]
         )
 
-        for observed in (held, falsified, missing, split):
+        for observed in (held, falsified, missing, split, split_missing_trigger):
             self.assertIn(
                 "bind_shape_telemetry_to_candidate_and_publication",
                 observed["actions"],

@@ -983,6 +983,24 @@
     "terminal_state": "ready_prs"
   },
   {
+    "case_id": "shape-prediction-falsified-by-delegated-split-missing-trigger",
+    "forbidden_actions": [
+      "block_on_shape_telemetry",
+      "record_shape_prediction_held",
+      "report_missing_shape_prediction",
+      "report_shape_publication_unavailable"
+    ],
+    "required_actions": [
+      "record_shape_prediction_falsified",
+      "report_missing_shape_trigger",
+      "bind_shape_telemetry_to_candidate_and_publication",
+      "preserve_shape_telemetry_non_gating",
+      "invoke_ready_to_merge"
+    ],
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_prs"
+  },
+  {
     "case_id": "shape-prediction-blocked-before-publication",
     "forbidden_actions": [
       "block_on_shape_telemetry",

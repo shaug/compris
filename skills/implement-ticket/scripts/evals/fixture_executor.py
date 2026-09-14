@@ -328,7 +328,6 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
         actions.append("record_shape_prediction_held")
     elif (
         path == "carved"
-        and trigger in (predicted.get("re_split_triggers") or [])
         and handoff.get("changeset_identities")
         and len(handoff["changeset_identities"]) == handoff.get("stack_count")
         and len(artifacts) == handoff.get("stack_count")
@@ -336,10 +335,11 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
     ) or (
         path == "ordinary"
         and len(artifacts) > 1
-        and trigger in (predicted.get("re_split_triggers") or [])
         and artifacts[-1].get("head") == candidate_head
     ):
         actions.append("record_shape_prediction_falsified")
+        if trigger not in (predicted.get("re_split_triggers") or []):
+            actions.append("report_missing_shape_trigger")
     else:
         actions.append("report_shape_publication_unavailable")
 

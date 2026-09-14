@@ -1534,6 +1534,99 @@
     }
   },
   {
+    "id": "shape-prediction-falsified-by-delegated-split-missing-trigger",
+    "target_skill": "implement-ticket",
+    "request": "Report the realized shape for G-304M after its publication delegate opened two PRs without returning trigger evidence.",
+    "authority": {
+      "merge": false
+    },
+    "capabilities": {
+      "review_code_change": true,
+      "babysit_pr": true,
+      "publish_candidate": true
+    },
+    "artifacts": {
+      "repository": {
+        "repo": "example/project",
+        "tracker": "github",
+        "pr_host": "github",
+        "instructions": "shape telemetry is observational"
+      },
+      "diff": {
+        "base": "base-1",
+        "patch": "one coherent candidate",
+        "resulting_tree": "tree-shape",
+        "guardrail": "fits"
+      },
+      "checks": {
+        "status": "success",
+        "items": []
+      },
+      "reviews": {
+        "initial": "clean",
+        "items": []
+      },
+      "threads": {
+        "items": [],
+        "unresolved": 0
+      },
+      "worktree": {
+        "path": "/worktrees/shape",
+        "exclusive_owner": true,
+        "tracked": [],
+        "untracked": []
+      },
+      "ticket": {
+        "tracker": "github",
+        "id": "G-304M",
+        "state": "open",
+        "whole_epic": false,
+        "acceptance_evidence": [],
+        "predicted_shape": {
+          "identity": "G-304M:shape-v1",
+          "publication": "one_pr",
+          "source": "ticket contract",
+          "re_split_triggers": [
+            "repository publication policy requires separate PRs"
+          ]
+        }
+      },
+      "pr": {
+        "state": "open",
+        "merged": false,
+        "head": "head-304m",
+        "base": "base-1",
+        "mergeable": true
+      },
+      "handoff": {
+        "created": true,
+        "result_well_formed": true,
+        "result_head": "head-304m",
+        "publish_candidate_result": {
+          "status": "published",
+          "prs": [
+            {
+              "number": 3047,
+              "state": "open",
+              "head": "head-304m-1",
+              "base": "base-1",
+              "mergeable": true,
+              "tracker_reference": "non_closing"
+            },
+            {
+              "number": 3048,
+              "state": "open",
+              "head": "head-304m",
+              "base": "base-1",
+              "mergeable": true,
+              "tracker_reference": "non_closing"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
     "id": "shape-prediction-blocked-before-publication",
     "target_skill": "implement-ticket",
     "request": "Attempt G-304B but report shape evidence when publication cannot begin.",
