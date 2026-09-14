@@ -70,6 +70,26 @@ before return. Otherwise include every applicable field:
 - ticket identity, tracker, repository, PR host, and base identity;
 - branch, worktree, candidate head, publication path, and the identity of every
   PR or the ordered stack when created;
+- shape telemetry for every result except `requires_epic`: the predicted shape
+  identity and its exact authoritative source, or `missing`; the actual
+  `ordinary` or `carved` path when publication exists; comparison outcome
+  `held`, `falsified`, `missing`, or `unavailable`; and the explicit
+  `publication_complete` state. Bind `candidate_sha` to the immutable source
+  candidate, `publication_candidate_sha` to the publication candidate or final
+  stack tip, and every existing publication artifact to its exact identity and
+  verified head. When implementation exists only locally, retain its exact SHA
+  as `candidate_sha`, leave `publication_candidate_sha` absent, and mark
+  publication incomplete; when no implementation exists, leave both identities
+  absent. With an available prediction, a partial publication is `unavailable`
+  even when one or more publication artifacts already exist, and retains those
+  artifacts rather than presenting the fraction as complete. For a carved
+  publication, include the named pre-authored re-split trigger that fired and
+  every resulting changeset and PR identity, even when the prediction is
+  missing. A carved publication falsifies a one-PR prediction; it is not a
+  doctrine violation. Do not invent a prediction or fired trigger. This evidence
+  never changes delivery gates, authority, or terminal-state mapping. Omit it
+  for a standalone `requires_epic` handoff; a delegated result sets
+  `shape_telemetry` to `null`;
 - delivery state separately from tracker/acceptance state;
 - the readiness gate's re-check of the ticket's stated assumptions: which still
   hold, and which could not be checked from the tree — `none` when the ticket
@@ -112,6 +132,9 @@ ticket: LIN-482 (Linear)           repository: example/project (GitHub PRs)
 pr: #91 open, mergeable            base: main @ 7be0…44c2
 branch: scott/lin-482-rate-limits  worktree: ../wt-lin-482
 head: 4f2c…9a1d
+shape: held; prediction one PR from LIN-482; actual ordinary PR #91;
+  source candidate 4f2c…9a1d; publication candidate 4f2c…9a1d;
+  publication_complete: yes
 completion_policy: ready PR only   authority_used: implement + push + PR create
 acceptance: API regression test (required, pre-merge, automated-test) pass;
   head 4f2c…9a1d; source `just test`; no post-merge items

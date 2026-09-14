@@ -111,6 +111,19 @@ and `requires_epic`. A caller may narrow this set. `implement-ticket` must not
 select an outcome the invocation excludes. If its only correct outcome is
 excluded, it returns `blocked` without performing the excluded action.
 
+## Shape prediction capture
+
+For a run that passes the whole-epic scope guard, the delegate reads the
+verified ticket and any named authoritative planning or design artifact. Capture
+that prediction before implementation, including its recoverable identity and
+exact source, and carry it unchanged through review and publication into the
+terminal result. If no authoritative prediction exists or its named source
+cannot be read, preserve that fact as `missing`; do not infer a prediction from
+the finished diff, publication topology, or reviewer expectation. This evidence
+lives in `shape_telemetry` at result time rather than adding an invocation
+field. The `requires_epic` path is excluded because it returns before ticket
+implementation begins.
+
 ## Consequential mutation checkpoint
 
 Immediately before every consequential external mutation, `implement-ticket`
@@ -217,6 +230,48 @@ The terminal result is always validated before return. It records:
 - authority actually used;
 - unresolved obligations; and
 - one next action or blocking reason.
+
+Every result carries the `shape_telemetry` key. `requires_epic` requires
+`shape_telemetry: null`; every other terminal requires an object bound to the
+exact ticket. An available prediction supplies both its identity and source. A
+missing prediction uses null identity and source and requires
+`comparison: missing`, while retaining any actual candidate and publication
+evidence; never fabricate the absent prediction.
+
+The result candidate and telemetry preserve two identities. `source_head_sha` is
+the immutable source candidate produced by implementation, while `head_sha` is
+the publication candidate or final stack tip. The corresponding telemetry fields
+`candidate_sha` and `publication_candidate_sha` must match those values; they
+remain distinct bindings even when their SHAs happen to be equal. For a
+local-only implementation the result candidate is null, but `candidate_sha`
+retains the exact local source SHA, `publication_candidate_sha` is null, and
+`publication_complete` is false. With no implementation, both telemetry SHAs are
+null.
+
+When PRs exist, `actual_path` follows the result's publication kind — `ordinary`
+for an ordinary publication and `carved` for a stack — and
+`publication_artifacts` exactly mirrors every PR identity and verified head.
+`publication_complete` is explicit and becomes true only when the selected
+publication topology is complete and verified. Delivery terminals require it to
+be true. With an available prediction, a partial publication is `unavailable`
+even when one or more PR artifacts already exist; preserve those artifacts and
+both candidate bindings rather than treating the observed fraction as complete.
+With no prediction, the comparison remains `missing` even when an actual or
+partial publication exists.
+
+A complete ordinary publication with exactly one PR makes the authoritative
+one-PR prediction `held`. A complete ordinary publication with several PRs, or a
+complete carved stack, makes it `falsified`. A carved publication is a recorded
+falsification, not a doctrine violation. Every observed carved path requires the
+named pre-authored re-split trigger that fired and must bind every changeset
+identity to its PR identity and verified head, including when the prediction is
+missing or publication is partial. Ordinary and absent publication paths require
+a null fired trigger and no changesets; do not invent either.
+
+Shape telemetry is observational. A malformed object fails result validation, as
+any malformed required result field does, but missing prediction data,
+publication completeness, and the comparison itself never selects or changes a
+terminal state, widens authority, or creates a delivery gate.
 
 `ready_pr`, `ready_prs`, and `merged` require published, transferable candidate
 state and at least one acceptance record. `ready_pr` requires exactly one PR;
