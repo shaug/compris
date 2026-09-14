@@ -768,7 +768,9 @@
       "publish_inline",
       "author_missing_author_content",
       "invoke_merge_when_ready",
-      "invoke_carve_changesets"
+      "invoke_carve_changesets",
+      "record_shape_prediction_held",
+      "record_shape_prediction_falsified"
     ],
     "required_actions": [
       "resolve_publish_candidate",
@@ -975,7 +977,8 @@
     "forbidden_actions": [
       "block_on_shape_telemetry",
       "record_shape_prediction_held",
-      "report_missing_shape_prediction"
+      "report_missing_shape_prediction",
+      "report_shape_publication_unavailable"
     ],
     "required_actions": [
       "record_shape_prediction_falsified",

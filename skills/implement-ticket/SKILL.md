@@ -172,17 +172,6 @@ and leave the tracker open. Transition it manually only after the evidence
 passes and close authority is available. A closed state caused by `Fixes`, a
 merged PR, or another automation is delivery state, not acceptance proof.
 
-## Capture the predicted shape evidence
-
-Before implementation, preserve the ticket's predicted shape identity and its
-exact authoritative source in the run evidence. The source may be the verified
-ticket body or a named, accepted planning or design artifact; identify the
-ticket and the source precisely enough that a later reader can recover the
-prediction. Carry that record unchanged through implementation, review, and
-publication. When no authoritative prediction exists or the named source cannot
-be read, record the prediction as `missing`. Do not infer one from the finished
-diff, the chosen publication path, or a reviewer's expectation.
-
 ## Build the acceptance evidence ledger
 
 Before readiness, merge, tracker transition, or a completion claim, inventory
@@ -834,39 +823,6 @@ by mutating merged history. For an epic child, reread affected native dependency
 relationships only after acceptance and the ticket transition pass, and report
 newly unblocked work without selecting or mutating it. Never close or verify a
 parent epic from this skill.
-
-## Record the realized shape
-
-Before every terminal handoff except `requires_epic`, record shape telemetry
-bound to the exact ticket, candidate SHA, and exact publication artifacts that
-exist. Preserve the predicted shape identity and source, or `missing`; name the
-actual publication path as `ordinary` or `carved`; and classify the comparison
-as `held`, `falsified`, `missing`, or `unavailable`:
-
-- `held` means the authoritative one-PR prediction produced exactly one ordinary
-  PR whose verified head is the reported candidate.
-- `falsified` means the realized publication no longer matches the one-PR
-  prediction. For an authorized carved stack, record the named pre-authored
-  re-split trigger that fired and every resulting changeset and PR identity. A
-  carved publication falsifies a one-PR prediction; it is not a doctrine
-  violation.
-- `missing` means no authoritative prediction was available. Record the actual
-  path and artifacts anyway. Do not invent a prediction or fired trigger.
-- `unavailable` means a prediction exists but implementation or publication
-  stopped before the actual topology could be observed. Preserve every ticket
-  and candidate binding that does exist without fabricating a PR.
-
-When a repository-owned ordinary publication delegate opens several PRs, keep
-the actual path `ordinary`, record every PR, and compare that topology with the
-captured prediction. If it falsifies a one-PR prediction, cite the delegate's
-already-authored publication rule as the trigger or report the trigger as
-missing; never relabel the publication as carved.
-
-If implementation or publication stopped before a candidate or PR existed,
-record that unavailable binding explicitly rather than fabricating an identity.
-This telemetry is observational: uncertainty, missing data, or the comparison
-itself never changes delivery gates, authority, or terminal-state mapping. A
-real gate may still block the run; shape telemetry alone may not.
 
 ## Revalidate escaped acceptance defects
 

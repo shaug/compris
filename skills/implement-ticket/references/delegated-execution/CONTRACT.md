@@ -218,17 +218,6 @@ The terminal result is always validated before return. It records:
 - unresolved obligations; and
 - one next action or blocking reason.
 
-Every result also carries `shape_telemetry`. It is `null` only for
-`requires_epic`; every other terminal records the captured prediction (or
-explicitly `missing`), exact ticket and candidate bindings, realized ordinary or
-carved path, exact published PR artifacts, and a `held`, `falsified`, `missing`,
-or `unavailable` comparison. A carved falsification additionally records the
-named pre-authored trigger and maps every changeset identity to its PR and head.
-The bundled validator cross-checks these identities against the result's
-canonical ticket and candidate publication. Telemetry remains observational: an
-invalid telemetry object makes the result malformed, but the comparison itself
-never selects or changes a terminal state.
-
 `ready_pr`, `ready_prs`, and `merged` require published, transferable candidate
 state and at least one acceptance record. `ready_pr` requires exactly one PR;
 `ready_prs` requires a stack. `requires_epic` requires no implementation state

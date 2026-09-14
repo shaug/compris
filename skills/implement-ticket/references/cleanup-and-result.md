@@ -70,14 +70,6 @@ before return. Otherwise include every applicable field:
 - ticket identity, tracker, repository, PR host, and base identity;
 - branch, worktree, candidate head, publication path, and the identity of every
   PR or the ordered stack when created;
-- shape telemetry: the predicted shape identity and its exact authoritative
-  source, or `missing`; the actual `ordinary` or `carved` path; comparison
-  outcome `held`, `falsified`, `missing`, or `unavailable`; and bindings to the
-  exact ticket, candidate SHA, and exact publication artifacts. For a carved
-  publication, include the named pre-authored re-split trigger that fired and
-  every resulting changeset identity. Do not invent a prediction or fired
-  trigger. This evidence never changes delivery gates, authority, or
-  terminal-state mapping;
 - delivery state separately from tracker/acceptance state;
 - the readiness gate's re-check of the ticket's stated assumptions: which still
   hold, and which could not be checked from the tree — `none` when the ticket
@@ -120,8 +112,6 @@ ticket: LIN-482 (Linear)           repository: example/project (GitHub PRs)
 pr: #91 open, mergeable            base: main @ 7be0…44c2
 branch: scott/lin-482-rate-limits  worktree: ../wt-lin-482
 head: 4f2c…9a1d
-shape: held; prediction one PR from LIN-482; actual ordinary PR #91;
-  bound to LIN-482 and head 4f2c…9a1d
 completion_policy: ready PR only   authority_used: implement + push + PR create
 acceptance: API regression test (required, pre-merge, automated-test) pass;
   head 4f2c…9a1d; source `just test`; no post-merge items

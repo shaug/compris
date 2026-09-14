@@ -489,7 +489,7 @@ class ForwardEvaluationTests(unittest.TestCase):
         split_handoff = split_case["artifacts"]["handoff"]
         self.assertTrue(
             all(
-                pr["head"] != split_handoff["result_head"]
+                pr["head"] == split_handoff["result_head"]
                 for pr in split_handoff["publish_candidate_result"]["prs"]
             )
         )
@@ -513,6 +513,30 @@ class ForwardEvaluationTests(unittest.TestCase):
         )
         self.assertNotIn("record_shape_prediction_held", partial["actions"])
         self.assertNotIn("record_shape_prediction_falsified", partial["actions"])
+
+        for case_id in (
+            "shape-prediction-falsified-by-delegated-split",
+            "delegated-publication-partial-then-author-input",
+        ):
+            with self.subTest(case=case_id):
+                invalid = copy.deepcopy(
+                    next(case for case in self.cases if case["id"] == case_id)
+                )
+                invalid_handoff = invalid["artifacts"]["handoff"]
+                invalid_handoff["publish_candidate_result"]["prs"][0]["head"] = (
+                    "different-head"
+                )
+                observed = RUNNER.run_executor(
+                    [sys.executable, str(EXECUTOR_PATH)],
+                    RUNNER.build_payload(invalid),
+                )
+                self.assertIn(
+                    "report_shape_publication_unavailable", observed["actions"]
+                )
+                self.assertNotIn(
+                    "bind_shape_telemetry_to_candidate_and_publication",
+                    observed["actions"],
+                )
 
         blocked = observations["shape-prediction-blocked-before-publication"]
         self.assertEqual("blocked", blocked["terminal_state"])

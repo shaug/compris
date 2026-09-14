@@ -1256,7 +1256,7 @@
       "reviews": {"initial": "clean", "head": "head-660", "connector_head": "head-660", "items": []},
       "threads": {"items": [], "unresolved": 0},
       "worktree": {"path": "/worktrees/g660", "exclusive_owner": true, "tracked": [], "untracked": []},
-      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-660", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 661, "state": "open", "head": "head-660a", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-660", "publish_candidate_result": {"status": "needs_author_input", "author_owned_unsupplied": "the second pull request requires a narrative section only the change's own author may write", "prs": [{"number": 661, "state": "open", "head": "head-660", "base": "release-2026-08", "mergeable": true, "tracker_reference": "non_closing"}]}}
     }
   },
   {
@@ -1515,7 +1515,7 @@
             {
               "number": 3045,
               "state": "open",
-              "head": "head-304s-1",
+              "head": "head-304s",
               "base": "base-1",
               "mergeable": true,
               "tracker_reference": "non_closing"
@@ -1523,7 +1523,7 @@
             {
               "number": 3046,
               "state": "open",
-              "head": "head-304s-2",
+              "head": "head-304s",
               "base": "base-1",
               "mergeable": true,
               "tracker_reference": "non_closing"
@@ -1608,7 +1608,7 @@
             {
               "number": 3047,
               "state": "open",
-              "head": "head-304m-1",
+              "head": "head-304m",
               "base": "base-1",
               "mergeable": true,
               "tracker_reference": "non_closing"
@@ -1616,7 +1616,7 @@
             {
               "number": 3048,
               "state": "open",
-              "head": "head-304m-2",
+              "head": "head-304m",
               "base": "base-1",
               "mergeable": true,
               "tracker_reference": "non_closing"

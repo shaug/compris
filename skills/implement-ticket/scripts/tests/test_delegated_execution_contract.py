@@ -554,9 +554,22 @@ class DelegatedExecutionContractTest(unittest.TestCase):
         value["blocking_reason"] = "Coordinator unavailable after publication"
         value["candidate"]["publication"]["pull_requests"] = []
         value["shape_telemetry"].update(
-            {"comparison": "unavailable", "publication_artifacts": []}
+            {
+                "actual_path": None,
+                "comparison": "unavailable",
+                "publication_artifacts": [],
+            }
         )
         self.assertEqual([], self.validator.validate("result", value))
+
+    def test_completed_shape_telemetry_rejects_contradictory_comparison(self) -> None:
+        value = result()
+        for comparison in ("unavailable", "falsified"):
+            value["shape_telemetry"]["comparison"] = comparison
+            self.assertIn(
+                "$.shape_telemetry.comparison: does not match observed publication topology",
+                self.validator.validate("result", value),
+            )
 
     def test_ready_pr_rejects_stack_or_local_only_candidate(self) -> None:
         value = result()

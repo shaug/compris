@@ -312,15 +312,20 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
     candidate_head = handoff.get("result_head") or pr.get("head")
     delegate_result = handoff.get("publish_candidate_result") or {}
     delegated_artifacts = bool(delegate_result.get("prs"))
-    artifact_identities_complete = bool(artifacts) and all(
-        artifact.get("id") and artifact.get("head") for artifact in artifacts
+    ordinary_artifacts_candidate_bound = bool(
+        path == "ordinary"
+        and candidate_head
+        and artifacts
+        and all(
+            artifact.get("id") and artifact.get("head") == candidate_head
+            for artifact in artifacts
+        )
     )
     delegated_split_complete = (
-        path == "ordinary"
-        and delegated_artifacts
+        delegated_artifacts
         and delegate_result.get("status") == "published"
         and len(artifacts) > 1
-        and artifact_identities_complete
+        and ordinary_artifacts_candidate_bound
     )
     carved_publication_verified = (
         path == "carved"
@@ -341,10 +346,8 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
     if not has_prediction:
         actions.append("report_missing_shape_prediction")
     elif (
-        path == "ordinary"
+        ordinary_artifacts_candidate_bound
         and len(artifacts) == 1
-        and artifacts[0].get("id")
-        and artifacts[0].get("head") == candidate_head
         and (not delegated_artifacts or delegate_result.get("status") == "published")
     ):
         actions.append("record_shape_prediction_held")
@@ -361,12 +364,7 @@ def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
         ticket.get("id")
         and candidate_head
         and artifacts
-        and artifact_identities_complete
-        and (
-            carved_publication_verified
-            or (path == "ordinary" and delegated_artifacts)
-            or (path == "ordinary" and artifacts[-1].get("head") == candidate_head)
-        )
+        and (carved_publication_verified or ordinary_artifacts_candidate_bound)
     ):
         actions.append("bind_shape_telemetry_to_candidate_and_publication")
     return actions

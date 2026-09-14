@@ -262,11 +262,14 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                 errors.append(
                     "$.shape_telemetry.candidate_sha: does not match result candidate"
                 )
-            expected_path = (
-                "ordinary"
-                if candidate["publication"]["kind"] == "ordinary"
-                else "carved"
-            )
+            pull_requests = candidate["publication"]["pull_requests"]
+            expected_path = None
+            if pull_requests:
+                expected_path = (
+                    "ordinary"
+                    if candidate["publication"]["kind"] == "ordinary"
+                    else "carved"
+                )
             if shape["actual_path"] != expected_path:
                 errors.append(
                     "$.shape_telemetry.actual_path: does not match candidate publication"
@@ -279,6 +282,17 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                 errors.append(
                     "$.shape_telemetry.publication_artifacts: do not match candidate publication"
                 )
+
+            if prediction["status"] == "available":
+                expected_comparison = "unavailable"
+                if expected_path == "ordinary" and len(artifacts) == 1:
+                    expected_comparison = "held"
+                elif expected_path in {"ordinary", "carved"} and artifacts:
+                    expected_comparison = "falsified"
+                if shape["comparison"] != expected_comparison:
+                    errors.append(
+                        "$.shape_telemetry.comparison: does not match observed publication topology"
+                    )
 
         if shape["actual_path"] == "ordinary":
             if shape["fired_trigger"] is not None or changesets:
