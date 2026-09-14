@@ -72,11 +72,12 @@ before return. Otherwise include every applicable field:
   PR or the ordered stack when created;
 - shape telemetry: the predicted shape identity and its exact authoritative
   source, or `missing`; the actual `ordinary` or `carved` path; comparison
-  outcome `held`, `falsified`, `missing`, or `unavailable`; and bindings to the exact ticket,
-  candidate SHA, and exact publication artifacts. For a carved publication,
-  include the named pre-authored re-split trigger that fired and every resulting
-  changeset identity. Do not invent a prediction or fired trigger. This evidence
-  never changes delivery gates, authority, or terminal-state mapping;
+  outcome `held`, `falsified`, `missing`, or `unavailable`; and bindings to the
+  exact ticket, candidate SHA, and exact publication artifacts. For a carved
+  publication, include the named pre-authored re-split trigger that fired and
+  every resulting changeset identity. Do not invent a prediction or fired
+  trigger. This evidence never changes delivery gates, authority, or
+  terminal-state mapping;
 - delivery state separately from tracker/acceptance state;
 - the readiness gate's re-check of the ticket's stated assumptions: which still
   hold, and which could not be checked from the tree — `none` when the ticket

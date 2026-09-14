@@ -276,7 +276,9 @@ def stated_assumption_result(ticket: dict, repository: dict) -> tuple[list[str],
     return actions, drifted
 
 
-def publication_shape_evidence(pr: dict, handoff: dict) -> tuple[str | None, list[dict], str | None]:
+def publication_shape_evidence(
+    pr: dict, handoff: dict
+) -> tuple[str | None, list[dict], str | None]:
     """Derive actual topology from the publication contracts' canonical fields."""
     delegated = (handoff.get("publish_candidate_result") or {}).get("prs") or []
     if delegated:
@@ -675,7 +677,6 @@ def _action_result(payload: dict) -> dict:
                 "refresh_graph_after_merged_only",
             ],
         }
-
 
     if ticket.get("whole_epic"):
         return {
