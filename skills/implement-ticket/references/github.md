@@ -87,10 +87,11 @@ completion policy, and authority required by
 [the babysit-pr handoff](babysit-pr-handoff.md), and delegate each published PR
 to repository-owned `babysit-pr`.
 
-For the carved path, capture the immutable source candidate, guardrail and
-operator-decision evidence, completion policy, tracker semantics, and authority
-required by [the carve-changesets handoff](carve-changesets-handoff.md), then
-delegate the entire stack lifecycle to repository-owned `carve-changesets`.
+For the carved path, capture the immutable source candidate, doctrine-bound
+shape and operator-decision evidence, completion policy, tracker semantics, and
+authority required by
+[the carve-changesets handoff](carve-changesets-handoff.md), then delegate the
+entire stack lifecycle to repository-owned `carve-changesets`.
 
 Do not infer a gate's absence from an empty read. Pass the documented policy and
 all known current evidence so the babysitter can establish current-candidate

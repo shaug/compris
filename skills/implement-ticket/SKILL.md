@@ -61,8 +61,12 @@ A compatible agentic runtime must be able to:
 - load `implement-ticket`, repository-owned `review-fix-loop`, and
   repository-owned `babysit-pr` by stable skill name or an equivalent
   repository-owned dependency mechanism;
-- load repository-owned `carve-changesets` by stable name at the publication
-  size gate so its live guardrails and optional handoff are available;
+- read
+  [the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md) at
+  the publication size gate;
+- load repository-owned `carve-changesets` by stable name only after the
+  doctrine classifies an oversized coherent candidate, the operator selects
+  branch carving, and the explicit decomposition authority is present;
 - resolve repository-owned `publish-candidate` by stable name at the ordinary
   path's publication boundary when the repository provides one. This resolution
   is conditional: its absence selects inline publication rather than reporting a
@@ -735,7 +739,8 @@ substituting a local heuristic.
   publication with `blocked`; tracker-splitting mechanics are out of scope.
 - An oversized coherent candidate may use the carved path only with the explicit
   `decompose oversized candidates into stacked changesets` authority grant.
-  Without it, stop and ask or return `blocked` with the guardrail evidence.
+  Without it, stop and ask or return `blocked` with the doctrine-bound shape
+  evidence.
 
 Recheck that no canonical PR, stack, or branch already owns the ticket. Never
 publish both paths for one candidate.

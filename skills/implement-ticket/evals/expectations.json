@@ -191,7 +191,7 @@
     "case_id": "oversized-without-decomposition-authority",
     "terminal_state": "blocked",
     "required_actions": [
-      "record live guardrail evidence",
+      "record doctrine-bound shape evidence",
       "stop before remote publication",
       "publish neither monolith nor stack",
       "request explicit operator authority"

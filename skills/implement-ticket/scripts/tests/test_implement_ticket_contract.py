@@ -570,6 +570,28 @@ class ImplementTicketContractTests(unittest.TestCase):
             self.skill_compact,
         )
 
+    def test_publication_size_authority_is_the_bundled_doctrine(self):
+        self.assertIn(
+            "[the cognitive shaping doctrine](references/cognitive-shaping-doctrine.md)",
+            self.skill,
+        )
+        self.assertIn(
+            "only after the doctrine classifies an oversized coherent candidate",
+            self.skill_compact,
+        )
+        prose_and_fixtures = compact(
+            self.skill
+            + self.gates
+            + self.carve_handoff
+            + self.github
+            + self.result
+            + read(SKILL_ROOT / "evals" / "cases.json")
+            + read(SKILL_ROOT / "evals" / "expectations.json")
+        ).lower()
+        self.assertNotIn("cognitive-load guardrail", prose_and_fixtures)
+        self.assertNotIn("carve-changesets guardrail", prose_and_fixtures)
+        self.assertNotIn("within the guardrails", prose_and_fixtures)
+
     def test_publish_candidate_handoff_matches_the_peer_handoff_slots(self):
         """The new document occupies the same structural slots as its peers.
 

@@ -71,8 +71,12 @@ Before invoking any publication or lifecycle delegate:
   head and applicable base;
 - verify every required pre-merge acceptance entry passes and choose closing or
   non-closing tracker syntax from whether post-merge entries exist;
-- evaluate the exact candidate against the live `carve-changesets` guardrails
-  without duplicating their thresholds;
+- read the bundled [cognitive shaping doctrine](cognitive-shaping-doctrine.md)
+  and evaluate the exact candidate against its canonical standard without
+  restating it or inventing a numeric threshold;
+- only after an oversized coherent classification, operator branch-carving
+  choice, and explicit decomposition grant, require repository-owned
+  `carve-changesets` for the carved path;
 - verify the selected publication identity — one PR, every PR of a delegated
   split, or the ordered stack — together with the effective diff, resulting
   tree, validation, worktree, ticket reference, and authority, are internally

@@ -95,9 +95,10 @@ before return. Otherwise include every applicable field:
   independently verified live-state match, and — for `needs_author_input` —
   exactly what the delegate named as author-owned and unsupplied. When no
   `publish-candidate` resolved, record that publication was inline;
-- for a stack, `carve-changesets` source identity, guardrail and operator
-  decision, authority, terminal state, ordered PR topology, equivalence,
-  propagation, closing-syntax placement, and verified live-state match;
+- for a stack, `carve-changesets` source identity, doctrine-bound shape and
+  operator decision, authority, terminal state, ordered PR topology,
+  equivalence, propagation, closing-syntax placement, and verified live-state
+  match;
 - applicable CI, human, connector, comment, formal-review, and thread state;
 - merge, mainline, ticket transition, and cleanup state;
 - deferred findings and intentionally unperformed work; and

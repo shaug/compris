@@ -303,7 +303,7 @@
     "tracker_state": "G-91 is ready, PR-sized, and independently shippable.",
     "authority": "ready_pr_only",
     "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available, and the repository also provides publish-candidate, resolvable by stable name at the publication boundary.",
-    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged at the current head and base, and within the carve-changesets guardrails. publish-candidate returns published with one open PR bound to that head, on a base ref of its own choosing, carrying a non-closing tracker reference."
+    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged at the current head and base, and fits the canonical cognitive-shaping doctrine's standard. publish-candidate returns published with one open PR bound to that head, on a base ref of its own choosing, carrying a non-closing tracker reference."
   },
   {
     "id": "delegated-publication-split-into-several-prs",
@@ -311,7 +311,7 @@
     "tracker_state": "G-92 is ready, PR-sized, and independently shippable.",
     "authority": "ready_pr_only",
     "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available, and the repository also provides publish-candidate, resolvable by stable name at the publication boundary.",
-    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged, and within the guardrails. publish-candidate's own rules require one class of change to land ahead of the code depending on it, so it returns published with three open PRs bound to that head, sharing one base, with the designated closing reference on exactly one of them."
+    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged, and fits the canonical cognitive-shaping doctrine's standard. publish-candidate's own rules require one class of change to land ahead of the code depending on it, so it returns published with three open PRs bound to that head, sharing one base, with the designated closing reference on exactly one of them."
   },
   {
     "id": "delegated-publication-needs-author-written-content",
@@ -327,6 +327,6 @@
     "tracker_state": "G-94 is ready, PR-sized, and independently shippable.",
     "authority": "ready_pr_only",
     "runtime_profile": "Repository-owned review-fix-loop and babysit-pr are available. The repository provides no publish-candidate, and none resolves by stable name at the publication boundary.",
-    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged at the current head and base, and within the guardrails."
+    "candidate_state": "The candidate is validated, committed, worktree-clean, review-fix-loop converged at the current head and base, and fits the canonical cognitive-shaping doctrine's standard."
   }
 ]
