@@ -91,10 +91,8 @@ rehydrated chain. Immediately before handoff, capture and verify:
   review result;
 - the ticket-level publication observation received from `implement-ticket`:
   `predicted_shape` with unchanged identity and authoritative source or explicit
-  missing values, `implementation_outcome` (`held`, `falsified`, `missing`, or
-  `unavailable`), and the exact named `fired_trigger` or `null`; a missing
-  prediction pairs only with the missing outcome, while an available prediction
-  never does;
+  missing values, and the exact named `fired_trigger` or `null`; the
+  pre-publication handoff never guesses a terminal outcome;
 - required CI, human, connector, comment, formal-review, reaction, and thread
   gates, including documented absence;
 - completion policy, retry and review-cycle budgets, and the separately granted
@@ -106,15 +104,22 @@ Candidate identity and authority must match the live `babysit-pr` contract.
 Reject stale, conflicting, forked, superseded, or ambiguously owned PR state
 instead of delegating it.
 
-Pass the same ticket-level prediction and implementation outcome through every
-changeset PR handoff, but require each returned `lifecycle_observation` to bind
-both its item and head identity to that PR's exact current PR head. Accept the
-observation only when it echoes `predicted_shape`, `implementation_outcome`, and
-`fired_trigger`, reports reviewability and operator effort separately as
-`observed`, `uncertain`, or `missing`, and is explicitly non-gating through
-`non_gating: true`. Missing,
-contradictory, or stale-head telemetry blocks lifecycle result mapping; it never
-changes the independently verified delivery state or any existing gate.
+At each handoff, derive `implementation_outcome` at the PR-lifecycle boundary
+from the live publication state. A verified complete carved topology with an
+available one-PR prediction is `falsified`; an incomplete publication with an
+available prediction is `unavailable`; and a missing prediction is `missing`.
+Pass that current outcome with the stable ticket-level prediction and trigger,
+and require each returned `lifecycle_observation` to bind both its item and head
+identity to that PR's exact current PR head. If publication completeness changes
+while the PR head stays fixed, record a new same-head observation; recovery uses
+the latest matching entry rather than the stale outcome.
+
+Accept the observation only when it echoes `predicted_shape`,
+`implementation_outcome`, and `fired_trigger`, reports reviewability and
+operator effort separately as `observed`, `uncertain`, or `missing`, and is
+explicitly non-gating through `non_gating: true`. Missing, contradictory, or
+stale-head telemetry blocks lifecycle result mapping; it never changes the
+independently verified delivery state or any existing gate.
 
 | Active `carve-changesets` authority | `babysit-pr` policy | Passed authority                                                                                                                                          |
 | ----------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |

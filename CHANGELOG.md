@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-15 — Made PR reviewability and operator effort observable
 
+- fix(carve-changesets): derive lifecycle implementation outcomes only after
+  live publication topology is observable.
+
 - fix(babysit-pr): preserve lifecycle telemetry across ordinary and carved PR
   handoffs and reject contradictory prediction/outcome states.
 

@@ -131,6 +131,19 @@ class CarveChangesetsContractTests(unittest.TestCase):
         ):
             self.assertIn(required, self.suite_handoffs)
 
+    def test_implementation_outcome_is_derived_from_live_publication(self):
+        for required in (
+            "derive `implementation_outcome` at the PR-lifecycle boundary",
+            "complete carved topology",
+            "`falsified`",
+            "incomplete publication",
+            "`unavailable`",
+            "missing prediction",
+            "`missing`",
+            "record a new same-head observation",
+        ):
+            self.assertIn(required, self.suite_handoffs)
+
     def test_tier_guidance_names_no_product_or_model(self):
         for banned in ("gpt", "claude-", "opus", "sonnet", "haiku", "gemini"):
             self.assertNotIn(banned, self.skill.lower())

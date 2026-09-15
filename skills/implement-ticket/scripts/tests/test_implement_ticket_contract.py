@@ -896,6 +896,24 @@ class ImplementTicketContractTests(unittest.TestCase):
                 for field in required:
                     self.assertIn(field, compact_surface)
 
+    def test_carved_outcome_is_derived_after_publication(self):
+        verified_handoff = self.carve_handoff.split("## Verified handoff", 1)[1]
+        verified_handoff = verified_handoff.split("Reject a stale", 1)[0]
+        self.assertIn("`predicted_shape`", verified_handoff)
+        self.assertIn("`fired_trigger`", verified_handoff)
+        self.assertNotIn("`implementation_outcome`", verified_handoff)
+        contract = compact(self.carve_handoff)
+        for required in (
+            "derive `implementation_outcome` at the PR-lifecycle boundary",
+            "complete carved topology",
+            "`falsified`",
+            "incomplete publication",
+            "`unavailable`",
+            "missing prediction",
+            "`missing`",
+        ):
+            self.assertIn(required, contract)
+
     def test_shape_telemetry_does_not_expand_delegated_protocol(self):
         delegated_root = SKILL_ROOT / "references" / "delegated-execution"
         delegated_contract = read(delegated_root / "CONTRACT.md")

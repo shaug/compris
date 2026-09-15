@@ -72,9 +72,8 @@ Immediately before transfer, capture and verify:
   base, plus reviewer-integrity evidence;
 - the ticket-level publication telemetry that every downstream PR lifecycle
   must preserve: `predicted_shape` with unchanged identity and source or
-  explicit missing values, `implementation_outcome` (`held`, `falsified`,
-  `missing`, or `unavailable`), and the exact `fired_trigger` or `null`; the
-  missing prediction/outcome states must agree;
+  explicit missing values, and the exact already-established `fired_trigger` or
+  `null`; do not precompute a publication outcome before the stack exists;
 - doctrine-bound shape evidence, the operator's branch-carving decision, and the
   explicit decomposition grant;
 - requested terminal boundary, completion policy, retry and review-cycle
@@ -87,6 +86,15 @@ Immediately before transfer, capture and verify:
 
 Reject a stale, dirty, behind-base, conflicting, incomplete, review-stale, or
 ambiguously owned candidate. The source branch becomes immutable at handoff.
+
+`carve-changesets` must derive `implementation_outcome` at the PR-lifecycle
+boundary from live publication evidence, not accept a frozen value from this
+pre-publication transfer. A verified complete carved topology with an available
+one-PR prediction is `falsified`; an incomplete publication with an available
+prediction is `unavailable`; and a missing prediction is `missing`. The carver
+passes that current outcome to each PR owner together with the stable prediction
+and trigger. If publication completeness changes while a PR head does not,
+record a new same-head observation before accepting the terminal result.
 
 ## Policy and tracker mapping
 
