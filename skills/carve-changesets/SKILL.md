@@ -292,18 +292,26 @@ Return exactly one terminal state with evidence bound to the root source, active
 source, complete lineage, base, chain, and PR candidates:
 
 - `plan_ready`: exact source/base identity, complete validated plan and proposed
-  validation, with no materialized branch or remote mutation.
+  validation, with no materialized branch or remote mutation, and
+  `lifecycle_observations: []` because no PR was published.
 - `chain_ready`: exact local branch heads, trailers, ancestry, per-changeset
-  validation and clean review, whole-chain equivalence, and no new publication.
+  validation and clean review, whole-chain equivalence, no new publication, and
+  `lifecycle_observations: []` because no PR was published.
 - `prs_open`: all `chain_ready` evidence plus exact remote heads, correctly
   based open PRs, current metadata, applicable non-merge gates, and merge
-  withheld.
+  withheld. The required `lifecycle_observations` slot contains one
+  `lifecycle_observation` per published PR, each bound to its exact current PR
+  head and explicitly non-gating with `non_gating: true`.
 - `all_merged`: every exact PR verified merged on the base, propagation and
   final equivalence with the active immutable source verified, required
-  validation passing, and cleanup complete or precisely limited.
+  validation passing, and cleanup complete or precisely limited. The required
+  `lifecycle_observations` slot contains one exact-current-head, non-gating
+  observation per published PR.
 - `blocked`: one concrete blocker, exact phase and identities reached, preserved
   partial artifacts and last trustworthy evidence, and one action or decision
-  needed to resume.
+  needed to resume. The required `lifecycle_observations` slot contains one
+  exact-current-head, non-gating observation per published PR when publication
+  occurred, or exactly `lifecycle_observations: []` when no PR was published.
 
 An open PR, green check, local diff, stale review, or plan alone is never enough
 to claim a later terminal state.

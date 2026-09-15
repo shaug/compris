@@ -118,6 +118,55 @@ class CarveChangesetsContractTests(unittest.TestCase):
             "review-code-change` and `babysit-pr` skills", self.suite_handoffs
         )
 
+    def test_pr_lifecycle_round_trips_shape_and_lifecycle_telemetry(self):
+        for required in (
+            "`predicted_shape`",
+            "`implementation_outcome`",
+            "`fired_trigger`",
+            "`lifecycle_observation`",
+            "reviewability",
+            "operator effort",
+            "exact current PR head",
+            "non-gating",
+        ):
+            self.assertIn(required, self.suite_handoffs)
+
+    def test_implementation_outcome_is_derived_from_live_publication(self):
+        for required in (
+            "derive `implementation_outcome` at the PR-lifecycle boundary",
+            "complete carved topology",
+            "`falsified`",
+            "incomplete publication",
+            "`unavailable`",
+            "missing prediction",
+            "`missing`",
+            "record a new same-head observation",
+        ):
+            self.assertIn(required, self.suite_handoffs)
+
+    def test_prs_open_terminal_handoff_returns_each_lifecycle_observation(self):
+        terminal = self.skill.split("## Return one terminal handoff", 1)[1]
+        prs_open = compact(
+            terminal.split("- `prs_open`:", 1)[1].split("- `all_merged`:", 1)[0]
+        )
+        for required in (
+            "one `lifecycle_observation` per published PR",
+            "exact current PR head",
+            "`non_gating: true`",
+        ):
+            self.assertIn(required, prs_open)
+
+    def test_every_terminal_handoff_spells_lifecycle_observation_slot(self):
+        terminal = self.skill.split("## Return one terminal handoff", 1)[1]
+        terminal = terminal.split("## Policy and tracker mapping", 1)[0]
+        for state in ("all_merged", "blocked"):
+            with self.subTest(state=state):
+                section = terminal.split(f"- `{state}`:", 1)[1]
+                if state == "all_merged":
+                    section = section.split("- `blocked`:", 1)[0]
+                self.assertIn("`lifecycle_observations`", section)
+        self.assertIn("`lifecycle_observations: []`", terminal)
+
     def test_tier_guidance_names_no_product_or_model(self):
         for banned in ("gpt", "claude-", "opus", "sonnet", "haiku", "gemini"):
             self.assertNotIn(banned, self.skill.lower())

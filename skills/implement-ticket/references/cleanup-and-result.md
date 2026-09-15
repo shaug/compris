@@ -108,7 +108,12 @@ before return. Otherwise include every applicable field:
   port was escalated to a fresh implementer and at what capability tier;
 - `babysit-pr` policy, terminal state, returned candidate identity, authority
   used, mutation ownership, and independently verified live-state match, one
-  entry per published PR;
+  entry per published PR; for each entry, the exact current PR head's
+  `lifecycle_observation` with echoed `predicted_shape`,
+  `implementation_outcome`, and `fired_trigger`, separately reported
+  reviewability and operator effort, and explicit non-gating status through
+  `non_gating: true` — always sibling evidence to delivery state, never a gate
+  or substitute for it;
 - when a repository-owned `publish-candidate` owned publication: its returned
   status, every PR identity it returned with that PR's head SHA and base ref,
   which single PR carries the closing or non-closing tracker reference, the

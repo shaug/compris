@@ -70,6 +70,10 @@ Immediately before transfer, capture and verify:
 - focused and full validation commands and exact outcomes;
 - a `converged` initial `review-fix-loop` result bound to the exact source and
   base, plus reviewer-integrity evidence;
+- the ticket-level publication telemetry that every downstream PR lifecycle must
+  preserve: `predicted_shape` with unchanged identity and source or explicit
+  missing values, and the exact already-established `fired_trigger` or `null`;
+  do not precompute a publication outcome before the stack exists;
 - doctrine-bound shape evidence, the operator's branch-carving decision, and the
   explicit decomposition grant;
 - requested terminal boundary, completion policy, retry and review-cycle
@@ -82,6 +86,15 @@ Immediately before transfer, capture and verify:
 
 Reject a stale, dirty, behind-base, conflicting, incomplete, review-stale, or
 ambiguously owned candidate. The source branch becomes immutable at handoff.
+
+`carve-changesets` must derive `implementation_outcome` at the PR-lifecycle
+boundary from live publication evidence, not accept a frozen value from this
+pre-publication transfer. A verified complete carved topology with an available
+one-PR prediction is `falsified`; an incomplete publication with an available
+prediction is `unavailable`; and a missing prediction is `missing`. The carver
+passes that current outcome to each PR owner together with the stable prediction
+and trigger. If publication completeness changes while a PR head does not,
+record a new same-head observation before accepting the terminal result.
 
 ## Policy and tracker mapping
 
@@ -115,14 +128,26 @@ handoff.
 - `prs_open` maps to `ready_prs` only when every changeset PR is open and
   correctly based, every applicable current-candidate non-merge gate passes,
   final-only closing syntax is verified, whole-chain equivalence holds, merge is
-  withheld, and ownership is consistent.
+  withheld, and ownership is consistent. Include one `lifecycle_observation` per
+  published PR. Each observation is bound to its exact current PR head and
+  explicitly non-gating with `non_gating: true`; a missing or stale observation
+  blocks the mapping without changing delivery state.
 - `all_merged` maps to `merged` only after `implement-ticket` independently
   verifies every sequential merge and propagation step, complete representation
   and required validation on the base, the expected ticket transition, and
-  authorized cleanup.
+  authorized cleanup. Every changeset PR must also return one
+  `lifecycle_observation` bound to its exact current PR head, echoing
+  `predicted_shape`, `implementation_outcome`, and `fired_trigger`, with
+  reviewability and operator effort reported separately and explicitly
+  non-gating with `non_gating: true`. A missing or stale observation blocks
+  result mapping without changing the independently verified delivery state.
 - `blocked` maps to `blocked` with the exact phase, source, base, stack, PR,
   candidate, preserved artifacts, last trustworthy evidence, and one action
-  needed to resume.
+  needed to resume. Preserve the returned `lifecycle_observations` for every
+  published PR, requiring one exact-current-head observation with
+  `non_gating: true` per PR; require exactly `lifecycle_observations: []` when
+  no PR was published. Missing or stale telemetry blocks result mapping without
+  changing delivery state.
 - `plan_ready` or `chain_ready` cannot satisfy an `implement-ticket` publication
   policy and map to `blocked` unless the caller explicitly changes the requested
   boundary.

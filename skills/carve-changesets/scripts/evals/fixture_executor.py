@@ -29,6 +29,8 @@ def action_result(payload: dict) -> dict:
         "not silently reordered or renumbered",
         "publish authority does not permit merging",
         "source is behind the base",
+        "`lifecycle_observations`",
+        "`lifecycle_observations: []`",
     )
     if target != "carve-changesets" or not all(
         fragment in contract for fragment in required_contract
@@ -45,7 +47,10 @@ def action_result(payload: dict) -> dict:
     actions: list[str]
     terminal_state: str
 
-    if "mutates the original immutable source" in state:
+    if "required connector gate is unavailable" in state:
+        terminal_state = "blocked"
+        actions = ["preserve_partial_chain"]
+    elif "mutates the original immutable source" in state:
         terminal_state = "blocked"
         actions = [
             "reject_original_source_mutation",
@@ -100,6 +105,16 @@ def action_result(payload: dict) -> dict:
     else:
         terminal_state = "blocked"
         actions = []
+
+    if scenario.get("publication_state") == "published":
+        actions.extend(
+            [
+                "return_exact_head_lifecycle_observations",
+                "mark_lifecycle_observations_non_gating",
+            ]
+        )
+    elif scenario.get("publication_state") == "none":
+        actions.append("return_empty_lifecycle_observations")
 
     return {
         "target_skill": target,

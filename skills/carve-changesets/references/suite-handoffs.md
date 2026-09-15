@@ -89,6 +89,10 @@ rehydrated chain. Immediately before handoff, capture and verify:
 - tracked, staged, unstaged, untracked, and ignored worktree state;
 - focused and full validation evidence and the current clean per-changeset
   review result;
+- the ticket-level publication observation received from `implement-ticket`:
+  `predicted_shape` with unchanged identity and authoritative source or explicit
+  missing values, and the exact named `fired_trigger` or `null`; the
+  pre-publication handoff never guesses a terminal outcome;
 - required CI, human, connector, comment, formal-review, reaction, and thread
   gates, including documented absence;
 - completion policy, retry and review-cycle budgets, and the separately granted
@@ -99,6 +103,23 @@ rehydrated chain. Immediately before handoff, capture and verify:
 Candidate identity and authority must match the live `babysit-pr` contract.
 Reject stale, conflicting, forked, superseded, or ambiguously owned PR state
 instead of delegating it.
+
+At each handoff, derive `implementation_outcome` at the PR-lifecycle boundary
+from the live publication state. A verified complete carved topology with an
+available one-PR prediction is `falsified`; an incomplete publication with an
+available prediction is `unavailable`; and a missing prediction is `missing`.
+Pass that current outcome with the stable ticket-level prediction and trigger,
+and require each returned `lifecycle_observation` to bind both its item and head
+identity to that PR's exact current PR head. If publication completeness changes
+while the PR head stays fixed, record a new same-head observation; recovery uses
+the latest matching entry rather than the stale outcome.
+
+Accept the observation only when it echoes `predicted_shape`,
+`implementation_outcome`, and `fired_trigger`, reports reviewability and
+operator effort separately as `observed`, `uncertain`, or `missing`, and is
+explicitly non-gating through `non_gating: true`. Missing, contradictory, or
+stale-head telemetry blocks lifecycle result mapping; it never changes the
+independently verified delivery state or any existing gate.
 
 | Active `carve-changesets` authority | `babysit-pr` policy | Passed authority                                                                                                                                          |
 | ----------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -146,9 +167,10 @@ leases, source immutability, or successor equivalence cannot be proved, return
 ## Terminal-result mapping
 
 Reread live GitHub and git state before accepting a returned terminal result.
-The repository, PR, branch, head, base, completion policy, authority, and gate
-evidence must match the handoff. A stale or conflicting result maps to
-`blocked`; do not translate it into progress.
+The repository, PR, branch, head, base, completion policy, authority, gate
+evidence, and exact-current-head `lifecycle_observation` must match the handoff.
+A stale or conflicting result maps to `blocked`; do not translate it into
+progress.
 
 | `babysit-pr` result | `carve-changesets` handling                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -157,6 +179,12 @@ evidence must match the handoff. A stale or conflicting result maps to
 | recovery handback   | Verify the corrected exact candidate and merged prefix, reclaim exclusive ownership, and run the successor-source recovery procedure above. Rebuild all invalidated evidence before re-delegating.                                                                                                                                                                               |
 | `closed`            | Return `blocked` with `PR closed without merge` unless a canonical replacement is independently verified; preserve partial artifacts.                                                                                                                                                                                                                                            |
 | `blocked`           | Return `blocked` with the concrete reason, exact candidate reached, preserved artifacts, and one action required to resume.                                                                                                                                                                                                                                                      |
+
+Every terminal handoff carries a literal `lifecycle_observations` slot. When one
+or more PRs were published, it contains one latest observation per PR bound to
+that PR's exact current head and marked `non_gating: true`. When no PR was
+published, spell absence exactly as `lifecycle_observations: []`. Delivery state
+and this telemetry remain sibling evidence; neither determines the other.
 
 When propagation changes a downstream head or effective candidate, prior review,
 validation, CI, and feedback evidence is invalid. Rebuild the per-changeset

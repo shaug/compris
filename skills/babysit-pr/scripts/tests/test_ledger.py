@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -275,6 +277,169 @@ class ReconcileTests(TempRootTestCase):
             {"repo": "example/project", "number": 482}
         )
         self.assertEqual(state, {"retries_by_sha": {"head-1": 3}})
+
+
+class LifecycleObservationTests(TempRootTestCase):
+    def run_observe(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(MODULE_PATH),
+                "--root",
+                str(self.root),
+                "observe",
+                "--repo",
+                "example/project",
+                "--pr",
+                "482",
+                "--head-sha",
+                "head-1",
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_observe_correlates_named_trigger_with_outcome_at_exact_head(self) -> None:
+        predicted_shape = {
+            "status": "available",
+            "identity": "G-482:shape-v1",
+            "source": "ticket contract",
+        }
+        completed = self.run_observe(
+            "--delivery-state",
+            "merged",
+            "--predicted-shape-json",
+            json.dumps(predicted_shape),
+            "--implementation-outcome",
+            "falsified",
+            "--fired-trigger",
+            "review requires separate mechanical and behavioral changes",
+            "--reviewability-status",
+            "observed",
+            "--reviewability-evidence",
+            "repository review required two independently readable changesets",
+            "--operator-effort-status",
+            "observed",
+            "--operator-effort-evidence",
+            "one feedback disposition and one fix cycle",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        record = json.loads(completed.stdout)
+        self.assertEqual("lifecycle_observation", record["action"])
+        self.assertEqual("head-1", record["item_id"])
+        self.assertEqual("head-1", record["head_sha"])
+        self.assertEqual("merged", record["terminal_result"])
+        self.assertEqual(
+            {
+                "non_gating": True,
+                "predicted_shape": predicted_shape,
+                "implementation_outcome": "falsified",
+                "fired_trigger": (
+                    "review requires separate mechanical and behavioral changes"
+                ),
+                "reviewability": {
+                    "status": "observed",
+                    "evidence": (
+                        "repository review required two independently readable "
+                        "changesets"
+                    ),
+                },
+                "operator_effort": {
+                    "status": "observed",
+                    "evidence": "one feedback disposition and one fix cycle",
+                },
+            },
+            record["evidence"],
+        )
+
+    def test_observe_keeps_missing_and_uncertain_explicit(self) -> None:
+        completed = self.run_observe(
+            "--delivery-state",
+            "blocked",
+            "--predicted-shape-json",
+            json.dumps({"status": "missing", "identity": None, "source": None}),
+            "--implementation-outcome",
+            "missing",
+            "--reviewability-status",
+            "uncertain",
+            "--reviewability-evidence",
+            "review thread pagination was incomplete",
+            "--operator-effort-status",
+            "missing",
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        telemetry = json.loads(completed.stdout)["evidence"]
+        self.assertEqual("uncertain", telemetry["reviewability"]["status"])
+        self.assertEqual("missing", telemetry["operator_effort"]["status"])
+        self.assertIsNone(telemetry["operator_effort"]["evidence"])
+        self.assertNotIn("success", json.dumps(telemetry).lower())
+
+    def test_prediction_and_outcome_cannot_contradict_each_other(self) -> None:
+        contradictory_pairs = (
+            (
+                {"status": "missing", "identity": None, "source": None},
+                "held",
+            ),
+            (
+                {
+                    "status": "available",
+                    "identity": "G-482:shape-v1",
+                    "source": "ticket contract",
+                },
+                "missing",
+            ),
+        )
+        for predicted_shape, implementation_outcome in contradictory_pairs:
+            with (
+                self.subTest(
+                    predicted_shape=predicted_shape,
+                    implementation_outcome=implementation_outcome,
+                ),
+                self.assertRaisesRegex(
+                    ValueError, "predicted shape and implementation outcome disagree"
+                ),
+            ):
+                LEDGER.record_lifecycle_observation(
+                    self.root,
+                    "example/project",
+                    482,
+                    head_sha="head-1",
+                    delivery_state="merged",
+                    predicted_shape=predicted_shape,
+                    implementation_outcome=implementation_outcome,
+                    fired_trigger=None,
+                    reviewability_status="missing",
+                    reviewability_evidence=None,
+                    operator_effort_status="missing",
+                    operator_effort_evidence=None,
+                )
+
+    def test_library_rejects_invented_identity_for_missing_prediction(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "missing predicted shape requires null identity and source"
+        ):
+            LEDGER.record_lifecycle_observation(
+                self.root,
+                "example/project",
+                482,
+                head_sha="head-1",
+                delivery_state="merged",
+                predicted_shape={
+                    "status": "missing",
+                    "identity": "invented-shape",
+                    "source": None,
+                },
+                implementation_outcome="unavailable",
+                fired_trigger=None,
+                reviewability_status="missing",
+                reviewability_evidence=None,
+                operator_effort_status="missing",
+                operator_effort_evidence=None,
+            )
 
 
 class CliTests(TempRootTestCase):

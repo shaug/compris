@@ -879,6 +879,63 @@ class ImplementTicketContractTests(unittest.TestCase):
             contract,
         )
 
+    def test_shape_telemetry_round_trips_through_every_babysit_handoff(self):
+        required = (
+            "`predicted_shape`",
+            "`implementation_outcome`",
+            "`fired_trigger`",
+            "`lifecycle_observation`",
+            "reviewability",
+            "operator effort",
+            "exact current PR head",
+            "non-gating",
+        )
+        for surface in (self.handoff, self.carve_handoff, self.result):
+            with self.subTest(surface=surface[:40]):
+                compact_surface = compact(surface)
+                for field in required:
+                    self.assertIn(field, compact_surface)
+
+    def test_carved_outcome_is_derived_after_publication(self):
+        verified_handoff = self.carve_handoff.split("## Verified handoff", 1)[1]
+        verified_handoff = verified_handoff.split("Reject a stale", 1)[0]
+        self.assertIn("`predicted_shape`", verified_handoff)
+        self.assertIn("`fired_trigger`", verified_handoff)
+        self.assertNotIn("`implementation_outcome`", verified_handoff)
+        contract = compact(self.carve_handoff)
+        for required in (
+            "derive `implementation_outcome` at the PR-lifecycle boundary",
+            "complete carved topology",
+            "`falsified`",
+            "incomplete publication",
+            "`unavailable`",
+            "missing prediction",
+            "`missing`",
+        ):
+            self.assertIn(required, contract)
+
+    def test_carved_ready_prs_mapping_requires_each_lifecycle_observation(self):
+        mapping = self.carve_handoff.split("## Terminal-result mapping", 1)[1]
+        prs_open = compact(
+            mapping.split("- `prs_open` maps to `ready_prs`", 1)[1].split(
+                "- `all_merged` maps to `merged`", 1
+            )[0]
+        )
+        for required in (
+            "one `lifecycle_observation` per published PR",
+            "exact current PR head",
+            "`non_gating: true`",
+        ):
+            self.assertIn(required, prs_open)
+
+    def test_carved_blocked_mapping_preserves_or_empties_lifecycle_observations(self):
+        mapping = self.carve_handoff.split("## Terminal-result mapping", 1)[1]
+        blocked = mapping.split("- `blocked` maps to `blocked`", 1)[1].split(
+            "- `plan_ready` or `chain_ready`", 1
+        )[0]
+        self.assertIn("`lifecycle_observations`", blocked)
+        self.assertIn("`lifecycle_observations: []`", blocked)
+
     def test_shape_telemetry_does_not_expand_delegated_protocol(self):
         delegated_root = SKILL_ROOT / "references" / "delegated-execution"
         delegated_contract = read(delegated_root / "CONTRACT.md")
