@@ -652,6 +652,15 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
             errors.append("$.candidate.publication: merged requires merged PRs")
         if terminal == "merged" and not pull_requests:
             errors.append("$.candidate.publication: merged requires at least one PR")
+        if (
+            terminal == "merged"
+            and value["schema"] == "compris.implement-ticket/delegated-result/v3"
+            and kind == "ordinary"
+            and len(pull_requests) > 1
+        ):
+            errors.append(
+                "$.candidate.publication: v3 merged forbids an ordinary multi-PR publication"
+            )
         if terminal in {"ready_prs", "merged"} and pull_requests:
             if pull_requests[-1]["head_sha"] != candidate["head_sha"]:
                 errors.append(

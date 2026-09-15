@@ -1252,6 +1252,37 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             self.validator.validate("result", value),
         )
 
+    def test_v3_merged_rejects_ordinary_multi_pr_publication(self) -> None:
+        value = result()
+        value["terminal_state"] = "merged"
+        record_tracker_transition(value)
+        first = value["candidate"]["publication"]["pull_requests"][0]
+        first["state"] = "merged"
+        second = copy.deepcopy(first)
+        second.update(
+            {
+                "id": "457",
+                "url": "https://github.com/example/project/pull/457",
+                "base_ref": first["head_ref"],
+                "base_sha": first["head_sha"],
+            }
+        )
+        value["candidate"]["publication"]["pull_requests"].append(second)
+        value["shape_telemetry"].update(
+            {
+                "comparison": "falsified",
+                "publication_artifacts": [
+                    {"id": "456", "head_sha": SHA_B},
+                    {"id": "457", "head_sha": SHA_B},
+                ],
+            }
+        )
+
+        self.assertIn(
+            "$.candidate.publication: v3 merged forbids an ordinary multi-PR publication",
+            self.validator.validate("result", value),
+        )
+
     def test_invocation_anchors_acceptance_contract_and_deployment(self) -> None:
         source = invocation()
         source["desired_outcome"] = "merged"
