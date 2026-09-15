@@ -268,6 +268,10 @@ def record_lifecycle_observation(
             f"unsupported implementation outcome: {implementation_outcome}"
         )
     predicted_shape = _validate_predicted_shape(predicted_shape)
+    prediction_missing = predicted_shape["status"] == "missing"
+    outcome_missing = implementation_outcome == "missing"
+    if prediction_missing != outcome_missing:
+        raise ValueError("predicted shape and implementation outcome disagree")
     evidence = {
         "non_gating": True,
         "predicted_shape": predicted_shape,

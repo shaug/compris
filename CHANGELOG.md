@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-15 — Made PR reviewability and operator effort observable
 
+- fix(babysit-pr): preserve lifecycle telemetry across ordinary and carved PR
+  handoffs and reject contradictory prediction/outcome states.
+
 - feat(babysit-pr): record exact-head reviewability and operator-effort
   observations beside predicted shape and implementation outcome while keeping
   telemetry explicitly separate from delivery state and gates.

@@ -70,6 +70,11 @@ Immediately before transfer, capture and verify:
 - focused and full validation commands and exact outcomes;
 - a `converged` initial `review-fix-loop` result bound to the exact source and
   base, plus reviewer-integrity evidence;
+- the ticket-level publication telemetry that every downstream PR lifecycle
+  must preserve: `predicted_shape` with unchanged identity and source or
+  explicit missing values, `implementation_outcome` (`held`, `falsified`,
+  `missing`, or `unavailable`), and the exact `fired_trigger` or `null`; the
+  missing prediction/outcome states must agree;
 - doctrine-bound shape evidence, the operator's branch-carving decision, and the
   explicit decomposition grant;
 - requested terminal boundary, completion policy, retry and review-cycle
@@ -119,7 +124,13 @@ handoff.
 - `all_merged` maps to `merged` only after `implement-ticket` independently
   verifies every sequential merge and propagation step, complete representation
   and required validation on the base, the expected ticket transition, and
-  authorized cleanup.
+  authorized cleanup. Every changeset PR must also return one
+  `lifecycle_observation` bound to its exact current PR head, echoing
+  `predicted_shape`, `implementation_outcome`, and `fired_trigger`, with
+  reviewability and operator effort reported separately and explicitly
+  non-gating with `non_gating: true`.
+  A missing or stale observation blocks result mapping without changing the
+  independently verified delivery state.
 - `blocked` maps to `blocked` with the exact phase, source, base, stack, PR,
   candidate, preserved artifacts, last trustworthy evidence, and one action
   needed to resume.

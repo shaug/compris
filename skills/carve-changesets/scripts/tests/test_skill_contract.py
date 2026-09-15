@@ -118,6 +118,19 @@ class CarveChangesetsContractTests(unittest.TestCase):
             "review-code-change` and `babysit-pr` skills", self.suite_handoffs
         )
 
+    def test_pr_lifecycle_round_trips_shape_and_lifecycle_telemetry(self):
+        for required in (
+            "`predicted_shape`",
+            "`implementation_outcome`",
+            "`fired_trigger`",
+            "`lifecycle_observation`",
+            "reviewability",
+            "operator effort",
+            "exact current PR head",
+            "non-gating",
+        ):
+            self.assertIn(required, self.suite_handoffs)
+
     def test_tier_guidance_names_no_product_or_model(self):
         for banned in ("gpt", "claude-", "opus", "sonnet", "haiku", "gemini"):
             self.assertNotIn(banned, self.skill.lower())

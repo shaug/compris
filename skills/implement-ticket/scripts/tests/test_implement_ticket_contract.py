@@ -879,6 +879,23 @@ class ImplementTicketContractTests(unittest.TestCase):
             contract,
         )
 
+    def test_shape_telemetry_round_trips_through_every_babysit_handoff(self):
+        required = (
+            "`predicted_shape`",
+            "`implementation_outcome`",
+            "`fired_trigger`",
+            "`lifecycle_observation`",
+            "reviewability",
+            "operator effort",
+            "exact current PR head",
+            "non-gating",
+        )
+        for surface in (self.handoff, self.carve_handoff, self.result):
+            with self.subTest(surface=surface[:40]):
+                compact_surface = compact(surface)
+                for field in required:
+                    self.assertIn(field, compact_surface)
+
     def test_shape_telemetry_does_not_expand_delegated_protocol(self):
         delegated_root = SKILL_ROOT / "references" / "delegated-execution"
         delegated_contract = read(delegated_root / "CONTRACT.md")

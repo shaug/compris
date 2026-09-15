@@ -93,6 +93,7 @@ class BabysitPrContractTests(unittest.TestCase):
         self.assertIn('action="lifecycle_observation"', self.watcher_ledger)
         self.assertIn('"non_gating": True', self.watcher_ledger)
         self.assertIn("delivery state", self.skill)
+        self.assertIn("lifecycle_telemetry:", self.skill)
 
     def test_review_dependency_is_repository_owned(self):
         self.assertIn("review-fix-loop", self.contract)

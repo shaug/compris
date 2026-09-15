@@ -421,6 +421,11 @@ repository: example/project        pr: #482
 head: 4f2c…9a1d (branch fix/issue-77, worktree ../wt-issue-77)
 base: main @ 7be0…44c2
 completion_policy: ready_to_merge  authority_used: read + ticket-scoped fix + push
+lifecycle_telemetry: lifecycle_observation @ 4f2c…9a1d; non-gating;
+  predicted_shape G-482:shape-v1 from ticket contract;
+  implementation_outcome held; fired_trigger null;
+  reviewability observed from clean repository review;
+  operator_effort observed from 1 retry, 3 dispositions, and 1 fix cycle
 validation: `just test` pass @ head; full gate pass @ head
 repository_review: review-fix-loop converged (update_pr, published) @ head
   4f2c…9a1d vs base 7be0…44c2

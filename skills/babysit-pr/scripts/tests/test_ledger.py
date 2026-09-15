@@ -362,7 +362,7 @@ class LifecycleObservationTests(TempRootTestCase):
             "--predicted-shape-json",
             json.dumps({"status": "missing", "identity": None, "source": None}),
             "--implementation-outcome",
-            "unavailable",
+            "missing",
             "--reviewability-status",
             "uncertain",
             "--reviewability-evidence",
@@ -377,6 +377,46 @@ class LifecycleObservationTests(TempRootTestCase):
         self.assertEqual("missing", telemetry["operator_effort"]["status"])
         self.assertIsNone(telemetry["operator_effort"]["evidence"])
         self.assertNotIn("success", json.dumps(telemetry).lower())
+
+    def test_prediction_and_outcome_cannot_contradict_each_other(self) -> None:
+        contradictory_pairs = (
+            (
+                {"status": "missing", "identity": None, "source": None},
+                "held",
+            ),
+            (
+                {
+                    "status": "available",
+                    "identity": "G-482:shape-v1",
+                    "source": "ticket contract",
+                },
+                "missing",
+            ),
+        )
+        for predicted_shape, implementation_outcome in contradictory_pairs:
+            with (
+                self.subTest(
+                    predicted_shape=predicted_shape,
+                    implementation_outcome=implementation_outcome,
+                ),
+                self.assertRaisesRegex(
+                    ValueError, "predicted shape and implementation outcome disagree"
+                ),
+            ):
+                LEDGER.record_lifecycle_observation(
+                    self.root,
+                    "example/project",
+                    482,
+                    head_sha="head-1",
+                    delivery_state="merged",
+                    predicted_shape=predicted_shape,
+                    implementation_outcome=implementation_outcome,
+                    fired_trigger=None,
+                    reviewability_status="missing",
+                    reviewability_evidence=None,
+                    operator_effort_status="missing",
+                    operator_effort_evidence=None,
+                )
 
     def test_library_rejects_invented_identity_for_missing_prediction(self) -> None:
         with self.assertRaisesRegex(

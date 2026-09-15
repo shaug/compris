@@ -74,6 +74,13 @@ Immediately before delegation, reread the live PR and verify all of:
 - the criterion-specific acceptance ledger, including every required pre-merge
   entry passing for the supplied head and every post-merge entry identified as
   caller-owned follow-up;
+- the publication-shape observation normalized for this PR lifecycle:
+  `predicted_shape` is `available` with the prediction's unchanged identity and
+  exact authoritative source, or `missing` with both values `null`;
+  `implementation_outcome` is the terminal shape comparison (`held`,
+  `falsified`, `missing`, or `unavailable`); and `fired_trigger` is the exact
+  named pre-authored trigger from the actual publication, or `null` when none is
+  available;
 - repository instructions and named architecture, design, contract, migration,
   and rollout documents;
 - GitHub repository and PR identity;
@@ -100,6 +107,22 @@ Immediately before delegation, reread the live PR and verify all of:
 The babysitter must reject stale or conflicting repository, PR, head, base,
 branch, worktree, scope, or ownership identity. Use this documented shape
 without adding a larger mandatory schema unless tests demonstrate a need.
+
+The normalized pair must preserve the producer's absence semantics: a `missing`
+`predicted_shape` pairs only with `implementation_outcome: missing`; an
+`available` prediction pairs only with `held`, `falsified`, or `unavailable`.
+For a delegated ordinary split, pass the same ticket-level prediction and
+implementation outcome to every PR owner, with each returned observation bound
+to that PR's own exact head.
+
+Before accepting any terminal babysitter result, require its
+`lifecycle_observation` for the exact current PR head. It must echo
+`predicted_shape`, `implementation_outcome`, and `fired_trigger` unchanged;
+record reviewability and operator effort separately as `observed`, `uncertain`,
+or `missing`; and keep it explicitly non-gating with `non_gating: true`. Treat absent, stale-head,
+contradictory, or delivery-state-derived telemetry as a failed result mapping,
+never as successful delivery evidence. The independently verified delivery
+state and every existing PR gate remain authoritative.
 
 ## Policy and authority mapping
 
