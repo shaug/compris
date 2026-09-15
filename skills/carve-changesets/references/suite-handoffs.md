@@ -180,11 +180,11 @@ progress.
 | `closed`            | Return `blocked` with `PR closed without merge` unless a canonical replacement is independently verified; preserve partial artifacts.                                                                                                                                                                                                                                            |
 | `blocked`           | Return `blocked` with the concrete reason, exact candidate reached, preserved artifacts, and one action required to resume.                                                                                                                                                                                                                                                      |
 
-Every terminal handoff carries a literal `lifecycle_observations` slot. When
-one or more PRs were published, it contains one latest observation per PR bound
-to that PR's exact current head and marked `non_gating: true`. When no PR was
-published, spell absence exactly as `lifecycle_observations: []`. Delivery
-state and this telemetry remain sibling evidence; neither determines the other.
+Every terminal handoff carries a literal `lifecycle_observations` slot. When one
+or more PRs were published, it contains one latest observation per PR bound to
+that PR's exact current head and marked `non_gating: true`. When no PR was
+published, spell absence exactly as `lifecycle_observations: []`. Delivery state
+and this telemetry remain sibling evidence; neither determines the other.
 
 When propagation changes a downstream head or effective candidate, prior review,
 validation, CI, and feedback evidence is invalid. Rebuild the per-changeset

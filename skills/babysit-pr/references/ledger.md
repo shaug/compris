@@ -85,12 +85,12 @@ rewritten or truncated. Two kinds of line:
 
   `item_id` names what the entry is about, and its shape depends on `action`:
 
-  | `action`               | `item_id` names                                                                             | `terminal_result` vocabulary                      |
-  | ---------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-  | `feedback_disposition` | the review comment/thread id being dispositioned                                            | `fixed`, `rejected`, `not_applicable`, `deferred` |
-  | `retry`                | the exact head SHA the retry ran against (matches `gh_pr_watch`'s own `retries_by_sha` key) | `rerun`                                           |
-  | `fix_pushed`           | the new commit SHA                                                                          | `pushed`                                          |
-  | `lifecycle_observation` | the exact PR head SHA being observed                                                       | `ready_to_merge`, `merged`, `closed`, `blocked`   |
+  | `action`                | `item_id` names                                                                             | `terminal_result` vocabulary                      |
+  | ----------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+  | `feedback_disposition`  | the review comment/thread id being dispositioned                                            | `fixed`, `rejected`, `not_applicable`, `deferred` |
+  | `retry`                 | the exact head SHA the retry ran against (matches `gh_pr_watch`'s own `retries_by_sha` key) | `rerun`                                           |
+  | `fix_pushed`            | the new commit SHA                                                                          | `pushed`                                          |
+  | `lifecycle_observation` | the exact PR head SHA being observed                                                        | `ready_to_merge`, `merged`, `closed`, `blocked`   |
 
   `evidence` carries whatever identifiers let a later reader verify the claim
   against live state — the reply URL, the diagnosed run id, the commit — never a
@@ -112,14 +112,14 @@ rewritten or truncated. Two kinds of line:
   The predicted shape identity is either `available` with non-empty identity and
   source or `missing` with both values `null`. Implementation outcome is `held`,
   `falsified`, `missing`, or `unavailable`: a `missing` prediction requires the
-  `missing` outcome, while an `available` prediction permits `held`, `falsified`,
-  or `unavailable` and never `missing`. Reviewability and operator effort each
-  use `observed`, `uncertain`, or `missing`; `observed` and `uncertain` require
-  their concrete evidence, while `missing` requires `null`. A named pre-authored
-  trigger is preserved verbatim when the caller reports it as fired and is
-  `null` otherwise. Neither absence nor uncertainty is rewritten as success.
-  Delivery state remains in the entry's `terminal_result`, separate from the
-  telemetry.
+  `missing` outcome, while an `available` prediction permits `held`,
+  `falsified`, or `unavailable` and never `missing`. Reviewability and operator
+  effort each use `observed`, `uncertain`, or `missing`; `observed` and
+  `uncertain` require their concrete evidence, while `missing` requires `null`.
+  A named pre-authored trigger is preserved verbatim when the caller reports it
+  as fired and is `null` otherwise. Neither absence nor uncertainty is rewritten
+  as success. Delivery state remains in the entry's `terminal_result`, separate
+  from the telemetry.
 
   A `retry` entry's separate `head_sha` field must also be populated with that
   same SHA, not left `null`. `reconcile_with_watcher_state` keys strictly off

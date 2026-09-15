@@ -343,8 +343,8 @@ the compaction ledger's `observe` command. Bind both `item_id` and `head_sha` to
 the exact PR head the observation describes. Carry the caller-supplied predicted
 shape identity and source unchanged, or the explicit `missing` spelling. Record
 the implementation outcome beside the exact named pre-authored trigger that
-fired; when no trigger is available, record `null` rather than inferring one from
-the diff, review history, or delivery state.
+fired; when no trigger is available, record `null` rather than inferring one
+from the diff, review history, or delivery state.
 
 Record reviewability and operator effort separately. Each uses exactly one of
 `observed`, `uncertain`, or `missing`:
@@ -410,10 +410,10 @@ validation, repository-owned review, CI, retry, human/connector/comment/review/
 thread state, fixes and pushed heads, mergeability, merged/closed identity,
 head-bound non-gating lifecycle telemetry, deferred findings, mutation
 ownership, caller-owned follow-up, and one next action or blocker. When the most
-recent `review-fix-loop` delegation did not
-converge, report its exact retained local head and every unpushed commit
-prominently rather than folding them into a generic blocker line — the fix
-exists and is locally committed; it is simply not yet published. For example:
+recent `review-fix-loop` delegation did not converge, report its exact retained
+local head and every unpushed commit prominently rather than folding them into a
+generic blocker line — the fix exists and is locally committed; it is simply not
+yet published. For example:
 
 ```text
 terminal_state: ready_to_merge

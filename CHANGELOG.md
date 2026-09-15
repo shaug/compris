@@ -26,8 +26,7 @@ summary: Chronological history of repository and skill changes.
 
 - fix(implement-ticket): preserve valid real-model shape telemetry through
   normalization and exact modal voting so the forward grader can observe the
-  terminal shape the model returned.
-  (59c64026ce7ff90ad9ed8cf012e40a101286d095)
+  terminal shape the model returned. (59c64026ce7ff90ad9ed8cf012e40a101286d095)
 
 - feat(implement-ticket): report predicted and realized publication shape,
   binding held, falsified, and missing outcomes to the exact ticket, candidate,

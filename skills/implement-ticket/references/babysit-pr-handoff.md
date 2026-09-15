@@ -119,10 +119,10 @@ Before accepting any terminal babysitter result, require its
 `lifecycle_observation` for the exact current PR head. It must echo
 `predicted_shape`, `implementation_outcome`, and `fired_trigger` unchanged;
 record reviewability and operator effort separately as `observed`, `uncertain`,
-or `missing`; and keep it explicitly non-gating with `non_gating: true`. Treat absent, stale-head,
-contradictory, or delivery-state-derived telemetry as a failed result mapping,
-never as successful delivery evidence. The independently verified delivery
-state and every existing PR gate remain authoritative.
+or `missing`; and keep it explicitly non-gating with `non_gating: true`. Treat
+absent, stale-head, contradictory, or delivery-state-derived telemetry as a
+failed result mapping, never as successful delivery evidence. The independently
+verified delivery state and every existing PR gate remain authoritative.
 
 ## Policy and authority mapping
 
