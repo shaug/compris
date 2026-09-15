@@ -1056,6 +1056,57 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
 
         self.assertEqual([entry, entry], combined["acceptance_ledger"])
 
+    def test_shape_telemetry_survives_multiple_samples_and_reaches_the_grader(self):
+        telemetry = {
+            "ticket_id": "G-304H",
+            "prediction": {
+                "status": "available",
+                "identity": "G-304H:shape-v1",
+                "publication": "one_pr",
+                "source": "ticket contract",
+            },
+            "candidate_sha": "head-304h",
+            "publication_candidate_sha": "head-304h",
+            "actual": {
+                "path": "ordinary",
+                "publication_complete": True,
+                "artifacts": [
+                    {
+                        "kind": "pull_request",
+                        "id": "PR-3041",
+                        "head": "head-304h",
+                    }
+                ],
+            },
+            "comparison": "held",
+        }
+        sample = {
+            "target_skill": "implement-ticket",
+            "terminal_state": "ready_pr",
+            "actions": [],
+            "acceptance_ledger": [],
+            "shape_telemetry": telemetry,
+        }
+
+        combined = CLAUDE_EXECUTOR.combine(
+            [CLAUDE_EXECUTOR.normalize(sample) for _ in range(3)]
+        )
+
+        self.assertEqual(telemetry, combined["shape_telemetry"])
+        self.assertEqual(
+            [],
+            RUNNER.grade(
+                "shape-prediction-held",
+                combined,
+                {
+                    "target_skill": "implement-ticket",
+                    "terminal_state": "ready_pr",
+                    "required_actions": [],
+                    "forbidden_actions": [],
+                },
+            ),
+        )
+
     def test_an_unusable_sample_still_serializes(self):
         """One unusable sample grades as a mismatch; it does not end the run.
 

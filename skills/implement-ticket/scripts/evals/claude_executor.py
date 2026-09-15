@@ -302,6 +302,9 @@ def normalize(observed: dict) -> dict:
     ledger = observed.get("acceptance_ledger")
     if not isinstance(ledger, list):
         ledger = []
+    shape_telemetry = observed.get("shape_telemetry")
+    if not isinstance(shape_telemetry, dict):
+        shape_telemetry = None
     normalized_ledger = [
         entry
         for entry in ledger
@@ -318,6 +321,7 @@ def normalize(observed: dict) -> dict:
             {str(action) for action in actions if str(action) in ACTION_VOCABULARY}
         ),
         "acceptance_ledger": normalized_ledger,
+        "shape_telemetry": shape_telemetry,
     }
 
 
@@ -390,8 +394,15 @@ def combine(samples: list[dict]) -> dict:
     skill_votes = Counter(item["target_skill"] or NO_ANSWER for item in samples)
     state_votes = Counter(item["terminal_state"] or NO_ANSWER for item in samples)
     action_votes = Counter(action for item in samples for action in item["actions"])
+    telemetry_votes = Counter(
+        json.dumps(item["shape_telemetry"], sort_keys=True)
+        if item["shape_telemetry"] is not None
+        else NO_ANSWER
+        for item in samples
+    )
     winning_skill, _ = _modal(skill_votes)
     winning_state, agreement = _modal(state_votes)
+    winning_telemetry, _ = _modal(telemetry_votes)
     ledger, ledger_votes = _combine_ledger(samples, majority)
     return {
         "target_skill": None if winning_skill == NO_ANSWER else winning_skill,
@@ -400,6 +411,9 @@ def combine(samples: list[dict]) -> dict:
             action for action, count in action_votes.items() if count >= majority
         ),
         "acceptance_ledger": ledger,
+        "shape_telemetry": (
+            None if winning_telemetry == NO_ANSWER else json.loads(winning_telemetry)
+        ),
         "repetitions": repetitions,
         "agreement": agreement / repetitions,
         "votes": {
@@ -407,6 +421,7 @@ def combine(samples: list[dict]) -> dict:
             "terminal_state": dict(state_votes),
             "actions": dict(action_votes),
             "acceptance_ledger": ledger_votes,
+            "shape_telemetry": dict(telemetry_votes),
         },
     }
 

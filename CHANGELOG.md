@@ -6,6 +6,10 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-14 — Made publication-shape predictions observable outcomes
 
+- fix(implement-ticket): preserve valid real-model shape telemetry through
+  normalization and exact modal voting so the forward grader can observe the
+  terminal shape the model returned.
+
 - feat(implement-ticket): report predicted and realized publication shape,
   binding held, falsified, and missing outcomes to the exact ticket, candidate,
   and publication artifacts without turning telemetry into a delivery gate.
