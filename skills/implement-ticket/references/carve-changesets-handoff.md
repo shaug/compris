@@ -128,7 +128,10 @@ handoff.
 - `prs_open` maps to `ready_prs` only when every changeset PR is open and
   correctly based, every applicable current-candidate non-merge gate passes,
   final-only closing syntax is verified, whole-chain equivalence holds, merge is
-  withheld, and ownership is consistent.
+  withheld, and ownership is consistent. Include one `lifecycle_observation` per published PR.
+  Each observation is bound to its exact current PR head and explicitly
+  non-gating with `non_gating: true`; a missing or stale observation blocks the
+  mapping without changing delivery state.
 - `all_merged` maps to `merged` only after `implement-ticket` independently
   verifies every sequential merge and propagation step, complete representation
   and required validation on the base, the expected ticket transition, and

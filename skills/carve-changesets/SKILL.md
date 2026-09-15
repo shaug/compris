@@ -297,7 +297,8 @@ source, complete lineage, base, chain, and PR candidates:
   validation and clean review, whole-chain equivalence, and no new publication.
 - `prs_open`: all `chain_ready` evidence plus exact remote heads, correctly
   based open PRs, current metadata, applicable non-merge gates, and merge
-  withheld.
+  withheld. Include one `lifecycle_observation` per published PR, each bound to
+  its exact current PR head and explicitly non-gating with `non_gating: true`.
 - `all_merged`: every exact PR verified merged on the base, propagation and
   final equivalence with the active immutable source verified, required
   validation passing, and cleanup complete or precisely limited.

@@ -144,6 +144,18 @@ class CarveChangesetsContractTests(unittest.TestCase):
         ):
             self.assertIn(required, self.suite_handoffs)
 
+    def test_prs_open_terminal_handoff_returns_each_lifecycle_observation(self):
+        terminal = self.skill.split("## Return one terminal handoff", 1)[1]
+        prs_open = compact(
+            terminal.split("- `prs_open`:", 1)[1].split("- `all_merged`:", 1)[0]
+        )
+        for required in (
+            "one `lifecycle_observation` per published PR",
+            "exact current PR head",
+            "`non_gating: true`",
+        ):
+            self.assertIn(required, prs_open)
+
     def test_tier_guidance_names_no_product_or_model(self):
         for banned in ("gpt", "claude-", "opus", "sonnet", "haiku", "gemini"):
             self.assertNotIn(banned, self.skill.lower())

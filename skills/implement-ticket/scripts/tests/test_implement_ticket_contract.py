@@ -914,6 +914,20 @@ class ImplementTicketContractTests(unittest.TestCase):
         ):
             self.assertIn(required, contract)
 
+    def test_carved_ready_prs_mapping_requires_each_lifecycle_observation(self):
+        mapping = self.carve_handoff.split("## Terminal-result mapping", 1)[1]
+        prs_open = compact(
+            mapping.split("- `prs_open` maps to `ready_prs`", 1)[1].split(
+                "- `all_merged` maps to `merged`", 1
+            )[0]
+        )
+        for required in (
+            "one `lifecycle_observation` per published PR",
+            "exact current PR head",
+            "`non_gating: true`",
+        ):
+            self.assertIn(required, prs_open)
+
     def test_shape_telemetry_does_not_expand_delegated_protocol(self):
         delegated_root = SKILL_ROOT / "references" / "delegated-execution"
         delegated_contract = read(delegated_root / "CONTRACT.md")
