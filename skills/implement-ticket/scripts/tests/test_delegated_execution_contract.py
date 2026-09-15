@@ -719,6 +719,22 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             self.validator.validate("result", value),
         )
 
+    def test_complete_publication_binds_final_head_for_blocked_result(self) -> None:
+        value = result()
+        value["terminal_state"] = "blocked"
+        value["blocking_reason"] = "publication acknowledgement failed"
+        value["candidate"]["head_sha"] = SHA_C
+        value["shape_telemetry"]["publication_candidate_sha"] = SHA_C
+        value["acceptance_evidence"][0]["candidate_sha"] = SHA_C
+        for observation in value["validation"] + value["reviews"]:
+            observation["candidate_sha"] = SHA_C
+        value["feedback"]["candidate_sha"] = SHA_C
+
+        self.assertIn(
+            "$.candidate.publication: complete topology must end at publication candidate",
+            self.validator.validate("result", value),
+        )
+
     def test_unknown_invocation_field_fails_closed(self) -> None:
         value = invocation()
         value["coordinator"] = "atelier"

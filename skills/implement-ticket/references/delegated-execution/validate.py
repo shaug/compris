@@ -361,6 +361,14 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
                 errors.append(
                     "$.shape_telemetry.publication_complete: requires publication artifacts"
                 )
+            if (
+                shape["publication_complete"]
+                and pull_requests
+                and pull_requests[-1]["head_sha"] != candidate["head_sha"]
+            ):
+                errors.append(
+                    "$.candidate.publication: complete topology must end at publication candidate"
+                )
 
             if prediction["status"] == "available":
                 expected_comparison = "unavailable"
