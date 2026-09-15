@@ -88,9 +88,8 @@ before return. Otherwise include every applicable field:
   missing. A carved publication falsifies a one-PR prediction; it is not a
   doctrine violation. Do not invent a prediction or fired trigger. This evidence
   never changes delivery gates, authority, or terminal-state mapping. Omit it
-  for a standalone `requires_epic` handoff; a v3 delegated result sets
-  `shape_telemetry` to `null`. A retained v2 delegated result uses its published
-  pre-telemetry shape and omits this field;
+  for a standalone `requires_epic` handoff. This standalone handoff evidence
+  does not change the delegated-execution result shape;
 - delivery state separately from tracker/acceptance state;
 - the readiness gate's re-check of the ticket's stated assumptions: which still
   hold, and which could not be checked from the tree — `none` when the ticket

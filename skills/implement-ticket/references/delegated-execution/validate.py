@@ -18,45 +18,6 @@ SCHEMAS = {
     "checkpoint-response": HERE / "checkpoint-response.schema.json",
     "result": HERE / "result.schema.json",
 }
-SCHEMA_VERSIONS = {
-    "capability": {
-        "compris.implement-ticket/capability-manifest/v2": SCHEMAS["capability"],
-        "compris.implement-ticket/capability-manifest/v3": (
-            HERE / "capability-v3.schema.json"
-        ),
-    },
-    "invocation": {
-        "compris.implement-ticket/delegated-invocation/v2": SCHEMAS["invocation"],
-        "compris.implement-ticket/delegated-invocation/v3": (
-            HERE / "invocation-v3.schema.json"
-        ),
-    },
-    "checkpoint-request": {
-        "compris.implement-ticket/checkpoint-request/v2": SCHEMAS["checkpoint-request"],
-        "compris.implement-ticket/checkpoint-request/v3": (
-            HERE / "checkpoint-request-v3.schema.json"
-        ),
-    },
-    "checkpoint-response": {
-        "compris.implement-ticket/checkpoint-response/v2": SCHEMAS[
-            "checkpoint-response"
-        ],
-        "compris.implement-ticket/checkpoint-response/v3": (
-            HERE / "checkpoint-response-v3.schema.json"
-        ),
-    },
-    "result": {
-        "compris.implement-ticket/delegated-result/v2": SCHEMAS["result"],
-        "compris.implement-ticket/delegated-result/v3": (
-            HERE / "result-v3.schema.json"
-        ),
-    },
-}
-PROTOCOL_VERSIONS = {
-    schema_id: schema_id.rsplit("/", 1)[-1]
-    for versions in SCHEMA_VERSIONS.values()
-    for schema_id in versions
-}
 
 CANDIDATE_REQUIRED_ACTIONS = {
     "repository.candidate.push",
@@ -106,12 +67,6 @@ def _resolve_ref(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]
         raise ValueError(f"unsupported schema reference: {reference}")
     name = reference.removeprefix("#/$defs/")
     return root["$defs"][name]
-
-
-def _schema_for(kind: str, value: dict[str, Any]) -> dict[str, Any]:
-    schema_id = value.get("schema")
-    path = SCHEMA_VERSIONS[kind].get(schema_id, SCHEMAS[kind])
-    return json.loads(path.read_text())
 
 
 def validate_schema(
@@ -250,207 +205,6 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
     authority_used = set(value.get("authority_used", []))
     acceptance = value.get("acceptance_evidence", [])
     tracker_transition = value.get("tracker_transition", {})
-    shape = value.get("shape_telemetry")
-
-    if value.get("schema") != "compris.implement-ticket/delegated-result/v3":
-        pass
-    elif terminal == "requires_epic":
-        if shape is not None:
-            errors.append("$.shape_telemetry: requires_epic requires null")
-    elif shape is None:
-        errors.append(
-            "$.shape_telemetry: every non-requires_epic terminal requires telemetry"
-        )
-    else:
-        expected_ticket = {
-            "provider": value.get("ticket", {}).get("provider"),
-            "id": value.get("ticket", {}).get("id"),
-        }
-        if shape["ticket"] != expected_ticket:
-            errors.append("$.shape_telemetry.ticket: does not match result ticket")
-
-        prediction = shape["prediction"]
-        if prediction["status"] == "available":
-            if not prediction["identity"] or not prediction["source"]:
-                errors.append(
-                    "$.shape_telemetry.prediction: available requires identity and source"
-                )
-            if shape["comparison"] == "missing":
-                errors.append(
-                    "$.shape_telemetry.comparison: available prediction forbids missing"
-                )
-        else:
-            if (
-                prediction["identity"] is not None
-                or prediction["source"] is not None
-                or prediction["re_split_triggers"]
-            ):
-                errors.append(
-                    "$.shape_telemetry.prediction: missing requires null identity and source and no re-split triggers"
-                )
-            if shape["comparison"] != "missing":
-                errors.append(
-                    "$.shape_telemetry.comparison: missing prediction requires missing"
-                )
-
-        artifacts = shape["publication_artifacts"]
-        changesets = shape["changesets"]
-        if candidate is None:
-            if implementation == "local" and shape["candidate_sha"] is None:
-                errors.append(
-                    "$.shape_telemetry.candidate_sha: local implementation requires exact source candidate"
-                )
-            elif implementation != "local" and shape["candidate_sha"] is not None:
-                errors.append(
-                    "$.shape_telemetry.candidate_sha: no implementation requires null"
-                )
-            if shape["publication_candidate_sha"] is not None:
-                errors.append(
-                    "$.shape_telemetry.publication_candidate_sha: absent publication candidate requires null"
-                )
-            if shape["actual_path"] is not None or artifacts or changesets:
-                errors.append(
-                    "$.shape_telemetry: absent candidate forbids publication identities"
-                )
-            if shape["publication_complete"]:
-                errors.append(
-                    "$.shape_telemetry.publication_complete: absent candidate requires false"
-                )
-            if shape["comparison"] not in {"missing", "unavailable"}:
-                errors.append(
-                    "$.shape_telemetry.comparison: absent candidate is not observable"
-                )
-        else:
-            if shape["candidate_sha"] != candidate["source_head_sha"]:
-                errors.append(
-                    "$.shape_telemetry.candidate_sha: does not match source candidate"
-                )
-            if shape["publication_candidate_sha"] != candidate["head_sha"]:
-                errors.append(
-                    "$.shape_telemetry.publication_candidate_sha: does not match publication candidate"
-                )
-            pull_requests = candidate["publication"]["pull_requests"]
-            expected_path = None
-            if pull_requests:
-                expected_path = (
-                    "ordinary"
-                    if candidate["publication"]["kind"] == "ordinary"
-                    else "carved"
-                )
-            if shape["actual_path"] != expected_path:
-                errors.append(
-                    "$.shape_telemetry.actual_path: does not match candidate publication"
-                )
-            expected_artifacts = [
-                {"id": item["id"], "head_sha": item["head_sha"]}
-                for item in candidate["publication"]["pull_requests"]
-            ]
-            if artifacts != expected_artifacts:
-                errors.append(
-                    "$.shape_telemetry.publication_artifacts: do not match candidate publication"
-                )
-
-            if (
-                terminal in {"ready_pr", "ready_prs", "merged"}
-                and not shape["publication_complete"]
-            ):
-                errors.append(
-                    "$.shape_telemetry.publication_complete: delivery terminal requires true"
-                )
-            if shape["publication_complete"] and not pull_requests:
-                errors.append(
-                    "$.shape_telemetry.publication_complete: requires publication artifacts"
-                )
-            if (
-                shape["publication_complete"]
-                and pull_requests
-                and pull_requests[-1]["head_sha"] != candidate["head_sha"]
-            ):
-                errors.append(
-                    "$.candidate.publication: complete topology must end at publication candidate"
-                )
-
-            if prediction["status"] == "available":
-                expected_comparison = "unavailable"
-                if (
-                    shape["publication_complete"]
-                    and expected_path == "ordinary"
-                    and len(artifacts) == 1
-                ):
-                    expected_comparison = "held"
-                elif (
-                    shape["publication_complete"]
-                    and expected_path in {"ordinary", "carved"}
-                    and artifacts
-                ):
-                    expected_comparison = "falsified"
-                if shape["comparison"] != expected_comparison:
-                    errors.append(
-                        "$.shape_telemetry.comparison: does not match observed publication topology"
-                    )
-
-        if shape["actual_path"] == "ordinary":
-            if shape["fired_trigger"] is not None or changesets:
-                errors.append(
-                    "$.shape_telemetry: ordinary publication forbids carved trigger and changesets"
-                )
-        elif shape["actual_path"] == "carved":
-            if not shape["fired_trigger"]:
-                errors.append(
-                    "$.shape_telemetry: carved publication requires fired trigger"
-                )
-            elif (
-                prediction["status"] == "available"
-                and shape["fired_trigger"] not in prediction["re_split_triggers"]
-            ):
-                errors.append(
-                    "$.shape_telemetry.fired_trigger: does not match an authored re-split trigger"
-                )
-            changeset_ids = [item["id"] for item in changesets]
-            duplicate_changeset_ids = sorted(
-                {
-                    changeset_id
-                    for changeset_id in changeset_ids
-                    if changeset_ids.count(changeset_id) > 1
-                }
-            )
-            if duplicate_changeset_ids:
-                errors.append(
-                    "$.shape_telemetry.changesets: duplicate changeset identities "
-                    + ", ".join(duplicate_changeset_ids)
-                )
-            change_artifacts = [
-                {"id": item["pull_request_id"], "head_sha": item["head_sha"]}
-                for item in changesets
-            ]
-            if change_artifacts != artifacts:
-                errors.append(
-                    "$.shape_telemetry.changesets: do not bind every publication artifact"
-                )
-        elif shape["fired_trigger"] is not None or changesets:
-            errors.append(
-                "$.shape_telemetry: unavailable publication forbids carved trigger and changesets"
-            )
-
-        if shape["comparison"] == "held":
-            if (
-                prediction["status"] != "available"
-                or shape["actual_path"] != "ordinary"
-                or len(artifacts) != 1
-                or not shape["publication_complete"]
-            ):
-                errors.append(
-                    "$.shape_telemetry.comparison: held requires one ordinary artifact and an available prediction"
-                )
-        if shape["comparison"] == "falsified":
-            if (
-                prediction["status"] != "available"
-                or not artifacts
-                or not shape["publication_complete"]
-            ):
-                errors.append(
-                    "$.shape_telemetry.comparison: falsified requires an available prediction and publication artifacts"
-                )
 
     for collection in ("validation", "reviews"):
         names = [observation["name"] for observation in value[collection]]
@@ -660,15 +414,6 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
             errors.append("$.candidate.publication: merged requires merged PRs")
         if terminal == "merged" and not pull_requests:
             errors.append("$.candidate.publication: merged requires at least one PR")
-        if (
-            terminal == "merged"
-            and value["schema"] == "compris.implement-ticket/delegated-result/v3"
-            and kind == "ordinary"
-            and len(pull_requests) > 1
-        ):
-            errors.append(
-                "$.candidate.publication: v3 merged forbids an ordinary multi-PR publication"
-            )
         if terminal in {"ready_prs", "merged"} and pull_requests:
             if pull_requests[-1]["head_sha"] != candidate["head_sha"]:
                 errors.append(
@@ -702,10 +447,7 @@ SEMANTIC_VALIDATORS = {
 
 def validate(kind: str, value: dict[str, Any]) -> list[str]:
     """Validate one delegated execution protocol object."""
-    schema_id = value.get("schema")
-    if schema_id is not None and schema_id not in SCHEMA_VERSIONS[kind]:
-        return [f"$.schema: unsupported {kind} schema {schema_id!r}"]
-    schema = _schema_for(kind, value)
+    schema = json.loads(SCHEMAS[kind].read_text())
     errors = validate_schema(value, schema, schema)
     if not errors:
         errors.extend(SEMANTIC_VALIDATORS[kind](value))
@@ -720,9 +462,6 @@ def validate_checkpoint_exchange(
     errors = validate("checkpoint-request", request)
     errors.extend(validate("checkpoint-response", response))
     if errors:
-        return errors
-    if PROTOCOL_VERSIONS[request["schema"]] != PROTOCOL_VERSIONS[response["schema"]]:
-        errors.append("$.schema: checkpoint protocol version does not match request")
         return errors
     comparisons = (
         ("invocation_id", "invocation_id"),
@@ -783,16 +522,8 @@ def validate_result_for_invocation(
     """Validate a terminal result against its invocation and caller observations."""
     errors = validate("invocation", invocation)
     errors.extend(validate("result", result))
-    invocation_version = PROTOCOL_VERSIONS.get(invocation.get("schema"))
-    if observed_deployment is not None and invocation_version is not None:
-        response_schema = _schema_for(
-            "checkpoint-response",
-            {
-                "schema": (
-                    "compris.implement-ticket/checkpoint-response/" + invocation_version
-                )
-            },
-        )
+    if observed_deployment is not None:
+        response_schema = json.loads(SCHEMAS["checkpoint-response"].read_text())
         errors.extend(
             validate_schema(
                 observed_deployment,
@@ -801,7 +532,7 @@ def validate_result_for_invocation(
                 "$.observed_deployment",
             )
         )
-    result_schema = _schema_for("result", result)
+    result_schema = json.loads(SCHEMAS["result"].read_text())
     if observed_tracker is not None:
         errors.extend(
             validate_schema(
@@ -822,8 +553,6 @@ def validate_result_for_invocation(
         )
     if errors:
         return errors
-    if PROTOCOL_VERSIONS[invocation["schema"]] != PROTOCOL_VERSIONS[result["schema"]]:
-        return ["$.schema: result protocol version does not match invocation"]
     if result["invocation_id"] != invocation["invocation_id"]:
         errors.append("$.invocation_id: does not match invocation")
     if result["terminal_state"] not in invocation["accepted_terminal_states"]:

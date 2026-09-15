@@ -14,7 +14,6 @@ CONTRACT_ROOT = SKILL_ROOT / "references" / "delegated-execution"
 SHA_A = "a" * 40
 SHA_B = "b" * 40
 SHA_C = "c" * 40
-SHA_D = "d" * 40
 
 
 def load_validator() -> ModuleType:
@@ -31,8 +30,8 @@ def load_validator() -> ModuleType:
 
 def invocation() -> dict[str, object]:
     return {
-        "schema": "compris.implement-ticket/delegated-invocation/v3",
-        "capability": "compris.implement-ticket/delegated-execution/v3",
+        "schema": "compris.implement-ticket/delegated-invocation/v2",
+        "capability": "compris.implement-ticket/delegated-execution/v2",
         "invocation_id": "run-123",
         "ticket": {
             "provider": "github",
@@ -104,7 +103,6 @@ def candidate(kind: str = "ordinary") -> dict[str, object]:
         "remote_url": "git@github.com:example/project.git",
         "remote_ref": "refs/heads/example-work",
         "base_sha": SHA_A,
-        "source_head_sha": SHA_B,
         "head_sha": SHA_B,
         "publication": {
             "kind": kind,
@@ -126,8 +124,8 @@ def candidate(kind: str = "ordinary") -> dict[str, object]:
 def result() -> dict[str, object]:
     source = invocation()
     return {
-        "schema": "compris.implement-ticket/delegated-result/v3",
-        "capability": "compris.implement-ticket/delegated-execution/v3",
+        "schema": "compris.implement-ticket/delegated-result/v2",
+        "capability": "compris.implement-ticket/delegated-execution/v2",
         "invocation_id": "run-123",
         "terminal_state": "ready_pr",
         "ticket": source["ticket"],
@@ -145,23 +143,6 @@ def result() -> dict[str, object]:
             "observed_at": "2026-07-25T12:11:30Z",
         },
         "candidate": candidate(),
-        "shape_telemetry": {
-            "prediction": {
-                "status": "available",
-                "identity": "one cognitively shaped changeset / one PR",
-                "source": "ticket 123",
-                "re_split_triggers": ["review surface exceeded the authored boundary"],
-            },
-            "actual_path": "ordinary",
-            "comparison": "held",
-            "ticket": {"provider": "github", "id": "123"},
-            "candidate_sha": SHA_B,
-            "publication_candidate_sha": SHA_B,
-            "publication_complete": True,
-            "publication_artifacts": [{"id": "456", "head_sha": SHA_B}],
-            "fired_trigger": None,
-            "changesets": [],
-        },
         "handoff": {"transferable": True, "reason": None},
         "checkpoint": {
             "last_sequence": 4,
@@ -213,24 +194,6 @@ def result() -> dict[str, object]:
     }
 
 
-def v2_result() -> dict[str, object]:
-    """Return the terminal result shape published before telemetry existed."""
-    value = result()
-    value["schema"] = "compris.implement-ticket/delegated-result/v2"
-    value["capability"] = "compris.implement-ticket/delegated-execution/v2"
-    value.pop("shape_telemetry")
-    value["candidate"].pop("source_head_sha")
-    return value
-
-
-def v2_invocation() -> dict[str, object]:
-    """Return the invocation shape paired with the retained v2 result."""
-    value = invocation()
-    value["schema"] = "compris.implement-ticket/delegated-invocation/v2"
-    value["capability"] = "compris.implement-ticket/delegated-execution/v2"
-    return value
-
-
 def record_tracker_transition(
     value: dict[str, object],
     source: dict[str, object] | None = None,
@@ -253,10 +216,9 @@ def record_tracker_transition(
 def checkpoint_request(phase: str = "pre_external_mutation") -> dict[str, object]:
     published_candidate = candidate()
     published_candidate.pop("publication")
-    published_candidate.pop("source_head_sha")
     return {
-        "schema": "compris.implement-ticket/checkpoint-request/v3",
-        "capability": "compris.implement-ticket/delegated-execution/v3",
+        "schema": "compris.implement-ticket/checkpoint-request/v2",
+        "capability": "compris.implement-ticket/delegated-execution/v2",
         "invocation_id": "run-123",
         "continuation_token": "token-1",
         "sequence": 2,
@@ -271,7 +233,7 @@ def checkpoint_request(phase: str = "pre_external_mutation") -> dict[str, object
 
 def checkpoint_response() -> dict[str, object]:
     return {
-        "schema": "compris.implement-ticket/checkpoint-response/v3",
+        "schema": "compris.implement-ticket/checkpoint-response/v2",
         "invocation_id": "run-123",
         "request_sequence": 2,
         "prior_continuation_token": "token-1",
@@ -291,25 +253,12 @@ class DelegatedExecutionContractTest(unittest.TestCase):
     def test_all_contract_files_are_valid_json_or_documented_markdown(self) -> None:
         for path in CONTRACT_ROOT.glob("*.schema.json"):
             self.assertIsInstance(json.loads(path.read_text()), dict)
-        manifests = {
-            "capability.json": {
-                "id": "compris.implement-ticket/delegated-execution/v2",
-                "result_schema": "result.schema.json",
-            },
-            "capability-v3.json": {
-                "id": "compris.implement-ticket/delegated-execution/v3",
-                "result_schema": "result-v3.schema.json",
-            },
-        }
-        for manifest_name, expected in manifests.items():
-            manifest = json.loads((CONTRACT_ROOT / manifest_name).read_text())
-            self.assertEqual([], self.validator.validate("capability", manifest))
-            self.assertEqual(expected["id"], manifest["id"])
-            self.assertEqual(expected["result_schema"], manifest["result_schema"])
-            self.assertEqual("validate.py", manifest["validator"])
-        contract = (CONTRACT_ROOT / "CONTRACT.md").read_text()
-        self.assertIn("compris.implement-ticket/delegated-execution/v2", contract)
-        self.assertIn("compris.implement-ticket/delegated-execution/v3", contract)
+        manifest = json.loads((CONTRACT_ROOT / "capability.json").read_text())
+        self.assertEqual([], self.validator.validate("capability", manifest))
+        self.assertIn(
+            "compris.implement-ticket/delegated-execution/v2",
+            (CONTRACT_ROOT / "CONTRACT.md").read_text(),
+        )
 
     def test_valid_invocation_and_result_match(self) -> None:
         source = invocation()
@@ -326,413 +275,6 @@ class DelegatedExecutionContractTest(unittest.TestCase):
         self.assertEqual(
             [],
             self.validator.validate_result_for_invocation(source, value),
-        )
-
-    def test_pre_telemetry_v2_result_remains_valid(self) -> None:
-        self.assertEqual([], self.validator.validate("result", v2_result()))
-
-        source = v2_invocation()
-        source["validation"] = ["just test"]
-        self.assertEqual(
-            [],
-            self.validator.validate_result_for_invocation(source, v2_result()),
-        )
-
-    def test_result_versions_reject_incompatible_shapes(self) -> None:
-        telemetry_as_v2 = result()
-        telemetry_as_v2["schema"] = "compris.implement-ticket/delegated-result/v2"
-        telemetry_as_v2["capability"] = (
-            "compris.implement-ticket/delegated-execution/v2"
-        )
-        self.assertIn(
-            "$.shape_telemetry: unknown property",
-            self.validator.validate("result", telemetry_as_v2),
-        )
-
-        legacy_as_v3 = v2_result()
-        legacy_as_v3["schema"] = "compris.implement-ticket/delegated-result/v3"
-        legacy_as_v3["capability"] = "compris.implement-ticket/delegated-execution/v3"
-        self.assertIn(
-            "$: missing required property 'shape_telemetry'",
-            self.validator.validate("result", legacy_as_v3),
-        )
-
-    def test_result_version_must_match_invocation_version(self) -> None:
-        source = v2_invocation()
-        source["validation"] = ["just test"]
-        self.assertEqual([], self.validator.validate("invocation", source))
-        self.assertEqual([], self.validator.validate("result", result()))
-        self.assertEqual(
-            ["$.schema: result protocol version does not match invocation"],
-            self.validator.validate_result_for_invocation(source, result()),
-        )
-
-    def test_unsupported_result_version_fails_clearly(self) -> None:
-        value = result()
-        value["schema"] = "compris.implement-ticket/delegated-result/v4"
-        self.assertEqual(
-            [
-                "$.schema: unsupported result schema "
-                "'compris.implement-ticket/delegated-result/v4'"
-            ],
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_accepts_held_missing_and_unavailable(self) -> None:
-        held = result()
-        self.assertEqual([], self.validator.validate("result", held))
-
-        missing = result()
-        missing["shape_telemetry"].update(
-            {
-                "prediction": {
-                    "status": "missing",
-                    "identity": None,
-                    "source": None,
-                    "re_split_triggers": [],
-                },
-                "comparison": "missing",
-            }
-        )
-        self.assertEqual([], self.validator.validate("result", missing))
-
-        unavailable = result()
-        unavailable.update(
-            {
-                "terminal_state": "blocked",
-                "implementation_state": "local",
-                "candidate": None,
-                "handoff": {
-                    "transferable": False,
-                    "reason": "publication was not authorized",
-                },
-                "blocking_reason": "publication was not authorized",
-            }
-        )
-        unavailable["authority_used"] = ["repository.candidate.create"]
-        unavailable["shape_telemetry"].update(
-            {
-                "actual_path": None,
-                "comparison": "unavailable",
-                "candidate_sha": SHA_B,
-                "publication_candidate_sha": None,
-                "publication_complete": False,
-                "publication_artifacts": [],
-            }
-        )
-        self.assertEqual([], self.validator.validate("result", unavailable))
-
-    def test_shape_telemetry_accepts_bound_carved_falsification(self) -> None:
-        value = result()
-        value["terminal_state"] = "ready_prs"
-        value["candidate"]["source_head_sha"] = SHA_D
-        value["candidate"]["publication"] = {
-            "kind": "stack",
-            "pull_requests": [
-                {
-                    "id": "455",
-                    "url": "https://github.com/example/project/pull/455",
-                    "base_ref": "refs/heads/main",
-                    "base_sha": SHA_A,
-                    "head_ref": "refs/heads/example-work-1",
-                    "head_sha": SHA_C,
-                    "state": "open",
-                },
-                {
-                    "id": "456",
-                    "url": "https://github.com/example/project/pull/456",
-                    "base_ref": "refs/heads/example-work-1",
-                    "base_sha": SHA_C,
-                    "head_ref": "refs/heads/example-work",
-                    "head_sha": SHA_B,
-                    "state": "open",
-                },
-            ],
-        }
-        value["shape_telemetry"].update(
-            {
-                "actual_path": "carved",
-                "comparison": "falsified",
-                "candidate_sha": SHA_D,
-                "publication_artifacts": [
-                    {"id": "455", "head_sha": SHA_C},
-                    {"id": "456", "head_sha": SHA_B},
-                ],
-                "fired_trigger": "review surface exceeded the authored boundary",
-                "changesets": [
-                    {
-                        "id": "contract",
-                        "pull_request_id": "455",
-                        "head_sha": SHA_C,
-                    },
-                    {
-                        "id": "implementation",
-                        "pull_request_id": "456",
-                        "head_sha": SHA_B,
-                    },
-                ],
-            }
-        )
-        self.assertEqual([], self.validator.validate("result", value))
-
-        value["shape_telemetry"]["fired_trigger"] = None
-        self.assertIn(
-            "$.shape_telemetry: carved publication requires fired trigger",
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_binds_carved_trigger_when_prediction_is_missing(
-        self,
-    ) -> None:
-        value = result()
-        value["terminal_state"] = "ready_prs"
-        value["candidate"]["source_head_sha"] = SHA_D
-        value["candidate"]["publication"] = {
-            "kind": "stack",
-            "pull_requests": [
-                {
-                    "id": "455",
-                    "url": "https://github.com/example/project/pull/455",
-                    "base_ref": "refs/heads/main",
-                    "base_sha": SHA_A,
-                    "head_ref": "refs/heads/example-work-1",
-                    "head_sha": SHA_C,
-                    "state": "open",
-                },
-                {
-                    "id": "456",
-                    "url": "https://github.com/example/project/pull/456",
-                    "base_ref": "refs/heads/example-work-1",
-                    "base_sha": SHA_C,
-                    "head_ref": "refs/heads/example-work",
-                    "head_sha": SHA_B,
-                    "state": "open",
-                },
-            ],
-        }
-        value["shape_telemetry"].update(
-            {
-                "prediction": {
-                    "status": "missing",
-                    "identity": None,
-                    "source": None,
-                    "re_split_triggers": [],
-                },
-                "actual_path": "carved",
-                "comparison": "missing",
-                "candidate_sha": SHA_D,
-                "publication_artifacts": [
-                    {"id": "455", "head_sha": SHA_C},
-                    {"id": "456", "head_sha": SHA_B},
-                ],
-                "fired_trigger": "review surface exceeded the authored boundary",
-                "changesets": [
-                    {"id": "contract", "pull_request_id": "455", "head_sha": SHA_C},
-                    {
-                        "id": "implementation",
-                        "pull_request_id": "456",
-                        "head_sha": SHA_B,
-                    },
-                ],
-            }
-        )
-        self.assertEqual([], self.validator.validate("result", value))
-
-        value["shape_telemetry"]["fired_trigger"] = None
-        self.assertIn(
-            "$.shape_telemetry: carved publication requires fired trigger",
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_rejects_carved_trigger_outside_prediction(self) -> None:
-        value = result()
-        value["terminal_state"] = "ready_prs"
-        value["candidate"]["source_head_sha"] = SHA_D
-        value["candidate"]["publication"] = {
-            "kind": "stack",
-            "pull_requests": [
-                {
-                    "id": "455",
-                    "url": "https://github.com/example/project/pull/455",
-                    "base_ref": "refs/heads/main",
-                    "base_sha": SHA_A,
-                    "head_ref": "refs/heads/example-work-1",
-                    "head_sha": SHA_C,
-                    "state": "open",
-                },
-                {
-                    "id": "456",
-                    "url": "https://github.com/example/project/pull/456",
-                    "base_ref": "refs/heads/example-work-1",
-                    "base_sha": SHA_C,
-                    "head_ref": "refs/heads/example-work",
-                    "head_sha": SHA_B,
-                    "state": "open",
-                },
-            ],
-        }
-        value["shape_telemetry"].update(
-            {
-                "actual_path": "carved",
-                "comparison": "falsified",
-                "candidate_sha": SHA_D,
-                "publication_artifacts": [
-                    {"id": "455", "head_sha": SHA_C},
-                    {"id": "456", "head_sha": SHA_B},
-                ],
-                "fired_trigger": "an invented post-hoc trigger",
-                "changesets": [
-                    {"id": "contract", "pull_request_id": "455", "head_sha": SHA_C},
-                    {
-                        "id": "implementation",
-                        "pull_request_id": "456",
-                        "head_sha": SHA_B,
-                    },
-                ],
-            }
-        )
-        self.assertIn(
-            "$.shape_telemetry.fired_trigger: does not match an authored re-split trigger",
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_rejects_duplicate_changeset_identities(self) -> None:
-        value = result()
-        value["terminal_state"] = "ready_prs"
-        value["candidate"]["source_head_sha"] = SHA_D
-        value["candidate"]["publication"] = {
-            "kind": "stack",
-            "pull_requests": [
-                {
-                    "id": "455",
-                    "url": "https://github.com/example/project/pull/455",
-                    "base_ref": "refs/heads/main",
-                    "base_sha": SHA_A,
-                    "head_ref": "refs/heads/example-work-1",
-                    "head_sha": SHA_C,
-                    "state": "open",
-                },
-                {
-                    "id": "456",
-                    "url": "https://github.com/example/project/pull/456",
-                    "base_ref": "refs/heads/example-work-1",
-                    "base_sha": SHA_C,
-                    "head_ref": "refs/heads/example-work",
-                    "head_sha": SHA_B,
-                    "state": "open",
-                },
-            ],
-        }
-        value["shape_telemetry"].update(
-            {
-                "actual_path": "carved",
-                "comparison": "falsified",
-                "candidate_sha": SHA_D,
-                "publication_artifacts": [
-                    {"id": "455", "head_sha": SHA_C},
-                    {"id": "456", "head_sha": SHA_B},
-                ],
-                "fired_trigger": "review surface exceeded the authored boundary",
-                "changesets": [
-                    {"id": "same", "pull_request_id": "455", "head_sha": SHA_C},
-                    {"id": "same", "pull_request_id": "456", "head_sha": SHA_B},
-                ],
-            }
-        )
-        self.assertIn(
-            "$.shape_telemetry.changesets: duplicate changeset identities same",
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_forbids_carved_evidence_without_publication(self) -> None:
-        value = result()
-        value.update(
-            {
-                "terminal_state": "blocked",
-                "implementation_state": "local",
-                "blocking_reason": "publication was not authorized",
-                "handoff": {
-                    "transferable": False,
-                    "reason": "publication was not authorized",
-                },
-            }
-        )
-        value["candidate"]["publication"] = {"kind": "ordinary", "pull_requests": []}
-        value["shape_telemetry"].update(
-            {
-                "actual_path": None,
-                "comparison": "unavailable",
-                "publication_complete": False,
-                "publication_artifacts": [],
-                "fired_trigger": "invented trigger",
-                "changesets": [
-                    {"id": "invented", "pull_request_id": "455", "head_sha": SHA_C}
-                ],
-            }
-        )
-        self.assertIn(
-            "$.shape_telemetry: unavailable publication forbids carved trigger and changesets",
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_fails_closed_on_identity_mismatch(self) -> None:
-        value = result()
-        value["shape_telemetry"]["ticket"]["id"] = "other"
-        value["shape_telemetry"]["candidate_sha"] = SHA_C
-        value["shape_telemetry"]["publication_artifacts"] = [
-            {"id": "456", "head_sha": SHA_C}
-        ]
-        errors = self.validator.validate("result", value)
-        self.assertIn("$.shape_telemetry.ticket: does not match result ticket", errors)
-        self.assertIn(
-            "$.shape_telemetry.candidate_sha: does not match source candidate", errors
-        )
-        self.assertIn(
-            "$.shape_telemetry.publication_artifacts: do not match candidate publication",
-            errors,
-        )
-
-    def test_shape_telemetry_preserves_source_and_publication_identities(self) -> None:
-        value = result()
-        value["candidate"]["source_head_sha"] = SHA_C
-        value["shape_telemetry"]["candidate_sha"] = SHA_C
-        self.assertEqual([], self.validator.validate("result", value))
-
-        value["shape_telemetry"]["publication_candidate_sha"] = SHA_A
-        self.assertIn(
-            "$.shape_telemetry.publication_candidate_sha: does not match publication candidate",
-            self.validator.validate("result", value),
-        )
-
-    def test_shape_telemetry_marks_partial_publication_unavailable(self) -> None:
-        value = result()
-        value["terminal_state"] = "blocked"
-        value["blocking_reason"] = "publication needs author input"
-        value["shape_telemetry"].update(
-            {"comparison": "unavailable", "publication_complete": False}
-        )
-        self.assertEqual([], self.validator.validate("result", value))
-
-        value["shape_telemetry"]["comparison"] = "held"
-        self.assertIn(
-            "$.shape_telemetry.comparison: does not match observed publication topology",
-            self.validator.validate("result", value),
-        )
-
-    def test_complete_publication_binds_final_head_for_blocked_result(self) -> None:
-        value = result()
-        value["terminal_state"] = "blocked"
-        value["blocking_reason"] = "publication acknowledgement failed"
-        value["candidate"]["head_sha"] = SHA_C
-        value["shape_telemetry"]["publication_candidate_sha"] = SHA_C
-        value["acceptance_evidence"][0]["candidate_sha"] = SHA_C
-        for observation in value["validation"] + value["reviews"]:
-            observation["candidate_sha"] = SHA_C
-        value["feedback"]["candidate_sha"] = SHA_C
-
-        self.assertIn(
-            "$.candidate.publication: complete topology must end at publication candidate",
-            self.validator.validate("result", value),
         )
 
     def test_unknown_invocation_field_fails_closed(self) -> None:
@@ -812,28 +354,6 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             self.validator.validate_checkpoint_exchange(request, response),
         )
 
-    def test_v2_and_v3_checkpoint_exchanges_are_versioned_explicitly(self) -> None:
-        request_v3 = checkpoint_request()
-        response_v3 = checkpoint_response()
-        self.assertEqual(
-            [],
-            self.validator.validate_checkpoint_exchange(request_v3, response_v3),
-        )
-
-        request_v2 = copy.deepcopy(request_v3)
-        request_v2["schema"] = "compris.implement-ticket/checkpoint-request/v2"
-        request_v2["capability"] = "compris.implement-ticket/delegated-execution/v2"
-        response_v2 = copy.deepcopy(response_v3)
-        response_v2["schema"] = "compris.implement-ticket/checkpoint-response/v2"
-        self.assertEqual(
-            [],
-            self.validator.validate_checkpoint_exchange(request_v2, response_v2),
-        )
-        self.assertEqual(
-            ["$.schema: checkpoint protocol version does not match request"],
-            self.validator.validate_checkpoint_exchange(request_v2, response_v3),
-        )
-
     def test_checkpoint_progress_rejects_replay(self) -> None:
         request = checkpoint_request()
         response = checkpoint_response()
@@ -889,16 +409,6 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             }
         )
         value["authority_used"] = ["repository.candidate.create"]
-        value["shape_telemetry"].update(
-            {
-                "actual_path": None,
-                "comparison": "unavailable",
-                "candidate_sha": SHA_B,
-                "publication_candidate_sha": None,
-                "publication_complete": False,
-                "publication_artifacts": [],
-            }
-        )
         self.assertEqual([], self.validator.validate("result", value))
 
     def test_published_blocked_state_preserves_transferable_candidate(self) -> None:
@@ -906,24 +416,7 @@ class DelegatedExecutionContractTest(unittest.TestCase):
         value["terminal_state"] = "blocked"
         value["blocking_reason"] = "Coordinator unavailable after publication"
         value["candidate"]["publication"]["pull_requests"] = []
-        value["shape_telemetry"].update(
-            {
-                "actual_path": None,
-                "comparison": "unavailable",
-                "publication_complete": False,
-                "publication_artifacts": [],
-            }
-        )
         self.assertEqual([], self.validator.validate("result", value))
-
-    def test_completed_shape_telemetry_rejects_contradictory_comparison(self) -> None:
-        value = result()
-        for comparison in ("unavailable", "falsified"):
-            value["shape_telemetry"]["comparison"] = comparison
-            self.assertIn(
-                "$.shape_telemetry.comparison: does not match observed publication topology",
-                self.validator.validate("result", value),
-            )
 
     def test_ready_pr_rejects_stack_or_local_only_candidate(self) -> None:
         value = result()
@@ -1268,37 +761,6 @@ class DelegatedExecutionContractTest(unittest.TestCase):
             self.validator.validate("result", value),
         )
 
-    def test_v3_merged_rejects_ordinary_multi_pr_publication(self) -> None:
-        value = result()
-        value["terminal_state"] = "merged"
-        record_tracker_transition(value)
-        first = value["candidate"]["publication"]["pull_requests"][0]
-        first["state"] = "merged"
-        second = copy.deepcopy(first)
-        second.update(
-            {
-                "id": "457",
-                "url": "https://github.com/example/project/pull/457",
-                "base_ref": first["head_ref"],
-                "base_sha": first["head_sha"],
-            }
-        )
-        value["candidate"]["publication"]["pull_requests"].append(second)
-        value["shape_telemetry"].update(
-            {
-                "comparison": "falsified",
-                "publication_artifacts": [
-                    {"id": "456", "head_sha": SHA_B},
-                    {"id": "457", "head_sha": SHA_B},
-                ],
-            }
-        )
-
-        self.assertIn(
-            "$.candidate.publication: v3 merged forbids an ordinary multi-PR publication",
-            self.validator.validate("result", value),
-        )
-
     def test_invocation_anchors_acceptance_contract_and_deployment(self) -> None:
         source = invocation()
         source["desired_outcome"] = "merged"
@@ -1581,7 +1043,6 @@ class DelegatedExecutionContractTest(unittest.TestCase):
                 "terminal_state": "requires_epic",
                 "implementation_state": "none",
                 "candidate": None,
-                "shape_telemetry": None,
                 "handoff": {
                     "transferable": False,
                     "reason": "Whole epic requires implement-epic",

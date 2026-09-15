@@ -49,9 +49,6 @@ class ImplementTicketContractTests(unittest.TestCase):
         cls.publish_handoff = read(
             SKILL_ROOT / "references" / "publish-candidate-handoff.md"
         )
-        cls.delegated_execution = read(
-            SKILL_ROOT / "references" / "delegated-execution" / "CONTRACT.md"
-        )
         cls.result = read(SKILL_ROOT / "references" / "cleanup-and-result.md")
         cls.worktree_isolation = read(
             SKILL_ROOT / "references" / "worktree-isolation.md"
@@ -60,7 +57,6 @@ class ImplementTicketContractTests(unittest.TestCase):
         cls.handoff_compact = compact(cls.handoff)
         cls.review_fix_loop_handoff_compact = compact(cls.review_fix_loop_handoff)
         cls.publish_handoff_compact = compact(cls.publish_handoff)
-        cls.delegated_execution_compact = compact(cls.delegated_execution)
         cls.result_compact = compact(cls.result)
         cls.worktree_isolation_compact = compact(cls.worktree_isolation)
         cls.eval_contract = compact(
@@ -76,7 +72,6 @@ class ImplementTicketContractTests(unittest.TestCase):
             + cls.carve_handoff
             + cls.review_fix_loop_handoff
             + cls.publish_handoff
-            + cls.delegated_execution
             + cls.result
             + cls.worktree_isolation
         )
@@ -856,7 +851,7 @@ class ImplementTicketContractTests(unittest.TestCase):
         self.assertNotIn("few hundred", contract)
 
     def test_shape_telemetry_is_bound_explicit_and_non_gating(self):
-        contract = compact(self.skill + self.result + self.delegated_execution)
+        contract = compact(self.skill + self.result)
         for required in (
             "predicted shape identity and its exact authoritative source",
             "`candidate_sha` to the immutable source candidate",
@@ -874,7 +869,7 @@ class ImplementTicketContractTests(unittest.TestCase):
             "Do not invent a prediction or fired trigger",
             "`held`, `falsified`, `missing`, or `unavailable`",
             "never changes delivery gates, authority, or terminal-state mapping",
-            "`shape_telemetry` to `null`",
+            "does not change the delegated-execution result shape",
         ):
             self.assertIn(required, contract)
         self.assertIn(
@@ -883,20 +878,16 @@ class ImplementTicketContractTests(unittest.TestCase):
             "exist",
             contract,
         )
-        for required in (
-            "Capture that prediction before implementation",
-            "`source_head_sha` is the immutable source candidate",
-            "`head_sha` is the publication candidate or final stack tip",
-            "a partial publication is `unavailable`",
-            "bind every changeset identity to its PR identity and verified head",
-            (
-                "A missing prediction uses null identity and source and requires "
-                "`comparison: missing`"
-            ),
-            "the comparison itself never selects or changes a terminal state",
-            "`requires_epic` requires `shape_telemetry: null`",
-        ):
-            self.assertIn(required, self.delegated_execution_compact)
+
+    def test_shape_telemetry_does_not_expand_delegated_protocol(self):
+        delegated_root = SKILL_ROOT / "references" / "delegated-execution"
+        delegated_contract = read(delegated_root / "CONTRACT.md")
+        self.assertEqual(
+            sorted(path.name for path in delegated_root.glob("*v3*")),
+            [],
+        )
+        self.assertNotIn("delegated-execution/v3", delegated_contract)
+        self.assertNotIn("delegated-execution v3", self.skill + self.result)
 
     def test_worktree_isolation_reference_is_always_loaded(self):
         """Step 1 is unconditional, so its reference must be an "Always read"
