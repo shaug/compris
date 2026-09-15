@@ -6,7 +6,8 @@ recovery rule this module implements. Summary: one workspace directory per PR
 (the target unit), keyed by repository + PR number so a resumed session finds
 it deterministically; one append-only `ledger.jsonl` inside it; a `session`
 line recorded once per session start; and one `entry` line per feedback
-disposition, retry, or fix pushed during this skill's watch loop.
+disposition, retry, fix pushed, or terminal lifecycle observation during this
+skill's watch loop.
 
 The shared mechanics (workspace derivation and self-exclusion, append-only
 JSON Lines I/O, the recovery-path dedup guard) live in `ledger_core.py`, a
@@ -68,6 +69,9 @@ ID_FIELD = "item_id"
 DEFAULT_COMPLETED_FEEDBACK_DISPOSITIONS = frozenset(
     {"fixed", "rejected", "not_applicable"}
 )
+DELIVERY_STATES = ("ready_to_merge", "merged", "closed", "blocked")
+IMPLEMENTATION_OUTCOMES = ("held", "falsified", "missing", "unavailable")
+OBSERVATION_STATUSES = ("observed", "uncertain", "missing")
 
 
 def _load_sibling_module(name: str, filename: str):
@@ -194,6 +198,95 @@ def record_entry(
         head_sha=head_sha,
         evidence=evidence,
         now=now,
+    )
+
+
+def _validate_predicted_shape(value: dict[str, Any]) -> dict[str, Any]:
+    """Validate the caller-owned predicted-shape identity without inventing it."""
+    if not isinstance(value, dict):
+        raise TypeError("predicted shape must be a JSON object")
+    if set(value) != {"status", "identity", "source"}:
+        raise ValueError(
+            "predicted shape must contain exactly status, identity, and source"
+        )
+    if value["status"] == "available":
+        if not all(
+            isinstance(value[field], str) and value[field].strip()
+            for field in ("identity", "source")
+        ):
+            raise ValueError(
+                "available predicted shape requires non-empty identity and source"
+            )
+    elif value["status"] == "missing":
+        if value["identity"] is not None or value["source"] is not None:
+            raise ValueError(
+                "missing predicted shape requires null identity and source"
+            )
+    else:
+        raise ValueError("predicted shape status must be available or missing")
+    return value
+
+
+def _predicted_shape(raw: str) -> dict[str, Any]:
+    """Parse the CLI's predicted-shape JSON before shared validation."""
+    return _validate_predicted_shape(json.loads(raw))
+
+
+def _observation(status: str, evidence: str | None) -> dict[str, str | None]:
+    """Keep observation absence and uncertainty distinct from an observation."""
+    if status not in OBSERVATION_STATUSES:
+        raise ValueError(
+            "lifecycle telemetry status must be observed, uncertain, or missing"
+        )
+    if status in {"observed", "uncertain"} and not (evidence or "").strip():
+        raise ValueError(f"{status} lifecycle telemetry requires evidence")
+    if status == "missing" and evidence is not None:
+        raise ValueError("missing lifecycle telemetry cannot carry evidence")
+    return {"status": status, "evidence": evidence}
+
+
+def record_lifecycle_observation(
+    root: Path,
+    repo: str,
+    pr_number: int | str,
+    *,
+    head_sha: str,
+    delivery_state: str,
+    predicted_shape: dict[str, Any],
+    implementation_outcome: str,
+    fired_trigger: str | None,
+    reviewability_status: str,
+    reviewability_evidence: str | None,
+    operator_effort_status: str,
+    operator_effort_evidence: str | None,
+) -> dict[str, Any]:
+    """Append non-gating terminal telemetry bound to one exact PR head."""
+    if delivery_state not in DELIVERY_STATES:
+        raise ValueError(f"unsupported delivery state: {delivery_state}")
+    if implementation_outcome not in IMPLEMENTATION_OUTCOMES:
+        raise ValueError(
+            f"unsupported implementation outcome: {implementation_outcome}"
+        )
+    predicted_shape = _validate_predicted_shape(predicted_shape)
+    evidence = {
+        "non_gating": True,
+        "predicted_shape": predicted_shape,
+        "implementation_outcome": implementation_outcome,
+        "fired_trigger": fired_trigger,
+        "reviewability": _observation(reviewability_status, reviewability_evidence),
+        "operator_effort": _observation(
+            operator_effort_status, operator_effort_evidence
+        ),
+    }
+    return record_entry(
+        root,
+        repo,
+        pr_number,
+        item_id=head_sha,
+        action="lifecycle_observation",
+        terminal_result=delivery_state,
+        head_sha=head_sha,
+        evidence=evidence,
     )
 
 
@@ -338,6 +431,25 @@ def _cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_observe(args: argparse.Namespace) -> int:
+    record = record_lifecycle_observation(
+        Path(args.root),
+        args.repo,
+        args.pr,
+        head_sha=args.head_sha,
+        delivery_state=args.delivery_state,
+        predicted_shape=_predicted_shape(args.predicted_shape_json),
+        implementation_outcome=args.implementation_outcome,
+        fired_trigger=args.fired_trigger,
+        reviewability_status=args.reviewability_status,
+        reviewability_evidence=args.reviewability_evidence,
+        operator_effort_status=args.operator_effort_status,
+        operator_effort_evidence=args.operator_effort_evidence,
+    )
+    print(json.dumps(record, sort_keys=True))
+    return 0
+
+
 def _cmd_read(args: argparse.Namespace) -> int:
     result = read_ledger(Path(args.root), args.repo, args.pr)
     payload = {
@@ -392,6 +504,28 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--head-sha", default=None)
     record.add_argument("--evidence-json", default=None)
     record.set_defaults(func=_cmd_record)
+
+    observe = subparsers.add_parser(
+        "observe", help="append non-gating telemetry for one completed PR lifecycle"
+    )
+    observe.add_argument("--repo", required=True)
+    observe.add_argument("--pr", required=True)
+    observe.add_argument("--head-sha", required=True)
+    observe.add_argument("--delivery-state", required=True, choices=DELIVERY_STATES)
+    observe.add_argument("--predicted-shape-json", required=True)
+    observe.add_argument(
+        "--implementation-outcome", required=True, choices=IMPLEMENTATION_OUTCOMES
+    )
+    observe.add_argument("--fired-trigger", default=None)
+    observe.add_argument(
+        "--reviewability-status", required=True, choices=OBSERVATION_STATUSES
+    )
+    observe.add_argument("--reviewability-evidence", default=None)
+    observe.add_argument(
+        "--operator-effort-status", required=True, choices=OBSERVATION_STATUSES
+    )
+    observe.add_argument("--operator-effort-evidence", default=None)
+    observe.set_defaults(func=_cmd_observe)
 
     read = subparsers.add_parser("read", help="print the parsed ledger as JSON")
     read.add_argument("--repo", required=True)

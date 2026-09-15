@@ -146,5 +146,24 @@
     "policy": "ready_to_merge",
     "authority": "exclusive_mutation_and_push",
     "candidate_state": "While review-fix-loop's update_pr delegation is remediating a locally committed fix, another process pushes a competing commit to the same PR head; review-fix-loop's expected-old publish is rejected and it returns blocked/remote_advanced."
+  },
+  {
+    "id": "lifecycle-telemetry-current-head",
+    "request": "Take PR 209 to readiness and report the lifecycle telemetry supplied by its caller.",
+    "policy": "ready_to_merge",
+    "candidate_state": "Every delivery gate passes at head head-209. The caller supplies predicted shape G-209:shape-v1, a held implementation outcome, repository reviewability evidence, and the actual operator actions required."
+  },
+  {
+    "id": "lifecycle-telemetry-named-trigger",
+    "request": "Watch and merge PR 210, preserving the implementation trigger in the final observation.",
+    "policy": "merge_when_ready",
+    "authority": "merge_explicitly_granted",
+    "candidate_state": "Every delivery gate passes. The caller supplies predicted shape G-210:shape-v1 and reports that the named pre-authored trigger 'review requires separate mechanical and behavioral changes' fired, producing a falsified implementation outcome."
+  },
+  {
+    "id": "lifecycle-telemetry-uncertain",
+    "request": "Take PR 211 to readiness and report what the lifecycle evidence supports.",
+    "policy": "ready_to_merge",
+    "candidate_state": "Every delivery gate passes, but the caller has no predicted shape and partial historical evidence makes reviewability uncertain while operator-effort evidence is missing."
   }
 ]

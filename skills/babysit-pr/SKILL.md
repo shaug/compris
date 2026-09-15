@@ -26,9 +26,10 @@ tracker, close a parent, deploy, or delete branches and worktrees.
   delegating repository review and remediation for any head-changing PR fix, and
   again before mapping its terminal result back onto the watcher.
 - Always read [the compaction ledger](references/ledger.md) before the first
-  disposition, retry, or fix of a session and again before resuming, so a
-  session resumed after a compaction recovers prior dispositions and retry usage
-  from the ledger and live/watcher state rather than from recollection.
+  disposition, retry, fix, or lifecycle observation of a session and again
+  before resuming, so a session resumed after a compaction recovers prior
+  dispositions, retry usage, and head-bound telemetry from the ledger and
+  live/watcher state rather than from recollection.
 
 Use `scripts/gh_pr_watch.py` for deterministic snapshots, JSONL monitoring, and
 bounded failed-run retries. All watcher paths below are relative to this skill's
@@ -74,6 +75,9 @@ monitoring, resolve and verify:
 - local branch and worktree when diagnosis or mutation may occur;
 - live ticket goal, acceptance criteria, non-goals, allowed fix scope, and named
   specifications when the caller supplies them;
+- the predicted shape identity and its exact authoritative source, or explicit
+  `missing`; the implementation outcome `held`, `falsified`, `missing`, or
+  `unavailable`; and any named pre-authored trigger the caller reports as fired;
 - current focused/full validation and `review-fix-loop` evidence, including the
   exact head and base to which each applies;
 - required CI, human, connector, comment, formal-review, reaction, and thread
@@ -332,6 +336,36 @@ This does not transfer ownership of CI diagnosis, external feedback disposition,
 mergeability, or merge; it replaces only the mechanism this skill uses to obtain
 repository-owned review and apply its fixes.
 
+## Record non-gating lifecycle telemetry
+
+Before every terminal handoff, append one `lifecycle_observation` entry through
+the compaction ledger's `observe` command. Bind both `item_id` and `head_sha` to
+the exact PR head the observation describes. Carry the caller-supplied predicted
+shape identity and source unchanged, or the explicit `missing` spelling. Record
+the implementation outcome beside the exact named pre-authored trigger that
+fired; when no trigger is available, record `null` rather than inferring one from
+the diff, review history, or delivery state.
+
+Record reviewability and operator effort separately. Each uses exactly one of
+`observed`, `uncertain`, or `missing`:
+
+- `observed` requires concrete current-head evidence: for reviewability, the
+  repository review and feedback record that shows how the candidate could be
+  understood; for operator effort, the actual retries, dispositions, fix cycles,
+  or interventions the lifecycle required. These are qualitative observations,
+  not a numeric quality score.
+- `uncertain` requires the evidence that made the judgment inconclusive, such as
+  partial thread state or a stale signal.
+- `missing` carries no evidence. Absence never means success.
+
+Keep `delivery_state` separate from these observations and set `non_gating` to
+`true`. Reviewability or operator-effort telemetry never satisfies a required
+gate, changes a review verdict, authorizes a mutation, or changes the terminal
+state. A head change invalidates the observation for terminal reporting; retain
+the old append-only entry and record a new one for the new head. At return,
+include the exact current-head lifecycle telemetry as a sibling of delivery
+state, not as evidence that delivery passed.
+
 ## Apply the final gate
 
 Before `ready_to_merge` or merge, require:
@@ -374,8 +408,9 @@ Return exactly one terminal state:
 Include repository, PR, head, base, branch/worktree, policy, authority used,
 validation, repository-owned review, CI, retry, human/connector/comment/review/
 thread state, fixes and pushed heads, mergeability, merged/closed identity,
-deferred findings, mutation ownership, caller-owned follow-up, and one next
-action or blocker. When the most recent `review-fix-loop` delegation did not
+head-bound non-gating lifecycle telemetry, deferred findings, mutation
+ownership, caller-owned follow-up, and one next action or blocker. When the most
+recent `review-fix-loop` delegation did not
 converge, report its exact retained local head and every unpushed commit
 prominently rather than folding them into a generic blocker line — the fix
 exists and is locally committed; it is simply not yet published. For example:

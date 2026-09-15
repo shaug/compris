@@ -34,6 +34,7 @@ class BabysitPrContractTests(unittest.TestCase):
         cls.upstream = read("references/upstream.md")
         cls.handoff = read("references/review-fix-loop-handoff.md")
         cls.watcher = read("scripts/gh_pr_watch.py")
+        cls.watcher_ledger = read("scripts/ledger.py")
         cls.contract = compact(cls.skill + cls.github + cls.decisions + cls.handoff)
         cls.handoff_compact = compact(cls.handoff)
         cls.cases = {item["id"]: item for item in json.loads(read("evals/cases.json"))}
@@ -73,6 +74,25 @@ class BabysitPrContractTests(unittest.TestCase):
             self.assertIn(policy, self.watcher)
         for state in ("ready_to_merge", "merged", "closed", "blocked"):
             self.assertIn(state, self.skill)
+
+    def test_lifecycle_telemetry_is_head_bound_and_non_gating(self):
+        ledger = read("references/ledger.md")
+        surface = compact(self.skill + ledger)
+        for required in (
+            "lifecycle_observation",
+            "predicted shape identity",
+            "implementation outcome",
+            "named pre-authored trigger",
+            "reviewability",
+            "operator effort",
+            "`observed`, `uncertain`, or `missing`",
+            "exact PR head",
+            "non-gating",
+        ):
+            self.assertIn(required, surface)
+        self.assertIn('action="lifecycle_observation"', self.watcher_ledger)
+        self.assertIn('"non_gating": True', self.watcher_ledger)
+        self.assertIn("delivery state", self.skill)
 
     def test_review_dependency_is_repository_owned(self):
         self.assertIn("review-fix-loop", self.contract)

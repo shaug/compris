@@ -6,10 +6,12 @@ the system temp directory (`default_state_directory`/ `default_state_file_for`),
 keyed only by repository and PR number. It records *that* the watcher observed
 something, not *what this skill decided to do about it*. This ledger is a
 second, repository-local store for that decision: which feedback item got which
-disposition, which retry was spent and why, which commit fixed what — so a
+disposition, which retry was spent and why, which commit fixed what, and what
+one exact PR head revealed about reviewability and operator effort — so a
 session resumed after a compaction, a crash, or a fresh context recovers those
-decisions without re-reading transcript history, and without re-dispositioning a
-finding or re-spending a retry the prior session already accounted for.
+decisions and observations without re-reading transcript history, and without
+re-dispositioning a finding or re-spending a retry the prior session already
+accounted for.
 
 The two stores are never merged and neither is authoritative over the other for
 what it alone tracks: the watcher state file remains authoritative for
@@ -62,7 +64,8 @@ rewritten or truncated. Two kinds of line:
   {"kind": "session", "schema_version": 1, "session_id": "<opaque>", "started_at": "2026-08-07T22:10:00Z"}
   ```
 
-- **`entry`**: written once per feedback disposition, retry, or fix — after
+- **`entry`**: written once per feedback disposition, retry, fix, or terminal
+  lifecycle observation — after
   [Diagnose CI and feedback](../SKILL.md#diagnose-ci-and-feedback) or
   [Delegate repository review and remediation](../SKILL.md#delegate-repository-review-and-remediation)
   confirms the outcome, not before acting.
@@ -87,10 +90,34 @@ rewritten or truncated. Two kinds of line:
   | `feedback_disposition` | the review comment/thread id being dispositioned                                            | `fixed`, `rejected`, `not_applicable`, `deferred` |
   | `retry`                | the exact head SHA the retry ran against (matches `gh_pr_watch`'s own `retries_by_sha` key) | `rerun`                                           |
   | `fix_pushed`           | the new commit SHA                                                                          | `pushed`                                          |
+  | `lifecycle_observation` | the exact PR head SHA being observed                                                       | `ready_to_merge`, `merged`, `closed`, `blocked`   |
 
   `evidence` carries whatever identifiers let a later reader verify the claim
   against live state — the reply URL, the diagnosed run id, the commit — never a
   substitute for that verification.
+
+  A `lifecycle_observation` carries this exact non-gating shape:
+
+  ```json
+  {
+    "non_gating": true,
+    "predicted_shape": {"status": "available", "identity": "G-482:shape-v1", "source": "ticket contract"},
+    "implementation_outcome": "falsified",
+    "fired_trigger": "review requires separate mechanical and behavioral changes",
+    "reviewability": {"status": "observed", "evidence": "two independently readable changesets"},
+    "operator_effort": {"status": "observed", "evidence": "one disposition and one fix cycle"}
+  }
+  ```
+
+  The predicted shape identity is either `available` with non-empty identity and
+  source or `missing` with both values `null`. Implementation outcome is `held`,
+  `falsified`, `missing`, or `unavailable`. Reviewability and operator effort
+  each use `observed`, `uncertain`, or `missing`; `observed` and `uncertain`
+  require their concrete evidence, while `missing` requires `null`. A named
+  pre-authored trigger is preserved verbatim when the caller reports it as fired
+  and is `null` otherwise. Neither absence nor uncertainty is rewritten as
+  success. Delivery state remains in the entry's `terminal_result`, separate
+  from the telemetry.
 
   A `retry` entry's separate `head_sha` field must also be populated with that
   same SHA, not left `null`. `reconcile_with_watcher_state` keys strictly off
@@ -100,9 +127,9 @@ rewritten or truncated. Two kinds of line:
   step 4 depends on.
 
 Record one `session` line per session, then one `entry` line per completed
-action — append after the disposition is posted, the retry is spent, or the fix
-is pushed, not before, so an interrupted action never leaves a false completion
-claim in the ledger.
+action — append after the disposition is posted, the retry is spent, the fix is
+pushed, or the terminal lifecycle state is verified, not before, so an
+interrupted action never leaves a false completion claim in the ledger.
 
 ## Recovery rule
 
@@ -145,6 +172,10 @@ genuinely new attempt.
    (`gh_pr_watch.current_retry_count`/`--retry-failed-now` refuses a retry past
    `--max-flaky-retries`); this ledger's role is orientation for *why* a given
    head is near or at budget, not a second enforcement point.
+6. For terminal reporting, use only the latest `lifecycle_observation` whose
+   `item_id` and `head_sha` both equal the verified current PR head. Preserve an
+   older observation as append-only history, but never carry it across a head
+   change or treat its delivery state as current.
 
 The ledger is orientation plus a dedup guard; live PR state and the watcher's
 own state file remain the execution source of truth, unchanged from every other
@@ -174,6 +205,14 @@ python3 scripts/ledger.py record \
   --repo example/project --pr 482 --item review-comment-9001 \
   --action feedback_disposition --terminal-result fixed \
   --head-sha 4f2c9a1d --evidence-json '{"disposition": "fixed"}'
+python3 scripts/ledger.py observe \
+  --repo example/project --pr 482 --head-sha 4f2c9a1d \
+  --delivery-state merged \
+  --predicted-shape-json '{"status":"available","identity":"G-482:shape-v1","source":"ticket contract"}' \
+  --implementation-outcome falsified \
+  --fired-trigger 'review requires separate mechanical and behavioral changes' \
+  --reviewability-status observed --reviewability-evidence 'two readable changesets' \
+  --operator-effort-status observed --operator-effort-evidence 'one fix cycle'
 python3 scripts/ledger.py read --repo example/project --pr 482
 python3 scripts/ledger.py find --repo example/project --pr 482 \
   --item review-comment-9001                    # exit 0 iff dispositioned

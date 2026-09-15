@@ -128,5 +128,20 @@
     "case_id": "review-fix-loop-remote-advanced-produces-safe-watcher-transition",
     "terminal_state": "blocked",
     "required_actions": ["reread the live PR head independently of the stale invocation state", "determine whether the competing head already carries an equivalent or superseding fix", "restart ordinary watching from the true live head rather than assuming the stale local candidate is current", "do not force a competing push"]
+  },
+  {
+    "case_id": "lifecycle-telemetry-current-head",
+    "terminal_state": "ready_to_merge",
+    "required_actions": ["append one lifecycle_observation bound to head-209", "preserve predicted shape identity G-209:shape-v1", "report reviewability and operator effort separately from delivery state", "keep telemetry non-gating"]
+  },
+  {
+    "case_id": "lifecycle-telemetry-named-trigger",
+    "terminal_state": "merged",
+    "required_actions": ["record the exact named pre-authored trigger beside the falsified implementation outcome", "bind the lifecycle observation to the exact merged PR head", "verify merge from delivery gates rather than telemetry", "keep telemetry non-gating"]
+  },
+  {
+    "case_id": "lifecycle-telemetry-uncertain",
+    "terminal_state": "ready_to_merge",
+    "required_actions": ["record predicted shape as missing", "record reviewability as uncertain with its evidence", "record operator effort as missing", "never rewrite absence or uncertainty as success", "preserve the independently verified delivery state"]
   }
 ]

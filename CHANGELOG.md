@@ -4,15 +4,23 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-15 — Made PR reviewability and operator effort observable
+
+- feat(babysit-pr): record exact-head reviewability and operator-effort
+  observations beside predicted shape and implementation outcome while keeping
+  telemetry explicitly separate from delivery state and gates.
+
 ## 2026-09-14 — Made publication-shape predictions observable outcomes
 
 - fix(implement-ticket): preserve valid real-model shape telemetry through
   normalization and exact modal voting so the forward grader can observe the
   terminal shape the model returned.
+  (59c64026ce7ff90ad9ed8cf012e40a101286d095)
 
 - feat(implement-ticket): report predicted and realized publication shape,
   binding held, falsified, and missing outcomes to the exact ticket, candidate,
   and publication artifacts without turning telemetry into a delivery gate.
+  (48ce6c30b52e24ec9daf41a827cda0cf543cba47)
 
 ## 2026-09-13 — Bound implement-ticket's publication gate to the canonical shaping doctrine
 
