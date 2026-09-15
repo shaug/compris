@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compris delegated implement-ticket invocation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "capability",
+    "invocation_id",
+    "ticket",
+    "repository",
+    "work",
+    "validation",
+    "review",
+    "authority",
+    "desired_outcome",
+    "accepted_terminal_states",
+    "acceptance_requirements",
+    "starting_deployment",
+    "checkpoint"
+  ],
+  "properties": {
+    "schema": {
+      "const": "compris.implement-ticket/delegated-invocation/v3"
+    },
+    "capability": {
+      "const": "compris.implement-ticket/delegated-execution/v3"
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ticket": {
+      "$ref": "#/$defs/ticket"
+    },
+    "repository": {
+      "$ref": "#/$defs/repository"
+    },
+    "work": {
+      "$ref": "#/$defs/work"
+    },
+    "validation": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["independent", "unresolved_feedback_required"],
+      "properties": {
+        "independent": {
+          "type": "boolean"
+        },
+        "unresolved_feedback_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow"],
+      "properties": {
+        "allow": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        }
+      }
+    },
+    "desired_outcome": {
+      "enum": ["ready_pr", "ready_prs", "merged"]
+    },
+    "accepted_terminal_states": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ready_pr",
+          "ready_prs",
+          "merged",
+          "blocked",
+          "requires_epic"
+        ]
+      }
+    },
+    "acceptance_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/acceptance_requirement"
+      }
+    },
+    "starting_deployment": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["candidate_sha", "deployed_sha", "environment", "url"],
+      "properties": {
+        "candidate_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "deployed_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "last_sequence", "continuation_token"],
+      "properties": {
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "continuation_token": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "acceptance_requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion",
+        "required",
+        "evidence_category",
+        "stage",
+        "identity",
+        "environment",
+        "url",
+        "source"
+      ],
+      "properties": {
+        "criterion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "evidence_category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "enum": ["pre_merge", "post_merge"]
+        },
+        "identity": {
+          "enum": ["candidate", "deployment"]
+        },
+        "environment": {
+          "type": ["string", "null"]
+        },
+        "url": {
+          "type": ["string", "null"]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action": {
+      "enum": [
+        "repository.candidate.create",
+        "repository.candidate.push",
+        "pull_request.create",
+        "pull_request.update",
+        "review.reply",
+        "review.resolve",
+        "ticket.update",
+        "tracker.auto_close.authorize",
+        "ticket.dependencies.update",
+        "ticket.followup.create",
+        "changeset.carve",
+        "pull_request.merge",
+        "repository.branch.delete",
+        "deployment.execute",
+        "production.mutate",
+        "destructive.execute"
+      ]
+    },
+    "ticket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "id", "url", "observation"],
+      "properties": {
+        "provider": {
+          "enum": ["github", "linear"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "remote_url", "base_ref", "base_sha"],
+      "properties": {
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remote_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_ref": {
+          "type": "string",
+          "pattern": "^refs/.+$"
+        },
+        "base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        }
+      }
+    },
+    "work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "approval_evidence",
+        "intent",
+        "scope",
+        "non_goals",
+        "constraints",
+        "done_definition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "approval_evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "done_definition": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

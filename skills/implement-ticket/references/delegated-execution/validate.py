@@ -18,6 +18,45 @@ SCHEMAS = {
     "checkpoint-response": HERE / "checkpoint-response.schema.json",
     "result": HERE / "result.schema.json",
 }
+SCHEMA_VERSIONS = {
+    "capability": {
+        "compris.implement-ticket/capability-manifest/v2": SCHEMAS["capability"],
+        "compris.implement-ticket/capability-manifest/v3": (
+            HERE / "capability-v3.schema.json"
+        ),
+    },
+    "invocation": {
+        "compris.implement-ticket/delegated-invocation/v2": SCHEMAS["invocation"],
+        "compris.implement-ticket/delegated-invocation/v3": (
+            HERE / "invocation-v3.schema.json"
+        ),
+    },
+    "checkpoint-request": {
+        "compris.implement-ticket/checkpoint-request/v2": SCHEMAS["checkpoint-request"],
+        "compris.implement-ticket/checkpoint-request/v3": (
+            HERE / "checkpoint-request-v3.schema.json"
+        ),
+    },
+    "checkpoint-response": {
+        "compris.implement-ticket/checkpoint-response/v2": SCHEMAS[
+            "checkpoint-response"
+        ],
+        "compris.implement-ticket/checkpoint-response/v3": (
+            HERE / "checkpoint-response-v3.schema.json"
+        ),
+    },
+    "result": {
+        "compris.implement-ticket/delegated-result/v2": SCHEMAS["result"],
+        "compris.implement-ticket/delegated-result/v3": (
+            HERE / "result-v3.schema.json"
+        ),
+    },
+}
+PROTOCOL_VERSIONS = {
+    schema_id: schema_id.rsplit("/", 1)[-1]
+    for versions in SCHEMA_VERSIONS.values()
+    for schema_id in versions
+}
 
 CANDIDATE_REQUIRED_ACTIONS = {
     "repository.candidate.push",
@@ -67,6 +106,12 @@ def _resolve_ref(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]
         raise ValueError(f"unsupported schema reference: {reference}")
     name = reference.removeprefix("#/$defs/")
     return root["$defs"][name]
+
+
+def _schema_for(kind: str, value: dict[str, Any]) -> dict[str, Any]:
+    schema_id = value.get("schema")
+    path = SCHEMA_VERSIONS[kind].get(schema_id, SCHEMAS[kind])
+    return json.loads(path.read_text())
 
 
 def validate_schema(
@@ -207,7 +252,9 @@ def _validate_result(value: dict[str, Any]) -> list[str]:
     tracker_transition = value.get("tracker_transition", {})
     shape = value.get("shape_telemetry")
 
-    if terminal == "requires_epic":
+    if value.get("schema") != "compris.implement-ticket/delegated-result/v3":
+        pass
+    elif terminal == "requires_epic":
         if shape is not None:
             errors.append("$.shape_telemetry: requires_epic requires null")
     elif shape is None:
@@ -638,7 +685,10 @@ SEMANTIC_VALIDATORS = {
 
 def validate(kind: str, value: dict[str, Any]) -> list[str]:
     """Validate one delegated execution protocol object."""
-    schema = json.loads(SCHEMAS[kind].read_text())
+    schema_id = value.get("schema")
+    if schema_id is not None and schema_id not in SCHEMA_VERSIONS[kind]:
+        return [f"$.schema: unsupported {kind} schema {schema_id!r}"]
+    schema = _schema_for(kind, value)
     errors = validate_schema(value, schema, schema)
     if not errors:
         errors.extend(SEMANTIC_VALIDATORS[kind](value))
@@ -653,6 +703,9 @@ def validate_checkpoint_exchange(
     errors = validate("checkpoint-request", request)
     errors.extend(validate("checkpoint-response", response))
     if errors:
+        return errors
+    if PROTOCOL_VERSIONS[request["schema"]] != PROTOCOL_VERSIONS[response["schema"]]:
+        errors.append("$.schema: checkpoint protocol version does not match request")
         return errors
     comparisons = (
         ("invocation_id", "invocation_id"),
@@ -713,8 +766,16 @@ def validate_result_for_invocation(
     """Validate a terminal result against its invocation and caller observations."""
     errors = validate("invocation", invocation)
     errors.extend(validate("result", result))
-    if observed_deployment is not None:
-        response_schema = json.loads(SCHEMAS["checkpoint-response"].read_text())
+    invocation_version = PROTOCOL_VERSIONS.get(invocation.get("schema"))
+    if observed_deployment is not None and invocation_version is not None:
+        response_schema = _schema_for(
+            "checkpoint-response",
+            {
+                "schema": (
+                    "compris.implement-ticket/checkpoint-response/" + invocation_version
+                )
+            },
+        )
         errors.extend(
             validate_schema(
                 observed_deployment,
@@ -723,7 +784,7 @@ def validate_result_for_invocation(
                 "$.observed_deployment",
             )
         )
-    result_schema = json.loads(SCHEMAS["result"].read_text())
+    result_schema = _schema_for("result", result)
     if observed_tracker is not None:
         errors.extend(
             validate_schema(
@@ -744,6 +805,8 @@ def validate_result_for_invocation(
         )
     if errors:
         return errors
+    if PROTOCOL_VERSIONS[invocation["schema"]] != PROTOCOL_VERSIONS[result["schema"]]:
+        return ["$.schema: result protocol version does not match invocation"]
     if result["invocation_id"] != invocation["invocation_id"]:
         errors.append("$.invocation_id: does not match invocation")
     if result["terminal_state"] not in invocation["accepted_terminal_states"]:

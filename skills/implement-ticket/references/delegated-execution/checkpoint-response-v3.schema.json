@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compris delegated implement-ticket checkpoint response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "invocation_id",
+    "request_sequence",
+    "prior_continuation_token",
+    "continuation_token",
+    "decision",
+    "reason",
+    "acknowledged_candidate_sha",
+    "observed_deployment"
+  ],
+  "properties": {
+    "schema": {
+      "const": "compris.implement-ticket/checkpoint-response/v3"
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "prior_continuation_token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continuation_token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decision": {
+      "enum": ["allow", "deny"]
+    },
+    "reason": {
+      "type": ["string", "null"]
+    },
+    "acknowledged_candidate_sha": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "observed_deployment": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["candidate_sha", "deployed_sha", "environment", "url"],
+      "properties": {
+        "candidate_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "deployed_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

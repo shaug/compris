@@ -5,16 +5,21 @@ while retaining authority over consequential external mutations. It is generic:
 the coordinator is opaque to Compris, and no Atelier concept appears in the
 protocol.
 
-The capability identifier is `compris.implement-ticket/delegated-execution/v2`.
+The supported capability identifiers are
+`compris.implement-ticket/delegated-execution/v2` and
+`compris.implement-ticket/delegated-execution/v3`.
 
 ## Contract ownership
 
-- `capability.json` is the discovery manifest and is validated by
-  `capability.schema.json`.
-- `invocation.schema.json` owns the invocation shape.
-- `checkpoint-request.schema.json` and `checkpoint-response.schema.json` own the
-  synchronous fencing exchange.
-- `result.schema.json` owns the terminal result shape.
+- `capability.json` is the retained v2 discovery manifest and is validated by
+  `capability.schema.json`; `capability-v3.json` is the v3 manifest and is
+  validated by `capability-v3.schema.json`. A caller selects one manifest
+  explicitly before constructing an invocation; neither side infers or upgrades
+  a version from object shape.
+- `invocation.schema.json`, `checkpoint-request.schema.json`,
+  `checkpoint-response.schema.json`, and `result.schema.json` own the retained
+  v2 shapes.
+- Their `*-v3.schema.json` counterparts own the telemetry-bearing v3 shapes.
 - `validate.py` validates schemas and cross-field semantics without third-party
   dependencies.
 - This document owns process semantics that JSON Schema cannot express.
@@ -119,10 +124,10 @@ that prediction before implementation, including its recoverable identity and
 exact source, and carry it unchanged through review and publication into the
 terminal result. If no authoritative prediction exists or its named source
 cannot be read, preserve that fact as `missing`; do not infer a prediction from
-the finished diff, publication topology, or reviewer expectation. This evidence
-lives in `shape_telemetry` at result time rather than adding an invocation
-field. The `requires_epic` path is excluded because it returns before ticket
-implementation begins.
+the finished diff, publication topology, or reviewer expectation. Under v3 this
+evidence lives in `shape_telemetry` at result time rather than adding an
+invocation field. A retained v2 result omits it. The `requires_epic` path is
+excluded because it returns before ticket implementation begins.
 
 ## Consequential mutation checkpoint
 
@@ -231,12 +236,14 @@ The terminal result is always validated before return. It records:
 - unresolved obligations; and
 - one next action or blocking reason.
 
-Every result carries the `shape_telemetry` key. `requires_epic` requires
-`shape_telemetry: null`; every other terminal requires an object bound to the
+Every v3 result carries the `shape_telemetry` key. `requires_epic` requires
+`shape_telemetry: null`; every other v3 terminal requires an object bound to the
 exact ticket. An available prediction supplies both its identity and source. A
 missing prediction uses null identity and source and requires
 `comparison: missing`, while retaining any actual candidate and publication
-evidence; never fabricate the absent prediction.
+evidence; never fabricate the absent prediction. The retained v2 result has the
+exact pre-telemetry shape and rejects both `shape_telemetry` and
+`candidate.source_head_sha` as unknown fields.
 
 The result candidate and telemetry preserve two identities. `source_head_sha` is
 the immutable source candidate produced by implementation, while `head_sha` is
@@ -279,20 +286,20 @@ state and at least one acceptance record. `ready_pr` requires exactly one PR;
 and may have an empty ledger.
 
 `ready_prs` meaning a stack is narrower here than in the skill's own terminal
-vocabulary, and deliberately so at `v2`. `implement-ticket` also reaches
-`ready_prs` when a repository-owned `publish-candidate` splits an ordinary
-publication into several PRs sharing one base — a shape `publication.kind`
-cannot name and this contract's chain rules below reject, since they require
-every later PR to base on the previous PR's head. A run under this contract
-therefore must not publish a split: send `publication_shape: single_pr_only` in
-the `publish-candidate` handoff, per
+vocabulary, and deliberately so at `v2` and `v3`. `implement-ticket` also
+reaches `ready_prs` when a repository-owned `publish-candidate` splits an
+ordinary publication into several PRs sharing one base — a shape
+`publication.kind` cannot name and this contract's chain rules below reject,
+since they require every later PR to base on the previous PR's head. A run under
+this contract therefore must not publish a split: send
+`publication_shape: single_pr_only` in the `publish-candidate` handoff, per
 [that handoff's verified-handoff list](../publish-candidate-handoff.md#verified-handoff),
 and treat a delegate that splits anyway as a contract violation that returns
 `blocked` with every published PR identity preserved and each one handed a
 `babysit-pr` owner, rather than a `ready_prs` this validator would reject after
 every PR already exists. Representing a split needs a new `publication.kind` and
 its own validation branch, which is a versioned change to this contract and not
-something a caller may assume at `v2`.
+something a caller may assume at `v2` or `v3`.
 
 Except for `requires_epic`, the terminal ledger must cover the invocation's
 acceptance contract one-to-one: it may neither omit a criterion nor invent one,
@@ -359,10 +366,15 @@ truthfully.
 ## Compatibility and failure
 
 Standalone invocations remain unchanged and may return the documented human
-handoff. Delegated execution applies only when the caller supplies a valid v2
-invocation. Version 2 adds the required acceptance-evidence ledger to terminal
-results; v1 manifests, invocations, checkpoints, and results are rejected rather
-than silently interpreted under the stronger closeout contract.
+handoff. Delegated execution applies when the caller explicitly selects a valid
+v2 or v3 manifest and supplies that version's invocation. Version 2 retains its
+published acceptance-evidence contract and pre-telemetry terminal shape. Version
+3 adds required shape telemetry and the distinct source-candidate identity to
+terminal results; its invocation and checkpoint identifiers are also v3 so
+negotiation cannot mix protocols. The validator at `validate.py` dispatches by
+the exact schema identifier, accepts either complete version, and rejects mixed
+or unsupported versions explicitly. Version 1 remains rejected rather than
+silently interpreted under either stronger contract.
 
 There is no daemon, callback server, or background lease. The checkpoint command
 is synchronous and caller-owned. If the caller disappears, execution fails

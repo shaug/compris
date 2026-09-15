@@ -885,11 +885,14 @@ its complete topology with the captured prediction rather than relabeling it as
 carved.
 
 Do not emit shape telemetry for `requires_epic`, which routes before a ticket
-implementation or publication exists; a versioned delegated result sets
-`shape_telemetry` to `null`. This telemetry is observational: uncertainty,
-missing data, completion state, or the comparison itself never changes delivery
-gates, authority, or terminal-state mapping. A real gate may still block the
-run; shape telemetry alone may not.
+implementation or publication exists; a v3 delegated result sets
+`shape_telemetry` to `null`. Publish telemetry only after the caller explicitly
+negotiates delegated-execution v3. A retained v2 result keeps its published
+pre-telemetry shape and omits both `shape_telemetry` and the v3-only
+`candidate.source_head_sha`; do not silently upgrade it from its object shape.
+This telemetry is observational: uncertainty, missing data, completion state, or
+the comparison itself never changes delivery gates, authority, or terminal-state
+mapping. A real gate may still block the run; shape telemetry alone may not.
 
 ## Revalidate escaped acceptance defects
 

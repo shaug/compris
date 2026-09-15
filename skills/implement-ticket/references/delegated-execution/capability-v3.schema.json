@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compris delegated implement-ticket capability manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "id",
+    "contract",
+    "invocation_schema",
+    "checkpoint_request_schema",
+    "checkpoint_response_schema",
+    "result_schema",
+    "validator",
+    "terminal_states",
+    "checkpoint_phases"
+  ],
+  "properties": {
+    "schema": {
+      "const": "compris.implement-ticket/capability-manifest/v3"
+    },
+    "id": {
+      "const": "compris.implement-ticket/delegated-execution/v3"
+    },
+    "contract": {
+      "const": "CONTRACT.md"
+    },
+    "invocation_schema": {
+      "const": "invocation-v3.schema.json"
+    },
+    "checkpoint_request_schema": {
+      "const": "checkpoint-request-v3.schema.json"
+    },
+    "checkpoint_response_schema": {
+      "const": "checkpoint-response-v3.schema.json"
+    },
+    "result_schema": {
+      "const": "result-v3.schema.json"
+    },
+    "validator": {
+      "const": "validate.py"
+    },
+    "terminal_states": {
+      "type": "array",
+      "const": [
+        "ready_pr",
+        "ready_prs",
+        "merged",
+        "blocked",
+        "requires_epic"
+      ]
+    },
+    "checkpoint_phases": {
+      "type": "array",
+      "const": [
+        "pre_external_mutation",
+        "candidate_published",
+        "deployment_observed"
+      ]
+    }
+  }
+}

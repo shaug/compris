@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Compris delegated implement-ticket checkpoint request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "capability",
+    "invocation_id",
+    "continuation_token",
+    "sequence",
+    "phase",
+    "action",
+    "ticket_observation",
+    "candidate",
+    "deployment",
+    "proposed_effect"
+  ],
+  "properties": {
+    "schema": {
+      "const": "compris.implement-ticket/checkpoint-request/v3"
+    },
+    "capability": {
+      "const": "compris.implement-ticket/delegated-execution/v3"
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continuation_token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "phase": {
+      "enum": ["pre_external_mutation", "candidate_published", "deployment_observed"]
+    },
+    "action": {
+      "enum": [
+        "repository.candidate.create",
+        "repository.candidate.push",
+        "pull_request.create",
+        "pull_request.update",
+        "review.reply",
+        "review.resolve",
+        "ticket.update",
+        "tracker.auto_close.authorize",
+        "ticket.dependencies.update",
+        "ticket.followup.create",
+        "changeset.carve",
+        "pull_request.merge",
+        "repository.branch.delete",
+        "deployment.execute",
+        "production.mutate",
+        "destructive.execute"
+      ]
+    },
+    "ticket_observation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "remote_url",
+        "remote_ref",
+        "base_sha",
+        "head_sha"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remote_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remote_ref": {
+          "type": "string",
+          "pattern": "^refs/.+$"
+        },
+        "base_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "head_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        }
+      }
+    },
+    "deployment": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["candidate_sha", "deployed_sha", "environment", "url"],
+      "properties": {
+        "candidate_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "deployed_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "proposed_effect": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
