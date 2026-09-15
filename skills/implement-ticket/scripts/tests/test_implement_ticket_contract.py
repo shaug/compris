@@ -928,6 +928,14 @@ class ImplementTicketContractTests(unittest.TestCase):
         ):
             self.assertIn(required, prs_open)
 
+    def test_carved_blocked_mapping_preserves_or_empties_lifecycle_observations(self):
+        mapping = self.carve_handoff.split("## Terminal-result mapping", 1)[1]
+        blocked = mapping.split("- `blocked` maps to `blocked`", 1)[1].split(
+            "- `plan_ready` or `chain_ready`", 1
+        )[0]
+        self.assertIn("`lifecycle_observations`", blocked)
+        self.assertIn("`lifecycle_observations: []`", blocked)
+
     def test_shape_telemetry_does_not_expand_delegated_protocol(self):
         delegated_root = SKILL_ROOT / "references" / "delegated-execution"
         delegated_contract = read(delegated_root / "CONTRACT.md")

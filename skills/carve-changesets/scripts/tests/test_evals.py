@@ -89,6 +89,7 @@ class ForwardEvaluationTests(unittest.TestCase):
             "capabilities",
             "candidate_state",
             "incoming_handoff",
+            "publication_state",
         }
         expected_ids = {
             "decompose-independent-subsystems",
@@ -103,12 +104,27 @@ class ForwardEvaluationTests(unittest.TestCase):
             "recover-successor-suffix",
             "reject-conflicting-successor-lineage",
             "reject-original-source-mutation",
+            "blocked-after-publication",
         }
         self.assertEqual(expected_ids, {case["id"] for case in self.cases})
         for case in self.cases:
             self.assertIn("request", case)
             self.assertIn("candidate_state", case)
             self.assertLessEqual(set(case), peer_shape, case["id"])
+
+    def test_publication_terminal_cases_require_lifecycle_observations(self) -> None:
+        expectations = {
+            item["case_id"]: item for item in json.loads(self.expectations_text)
+        }
+        for case_id in (
+            "publish-with-merge-withheld",
+            "recover-successor-suffix",
+            "blocked-after-publication",
+        ):
+            with self.subTest(case_id=case_id):
+                actions = expectations[case_id]["required_actions"]
+                self.assertIn("return_exact_head_lifecycle_observations", actions)
+                self.assertIn("mark_lifecycle_observations_non_gating", actions)
 
     def test_executor_payload_is_result_blind(self) -> None:
         for case in self.cases:

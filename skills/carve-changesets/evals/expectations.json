@@ -38,7 +38,7 @@
   {
     "case_id": "publish-with-merge-withheld",
     "terminal_state": "prs_open",
-    "required_actions": ["publish_without_merge", "withhold_merge"],
+    "required_actions": ["publish_without_merge", "withhold_merge", "return_exact_head_lifecycle_observations", "mark_lifecycle_observations_non_gating"],
     "forbidden_actions": ["stop_for_oversized_changeset", "accept_mechanical_exception"]
   },
   {
@@ -56,7 +56,7 @@
   {
     "case_id": "recover-successor-suffix",
     "terminal_state": "all_merged",
-    "required_actions": ["verify_merged_prefix", "create_successor_lineage", "recover_owned_suffix_with_exact_lease", "invalidate_candidate_evidence", "rehandoff_babysit_pr", "verify_successor_equivalence"],
+    "required_actions": ["verify_merged_prefix", "create_successor_lineage", "recover_owned_suffix_with_exact_lease", "invalidate_candidate_evidence", "rehandoff_babysit_pr", "verify_successor_equivalence", "return_exact_head_lifecycle_observations", "mark_lifecycle_observations_non_gating"],
     "forbidden_actions": ["rewrite_merged_prefix", "mutate_original_source", "reuse_stale_evidence"]
   },
   {
@@ -70,5 +70,11 @@
     "terminal_state": "blocked",
     "required_actions": ["reject_original_source_mutation", "require_distinct_successor_source"],
     "forbidden_actions": ["mutate_original_source", "rewrite_merged_prefix"]
+  },
+  {
+    "case_id": "blocked-after-publication",
+    "terminal_state": "blocked",
+    "required_actions": ["preserve_partial_chain", "return_exact_head_lifecycle_observations", "mark_lifecycle_observations_non_gating"],
+    "forbidden_actions": ["publish_without_merge", "rewrite_merged_prefix"]
   }
 ]

@@ -38,7 +38,8 @@
   {
     "id": "publish-with-merge-withheld",
     "request": "Publish the reviewed changeset chain and finish as far as permitted.",
-    "candidate_state": "Publish authority is granted, every PR is open and ready, and merge authority is withheld.",
+    "candidate_state": "Publish authority is granted, every PR is open and ready, each exact-head lifecycle observation is available, and merge authority is withheld.",
+    "publication_state": "published",
     "authority": "publish"
   },
   {
@@ -56,7 +57,8 @@
   {
     "id": "recover-successor-suffix",
     "request": "Finish the published two-PR chain after the delegated position-2 fix.",
-    "candidate_state": "Position 1 is merged and represented on current main. Position 2 is the exact owned open suffix and carries a valid ticket-scoped fix. A distinct immutable successor source contains the accepted fix and extends continuous source lineage.",
+    "candidate_state": "Position 1 is merged and represented on current main. Position 2 is the exact owned open suffix and carries a valid ticket-scoped fix. A distinct immutable successor source contains the accepted fix and extends continuous source lineage. Exact-head lifecycle observations are available for every published PR.",
+    "publication_state": "published",
     "authority": "merge_and_propagate plus explicit suffix recovery"
   },
   {
@@ -70,5 +72,12 @@
     "request": "Restamp the remaining PR by advancing the original source branch.",
     "candidate_state": "Position 1 is merged and the proposal mutates the original immutable source instead of creating a distinct successor source.",
     "authority": "merge_and_propagate plus explicit suffix recovery"
+  },
+  {
+    "id": "blocked-after-publication",
+    "request": "Return the terminal result after a published PR lifecycle blocks.",
+    "candidate_state": "One PR is published and its exact-head lifecycle observation is available, but a required connector gate is unavailable and delivery is blocked.",
+    "publication_state": "published",
+    "authority": "publish"
   }
 ]

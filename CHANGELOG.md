@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-15 — Made PR reviewability and operator effort observable
 
+- fix(carve-changesets): require lifecycle observations in every terminal
+  handoff after publication and record result-blind eval coverage for the rule.
+
 - fix(carve-changesets): require per-PR lifecycle observations in the open-stack
   terminal handoff and its ready-PRs mapping.
 

@@ -144,7 +144,11 @@ handoff.
   independently verified delivery state.
 - `blocked` maps to `blocked` with the exact phase, source, base, stack, PR,
   candidate, preserved artifacts, last trustworthy evidence, and one action
-  needed to resume.
+  needed to resume. Preserve the returned `lifecycle_observations` for every
+  published PR, requiring one exact-current-head observation with
+  `non_gating: true` per PR; require exactly `lifecycle_observations: []` when
+  no PR was published. Missing or stale telemetry blocks result mapping without
+  changing delivery state.
 - `plan_ready` or `chain_ready` cannot satisfy an `implement-ticket` publication
   policy and map to `blocked` unless the caller explicitly changes the requested
   boundary.
