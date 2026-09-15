@@ -4,13 +4,23 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-14 — Made publication-shape predictions observable outcomes
+
+- fix(implement-ticket): preserve valid real-model shape telemetry through
+  normalization and exact modal voting so the forward grader can observe the
+  terminal shape the model returned.
+
+- feat(implement-ticket): report predicted and realized publication shape,
+  binding held, falsified, and missing outcomes to the exact ticket, candidate,
+  and publication artifacts without turning telemetry into a delivery gate.
+
 ## 2026-09-13 — Bound implement-ticket's publication gate to the canonical shaping doctrine
 
 - fix(implement-ticket): read the bundled canonical cognitive-shaping doctrine
   before publication-size classification, drift-check it through
   `sync-contracts`, and grade the obligation with a forward case while
   preserving the ordinary and carved publication paths and their authority
-  boundaries.
+  boundaries. (89f08e7b01d07d24a4535a35000557d1cc262e5a)
 
 ## 2026-08-21 — Ran the real-model eval tier for the first time and recorded what it found: the publication-delegate prose does not reliably govern a model on the split paths
 

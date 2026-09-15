@@ -60,6 +60,8 @@ ACTION_VOCABULARY = (
     "avoid_irrelevant_ui_gates",
     "bind_installed_implement_ticket",
     "build_acceptance_ledger",
+    "bind_shape_telemetry_to_candidate_and_publication",
+    "block_on_shape_telemetry",
     "caller_verifies_mainline_tracker_cleanup",
     "consume_ticket_states_unchanged",
     "deduplicate_prior_actions",
@@ -106,11 +108,15 @@ ACTION_VOCABULARY = (
     "preserve_acceptance_authority_boundaries",
     "preserve_partial_stack",
     "preserve_ticket_scope",
+    "preserve_shape_telemetry_non_gating",
     "preserve_tracker_pr_host_separation",
     "preserve_user_authority",
     "publish_inline",
     "rebuild_remote_gates",
     "record_guardrail_evidence",
+    "record_shape_carved_evidence",
+    "record_shape_prediction_falsified",
+    "record_shape_prediction_held",
     "refresh_graph_after_merged_only",
     "refresh_graph_after_verified_delivery",
     "reject_concurrent_mutation",
@@ -129,6 +135,10 @@ ACTION_VOCABULARY = (
     "report_delivery_acceptance_separately",
     "report_mid_stack_redesign",
     "report_missing_reopen_authority",
+    "report_missing_shape_prediction",
+    "report_missing_shape_trigger",
+    "report_shape_publication_unavailable",
+    "bind_shape_telemetry_to_ticket_and_candidate",
     "report_needs_author_input",
     "report_partial_split_merge",
     "report_partial_publication",
@@ -207,7 +217,9 @@ def build_prompt(payload: dict) -> str:
             '{"target_skill": "' + payload["target_skill"] + '",',
             ' "terminal_state": <one of ' + json.dumps(list(TERMINAL_STATES)) + ">,",
             ' "actions": <every applicable value from this closed vocabulary>,',
-            ' "acceptance_ledger": <one derived evidence record per authored criterion>}',
+            ' "acceptance_ledger": <one derived evidence record per authored criterion>,',
+            ' "shape_telemetry": <exact standalone terminal shape observation, '
+            "or null when it does not apply>}",
             json.dumps(list(ACTION_VOCABULARY), indent=2),
         ]
     )
@@ -290,6 +302,9 @@ def normalize(observed: dict) -> dict:
     ledger = observed.get("acceptance_ledger")
     if not isinstance(ledger, list):
         ledger = []
+    shape_telemetry = observed.get("shape_telemetry")
+    if not isinstance(shape_telemetry, dict):
+        shape_telemetry = None
     normalized_ledger = [
         entry
         for entry in ledger
@@ -306,6 +321,7 @@ def normalize(observed: dict) -> dict:
             {str(action) for action in actions if str(action) in ACTION_VOCABULARY}
         ),
         "acceptance_ledger": normalized_ledger,
+        "shape_telemetry": shape_telemetry,
     }
 
 
@@ -378,8 +394,15 @@ def combine(samples: list[dict]) -> dict:
     skill_votes = Counter(item["target_skill"] or NO_ANSWER for item in samples)
     state_votes = Counter(item["terminal_state"] or NO_ANSWER for item in samples)
     action_votes = Counter(action for item in samples for action in item["actions"])
+    telemetry_votes = Counter(
+        json.dumps(item["shape_telemetry"], sort_keys=True)
+        if item["shape_telemetry"] is not None
+        else NO_ANSWER
+        for item in samples
+    )
     winning_skill, _ = _modal(skill_votes)
     winning_state, agreement = _modal(state_votes)
+    winning_telemetry, _ = _modal(telemetry_votes)
     ledger, ledger_votes = _combine_ledger(samples, majority)
     return {
         "target_skill": None if winning_skill == NO_ANSWER else winning_skill,
@@ -388,6 +411,9 @@ def combine(samples: list[dict]) -> dict:
             action for action, count in action_votes.items() if count >= majority
         ),
         "acceptance_ledger": ledger,
+        "shape_telemetry": (
+            None if winning_telemetry == NO_ANSWER else json.loads(winning_telemetry)
+        ),
         "repetitions": repetitions,
         "agreement": agreement / repetitions,
         "votes": {
@@ -395,6 +421,7 @@ def combine(samples: list[dict]) -> dict:
             "terminal_state": dict(state_votes),
             "actions": dict(action_votes),
             "acceptance_ledger": ledger_votes,
+            "shape_telemetry": dict(telemetry_votes),
         },
     }
 

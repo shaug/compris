@@ -850,6 +850,45 @@ class ImplementTicketContractTests(unittest.TestCase):
         self.assertIn("The operator decides", contract)
         self.assertNotIn("few hundred", contract)
 
+    def test_shape_telemetry_is_bound_explicit_and_non_gating(self):
+        contract = compact(self.skill + self.result)
+        for required in (
+            "predicted shape identity and its exact authoritative source",
+            "`candidate_sha` to the immutable source candidate",
+            (
+                "`publication_candidate_sha` to the publication candidate or final "
+                "stack tip"
+            ),
+            "`publication_complete`",
+            "named pre-authored re-split trigger that fired",
+            "every resulting changeset and PR identity",
+            (
+                "A carved publication falsifies a one-PR prediction; it is not a "
+                "doctrine violation"
+            ),
+            "Do not invent a prediction or fired trigger",
+            "`held`, `falsified`, `missing`, or `unavailable`",
+            "never changes delivery gates, authority, or terminal-state mapping",
+            "does not change the delegated-execution result shape",
+        ):
+            self.assertIn(required, contract)
+        self.assertIn(
+            "With an available prediction, a partial publication is "
+            "`unavailable` even when one or more publication artifacts already "
+            "exist",
+            contract,
+        )
+
+    def test_shape_telemetry_does_not_expand_delegated_protocol(self):
+        delegated_root = SKILL_ROOT / "references" / "delegated-execution"
+        delegated_contract = read(delegated_root / "CONTRACT.md")
+        self.assertEqual(
+            sorted(path.name for path in delegated_root.glob("*v3*")),
+            [],
+        )
+        self.assertNotIn("delegated-execution/v3", delegated_contract)
+        self.assertNotIn("delegated-execution v3", self.skill + self.result)
+
     def test_worktree_isolation_reference_is_always_loaded(self):
         """Step 1 is unconditional, so its reference must be an "Always read"
         entry, matching the other always-loaded handoffs in this list."""
