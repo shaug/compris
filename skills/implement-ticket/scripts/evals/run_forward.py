@@ -81,6 +81,25 @@ def grade(case_id: str, observed: dict, expected: dict) -> list[str]:
             f"target_skill: expected {expected.get('target_skill')!r}, "
             f"got {observed.get('target_skill')!r}"
         )
+    if (
+        expected.get("target_skill") == "implement-ticket"
+        and expected.get("terminal_state") != "requires_epic"
+    ):
+        telemetry = observed.get("shape_telemetry")
+        required_fields = {
+            "ticket_id",
+            "prediction",
+            "candidate_sha",
+            "publication_candidate_sha",
+            "actual",
+            "comparison",
+        }
+        if not isinstance(telemetry, dict):
+            failures.append("shape_telemetry: missing standalone terminal observation")
+        elif missing_fields := sorted(required_fields - set(telemetry)):
+            failures.append(
+                "shape_telemetry: missing fields " + ", ".join(missing_fields)
+            )
     if "acceptance_statuses" in expected:
         ledger = observed.get("acceptance_ledger") or []
         criteria = [

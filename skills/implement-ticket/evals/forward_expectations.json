@@ -1018,7 +1018,6 @@
     ],
     "required_actions": [
       "record_shape_prediction_falsified",
-      "report_missing_shape_trigger",
       "bind_shape_telemetry_to_candidate_and_publication",
       "preserve_shape_telemetry_non_gating",
       "invoke_ready_to_merge"

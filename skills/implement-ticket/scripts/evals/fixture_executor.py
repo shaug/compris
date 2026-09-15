@@ -283,10 +283,18 @@ def publication_shape_evidence(
     delegated = (handoff.get("publish_candidate_result") or {}).get("prs") or []
     if delegated:
         artifacts = [
-            {"id": f"PR-{entry.get('number')}", "head": entry.get("head")}
+            {
+                "kind": "pull_request",
+                "id": (
+                    f"PR-{entry['number']}"
+                    if isinstance(entry.get("number"), int)
+                    else None
+                ),
+                "head": entry.get("head"),
+            }
             for entry in delegated
         ]
-        return "ordinary", artifacts, handoff.get("publication_trigger")
+        return "ordinary", artifacts, None
 
     if handoff.get("publication_path") == "carved" or handoff.get("carve_terminal"):
         return (
@@ -298,79 +306,183 @@ def publication_shape_evidence(
     if pr.get("number"):
         return (
             "ordinary",
-            [{"id": f"PR-{pr['number']}", "head": pr.get("head")}],
+            [
+                {
+                    "kind": "pull_request",
+                    "id": f"PR-{pr['number']}",
+                    "head": pr.get("head"),
+                }
+            ],
             None,
         )
     return handoff.get("publication_path"), [], None
 
 
-def shape_telemetry_actions(ticket: dict, pr: dict, handoff: dict) -> list[str]:
-    """Finalize observed shape telemetry without changing delivery state."""
-    actions = ["preserve_shape_telemetry_non_gating"]
+def _valid_identity(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def shape_telemetry_result(ticket: dict, pr: dict, handoff: dict) -> dict:
+    """Build the exact standalone terminal-handoff telemetry observation."""
     predicted = ticket.get("predicted_shape")
     path, artifacts, trigger = publication_shape_evidence(pr, handoff)
     candidate_head = handoff.get("result_head") or pr.get("head")
     delegate_result = handoff.get("publish_candidate_result") or {}
     delegated_artifacts = bool(delegate_result.get("prs"))
-    ordinary_artifacts_candidate_bound = bool(
-        path == "ordinary"
-        and candidate_head
-        and artifacts
+    artifact_ids = [artifact.get("id") for artifact in artifacts]
+    artifacts_valid = bool(
+        artifacts
         and all(
-            artifact.get("id") and artifact.get("head") == candidate_head
+            _valid_identity(artifact.get("id"))
+            and _valid_identity(artifact.get("head"))
             for artifact in artifacts
         )
+        and len(set(artifact_ids)) == len(artifact_ids)
     )
-    delegated_split_complete = (
-        delegated_artifacts
-        and delegate_result.get("status") == "published"
-        and len(artifacts) > 1
-        and ordinary_artifacts_candidate_bound
+    ordinary_artifacts_candidate_bound = bool(
+        path == "ordinary"
+        and _valid_identity(candidate_head)
+        and artifacts_valid
+        and all(artifact.get("head") == candidate_head for artifact in artifacts)
+    )
+    ordinary_publication_complete = bool(
+        ordinary_artifacts_candidate_bound
+        and (not delegated_artifacts or delegate_result.get("status") == "published")
+    )
+    changeset_ids = list(handoff.get("changeset_identities") or [])
+    changesets_valid = bool(
+        changeset_ids
+        and len(changeset_ids) == len(artifacts)
+        and all(_valid_identity(identity) for identity in changeset_ids)
+        and len(set(changeset_ids)) == len(changeset_ids)
     )
     carved_publication_verified = (
         path == "carved"
         and handoff.get("topology") == "verified"
         and handoff.get("whole_chain_equivalent") is True
-        and handoff.get("changeset_identities")
-        and len(handoff["changeset_identities"]) == handoff.get("stack_count")
+        and changesets_valid
+        and len(changeset_ids) == handoff.get("stack_count")
         and len(artifacts) == handoff.get("stack_count")
-        and all(artifact.get("id") and artifact.get("head") for artifact in artifacts)
+        and artifacts_valid
     )
     has_prediction = bool(
         predicted
-        and predicted.get("identity")
-        and predicted.get("source")
+        and _valid_identity(predicted.get("identity"))
+        and _valid_identity(predicted.get("source"))
         and predicted.get("publication") == "one_pr"
     )
 
+    publication_complete = bool(
+        ordinary_publication_complete or carved_publication_verified
+    )
     if not has_prediction:
+        comparison = "missing"
+        prediction = {"status": "missing", "identity": None, "source": None}
+    else:
+        prediction = {
+            "status": "available",
+            "identity": predicted["identity"],
+            "publication": predicted["publication"],
+            "source": predicted["source"],
+        }
+        if not publication_complete:
+            comparison = "unavailable"
+        elif path == "ordinary" and len(artifacts) == 1:
+            comparison = "held"
+        else:
+            comparison = "falsified"
+
+    actual = {
+        "path": path,
+        "publication_complete": publication_complete,
+        "artifacts": artifacts,
+    }
+    if path == "carved":
+        actual["fired_trigger"] = trigger
+        actual["changesets"] = [
+            {
+                "id": identity,
+                "publication_artifact_id": artifact.get("id"),
+                "head": artifact.get("head"),
+            }
+            for identity, artifact in zip(changeset_ids, artifacts, strict=False)
+        ]
+
+    if path == "carved" and artifacts:
+        publication_candidate_head = artifacts[-1].get("head")
+    elif path == "ordinary" and artifacts:
+        publication_candidate_head = candidate_head
+    else:
+        publication_candidate_head = None
+
+    return {
+        "ticket_id": ticket.get("id"),
+        "prediction": prediction,
+        "candidate_sha": candidate_head,
+        "publication_candidate_sha": publication_candidate_head,
+        "actual": actual,
+        "comparison": comparison,
+    }
+
+
+def shape_telemetry_actions(telemetry: dict) -> list[str]:
+    """Describe the standalone observation without changing delivery state."""
+    actions = ["preserve_shape_telemetry_non_gating"]
+    comparison = telemetry["comparison"]
+    actual = telemetry["actual"]
+
+    if comparison == "missing":
         actions.append("report_missing_shape_prediction")
-    elif (
-        ordinary_artifacts_candidate_bound
-        and len(artifacts) == 1
-        and (not delegated_artifacts or delegate_result.get("status") == "published")
-    ):
+    elif comparison == "held":
         actions.append("record_shape_prediction_held")
-    elif carved_publication_verified or delegated_split_complete:
+    elif comparison == "falsified":
         actions.append("record_shape_prediction_falsified")
-        if trigger not in (predicted.get("re_split_triggers") or []):
-            actions.append("report_missing_shape_trigger")
     else:
         actions.append("report_shape_publication_unavailable")
 
-    if carved_publication_verified:
-        if trigger:
+    if actual["path"] == "carved" and actual["publication_complete"]:
+        if _valid_identity(actual.get("fired_trigger")):
             actions.append("record_shape_carved_evidence")
         else:
             actions.append("report_missing_shape_trigger")
 
-    if ticket.get("id") and candidate_head:
+    if _valid_identity(telemetry.get("ticket_id")) and _valid_identity(
+        telemetry.get("candidate_sha")
+    ):
         actions.append("bind_shape_telemetry_to_ticket_and_candidate")
+    artifacts = actual["artifacts"]
+    artifact_ids = [artifact.get("id") for artifact in artifacts]
+    artifacts_bound = bool(
+        artifacts
+        and all(
+            _valid_identity(artifact.get("id"))
+            and _valid_identity(artifact.get("head"))
+            for artifact in artifacts
+        )
+        and len(set(artifact_ids)) == len(artifact_ids)
+    )
+    ordinary_bound = actual["path"] == "ordinary" and all(
+        artifact["head"] == telemetry.get("publication_candidate_sha")
+        for artifact in artifacts
+    )
+    carved_bound = (
+        actual["path"] == "carved"
+        and bool(actual.get("changesets"))
+        and len(actual["changesets"]) == len(artifacts)
+        and all(
+            _valid_identity(changeset.get("id"))
+            and changeset.get("publication_artifact_id") == artifact.get("id")
+            and changeset.get("head") == artifact.get("head")
+            for changeset, artifact in zip(actual["changesets"], artifacts, strict=True)
+        )
+        and len({item["id"] for item in actual["changesets"]})
+        == len(actual["changesets"])
+    )
     if (
-        ticket.get("id")
-        and candidate_head
-        and artifacts
-        and (carved_publication_verified or ordinary_artifacts_candidate_bound)
+        _valid_identity(telemetry.get("ticket_id"))
+        and _valid_identity(telemetry.get("candidate_sha"))
+        and artifacts_bound
+        and (ordinary_bound or carved_bound)
     ):
         actions.append("bind_shape_telemetry_to_candidate_and_publication")
     return actions
@@ -1022,13 +1134,12 @@ def action_result(payload: dict) -> dict:
         and result.get("terminal_state") != "requires_epic"
     ):
         artifacts = payload["artifacts"]
+        telemetry = shape_telemetry_result(
+            artifacts["ticket"], artifacts["pr"], artifacts["handoff"]
+        )
+        result["shape_telemetry"] = telemetry
         result["actions"] = sorted(
-            set(
-                result.get("actions", [])
-                + shape_telemetry_actions(
-                    artifacts["ticket"], artifacts["pr"], artifacts["handoff"]
-                )
-            )
+            set(result.get("actions", []) + shape_telemetry_actions(telemetry))
         )
     return result
 

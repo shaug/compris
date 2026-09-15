@@ -452,6 +452,32 @@ class ForwardEvaluationTests(unittest.TestCase):
         held = observations["shape-prediction-held"]
         self.assertEqual("ready_pr", held["terminal_state"])
         self.assertIn("record_shape_prediction_held", held["actions"])
+        self.assertEqual(
+            {
+                "ticket_id": "G-304H",
+                "prediction": {
+                    "status": "available",
+                    "identity": "G-304H:shape-v1",
+                    "publication": "one_pr",
+                    "source": "ticket contract",
+                },
+                "candidate_sha": "head-304h",
+                "publication_candidate_sha": "head-304h",
+                "actual": {
+                    "path": "ordinary",
+                    "publication_complete": True,
+                    "artifacts": [
+                        {
+                            "kind": "pull_request",
+                            "id": "PR-3041",
+                            "head": "head-304h",
+                        }
+                    ],
+                },
+                "comparison": "held",
+            },
+            held["shape_telemetry"],
+        )
 
         falsified = observations["shape-prediction-falsified-by-carving"]
         self.assertEqual("ready_prs", falsified["terminal_state"])
@@ -471,10 +497,42 @@ class ForwardEvaluationTests(unittest.TestCase):
             "bind_shape_telemetry_to_candidate_and_publication",
             falsified["actions"],
         )
+        self.assertEqual("falsified", falsified["shape_telemetry"]["comparison"])
+        self.assertEqual(
+            "source-head-304f", falsified["shape_telemetry"]["candidate_sha"]
+        )
+        self.assertEqual(
+            "stack-head-304f-2",
+            falsified["shape_telemetry"]["publication_candidate_sha"],
+        )
+        self.assertEqual(
+            "review requires separate mechanical and behavioral changes",
+            falsified["shape_telemetry"]["actual"]["fired_trigger"],
+        )
+        self.assertEqual(
+            [
+                {
+                    "id": "G-304F/C1",
+                    "publication_artifact_id": "PR-3042",
+                    "head": "stack-head-304f-1",
+                },
+                {
+                    "id": "G-304F/C2",
+                    "publication_artifact_id": "PR-3043",
+                    "head": "stack-head-304f-2",
+                },
+            ],
+            falsified["shape_telemetry"]["actual"]["changesets"],
+        )
 
         missing = observations["shape-prediction-missing"]
         self.assertEqual("ready_pr", missing["terminal_state"])
         self.assertIn("report_missing_shape_prediction", missing["actions"])
+        self.assertEqual(
+            {"status": "missing", "identity": None, "source": None},
+            missing["shape_telemetry"]["prediction"],
+        )
+        self.assertEqual("missing", missing["shape_telemetry"]["comparison"])
 
         missing_after_carving = observations["shape-prediction-missing-after-carving"]
         self.assertEqual("ready_prs", missing_after_carving["terminal_state"])
@@ -511,9 +569,14 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertIn(
             "record_shape_prediction_falsified", split_missing_trigger["actions"]
         )
-        self.assertIn("report_missing_shape_trigger", split_missing_trigger["actions"])
+        self.assertNotIn(
+            "report_missing_shape_trigger", split_missing_trigger["actions"]
+        )
         self.assertNotIn(
             "report_shape_publication_unavailable", split_missing_trigger["actions"]
+        )
+        self.assertNotIn(
+            "fired_trigger", split_missing_trigger["shape_telemetry"]["actual"]
         )
 
         partial = observations["delegated-publication-partial-then-author-input"]
@@ -558,6 +621,69 @@ class ForwardEvaluationTests(unittest.TestCase):
         self.assertNotIn(
             "bind_shape_telemetry_to_candidate_and_publication", blocked["actions"]
         )
+        self.assertFalse(blocked["shape_telemetry"]["actual"]["publication_complete"])
+        self.assertEqual("unavailable", blocked["shape_telemetry"]["comparison"])
+
+        malformed = copy.deepcopy(split_case)
+        malformed["artifacts"]["handoff"]["publish_candidate_result"]["prs"][0][
+            "number"
+        ] = None
+        malformed_result = RUNNER.run_executor(
+            [sys.executable, str(EXECUTOR_PATH)], RUNNER.build_payload(malformed)
+        )
+        self.assertFalse(
+            malformed_result["shape_telemetry"]["actual"]["publication_complete"]
+        )
+        self.assertEqual(
+            "unavailable", malformed_result["shape_telemetry"]["comparison"]
+        )
+        self.assertNotIn(
+            "bind_shape_telemetry_to_candidate_and_publication",
+            malformed_result["actions"],
+        )
+
+        duplicate_artifact = copy.deepcopy(split_case)
+        duplicate_prs = duplicate_artifact["artifacts"]["handoff"][
+            "publish_candidate_result"
+        ]["prs"]
+        duplicate_prs[1]["number"] = duplicate_prs[0]["number"]
+        duplicate_result = RUNNER.run_executor(
+            [sys.executable, str(EXECUTOR_PATH)],
+            RUNNER.build_payload(duplicate_artifact),
+        )
+        self.assertFalse(
+            duplicate_result["shape_telemetry"]["actual"]["publication_complete"]
+        )
+        self.assertEqual(
+            "unavailable", duplicate_result["shape_telemetry"]["comparison"]
+        )
+        self.assertNotIn(
+            "bind_shape_telemetry_to_candidate_and_publication",
+            duplicate_result["actions"],
+        )
+
+        for changeset_ids in ([None, None], ["G-304F/C1", "G-304F/C1"]):
+            with self.subTest(changeset_ids=changeset_ids):
+                malformed = copy.deepcopy(carved_case)
+                malformed["artifacts"]["handoff"]["changeset_identities"] = list(
+                    changeset_ids
+                )
+                malformed_result = RUNNER.run_executor(
+                    [sys.executable, str(EXECUTOR_PATH)],
+                    RUNNER.build_payload(malformed),
+                )
+                self.assertFalse(
+                    malformed_result["shape_telemetry"]["actual"][
+                        "publication_complete"
+                    ]
+                )
+                self.assertEqual(
+                    "unavailable", malformed_result["shape_telemetry"]["comparison"]
+                )
+                self.assertNotIn(
+                    "bind_shape_telemetry_to_candidate_and_publication",
+                    malformed_result["actions"],
+                )
 
         for observed in (held, falsified, missing, split, split_missing_trigger):
             self.assertIn(
@@ -568,6 +694,21 @@ class ForwardEvaluationTests(unittest.TestCase):
             self.assertNotIn("block_on_shape_telemetry", observed["actions"])
         self.assertIn("preserve_shape_telemetry_non_gating", blocked["actions"])
         self.assertNotIn("block_on_shape_telemetry", blocked["actions"])
+
+    def test_forward_grader_rejects_missing_terminal_shape_observation(self):
+        case_id = "shape-prediction-held"
+        observed = self.observe(case_id)
+        del observed["shape_telemetry"]
+        expected = next(
+            item
+            for item in json.loads(self.expectations_text)
+            if item["case_id"] == case_id
+        )
+
+        self.assertEqual(
+            [f"{case_id}: shape_telemetry: missing standalone terminal observation"],
+            RUNNER.grade(case_id, observed, expected),
+        )
 
     def test_acceptance_cases_fail_closed_or_complete_from_raw_evidence(self):
         observations, failures = RUNNER.evaluate(

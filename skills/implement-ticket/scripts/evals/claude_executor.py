@@ -217,7 +217,9 @@ def build_prompt(payload: dict) -> str:
             '{"target_skill": "' + payload["target_skill"] + '",',
             ' "terminal_state": <one of ' + json.dumps(list(TERMINAL_STATES)) + ">,",
             ' "actions": <every applicable value from this closed vocabulary>,',
-            ' "acceptance_ledger": <one derived evidence record per authored criterion>}',
+            ' "acceptance_ledger": <one derived evidence record per authored criterion>,',
+            ' "shape_telemetry": <exact standalone terminal shape observation, '
+            "or null when it does not apply>}",
             json.dumps(list(ACTION_VOCABULARY), indent=2),
         ]
     )

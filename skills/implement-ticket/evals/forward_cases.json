@@ -1526,7 +1526,6 @@
         "created": true,
         "result_well_formed": true,
         "result_head": "head-304s",
-        "publication_trigger": "repository publication policy requires separate PRs",
         "publish_candidate_result": {
           "status": "published",
           "prs": [
