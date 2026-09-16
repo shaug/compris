@@ -1,6 +1,6 @@
-______________________________________________________________________
-
-## summary: Chronological history of repository and skill changes.
+---
+summary: Chronological history of repository and skill changes.
+---
 
 # Changelog
 
