@@ -276,6 +276,15 @@ class TicketAuthorityDecisionTests(unittest.TestCase):
                 with self.subTest(copy=copy_name, stale_claim=stale_claim):
                     self.assertNotIn(stale_claim, design)
 
+    def test_spec_c_no_longer_reverses_granular_default_off_authority(self):
+        stale_reversal = re.compile(
+            r"Spec C alone reverses.{0,200}granular default-off authority",
+            re.IGNORECASE,
+        )
+        for copy_name, design in self.design_copies.items():
+            with self.subTest(copy=copy_name):
+                self.assertIsNone(stale_reversal.search(design))
+
     def test_design_records_separate_default_off_endpoint_authority(self):
         for claim in SEPARATE_GRAPH_AUTHORITY_CLAIMS:
             for copy_name, design in self.design_copies.items():

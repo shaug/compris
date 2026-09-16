@@ -274,9 +274,10 @@ Brainstorming's scope rule fired on this document: it describes work with three
 different dependency roots, three risk profiles, and three definitions of done.
 The tell is not the step count — it is that **every reversal of standing
 repository doctrine sits in one place.** Spec C alone reverses #118's
-design-approval gate, `docs/skill-authoring.md:366`'s granular default-off
-authority, `ready-ticket:82-84`'s no-additional-items rule, and the
-trigger-namespace rule. Four doctrine reversals is not a step.
+design-approval gate, `ready-ticket:82-84`'s no-additional-items rule, and the
+trigger-namespace rule. It applies `docs/skill-authoring.md:366`'s granular,
+default-off authority doctrine rather than reversing it. Three doctrine
+reversals is not a step.
 
 So this brief is a program of four specs, not one design. Bundling them would
 let the riskiest gate the safest.
