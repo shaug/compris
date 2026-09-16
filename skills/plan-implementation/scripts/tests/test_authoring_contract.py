@@ -1,4 +1,4 @@
-"""Load-bearing contract invariants for the ready-ticket skill.
+"""Load-bearing contract invariants for the plan-implementation skill.
 
 These tests check stable identifiers — the skill name, its six terminal
 results, the approved-design input gate, the readiness target it inherits from
@@ -36,7 +36,7 @@ def compact(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
-class ReadyTicketContractTests(unittest.TestCase):
+class PlanImplementationContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.skill = read(SKILL_ROOT / "SKILL.md")
@@ -59,9 +59,10 @@ class ReadyTicketContractTests(unittest.TestCase):
         return compact(" ".join(self.expectations[case_id]["required_actions"]))
 
     def test_canonical_name_and_metadata(self):
-        self.assertTrue(self.skill.startswith("---\nname: ready-ticket\n"))
+        self.assertTrue(self.skill.startswith("---\nname: plan-implementation\n"))
         self.assertIn(
-            'display_name: "Ready Ticket"', read(SKILL_ROOT / "agents" / "openai.yaml")
+            'display_name: "Plan Implementation"',
+            read(SKILL_ROOT / "agents" / "openai.yaml"),
         )
         self.assertIn(
             "Claude Code adapter", read(SKILL_ROOT / "agents" / "claude-code.md")
@@ -512,7 +513,7 @@ class ReadyTicketContractTests(unittest.TestCase):
             (
                 line
                 for line in read(AUTHORING_DOC).splitlines()
-                if line.startswith("| `ready-ticket`")
+                if line.startswith("| `plan-implementation`")
             ),
             "",
         )

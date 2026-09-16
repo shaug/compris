@@ -1,4 +1,0 @@
-interface:
-  display_name: "Ready Ticket"
-  short_description: "Author an implementation-ready ticket body"
-  default_prompt: "Use $ready-ticket to turn this request into an implementation-ready ticket body."

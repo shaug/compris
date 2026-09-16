@@ -1,0 +1,43 @@
+{
+  "candidate": {
+    "branch": "codex/201-plan-implementation",
+    "sha": "e1a0ff4de5ba2fa6fbb9d634b0f57f49f1d08f42",
+    "tree": "d8ed57ad06129e4e804c786cbf5ae37aa3ee315e",
+    "trees": {
+      "skills/ready-ticket": "af70b33dd3f6f6ff2a39cceb266e542ccaaa60c9"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {},
+  "cases": {},
+  "command": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "skills/ready-ticket/scripts/evals/run_forward.py",
+    "--executor",
+    "/opt/homebrew/opt/python@3.14/bin/python3.14 skills/ready-ticket/scripts/evals/claude_executor.py --model claude-opus-5"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 1,
+  "failures": [],
+  "forward_evals": true,
+  "gap": null,
+  "limitation": "eval command exited 1 without an aggregate summary; model-behavior evidence not collected",
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "\u2026evals/run_forward.py\", line 52, in run_executor\n    raise RuntimeError(\n        f\"executor exited {completed.returncode}: {completed.stderr.strip()}\"\n    )\nRuntimeError: executor exited 1: Traceback (most recent call last):\n  File \"/private/tmp/compris-201-plan-implementation.00hTeq/skills/ready-ticket/scripts/evals/claude_executor.py\", line 282, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/private/tmp/compris-201-plan-implementation.00hTeq/skills/ready-ticket/scripts/evals/claude_executor.py\", line 273, in main\n    sample(run_claude(prompt, args.claude_bin, args.model))\n           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/compris-201-plan-implementation.00hTeq/skills/ready-ticket/scripts/evals/claude_executor.py\", line 170, in run_claude\n    completed = subprocess.run(\n        command,\n    ...<3 lines>...\n        check=False,\n    )\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 555, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ~~~~~^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1039, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n                        pass_fds, cwd, env,\n                        ^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n                        gid, gids, uid, umask,\n                        ^^^^^^^^^^^^^^^^^^^^^^\n                        start_new_session, process_group)\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1990, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'claude'",
+  "recorded_at": "2026-09-16T13:58:19Z",
+  "schema": "eval-run-summary/1",
+  "skill": "ready-ticket",
+  "stage": "before",
+  "status": "attempted",
+  "suite": "forward",
+  "tier": "real-model",
+  "totals": null
+}

@@ -67,6 +67,8 @@ class MarketplacePositioningTests(unittest.TestCase):
                 self.assertIn("outer loop", text)
                 self.assertIn("superpowers", text)
                 self.assertRegex(text, r"compose(?:s)? with, not depend(?:s)? on")
+                self.assertIn("implementation planning", text)
+                self.assertNotIn("planning is done", text)
 
 
 if __name__ == "__main__":

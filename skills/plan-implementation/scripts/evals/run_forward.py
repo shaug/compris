@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run result-blind ready-ticket forward evaluations in fresh processes.
+"""Run result-blind plan-implementation forward evaluations in fresh processes.
 
 Mirrors implement-ticket's forward-eval harness
 (`../../implement-ticket/scripts/evals/run_forward.py`): build a result-blind

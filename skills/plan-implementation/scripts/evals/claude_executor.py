@@ -3,7 +3,7 @@
 
 Reads one result-blind evaluation packet as JSON on stdin (the shape built by
 `run_forward.py`), asks a fresh `claude -p` process to reason about how a
-fully compliant ready-ticket run must terminate, and prints one JSON result:
+fully compliant plan-implementation run must terminate, and prints one JSON result:
 
     {"terminal_state": ..., "actions": [...]}
 

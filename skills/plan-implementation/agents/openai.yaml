@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Implementation"
+  short_description: "Author an implementation-ready ticket body"
+  default_prompt: "Use $plan-implementation to turn this approved design into an implementation-ready ticket graph."

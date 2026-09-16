@@ -4,23 +4,42 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-16 — Began the public plan-implementation cutover
+
+- test(evals): establish fresh plan-implementation forward and triggering
+  baselines without comparing across stable names; deterministic replay passes
+  26 of 26 forward cases and 5 of 5 triggering cases, while both real-model
+  attempts record the unavailable `claude` executable.
+
+- feat(plan-implementation): rename the public planner route, cut over its
+  packaging, commands, eval registry, metadata, triggering corpus, and
+  implement-ticket recommendation, and record the cooperative writing-plans
+  overlap.
+
+- test(evals): record the final ready-ticket baseline before its public rename.
+
 ## 2026-09-15 — Made PR reviewability and operator effort observable
 
 - fix(carve-changesets): require lifecycle observations in every terminal
   handoff after publication and record result-blind eval coverage for the rule.
+  (cf6215a6d7db109b468ce46886e3ea8a295a27c6)
 
 - fix(carve-changesets): require per-PR lifecycle observations in the open-stack
   terminal handoff and its ready-PRs mapping.
+  (137b106af8e6be99a31de735afe3869d8f9c3fbe)
 
 - fix(carve-changesets): derive lifecycle implementation outcomes only after
   live publication topology is observable.
+  (407666917b760dbc6c4d38d2faa724696d6a373b)
 
 - fix(babysit-pr): preserve lifecycle telemetry across ordinary and carved PR
   handoffs and reject contradictory prediction/outcome states.
+  (6de8dba409ae72f289d1fc164cfd769f58213604)
 
 - feat(babysit-pr): record exact-head reviewability and operator-effort
   observations beside predicted shape and implementation outcome while keeping
   telemetry explicitly separate from delivery state and gates.
+  (c247aca6ab774a90dfbe24da9168ee4fc1bb0078)
 
 ## 2026-09-14 — Made publication-shape predictions observable outcomes
 

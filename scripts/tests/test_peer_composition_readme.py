@@ -32,7 +32,16 @@ README = REPOSITORY_ROOT / "README.md"
 # Seams the row claims are landed as of this file's own edit, and seams it
 # claims are still planned. #128 belongs here because this commit is the one
 # that makes its row's claim true, not because the tracker shows it closed.
-LANDED_SEAM_TICKETS = ("#124", "#125", "#126", "#127", "#128", "#131", "#198")
+LANDED_SEAM_TICKETS = (
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#131",
+    "#198",
+    "#201",
+)
 PLANNED_SEAM_TICKETS = ("#134",)
 
 # One ticket-to-status lookup, so the two directional tests below share it
@@ -142,6 +151,12 @@ class PeerCompositionSectionTests(unittest.TestCase):
             "is the authority when this summary and the registry disagree",
             self.compact,
         )
+
+    def test_planning_language_is_a_deliberate_cooperative_overlap(self):
+        self.assertIn("plan-implementation", self.compact)
+        self.assertIn("writing-plans", self.compact)
+        self.assertIn("structural and cooperative", self.compact)
+        self.assertIn("implementation-planning language deliberately", self.compact)
 
 
 if __name__ == "__main__":

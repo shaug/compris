@@ -324,11 +324,11 @@ implement-epic
     │       └── review-fix-loop     # after a head-changing fix (update_pr)
     │           └── review-code-change
     ┊
-    ┈▷ ready-ticket                 # recommendation only, never invoked
+    ┈▷ plan-implementation          # recommendation only, never invoked
 ```
 
 Solid edges are invocation. The dashed edge is a recommendation, governed by
-[Route a not-ready ticket to `ready-ticket`](#route-a-not-ready-ticket-to-ready-ticket).
+[Route a not-ready ticket to `plan-implementation`](#route-a-not-ready-ticket-to-plan-implementation).
 
 `review-fix-loop`, `babysit-pr`, and `carve-changesets` must never invoke
 `implement-ticket`. `carve-changesets` must never invoke `implement-epic`.
@@ -444,7 +444,7 @@ nothing to re-read.
   drifted, what the tree says now, and where you read it. Make no mutation. Do
   not repair the body: drift can mean the sentence went stale or that the
   ticket's premise changed, and only the requester decides which —
-  `ready-ticket` is where a corrected body comes from. This is not the
+  `plan-implementation` is where a corrected body comes from. This is not the
   incomplete-body condition the next section routes, so it carries no routing
   marker; nothing is missing from the body, one of its statements has stopped
   being true.
@@ -469,7 +469,7 @@ carries; it does not re-open the question the body settled, which is
 [step 2](#2-implement-only-the-live-contract)'s load-bearing exclusion and stays
 excluded.
 
-### Route a not-ready ticket to `ready-ticket`
+### Route a not-ready ticket to `plan-implementation`
 
 A ticket that fails the body-level conditions above — including an unresolved
 product, data, authorization, migration, destructive, or architecture decision —
@@ -489,23 +489,24 @@ because a body that has gone false is not a body with a gap to close.
   not emit the marker.
 - **Otherwise** — ticket editing is unauthorized, or the gap is one of those
   decisions this skill may not make for the requester. Return `blocked` and name
-  repository-owned `ready-ticket` as the remediation path, including the stable
-  marker `implement-ticket:requires-ready-ticket:<tracker>:<ticket-id>`.
+  repository-owned `plan-implementation` as the remediation path, including the
+  stable marker
+  `implement-ticket:requires-plan-implementation:<tracker>:<ticket-id>`.
 
-This is a recommendation, not a dispatch. Never invoke `ready-ticket` or run its
-elicitation from inside this skill; the caller decides whether to run it. Report
-which body-level conditions failed so the caller hands `ready-ticket` a concrete
-gap rather than the whole ticket.
+This is a recommendation, not a dispatch. Never invoke `plan-implementation` or
+run its elicitation from inside this skill; the caller decides whether to run
+it. Report which body-level conditions failed so the caller hands
+`plan-implementation` a concrete gap rather than the whole ticket.
 
-The edge is one-way by construction: `ready-ticket` terminates in a ticket body
-and must never invoke `implement-ticket`, so the recommendation cannot form a
-cycle. If the incoming handoff already carries this same marker, return
-`blocked` with a routing-cycle reason instead of recommending it again.
+The edge is one-way by construction: `plan-implementation` terminates in a
+ticket body and must never invoke `implement-ticket`, so the recommendation
+cannot form a cycle. If the incoming handoff already carries this same marker,
+return `blocked` with a routing-cycle reason instead of recommending it again.
 
 A blocker other than body readiness — an unresolved native dependency, a missing
 prerequisite outcome, an absent authority, or a competing canonical candidate —
-keeps its own `blocked` reason and does not carry this marker. `ready-ticket`
-cannot repair any of those.
+keeps its own `blocked` reason and does not carry this marker.
+`plan-implementation` cannot repair any of those.
 
 ## Execute one ticket
 

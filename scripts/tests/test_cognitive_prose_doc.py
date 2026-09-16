@@ -26,7 +26,7 @@ from helpers import compact, sync_block_skills  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL = REPOSITORY_ROOT / "docs" / "cognitive-prose.md"
-BUNDLING_SKILLS = ("implement-ticket", "carve-changesets", "ready-ticket")
+BUNDLING_SKILLS = ("implement-ticket", "carve-changesets", "plan-implementation")
 
 REQUIRED_SECTIONS = (
     "## The standard",

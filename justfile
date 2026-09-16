@@ -38,7 +38,7 @@ sync-contracts:
     cp review-suite/scripts/tests/test_review_gate.py "$tests_dest/test_review_gate.py"; \
     echo "Synced $scripts_dest/review_gate.py and $tests_dest/test_review_gate.py"; \
   done
-  @for skill in review-solution-simplicity carve-changesets ready-ticket implement-ticket; do \
+  @for skill in review-solution-simplicity carve-changesets plan-implementation implement-ticket; do \
     dest="{{skills_dir}}/$skill/references"; \
     mkdir -p "$dest"; \
     cp docs/cognitive-shaping-doctrine.md "$dest/cognitive-shaping-doctrine.md"; \
@@ -50,7 +50,7 @@ sync-contracts:
     cp ledger/core.py "$scripts_dest/ledger_core.py"; \
     echo "Synced $scripts_dest/ledger_core.py"; \
   done
-  @for skill in implement-ticket carve-changesets ready-ticket; do \
+  @for skill in implement-ticket carve-changesets plan-implementation; do \
     dest="{{skills_dir}}/$skill/references"; \
     mkdir -p "$dest"; \
     cp docs/cognitive-prose.md "$dest/cognitive-prose.md"; \
@@ -133,8 +133,8 @@ test-plugins:
 test-babysit-pr:
   python3 -m unittest discover -s {{skills_dir}}/babysit-pr/scripts/tests -p 'test_*.py'
 
-test-ready-ticket:
-  python3 -m unittest discover -s {{skills_dir}}/ready-ticket/scripts/tests -p 'test_*.py'
+test-plan-implementation:
+  python3 -m unittest discover -s {{skills_dir}}/plan-implementation/scripts/tests -p 'test_*.py'
 
 test-implement-ticket:
   python3 -m unittest discover -s {{skills_dir}}/implement-ticket/scripts/tests -p 'test_*.py'

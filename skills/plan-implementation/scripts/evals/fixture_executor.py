@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Deterministic stand-in for a compliant ready-ticket runtime.
+"""Deterministic stand-in for a compliant plan-implementation runtime.
 
 This executor answers from a fixed lookup table, not from a model. It exists
 so the harness, the grader, and the recorded-summary path can be exercised and
 regression-guarded without spending money or requiring model access.
 
-It proves the harness works. It proves nothing about whether ready-ticket's
+It proves the harness works. It proves nothing about whether plan-implementation's
 prose actually steers a model — no model reads it here.
 
 Reads one result-blind packet on stdin, writes one JSON object on stdout.

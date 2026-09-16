@@ -3,9 +3,9 @@
 Optional discovery metadata for Claude Code and Claude Agent SDK runtimes. It
 does not constrain the skill's portable contract.
 
-- Display name: Ready Ticket.
-- Suggested prompt: "Use the ready-ticket skill to turn this request into an
-  implementation-ready ticket body."
+- Display name: Plan Implementation.
+- Suggested prompt: "Use the plan-implementation skill to turn this approved
+  design into an implementation-ready ticket graph."
 - Run mode: a session with a responsive user is an interactive run; a scheduled,
   headless, or delegated run with no reachable requester is an autonomous run.
   The distinction decides whether questions are asked and whether load-bearing

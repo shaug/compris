@@ -456,6 +456,51 @@ class RecorderTests(unittest.TestCase):
         summary = json.loads(files[-1].read_text(encoding="utf-8"))
         self.assertIsNone(summary["compared_to"])
 
+    # A public stable-name change starts a new evidence lineage even when the
+    # historical records move with the renamed skill directory. Comparing the
+    # first successful run to an old-name record would falsely claim behavioral
+    # continuity across two different public skills.
+    def test_diff_selection_requires_a_matching_stable_skill_name(self) -> None:
+        skill = "plan-implementation"
+        directory = self.skills / skill / "evals" / "results"
+        directory.mkdir(parents=True)
+        old_name = {
+            "schema": record_eval_run.SUMMARY_SCHEMA,
+            "skill": "ready-ticket",
+            "suite": "forward",
+            "tier": "real-model",
+            "model": None,
+            "cases": {"alpha": "pass"},
+        }
+        (directory / "2026-01-01T000000Z-0001-after.json").write_text(
+            json.dumps(old_name), encoding="utf-8"
+        )
+
+        self.run_recorder(
+            skill,
+            "--stage",
+            "baseline",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]),
+            "--per-case-output-dir",
+        )
+
+        first_new_name = json.loads(self.results(skill)[-1].read_text(encoding="utf-8"))
+        self.assertIsNone(first_new_name["compared_to"])
+
+        self.run_recorder(
+            skill,
+            "--stage",
+            "after",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]),
+            "--per-case-output-dir",
+        )
+
+        files = self.results(skill)
+        second_new_name = json.loads(files[-1].read_text(encoding="utf-8"))
+        self.assertEqual(second_new_name["compared_to"], files[-2].name)
+
     # AC: the recorded identity still resolves to the evaluated content after
     # a real rebase onto a moved `main` — one that changes files outside the
     # skill, as every rebase in this repository does. `sha` cannot survive

@@ -18,8 +18,19 @@ if str(TESTS_DIR) not in sys.path:
 from helpers import compact  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+CHANGELOG = REPOSITORY_ROOT / "CHANGELOG.md"
 RELEASE_NOTES = REPOSITORY_ROOT / "RELEASE-NOTES.md"
 RELEASE_PROCESS = REPOSITORY_ROOT / "docs" / "release-process.md"
+
+
+class ReleaseSurfaceMetadataTests(unittest.TestCase):
+    def test_root_release_documents_preserve_yaml_frontmatter(self) -> None:
+        for path in (CHANGELOG, RELEASE_NOTES):
+            with self.subTest(path=path.name):
+                lines = path.read_text().splitlines()
+                self.assertEqual(lines[0], "---")
+                self.assertRegex(lines[1], r"^summary: .+")
+                self.assertEqual(lines[2], "---")
 
 
 class ReleaseNotesTests(unittest.TestCase):

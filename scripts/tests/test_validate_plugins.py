@@ -28,6 +28,14 @@ class ValidatePluginsTests(unittest.TestCase):
     def test_repository_plugin_package_is_complete(self) -> None:
         validate_plugins.validate(REPOSITORY_ROOT)
 
+    def test_public_planner_route_uses_the_plan_implementation_name(self) -> None:
+        self.assertIn("plan-implementation", validate_plugins.REQUIRED_SKILLS)
+        self.assertNotIn("ready-ticket", validate_plugins.REQUIRED_SKILLS)
+        self.assertTrue(
+            (REPOSITORY_ROOT / "skills" / "plan-implementation" / "SKILL.md").is_file()
+        )
+        self.assertFalse((REPOSITORY_ROOT / "skills" / "ready-ticket").exists())
+
     def test_manifest_versions_must_match(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
