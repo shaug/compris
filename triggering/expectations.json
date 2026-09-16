@@ -92,22 +92,27 @@
       "rationale": "Peer-shaped language; no compris skill may claim it."
     },
     {
-      "case_id": "ready-ticket-positive-vague",
-      "expected_skill": "ready-ticket",
-      "rationale": "Own-language prompt for ready-ticket."
+      "case_id": "plan-implementation-positive-vague",
+      "expected_skill": "plan-implementation",
+      "rationale": "Own-language prompt for plan-implementation."
     },
     {
-      "case_id": "ready-ticket-positive-sharpen",
-      "expected_skill": "ready-ticket",
-      "rationale": "Own-language prompt for ready-ticket."
+      "case_id": "plan-implementation-positive-sharpen",
+      "expected_skill": "plan-implementation",
+      "rationale": "Own-language prompt for plan-implementation."
     },
     {
-      "case_id": "ready-ticket-negative-implement",
+      "case_id": "plan-implementation-positive-planner",
+      "expected_skill": "plan-implementation",
+      "rationale": "Approved-design implementation planning is deliberately claimed by plan-implementation."
+    },
+    {
+      "case_id": "plan-implementation-negative-implement",
       "expected_skill": "implement-ticket",
-      "rationale": "Execution language, not authoring language: ready-ticket must not claim it, and the correct pick is implement-ticket. A negative case asserts which skill must NOT win, which is not the same as asserting that nothing wins."
+      "rationale": "Execution language, not planning language: plan-implementation must not claim it, and the correct pick is implement-ticket. A negative case asserts which skill must NOT win, which is not the same as asserting that nothing wins."
     },
     {
-      "case_id": "ready-ticket-negative-brainstorm",
+      "case_id": "plan-implementation-negative-brainstorm",
       "expected_skill": null,
       "rationale": "Pure ideation: no compris skill may claim it. With superpowers installed the expected pick becomes superpowers:brainstorming, which is why that assertion lives in the peer-installed composition tier rather than here \u2014 this tier's catalog contains only what is actually installed."
     },

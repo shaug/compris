@@ -1,13 +1,15 @@
 # compris
 
-*For when the planning is done, and the work begins.*
+*From approved design to reviewable work, and from ticket to merge.*
 
-Agent skills that take one ticket and return a merged pull request.
-`implement-ticket` resolves the ticket's live context, implements the change in
-an isolated worktree, reviews the candidate through the repository's own review
-suite, publishes a pull request, and delegates its lifecycle to `babysit-pr`,
-which watches CI and re-reviews after every head change. `implement-epic`
-traverses a live epic graph and drives the same path for each ready child.
+Agent skills for implementation planning and ticket-to-merge delivery.
+`plan-implementation` turns approved requirements into reviewable ticket bodies
+or a draft graph. `implement-ticket` resolves one ticket's live context,
+implements the change in an isolated worktree, reviews the candidate through the
+repository's own review suite, publishes a pull request, and delegates its
+lifecycle to `babysit-pr`, which watches CI and re-reviews after every head
+change. `implement-epic` traverses a live epic graph and drives the same path
+for each ready child.
 
 `compris` is French for *understood* — what the suite claims at the moment work
 changes hands.
@@ -26,10 +28,10 @@ exists to keep the theory of the program in human minds while agents write the
 code. [docs/cognitive-debt.md](docs/cognitive-debt.md) is the full statement,
 including what the suite does not claim.
 
-**Where it starts.** Not at the idea. Peer methodology libraries own the
-thinking-it-through phase, and `ready-ticket` stops at an implementation-ready
-ticket body without crossing into implementation. Compris begins once the ticket
-is a contract.
+**Where it starts.** Not at the idea. Peer methodology libraries own open-ended
+design work. Once a design is approved, `plan-implementation` owns the
+implementation-planning step that shapes it into ticket contracts without
+crossing into implementation.
 
 **What holds it together.** Every candidate is reviewed before publication by
 independent lenses — correctness, whole-solution simplicity, and local
@@ -40,11 +42,11 @@ not earn.
 
 **Where it composes.** `compris` is the outer-loop companion to peer methodology
 libraries such as [superpowers](https://github.com/obra/superpowers): it owns
-ticket readiness, review production, and the post-publication pull-request
-lifecycle, while peers own in-phase methodology — how to brainstorm, how to run
-a red–green loop, how to debug a failure hypothesis-first. Install both for the
-complete cycle from idea to merged pull request; `compris` is fully functional
-without a peer installed. See
+implementation planning, ticket readiness, review production, and the
+post-publication pull-request lifecycle, while peers own in-phase methodology —
+how to brainstorm, how to run a red–green loop, how to debug a failure
+hypothesis-first. Install both for the complete cycle from idea to merged pull
+request; `compris` is fully functional without a peer installed. See
 [Using beside peer skills](#using-beside-peer-skills) for the full division of
 labor and composition rules.
 
@@ -107,15 +109,15 @@ causes the workflow to fail closed.
 
 The skills:
 
-- `skills/ready-ticket` — turn a vague idea or an unready GitHub or Linear
-  ticket into an implementation-ready ticket body: validate the approved design,
-  elicit the tracker-shaped residue, write acceptance criteria as observable
-  public-surface behaviors, self-review the draft, and terminate in the body
-  itself. Work exceeding one reviewable changeset comes back as a draft
-  parent/child graph with a ready body per leaf, proposed and never created —
-  unless one endpoint-scoped grant authorizes creating that exact graph and its
-  native relationships in the owning tracker, GitHub or Linear, verified by
-  readback before success. Fully standalone; it borrows
+- `skills/plan-implementation` — turn approved requirements or an unready GitHub
+  or Linear ticket into an implementation-ready ticket body: validate the
+  approved design, elicit the tracker-shaped residue, write acceptance criteria
+  as observable public-surface behaviors, self-review the draft, and terminate
+  in the body itself. Work exceeding one reviewable changeset comes back as a
+  draft parent/child graph with a ready body per leaf, proposed and never
+  created — unless one endpoint-scoped grant authorizes creating that exact
+  graph and its native relationships in the owning tracker, GitHub or Linear,
+  verified by readback before success. Fully standalone; it borrows
   `superpowers:brainstorming`'s questioning discipline and
   `superpowers:writing-plans`' breakdown method, and recommends `load-bearing`
   verification, only when those peers are present
@@ -174,7 +176,7 @@ implement-epic
     │       └── review-fix-loop     # after a head-changing fix (update_pr)
     │           └── review-code-change
     ┊
-    ┈▷ ready-ticket                 # recommendation only, never invoked
+    ┈▷ plan-implementation          # recommendation only, never invoked
 
 carve-changesets
 ├── review-fix-loop                 # each changeset's review/fix/converge loop
@@ -185,12 +187,12 @@ carve-changesets
 ```
 
 Solid edges are invocation. The single dashed edge is a recommendation:
-`implement-ticket` names `ready-ticket` in a not-ready `blocked` result,
+`implement-ticket` names `plan-implementation` in a not-ready `blocked` result,
 carrying the marker
-`implement-ticket:requires-ready-ticket:<tracker>:<ticket-id>`, and the caller
-decides whether to run it. Nothing invokes `ready-ticket` automatically, and
-`ready-ticket` never invokes `implement-ticket`, so the recommendation cannot
-close a cycle.
+`implement-ticket:requires-plan-implementation:<tracker>:<ticket-id>`, and the
+caller decides whether to run it. Nothing invokes `plan-implementation`
+automatically, and `plan-implementation` never invokes `implement-ticket`, so
+the recommendation cannot close a cycle.
 
 Compatible runtimes may provide named subagents or equivalent isolated
 implementation and review contexts. Files under each skill's `agents/` directory
@@ -269,9 +271,9 @@ preferences, because a collision left unresolved is settled differently on each
 run — usually by whichever text was read most recently.
 
 **1. A ticket satisfies brainstorming's design-approval gate because
-brainstorming already ran.** `ready-ticket` consumes an approved design rather
-than producing one: it validates the design, narrows its own elicitation to the
-tracker-shaped residue a design cannot answer, and returns
+brainstorming already ran.** `plan-implementation` consumes an approved design
+rather than producing one: it validates the design, narrows its own elicitation
+to the tracker-shaped residue a design cannot answer, and returns
 `requires_brainstorming` naming the gap when a design-owned decision is missing.
 Brainstorming applies *before* a ticket exists, never mid-pipeline. *Why:*
 re-opening design questions against an approved contract reverses a decision the
@@ -325,19 +327,20 @@ exist yet.
 Where the two libraries meet, and what each seam does. Update this table as
 seams land.
 
-| Seam                                   | Peer                                         | What composes                                                                                                                                                                                                                  | Ticket                                              | Status  |
-| -------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------- |
-| Ticket authoring                       | `superpowers:brainstorming`                  | `ready-ticket` borrows the questioning discipline — one question at a time, intent before construction — and stops at design approval; it never creates a spec or plan file                                                    | [#124](https://github.com/shaug/compris/issues/124) | Landed  |
-| Authoring-time assumption verification | `load-bearing`                               | Offered once in an interactive `ready-ticket` run when the drafted body rests on costly-to-falsify assumptions; the recommendation is recorded and passed over in an autonomous one                                            | [#124](https://github.com/shaug/compris/issues/124) | Landed  |
-| Implementation breakdown               | `superpowers:writing-plans`                  | `ready-ticket` derives the file map, task boundaries, and sequencing itself and borrows the peer as the recommended method; the plan is scratch input, never a file, and its unit-level detail is lifted to the public surface | [#198](https://github.com/shaug/compris/issues/198) | Landed  |
-| Not-ready routing                      | —                                            | `implement-ticket`'s not-ready `blocked` result names `ready-ticket` as the remediation path; a recommendation, never a dispatch                                                                                               | [#125](https://github.com/shaug/compris/issues/125) | Landed  |
-| Pre-implementation verification        | `load-bearing`                               | Offered once in an interactive run when the ticket rests on costly-to-falsify assumptions; recorded and passed over in an autonomous one. Skips assumptions already verified at authoring time                                 | [#126](https://github.com/shaug/compris/issues/126) | Landed  |
-| Implementation method                  | `superpowers:test-driven-development`        | Supplies the method for producing the house's change-demonstrating-test evidence; the evidence contract and its exemptions govern                                                                                              | [#126](https://github.com/shaug/compris/issues/126) | Landed  |
-| Finding and feedback consumption       | `superpowers:receiving-code-review`          | Ported with attribution into `review-suite/consumption-disciplines.md`, bundled into the three skills that consume findings                                                                                                    | [#127](https://github.com/shaug/compris/issues/127) | Landed  |
-| CI diagnosis                           | `superpowers:systematic-debugging`           | Recommended in `babysit-pr`'s CI-diagnosis loop after repeated failed fixes; its architecture escalation maps to the skill's blocked-with-evidence terminal                                                                    | [#127](https://github.com/shaug/compris/issues/127) | Landed  |
-| Merge boundary                         | `superpowers:finishing-a-development-branch` | House territory. Composition rule 4 above records which of its three options composes                                                                                                                                          | [#128](https://github.com/shaug/compris/issues/128) | Landed  |
-| Worktree isolation                     | `superpowers:using-git-worktrees`            | The isolated-workspace pattern, ported into `implement-ticket`'s one-ticket-one-worktree rule                                                                                                                                  | [#134](https://github.com/shaug/compris/issues/134) | Planned |
-| Parallel dispatch                      | `superpowers:dispatching-parallel-agents`    | The post-parallel verification habit is ported; the dispatch mechanics are not                                                                                                                                                 | [#131](https://github.com/shaug/compris/issues/131) | Landed  |
+| Seam                                   | Peer                                         | What composes                                                                                                                                                                                                                         | Ticket                                              | Status  |
+| -------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------- |
+| Ticket authoring                       | `superpowers:brainstorming`                  | `plan-implementation` borrows the questioning discipline — one question at a time, intent before construction — and stops at design approval; it never creates a spec or plan file                                                    | [#124](https://github.com/shaug/compris/issues/124) | Landed  |
+| Authoring-time assumption verification | `load-bearing`                               | Offered once in an interactive `plan-implementation` run when the drafted body rests on costly-to-falsify assumptions; the recommendation is recorded and passed over in an autonomous one                                            | [#124](https://github.com/shaug/compris/issues/124) | Landed  |
+| Implementation breakdown               | `superpowers:writing-plans`                  | `plan-implementation` derives the file map, task boundaries, and sequencing itself and borrows the peer as the recommended method; the plan is scratch input, never a file, and its unit-level detail is lifted to the public surface | [#198](https://github.com/shaug/compris/issues/198) | Landed  |
+| Public implementation-planning route   | `superpowers:writing-plans`                  | Compris claims implementation-planning language deliberately through `plan-implementation`; the overlap remains structural and cooperative because the peer supplies method while compris owns the ticket or graph artifact           | [#201](https://github.com/shaug/compris/issues/201) | Landed  |
+| Not-ready routing                      | —                                            | `implement-ticket`'s not-ready `blocked` result names `plan-implementation` as the remediation path; a recommendation, never a dispatch                                                                                               | [#125](https://github.com/shaug/compris/issues/125) | Landed  |
+| Pre-implementation verification        | `load-bearing`                               | Offered once in an interactive run when the ticket rests on costly-to-falsify assumptions; recorded and passed over in an autonomous one. Skips assumptions already verified at authoring time                                        | [#126](https://github.com/shaug/compris/issues/126) | Landed  |
+| Implementation method                  | `superpowers:test-driven-development`        | Supplies the method for producing the house's change-demonstrating-test evidence; the evidence contract and its exemptions govern                                                                                                     | [#126](https://github.com/shaug/compris/issues/126) | Landed  |
+| Finding and feedback consumption       | `superpowers:receiving-code-review`          | Ported with attribution into `review-suite/consumption-disciplines.md`, bundled into the three skills that consume findings                                                                                                           | [#127](https://github.com/shaug/compris/issues/127) | Landed  |
+| CI diagnosis                           | `superpowers:systematic-debugging`           | Recommended in `babysit-pr`'s CI-diagnosis loop after repeated failed fixes; its architecture escalation maps to the skill's blocked-with-evidence terminal                                                                           | [#127](https://github.com/shaug/compris/issues/127) | Landed  |
+| Merge boundary                         | `superpowers:finishing-a-development-branch` | House territory. Composition rule 4 above records which of its three options composes                                                                                                                                                 | [#128](https://github.com/shaug/compris/issues/128) | Landed  |
+| Worktree isolation                     | `superpowers:using-git-worktrees`            | The isolated-workspace pattern, ported into `implement-ticket`'s one-ticket-one-worktree rule                                                                                                                                         | [#134](https://github.com/shaug/compris/issues/134) | Planned |
+| Parallel dispatch                      | `superpowers:dispatching-parallel-agents`    | The post-parallel verification habit is ported; the dispatch mechanics are not                                                                                                                                                        | [#131](https://github.com/shaug/compris/issues/131) | Landed  |
 
 The registry in [`docs/skill-authoring.md`](docs/skill-authoring.md) classifies
 every peer skill into one of four forms — referenced peer, ported with
@@ -358,7 +361,7 @@ Run skill-specific tests:
 just test-carve-changesets
 just test-review-suite
 just test-babysit-pr
-just test-ready-ticket
+just test-plan-implementation
 just test-implement-ticket
 just test-implement-epic
 just test-review-fix-loop

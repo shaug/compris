@@ -5,7 +5,7 @@
     "carve-changesets",
     "implement-epic",
     "implement-ticket",
-    "ready-ticket",
+    "plan-implementation",
     "review-code-change",
     "review-code-simplicity",
     "review-correctness",
@@ -128,26 +128,32 @@
       "prompt": "Something's wrong with the cache and I want to debug it systematically."
     },
     {
-      "id": "ready-ticket-positive-vague",
-      "skill": "ready-ticket",
+      "id": "plan-implementation-positive-vague",
+      "skill": "plan-implementation",
       "kind": "positive",
       "prompt": "I have a vague idea for a feature \u2014 turn it into a ticket I can hand to someone."
     },
     {
-      "id": "ready-ticket-positive-sharpen",
-      "skill": "ready-ticket",
+      "id": "plan-implementation-positive-sharpen",
+      "skill": "plan-implementation",
       "kind": "positive",
       "prompt": "This issue has no acceptance criteria and the goal is fuzzy. Make it implementation-ready."
     },
     {
-      "id": "ready-ticket-negative-implement",
-      "skill": "ready-ticket",
+      "id": "plan-implementation-positive-planner",
+      "skill": "plan-implementation",
+      "kind": "positive",
+      "prompt": "Turn this approved design into a reviewable implementation plan and ticket graph."
+    },
+    {
+      "id": "plan-implementation-negative-implement",
+      "skill": "plan-implementation",
       "kind": "negative",
       "prompt": "Implement ticket 412."
     },
     {
-      "id": "ready-ticket-negative-brainstorm",
-      "skill": "ready-ticket",
+      "id": "plan-implementation-negative-brainstorm",
+      "skill": "plan-implementation",
       "kind": "negative",
       "prompt": "Let's brainstorm what the product should even do here \u2014 I don't know what I want yet."
     },

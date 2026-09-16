@@ -1,13 +1,13 @@
 ---
-name: ready-ticket
-description: Turn a vague idea, feature request, or unready GitHub or Linear ticket into an implementation-ready ticket body. Use when asked to write, draft, flesh out, sharpen, or make ready a ticket, issue, or bug report, or when a ticket's goal, acceptance criteria, non-goals, or required verification are missing, placeholdered, or ambiguous and must be resolved before scheduling. Produces acceptance criteria as observable behaviors of the product's public surface, each directly encodable as a behavioral test. The ticket body is the only artifact — never implements the ticket, never edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the drafted body goes back to the caller. Validates an approved design as input rather than gathering one. Returns one of six typed terminal results. Oversized work comes back as a draft graph, proposed and never created — unless one endpoint-scoped grant authorizes creating it, verified by readback.
+name: plan-implementation
+description: Plan implementation from an approved design, requirement, feature request, or unready GitHub or Linear ticket or issue. Use when asked to make work implementation-ready, write or sharpen a ticket, plan a multi-step implementation, or turn approved requirements into a reviewable ticket graph. Produces acceptance criteria as observable public-surface behaviors, each directly encodable as a behavioral test. Never implements the plan or edits code, and never writes a spec or plan file. Writing to a tracker requires explicit ticket-management authority; without it the draft returns to the caller. Missing design decisions return to the design phase. Returns one of six typed terminal results. Oversized work becomes a draft graph, proposed and never created unless one endpoint-scoped grant authorizes creating it, verified by readback.
 ---
 
-# Ready Ticket
+# Plan Implementation
 
-Turn one unready request into one implementation-ready ticket body. The ticket
-body is the contract an implementer reads cold; this skill terminates in that
-body and in nothing else.
+Turn approved requirements into one implementation-ready ticket body or a
+reviewable draft ticket graph. Each ticket body is a contract an implementer
+reads cold; this skill terminates in that body or graph and in nothing else.
 
 Readiness has a fixed meaning here: the body-level conditions of
 `implement-ticket`'s readiness gate. A body is ready when it carries a clear
@@ -355,7 +355,7 @@ adapters define this write path for the tracker they own: follow
 [the GitHub adapter](references/github.md#create-and-verify-the-approved-graph)
 when GitHub owns the draft, and
 [the Linear adapter](references/linear.md#create-and-verify-the-approved-graph)
-when Linear does. Every created leaf still carries the full ready-ticket
+when Linear does. Every created leaf still carries the full plan-implementation
 contract: the same template, the same surface-observable criteria, the same four
 self-review scans that would have applied had it been proposed rather than
 created.

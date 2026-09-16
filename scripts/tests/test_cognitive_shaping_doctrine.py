@@ -33,7 +33,7 @@ DOCTRINE = REPOSITORY_ROOT / "docs" / "cognitive-shaping-doctrine.md"
 BUNDLING_SKILLS = (
     "review-solution-simplicity",
     "carve-changesets",
-    "ready-ticket",
+    "plan-implementation",
     "implement-ticket",
 )
 BUNDLED_NAME = "cognitive-shaping-doctrine.md"
@@ -41,7 +41,7 @@ BUNDLED_NAME = "cognitive-shaping-doctrine.md"
 # The one consumer that also restates part of the doctrine inside its own
 # `SKILL.md`, because its forward eval hands the model that file alone and
 # never loads a reference alongside it.
-RESTATING_SKILL = "ready-ticket"
+RESTATING_SKILL = "plan-implementation"
 
 # The sentences that restatement carries word for word. Equality can bind only
 # these; see the test below for what it deliberately leaves unbound.
@@ -175,7 +175,7 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
                 )
 
     def test_the_inline_restatement_stays_verbatim_with_the_doctrine(self):
-        """`ready-ticket` restates breakdown rules inside its own `SKILL.md`,
+        """`plan-implementation` restates breakdown rules inside its own `SKILL.md`,
         and nothing else binds those sentences to this document. Its forward
         eval hands the model `SKILL.md` alone, so the rules have to be present
         there; the bundled copy under `references/` is never loaded into that

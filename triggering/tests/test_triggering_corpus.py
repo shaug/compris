@@ -86,7 +86,8 @@ class CorpusCoverageTests(unittest.TestCase):
             if case["prompt"] == "Implement ticket 412."
         ]
         self.assertEqual(
-            {case["skill"] for case in cases}, {"implement-ticket", "ready-ticket"}
+            {case["skill"] for case in cases},
+            {"implement-ticket", "plan-implementation"},
         )
         answers = {
             item["case_id"]: item["expected_skill"]
@@ -98,6 +99,20 @@ class CorpusCoverageTests(unittest.TestCase):
                 "implement-ticket",
                 "both sides must agree implement-ticket wins",
             )
+
+    def test_planning_cutover_adds_a_positive_without_losing_review_negative(
+        self,
+    ) -> None:
+        answers = {
+            item["case_id"]: item["expected_skill"]
+            for item in EXPECTATIONS["expectations"]
+        }
+
+        self.assertEqual(
+            answers["plan-implementation-positive-planner"],
+            "plan-implementation",
+        )
+        self.assertIsNone(answers["review-code-change-negative-plan"])
 
 
 class ResultBlindnessTests(unittest.TestCase):

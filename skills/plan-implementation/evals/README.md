@@ -1,4 +1,4 @@
-# Ready-ticket evaluations
+# Plan-implementation evaluations
 
 `cases.json` holds scenario inputs and `expectations.json` records the required
 terminal result and actions for each case. The pair is consumed by

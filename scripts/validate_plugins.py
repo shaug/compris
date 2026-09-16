@@ -16,7 +16,7 @@ REQUIRED_SKILLS = {
     "carve-changesets",
     "implement-epic",
     "implement-ticket",
-    "ready-ticket",
+    "plan-implementation",
     "review-code-change",
     "review-code-simplicity",
     "review-correctness",
@@ -40,7 +40,7 @@ REVIEW_BUNDLE_FILES = {
 DOCTRINE_BUNDLING_SKILLS = {
     "review-solution-simplicity",
     "carve-changesets",
-    "ready-ticket",
+    "plan-implementation",
     "implement-ticket",
 }
 DOCTRINE_NAME = "cognitive-shaping-doctrine.md"

@@ -77,8 +77,8 @@ just eval-record implement-ticket --suite triggering
 
 A negative case asserts which skill must **not** win. That is a different claim
 from asserting nothing wins, and conflating them is the easy mistake: "Implement
-ticket 412." is a negative case for `ready-ticket`, and its expected pick is
-`implement-ticket`, not nothing.
+ticket 412." is a negative case for `plan-implementation`, and its expected pick
+is `implement-ticket`, not nothing.
 
 Peer-dependent expectations belong to the composition cases rather than here.
 This corpus's catalog contains only what is actually installed, so a peer that

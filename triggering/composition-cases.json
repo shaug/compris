@@ -14,13 +14,13 @@
   },
   "cases": [
     {
-      "id": "gate-satisfaction-ready-ticket-does-not-rebrainstorm",
-      "seam": "ready-ticket ↔ superpowers:brainstorming (#124)",
+      "id": "gate-satisfaction-plan-implementation-does-not-rebrainstorm",
+      "seam": "plan-implementation ↔ superpowers:brainstorming (#124)",
       "requires_peers": [
         "superpowers"
       ],
       "prompt": "Here's a rough idea for a feature. Work it up into a ticket I can hand to an implementer.",
-      "expected_behavior": "ready-ticket runs its elicitation and terminates in a ticket body. superpowers:brainstorming may inform the questioning, but the run must not re-enter open-ended ideation after the ticket's intent is settled, and must not hand off to writing-plans.",
+      "expected_behavior": "plan-implementation runs its elicitation and terminates in a ticket body or draft ticket graph. superpowers:brainstorming may inform the questioning, but the run must not re-enter open-ended ideation after the ticket's intent is settled, and must not hand off to writing-plans.",
       "why_it_matters": "The registry records this borrow as bounded: it takes the questioning discipline and stops at brainstorming's step 9 handoff, because ticket authoring is house-owned. If the peer re-triggers past that boundary the seam has failed open.",
       "status": "not_run",
       "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."
@@ -99,12 +99,12 @@
     },
     {
       "id": "writing-plans-supplies-structure-without-claiming-the-ticket",
-      "seam": "ready-ticket ↔ superpowers:writing-plans (#198)",
+      "seam": "plan-implementation ↔ superpowers:writing-plans (#198)",
       "requires_peers": [
         "superpowers"
       ],
       "prompt": "We're adding SSO. Write it up as tickets I can hand to implementers.",
-      "expected_behavior": "ready-ticket breaks the work down and returns a draft parent/child graph with a ready body per leaf. superpowers:writing-plans may supply the file map, task boundaries, and sequencing, but no plan file is written, its executor handoff is not followed, and no acceptance criterion reaches a leaf body asserted against an internal function signature.",
+      "expected_behavior": "plan-implementation breaks the work down and returns a draft parent/child graph with a ready body per leaf. superpowers:writing-plans may supply the file map, task boundaries, and sequencing, but no plan file is written, its executor handoff is not followed, and no acceptance criterion reaches a leaf body asserted against an internal function signature.",
       "why_it_matters": "The registry records this borrow as bounded: the breakdown outcome is house-owned and only the method is delegated. If the peer's plan artifact or its unit-level altitude survives into the output, the seam has failed open in the two ways the bound exists to prevent.",
       "status": "not_run",
       "gap": "Not run: no composition harness exists. This directory's runner grades which skill a prompt routes to from a catalog of repository skill descriptions; a composition case instead needs a real session with the peer library installed, so its behavior at the seam can be observed. That harness is not built here. Provisioning is a second, independent blocker for every case requiring superpowers, which is not installed at registry pin 44c9b2d6e889982ac18c27d05a19fefe335194e1."

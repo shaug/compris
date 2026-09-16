@@ -1,4 +1,4 @@
-"""Behavioral tests for ready-ticket's forward-eval harness.
+"""Behavioral tests for plan-implementation's forward-eval harness.
 
 Each test is derived from an acceptance criterion of issue #137 and exercises
 the harness through its command line or the corpus through its published
@@ -35,7 +35,7 @@ def load_module(path: Path, name: str):
     return module
 
 
-claude_executor = load_module(CLAUDE_EXECUTOR, "ready_ticket_claude_executor")
+claude_executor = load_module(CLAUDE_EXECUTOR, "plan_implementation_claude_executor")
 
 CASES = json.loads((EVALS / "forward_cases.json").read_text())
 EXPECTATIONS = {
@@ -331,7 +331,7 @@ class RunnerTests(unittest.TestCase):
         """A corpus term absent from the executor's list is ungradable."""
         fixture = load_module(
             SKILL_ROOT / "scripts" / "evals" / "fixture_executor.py",
-            "ready_ticket_fixture_executor",
+            "plan_implementation_fixture_executor",
         )
         vocabulary = set(claude_executor.ACTION_VOCABULARY)
 

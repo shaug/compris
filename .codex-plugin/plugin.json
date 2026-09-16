@@ -1,7 +1,7 @@
 {
   "name": "compris",
   "version": "0.1.1",
-  "description": "For when the planning is done, and the work begins. compris is the ticket-to-merge outer loop — readiness gates, contract-driven review, the post-publication PR lifecycle, and epic orchestration — designed to compose with, not depend on, inner-loop methodology libraries such as superpowers. Installs the complete implementation, review, PR-lifecycle, and changeset skill suite.",
+  "description": "Compris is the implementation planning and ticket-to-merge outer loop — shaping approved designs into reviewable tickets, enforcing readiness gates and contract-driven review, and owning the post-publication PR lifecycle — designed to compose with, not depend on, inner-loop methodology libraries such as superpowers.",
   "author": {
     "name": "shaug",
     "url": "https://github.com/shaug"
@@ -17,8 +17,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Compris",
-    "shortDescription": "For when the planning is done, and the work begins",
-    "longDescription": "Install the dependency-closed suite for the ticket-to-merge outer loop — readiness gates, contract-driven review, PR lifecycle, and epic orchestration — that composes with, not depends on, inner-loop methodology libraries such as superpowers.",
+    "shortDescription": "Implementation planning through ticket-to-merge delivery",
+    "longDescription": "Install the dependency-closed implementation planning and ticket-to-merge outer loop — approved-design shaping, readiness gates, contract-driven review, PR lifecycle, and epic orchestration — that composes with, not depends on, inner-loop methodology libraries such as superpowers.",
     "developerName": "shaug",
     "category": "Developer Tools",
     "capabilities": [
@@ -27,6 +27,7 @@
     ],
     "websiteURL": "https://github.com/shaug/compris",
     "defaultPrompt": [
+      "Turn this approved design into a reviewable implementation plan and ticket graph.",
       "Implement one ticket through review and merge.",
       "Review this code change with the full suite.",
       "Babysit this pull request until it is ready."

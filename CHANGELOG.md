@@ -6,6 +6,11 @@ ______________________________________________________________________
 
 ## 2026-09-16 — Began the public plan-implementation cutover
 
+- feat(plan-implementation): rename the public planner route, cut over its
+  packaging, commands, eval registry, metadata, triggering corpus, and
+  implement-ticket recommendation, and record the cooperative writing-plans
+  overlap.
+
 - test(evals): record the final ready-ticket baseline before its public rename.
 
 ## 2026-09-15 — Made PR reviewability and operator effort observable

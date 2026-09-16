@@ -24,6 +24,11 @@ import sys
 # one prompt legitimately contains another's vocabulary — "before merging, give
 # this a proper review" carries merge language but is a review request.
 RULES: tuple[tuple[str, str | None], ...] = (
+    # Approved-design implementation planning is deliberately house-owned.
+    (
+        r"approved design.*(?:implementation plan|ticket graph)",
+        "plan-implementation",
+    ),
     # Peer-owned language: no compris skill may claim these.
     (r"\bbrainstorm\b", None),
     (r"red-green-refactor|test-driven development|failing test first", None),
@@ -50,7 +55,7 @@ RULES: tuple[tuple[str, str | None], ...] = (
     # Ticket authoring, before execution language.
     (
         r"turn it into a ticket|implementation-ready|no acceptance criteria",
-        "ready-ticket",
+        "plan-implementation",
     ),
     # Single-ticket execution.
     (r"implement ticket|from open to merged|open a pr for it", "implement-ticket"),
