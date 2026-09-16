@@ -6,6 +6,11 @@ ______________________________________________________________________
 
 ## 2026-09-16 — Began the public plan-implementation cutover
 
+- test(evals): establish fresh plan-implementation forward and triggering
+  baselines without comparing across stable names; deterministic replay passes
+  26 of 26 forward cases and 5 of 5 triggering cases, while both real-model
+  attempts record the unavailable `claude` executable.
+
 - feat(plan-implementation): rename the public planner route, cut over its
   packaging, commands, eval registry, metadata, triggering corpus, and
   implement-ticket recommendation, and record the cooperative writing-plans

@@ -1,0 +1,90 @@
+{
+  "candidate": {
+    "branch": "codex/201-plan-implementation",
+    "sha": "171253cc48b8d707472e6f4ebf0c3e6d935c42a1",
+    "tree": "346aebfddc0edd56dea5451dacc801dcb331c2ec",
+    "trees": {
+      "skills/plan-implementation": "be99554efe75cc11edcd1c18f19406a4ea6c0974",
+      "triggering": "b264788958de82f7b74f89a3b6d7ae5626112aa1"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "plan-implementation-negative-brainstorm": {
+      "agreement": 1.0,
+      "repetitions": 1,
+      "selected_skill": null,
+      "tier": "fixture",
+      "votes": null
+    },
+    "plan-implementation-negative-implement": {
+      "agreement": 1.0,
+      "repetitions": 1,
+      "selected_skill": "implement-ticket",
+      "tier": "fixture",
+      "votes": null
+    },
+    "plan-implementation-positive-planner": {
+      "agreement": 1.0,
+      "repetitions": 1,
+      "selected_skill": "plan-implementation",
+      "tier": "fixture",
+      "votes": null
+    },
+    "plan-implementation-positive-sharpen": {
+      "agreement": 1.0,
+      "repetitions": 1,
+      "selected_skill": "plan-implementation",
+      "tier": "fixture",
+      "votes": null
+    },
+    "plan-implementation-positive-vague": {
+      "agreement": 1.0,
+      "repetitions": 1,
+      "selected_skill": "plan-implementation",
+      "tier": "fixture",
+      "votes": null
+    }
+  },
+  "cases": {
+    "plan-implementation-negative-brainstorm": "pass",
+    "plan-implementation-negative-implement": "pass",
+    "plan-implementation-positive-planner": "pass",
+    "plan-implementation-positive-sharpen": "pass",
+    "plan-implementation-positive-vague": "pass"
+  },
+  "command": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "triggering/runner.py",
+    "--skill",
+    "plan-implementation"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": true,
+  "gap": "recorded tier is deterministic, so no model read the prose and the model-behavior evidence is absent",
+  "limitation": null,
+  "model": null,
+  "note": null,
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"passed\": 5,\n  \"tiers\": [\n    \"fixture\"\n  ],\n  \"total\": 5\n}",
+  "recorded_at": "2026-09-16T14:15:13Z",
+  "schema": "eval-run-summary/1",
+  "skill": "plan-implementation",
+  "stage": "baseline",
+  "status": "completed",
+  "suite": "triggering",
+  "tier": "deterministic",
+  "totals": {
+    "failed": 0,
+    "passed": 5,
+    "total": 5
+  }
+}

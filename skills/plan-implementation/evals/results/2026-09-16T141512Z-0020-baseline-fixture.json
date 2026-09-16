@@ -1,0 +1,298 @@
+{
+  "candidate": {
+    "branch": "codex/201-plan-implementation",
+    "sha": "171253cc48b8d707472e6f4ebf0c3e6d935c42a1",
+    "tree": "346aebfddc0edd56dea5451dacc801dcb331c2ec",
+    "trees": {
+      "skills/plan-implementation": "be99554efe75cc11edcd1c18f19406a4ea6c0974"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "autonomous-explicit-no-fill-in-export": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "name_the_absent_design_part",
+        "choose_no_answer_on_requesters_behalf",
+        "give_one_next_action"
+      ],
+      "terminal_state": "requires_brainstorming"
+    },
+    "autonomous-residue-unresolved-verification": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "name_the_unresolved_decision_as_blocking_reason",
+        "give_one_next_action"
+      ],
+      "terminal_state": "blocked"
+    },
+    "autonomous-tracker-unchosen": {
+      "actions": [
+        "choose_no_tracker_on_requesters_behalf",
+        "perform_no_tracker_mutation",
+        "return_complete_body_to_caller"
+      ],
+      "terminal_state": "draft_ready"
+    },
+    "autonomous-unresolvable-rate-limit": {
+      "actions": [
+        "ask_no_question_wait_for_no_answer",
+        "name_the_absent_design_part",
+        "choose_no_answer_on_requesters_behalf",
+        "give_one_next_action"
+      ],
+      "terminal_state": "requires_brainstorming"
+    },
+    "design-missing-requirements": {
+      "actions": [
+        "name_the_absent_design_part",
+        "give_one_next_action"
+      ],
+      "terminal_state": "requires_brainstorming"
+    },
+    "fits-as-one-stays-one-ticket": {
+      "actions": [
+        "keep_reviewable_initiative_as_one_ticket",
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "full-design-document-proceeds": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "elicit_only_tracker_shaped_residue",
+        "elicit_public_surface_behavior"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "generated-evidence-excluded-from-size": {
+      "actions": [
+        "exclude_recorded_generated_evidence_from_size",
+        "keep_reviewable_initiative_as_one_ticket",
+        "fill_every_template_slot"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "graph-authority-absent-stays-graph-draft": {
+      "actions": [
+        "name_every_graph_node_and_edge",
+        "draft_a_complete_body_for_every_leaf",
+        "hand_recommendation_back_to_operator",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "decomposition_recommended"
+    },
+    "graph-authority-granted-after-presentation": {
+      "actions": [
+        "present_draft_graph_for_approval",
+        "create_the_approved_graph",
+        "create_native_relationships",
+        "reread_and_verify_graph_before_success"
+      ],
+      "terminal_state": "graph_created"
+    },
+    "graph-authority-granted-at-invocation": {
+      "actions": [
+        "name_every_graph_node_and_edge",
+        "draft_a_complete_body_for_every_leaf",
+        "create_the_approved_graph",
+        "create_native_relationships",
+        "reread_and_verify_graph_before_success"
+      ],
+      "terminal_state": "graph_created"
+    },
+    "graph-readback-mismatch-blocks-success": {
+      "actions": [
+        "reread_and_verify_graph_before_success",
+        "report_the_exact_mismatch",
+        "give_one_next_action"
+      ],
+      "terminal_state": "blocked"
+    },
+    "graph-relationship-creation-fails-partway": {
+      "actions": [
+        "report_every_landed_item",
+        "report_every_missing_edge",
+        "stop_creating_after_partial_write",
+        "give_one_next_action"
+      ],
+      "terminal_state": "blocked"
+    },
+    "internal-criterion-rejected": {
+      "actions": [
+        "reject_internal_call_criterion",
+        "elicit_public_surface_behavior"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "linear-graph-authority-absent-stays-graph-draft": {
+      "actions": [
+        "name_every_graph_node_and_edge",
+        "draft_a_complete_body_for_every_leaf",
+        "hand_recommendation_back_to_operator",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "decomposition_recommended"
+    },
+    "linear-graph-authority-granted-at-invocation": {
+      "actions": [
+        "name_every_graph_node_and_edge",
+        "draft_a_complete_body_for_every_leaf",
+        "create_the_approved_graph",
+        "create_native_relationships",
+        "reread_and_verify_graph_before_success"
+      ],
+      "terminal_state": "graph_created"
+    },
+    "linear-graph-relationship-creation-fails-partway": {
+      "actions": [
+        "report_every_landed_item",
+        "report_every_missing_edge",
+        "stop_creating_after_partial_write",
+        "give_one_next_action"
+      ],
+      "terminal_state": "blocked"
+    },
+    "mechanical-and-behavioral-change-separated": {
+      "actions": [
+        "separate_mechanical_restructuring_from_behavioral_change",
+        "name_every_graph_node_and_edge",
+        "draft_a_complete_body_for_every_leaf",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "decomposition_recommended"
+    },
+    "multi-subsystem-decomposition": {
+      "actions": [
+        "name_each_independently_valuable_part",
+        "record_why_each_part_independently_valuable",
+        "record_boundary_between_parts",
+        "hand_recommendation_back_to_operator",
+        "name_every_graph_node_and_edge",
+        "name_a_re_split_trigger_per_leaf",
+        "draft_a_complete_body_for_every_leaf"
+      ],
+      "terminal_state": "decomposition_recommended"
+    },
+    "no-authority-draft-ready": {
+      "actions": [
+        "perform_no_tracker_mutation",
+        "return_complete_body_to_caller",
+        "meet_the_ticket_ready_readiness_target"
+      ],
+      "terminal_state": "draft_ready"
+    },
+    "one-sentence-bug-design-proceeds": {
+      "actions": [
+        "accept_sufficient_design_without_further_design_questions",
+        "elicit_only_tracker_shaped_residue",
+        "fill_every_template_slot"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "placeholder-scan-catches-first-draft": {
+      "actions": [
+        "reject_placeholder_in_scan",
+        "return_to_elicitation_for_missing_value",
+        "rerun_all_four_scans_after_edit"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "repository-citation-quotes-and-locates": {
+      "actions": [
+        "quote_cited_repository_text",
+        "cite_volatile_collection_by_location",
+        "restate_architectural_fact_as_value"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "unrelated-concerns-become-separate-leaves": {
+      "actions": [
+        "separate_unrelated_concern_domains",
+        "name_every_graph_node_and_edge",
+        "name_a_re_split_trigger_per_leaf",
+        "draft_a_complete_body_for_every_leaf",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "decomposition_recommended"
+    },
+    "vague-idea-resolved-elicitation": {
+      "actions": [
+        "fill_every_template_slot",
+        "meet_the_ticket_ready_readiness_target",
+        "elicit_public_surface_behavior"
+      ],
+      "terminal_state": "ticket_ready"
+    },
+    "validation-stays-with-the-behavior-it-proves": {
+      "actions": [
+        "keep_validation_with_the_behavior_it_proves",
+        "name_every_graph_node_and_edge",
+        "draft_a_complete_body_for_every_leaf",
+        "perform_no_tracker_mutation"
+      ],
+      "terminal_state": "decomposition_recommended"
+    }
+  },
+  "cases": {
+    "autonomous-explicit-no-fill-in-export": "pass",
+    "autonomous-residue-unresolved-verification": "pass",
+    "autonomous-tracker-unchosen": "pass",
+    "autonomous-unresolvable-rate-limit": "pass",
+    "design-missing-requirements": "pass",
+    "fits-as-one-stays-one-ticket": "pass",
+    "full-design-document-proceeds": "pass",
+    "generated-evidence-excluded-from-size": "pass",
+    "graph-authority-absent-stays-graph-draft": "pass",
+    "graph-authority-granted-after-presentation": "pass",
+    "graph-authority-granted-at-invocation": "pass",
+    "graph-readback-mismatch-blocks-success": "pass",
+    "graph-relationship-creation-fails-partway": "pass",
+    "internal-criterion-rejected": "pass",
+    "linear-graph-authority-absent-stays-graph-draft": "pass",
+    "linear-graph-authority-granted-at-invocation": "pass",
+    "linear-graph-relationship-creation-fails-partway": "pass",
+    "mechanical-and-behavioral-change-separated": "pass",
+    "multi-subsystem-decomposition": "pass",
+    "no-authority-draft-ready": "pass",
+    "one-sentence-bug-design-proceeds": "pass",
+    "placeholder-scan-catches-first-draft": "pass",
+    "repository-citation-quotes-and-locates": "pass",
+    "unrelated-concerns-become-separate-leaves": "pass",
+    "vague-idea-resolved-elicitation": "pass",
+    "validation-stays-with-the-behavior-it-proves": "pass"
+  },
+  "command": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "skills/plan-implementation/scripts/evals/run_forward.py"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": true,
+  "gap": "recorded tier is deterministic, so no model read the prose and the model-behavior evidence is absent",
+  "limitation": null,
+  "model": null,
+  "note": null,
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"passed\": 26,\n  \"total\": 26\n}",
+  "recorded_at": "2026-09-16T14:15:12Z",
+  "schema": "eval-run-summary/1",
+  "skill": "plan-implementation",
+  "stage": "baseline",
+  "status": "completed",
+  "suite": "forward",
+  "tier": "deterministic",
+  "totals": {
+    "failed": 0,
+    "passed": 26,
+    "total": 26
+  }
+}
