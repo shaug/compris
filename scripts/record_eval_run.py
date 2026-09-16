@@ -301,7 +301,12 @@ def results_dir(skill: str) -> Path:
 
 
 def previous_run(
-    directory: Path, tier: str, cases: dict[str, str], suite: str, model: str | None
+    directory: Path,
+    skill: str,
+    tier: str,
+    cases: dict[str, str],
+    suite: str,
+    model: str | None,
 ) -> dict | None:
     """The most recent run this one can honestly be compared against.
 
@@ -322,6 +327,12 @@ def previous_run(
         if not isinstance(recorded, dict):
             continue
         if recorded.get("schema") != SUMMARY_SCHEMA:
+            continue
+        # Historical evidence moves with a renamed skill directory, but its
+        # public stable-name identity does not change. A new stable name starts
+        # a fresh comparison lineage rather than claiming behavioral continuity
+        # with the old route.
+        if recorded.get("skill") != skill:
             continue
         if recorded.get("tier") != tier or not recorded.get("cases"):
             continue
@@ -672,7 +683,7 @@ def record(
         case_evidence=case_evidence,
         expects_summary=reports_per_case,
         recorded_at=recorded_at,
-        previous=previous_run(directory, resolved_tier, cases, suite, model),
+        previous=previous_run(directory, skill, resolved_tier, cases, suite, model),
     )
 
     path = directory / summary_filename(directory, recorded_at, stage, label, suite)
