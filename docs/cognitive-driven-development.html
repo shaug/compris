@@ -1138,8 +1138,9 @@
 
       <div class="record settled">
         <h3>Ticket authority is endpoint-scoped; the graph gate is approval</h3>
-        <p>Granting ticket management grants the whole graph. In for a penny, in for a pound.</p>
-        <p class="why"><b>This reverses two recorded decisions</b> — granular default-off authority, and <code>ready-ticket</code>'s rule that authoring never implies creating additional items. What remains is an <em>approval</em> gate, not a disclosure: presenting the graph before creating it. <b>Approval may be given at invocation</b>, and then the presentation becomes disclosure — which is also what makes autonomous graph creation possible, since an autonomous run has nobody to ask.</p>
+        <p>Ticket-management authority and graph-creation authority are separate grants. Each defaults to off. Ticket-management authority covers creating or updating one ticket body; it never grants graph mutation. Creating a graph requires the further graph-creation grant.</p>
+        <p>Once graph-creation authority is granted, it is endpoint-scoped across the approved graph: one grant covers every approved node and native relationship, never one grant per item. Endpoint scope therefore describes the reach of the graph-creation grant, not an expansion of ticket-management authority.</p>
+        <p class="why">The further graph-creation grant may be given at invocation or after the complete draft graph is presented. An invocation-time grant covers whatever approved graph the run produces; a presentation-time grant covers exactly the presented graph. Without either grant, the draft is returned and nothing in the graph is created. This applies <code>docs/skill-authoring.md</code>'s granular, default-off authority doctrine rather than reversing it.</p>
       </div>
 
       <div class="record settled">

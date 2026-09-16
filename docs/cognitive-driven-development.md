@@ -550,23 +550,22 @@ paths rather than one.
 
 ### Ticket authority is endpoint-scoped, not per-item
 
-Granting the skill ticket management grants it the whole graph. In for a penny,
-in for a pound.
+Ticket-management authority and graph-creation authority are separate grants.
+Each defaults to off. Ticket-management authority covers creating or updating
+one ticket body; it never grants graph mutation. Creating a graph requires the
+further graph-creation grant.
 
-*Note this reverses two recorded decisions.* `docs/skill-authoring.md:366` makes
-authority "granular, separately granted, and never inferred… Each defaults to
-off," and `ready-ticket:82-84` states that authoring authority "never implies
-authority to… create additional tracker items." Endpoint-scoped authority
-supersedes both for this skill, and the reversal is recorded here rather than
-left for a reader to find.
+Once graph-creation authority is granted, it is endpoint-scoped across the
+approved graph: one grant covers every approved node and native relationship,
+never one grant per item. Endpoint scope therefore describes the reach of the
+graph-creation grant, not an expansion of ticket-management authority.
 
-*What remains is an approval gate, not a disclosure.* `ready-ticket:220-223`
-already requires explicit approval of the body before `ticket_ready`; scaling
-that to the graph — shape, leaves, dependency edges — is continuity, not a new
-gate. **Approval may be given at invocation**, and when it is the presentation
-becomes a disclosure: the run reports the graph and proceeds. That is also what
-makes autonomous operation possible at all, since an autonomous run has nobody
-to ask.
+The further graph-creation grant may be given at invocation or after the
+complete draft graph is presented. An invocation-time grant covers whatever
+approved graph the run produces; a presentation-time grant covers exactly the
+presented graph. Without either grant, the draft is returned and nothing in the
+graph is created. This applies `docs/skill-authoring.md`'s granular, default-off
+authority doctrine rather than reversing it.
 
 ### Prediction is best-effort, and instrumented
 

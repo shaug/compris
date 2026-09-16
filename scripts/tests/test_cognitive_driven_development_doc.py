@@ -34,6 +34,44 @@ from helpers import compact  # noqa: E402
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DESIGN_MARKDOWN = REPOSITORY_ROOT / "docs" / "cognitive-driven-development.md"
 DESIGN_HTML = REPOSITORY_ROOT / "docs" / "cognitive-driven-development.html"
+AUTHORING_DOCTRINE = REPOSITORY_ROOT / "docs" / "skill-authoring.md"
+PLAN_IMPLEMENTATION_SKILL = (
+    REPOSITORY_ROOT / "skills" / "plan-implementation" / "SKILL.md"
+)
+
+STALE_TICKET_AUTHORITY_CLAIMS = (
+    "Granting the skill ticket management grants it the whole graph.",
+    "Granting ticket management grants the whole graph.",
+)
+
+SEPARATE_GRAPH_AUTHORITY_CLAIMS = (
+    compact(
+        """
+        Ticket-management authority and graph-creation authority are separate
+        grants. Each defaults to off.
+        """
+    ),
+    compact(
+        """
+        Ticket-management authority covers creating or updating one ticket
+        body; it never grants graph mutation. Creating a graph requires the
+        further graph-creation grant.
+        """
+    ),
+    compact(
+        """
+        Once graph-creation authority is granted, it is endpoint-scoped across
+        the approved graph: one grant covers every approved node and native
+        relationship, never one grant per item.
+        """
+    ),
+    compact(
+        """
+        The further graph-creation grant may be given at invocation or after
+        the complete draft graph is presented.
+        """
+    ),
+)
 
 # The wording that told a reader the mechanism was still open. Its absence is
 # what "no longer unresolved" means; leaving it in place beside a recorded
@@ -216,6 +254,62 @@ def strip_markdown(source: str) -> str:
     """
     without_emphasis = re.sub(r"\*{1,2}|`", "", source)
     return without_emphasis.replace("|", " ")
+
+
+class TicketAuthorityDecisionTests(unittest.TestCase):
+    """Pin one authority model across design, doctrine, and public contract."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.design_copies = {
+            "markdown": compact(strip_markdown(DESIGN_MARKDOWN.read_text())),
+            "html": compact(strip_html(DESIGN_HTML.read_text())),
+        }
+        cls.authoring_doctrine = compact(strip_markdown(AUTHORING_DOCTRINE.read_text()))
+        cls.plan_implementation = compact(
+            strip_markdown(PLAN_IMPLEMENTATION_SKILL.read_text())
+        )
+
+    def test_ticket_management_no_longer_grants_the_graph(self):
+        for stale_claim in STALE_TICKET_AUTHORITY_CLAIMS:
+            for copy_name, design in self.design_copies.items():
+                with self.subTest(copy=copy_name, stale_claim=stale_claim):
+                    self.assertNotIn(stale_claim, design)
+
+    def test_design_records_separate_default_off_endpoint_authority(self):
+        for claim in SEPARATE_GRAPH_AUTHORITY_CLAIMS:
+            for copy_name, design in self.design_copies.items():
+                with self.subTest(copy=copy_name, claim=claim[:48]):
+                    self.assertIn(claim, design)
+
+    def test_authoring_doctrine_requires_granular_default_off_grants(self):
+        self.assertIn(
+            "Authority is granular, separately granted, and never inferred.",
+            self.authoring_doctrine,
+        )
+        self.assertIn("Each defaults to off.", self.authoring_doctrine)
+
+    def test_public_contract_keeps_graph_creation_separate_and_endpoint_scoped(self):
+        self.assertIn(
+            compact(
+                """
+                Graph-creation authority is a further separate grant,
+                defaulting to off independent of ticket-management authority —
+                holding one never implies the other
+                """
+            ),
+            self.plan_implementation,
+        )
+        self.assertIn(
+            compact(
+                """
+                one grant authorizes creating everything the returned draft
+                graph names — every node and every native relationship — as a
+                single unit, never per item
+                """
+            ),
+            self.plan_implementation,
+        )
 
 
 class ShapingAuthorityDecisionTests(unittest.TestCase):

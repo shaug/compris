@@ -4,19 +4,25 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-16 — Began the public plan-implementation cutover
+## 2026-09-16 — Cut over plan-implementation and reconciled its authority doctrine
+
+- docs(plan-implementation): reconcile the approved design with the separate,
+  default-off graph-creation grant shipped by the public planner while
+  preserving endpoint scope across the approved graph.
 
 - test(evals): establish fresh plan-implementation forward and triggering
   baselines without comparing across stable names; deterministic replay passes
   26 of 26 forward cases and 5 of 5 triggering cases, while both real-model
   attempts record the unavailable `claude` executable.
+  (f74c8ca49d04613d01c09cc1fb441bf1c3d69797)
 
 - feat(plan-implementation): rename the public planner route, cut over its
   packaging, commands, eval registry, metadata, triggering corpus, and
   implement-ticket recommendation, and record the cooperative writing-plans
-  overlap.
+  overlap. (171253cc48b8d707472e6f4ebf0c3e6d935c42a1)
 
 - test(evals): record the final ready-ticket baseline before its public rename.
+  (2c8b941901f50a1e04e9c64147a70a4fe5b16260)
 
 ## 2026-09-15 — Made PR reviewability and operator effort observable
 
