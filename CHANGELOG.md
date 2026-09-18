@@ -6,6 +6,10 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-18 — Bound body authoring to the cognitive prose contract
 
+- test(evals): record the clean before state for body-authoring adoption;
+  real-model attempts name the unavailable Claude CLI and carve replay records
+  its deterministic evidence gap.
+
 - test(evals): add result-blind body-authoring cases and fixture support before
   changing the three consuming skills' prose.
 
