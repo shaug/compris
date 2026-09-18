@@ -4,11 +4,17 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-18 — Recorded skill-withheld prose baselines
+
+- docs(evals): record isolated pull-request and ticket-body prose baselines,
+  preserving opening explanations and the observed absence of voice excuses.
+
 ## 2026-09-16 — Cut over plan-implementation and reconciled its authority doctrine
 
 - docs(plan-implementation): reconcile the approved design with the separate,
   default-off graph-creation grant shipped by the public planner while
   preserving endpoint scope across the approved graph.
+  (8ce32cc3508e9a52c483eb3ae9da5fc36d52b60f)
 
 - test(evals): establish fresh plan-implementation forward and triggering
   baselines without comparing across stable names; deterministic replay passes

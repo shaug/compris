@@ -1,0 +1,39 @@
+{
+  "scenario": "pr-1-csv-encoding",
+  "recorded_at": "2026-09-18T19:48:51.247612+00:00",
+  "runtime": "codex-cli 0.153.4",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "low",
+  "withheld_skill": "implement-ticket",
+  "system_instruction_override": "You are a helpful assistant.\n",
+  "prompt": "Draft a pull request body from these completed change notes. The repo has a CSV export command. Users who open its output in spreadsheet software see accented customer names corrupted because the file has no UTF-8 byte-order mark. The patch adds the mark at the start of the export stream, updates the export fixture, and adds a regression test. Delimiters, column order, and command options stay the same. The export tests and full unit suite pass. There is no migration or deployment step. Return the body here; do not use tools, modify files, or publish anything.\n\nAfter the body, give a brief account in your own words of how you chose to open the body.",
+  "exit_code": 0,
+  "events": [
+    {
+      "type": "thread.started",
+      "thread_id": "01a0b610-8604-7922-8f13-921fc79515a8"
+    },
+    {
+      "type": "turn.started"
+    },
+    {
+      "type": "item.completed",
+      "item": {
+        "id": "item_0",
+        "type": "agent_message",
+        "text": "## Summary\n\nFix corrupted accented customer names when CSV exports are opened in spreadsheet software by adding a UTF-8 byte-order mark at the start of the export stream.\n\n- Update the export fixture.\n- Add a regression test.\n- Preserve existing delimiters, column order, and command options.\n\n## Testing\n\n- Export tests pass.\n- Full unit suite passes.\n\n## Rollout\n\nNo migration or deployment steps required.\n\n---\n\nI opened with the user-visible problem and its fix so reviewers can immediately understand why the change matters."
+      }
+    },
+    {
+      "type": "turn.completed",
+      "usage": {
+        "input_tokens": 7903,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 108,
+        "reasoning_output_tokens": 0
+      }
+    }
+  ],
+  "stderr": "2026-09-18T19:48:51.366696Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.389377Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.420811Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.442272Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.459630Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.478599Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.489765Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.502111Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.518050Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n2026-09-18T19:48:51.533247Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n"
+}

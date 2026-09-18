@@ -1,0 +1,37 @@
+{
+  "scenario": "pilot-csv-encoding",
+  "recorded_at": "2026-09-18",
+  "runtime": "codex-cli 0.153.4",
+  "model": null,
+  "model_limitation": "CLI default not captured; excluded from the three controlled runs.",
+  "withheld_skill": "implement-ticket",
+  "prompt": "Draft a pull request body from these completed change notes. The repo has a CSV export command. Users who open its output in spreadsheet software see accented customer names corrupted because the file has no UTF-8 byte-order mark. The patch adds the mark at the start of the export stream, updates the export fixture, and adds a regression test. Delimiters, column order, and command options stay the same. The export tests and full unit suite pass. There is no migration or deployment step. Return the body here; do not use tools, modify files, or publish anything.\n\nAfter the body, give a brief account in your own words of how you chose to open the body.\n",
+  "exit_code": 0,
+  "events": [
+    {
+      "type": "thread.started",
+      "thread_id": "01a0b60f-4cd2-7462-8345-f05e6bd6149f"
+    },
+    {
+      "type": "turn.started"
+    },
+    {
+      "type": "item.completed",
+      "item": {
+        "id": "item_0",
+        "type": "agent_message",
+        "text": "## Summary\nFix corrupted accented customer names when CSV exports are opened in spreadsheet software by adding a UTF-8 byte-order mark at the start of the export stream.\n\n- Update the export fixture.\n- Add a regression test.\n- Keep delimiters, column order, and command options unchanged.\n\n## Testing\n- Export tests pass.\n- Full unit suite passes.\n\n## Deployment\nNo migration or deployment steps required.\n\n---\n\nI opened with the user-visible problem and its fix so reviewers can immediately see why the change matters."
+      }
+    },
+    {
+      "type": "turn.completed",
+      "usage": {
+        "input_tokens": 7889,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 107,
+        "reasoning_output_tokens": 0
+      }
+    }
+  ]
+}
