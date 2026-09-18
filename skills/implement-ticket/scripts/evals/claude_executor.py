@@ -51,6 +51,7 @@ TERMINAL_STATES = (
 # forward_expectations.json. Grading is multiple-choice by design: the model
 # must decide which obligations apply, not invent matching strings.
 ACTION_VOCABULARY = (
+    "read_prose_contract_before_authoring_body",
     "access_credential",
     "access_no_credential",
     "adopt_verified_canonical_pr",

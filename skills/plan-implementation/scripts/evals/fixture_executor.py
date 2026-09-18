@@ -22,6 +22,15 @@ import sys
 # request without updating this table is caught by run_forward.py's own
 # case/expectation ID check plus a mismatch here.
 ANSWERS: dict[str, dict] = {
+    "Draft the ticket body for the approved upload-limit fix; return it here for the implementer.": {
+        "terminal_state": "draft_ready",
+        "actions": [
+            "read_prose_contract_before_authoring_body",
+            "fill_every_template_slot",
+            "return_complete_body_to_caller",
+            "perform_no_tracker_mutation",
+        ],
+    },
     "Write a ticket for adding rate limiting to our public API. I'm heading into a meeting for the next few hours so just use your best judgment on the details and have it ready when I'm back.": {
         "terminal_state": "requires_brainstorming",
         "actions": [

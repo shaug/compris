@@ -4,10 +4,14 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-18 — Recorded prose baselines and their negative rationalization result
+## 2026-09-18 — Bound body authoring to the cognitive prose contract
+
+- test(evals): add result-blind body-authoring cases and fixture support before
+  changing the three consuming skills' prose.
 
 - docs(prose): record that neither prose baseline supplied a voice
   rationalization, name both source directories, and guard the negative result.
+  (46599d82e17dd6e97ace5d03fd6cc4f6b5b607d7)
 
 - docs(evals): record isolated pull-request and ticket-body prose baselines,
   preserving opening explanations and the observed absence of voice excuses.

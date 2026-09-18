@@ -1,5 +1,23 @@
 [
   {
+    "id": "pr-body-prose-contract",
+    "target_skill": "implement-ticket",
+    "request": "Publish the completed G-224 candidate to a ready PR, including its body, without merging.",
+    "authority": {"merge": false},
+    "capabilities": {"review_code_change": true, "babysit_pr": true},
+    "artifacts": {
+      "ticket": {"tracker": "github", "id": "G-224", "state": "open", "whole_epic": false, "acceptance_evidence": []},
+      "repository": {"repo": "example/project", "tracker": "github", "pr_host": "github", "instructions": "CI and clean review required"},
+      "pr": {"state": "open", "merged": false, "head": "head-224", "base": "base-1", "mergeable": true, "body_authoring": true},
+      "diff": {"base": "base-1", "head": "head-224", "patch": "one coherent candidate with focused tests", "resulting_tree": "tree-224"},
+      "checks": {"status": "success", "items": [{"name": "ci", "head": "head-224"}]},
+      "reviews": {"initial": "clean", "head": "head-224", "connector_head": "head-224", "items": []},
+      "threads": {"items": [], "unresolved": 0},
+      "worktree": {"path": "/worktrees/g224", "exclusive_owner": true, "tracked": [], "untracked": []},
+      "handoff": {"created": true, "result_well_formed": true, "result_head": "head-224"}
+    }
+  },
+  {
     "id": "whole-epic-before-ticket-dependencies",
     "target_skill": "implement-ticket",
     "request": "Implement GitHub epic G-301.",
