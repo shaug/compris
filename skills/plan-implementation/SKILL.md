@@ -386,13 +386,21 @@ slot.
 
 ## Draft the body into every slot
 
+**Before writing the first template slot, read
+[the cognitive prose contract](references/cognitive-prose.md).** It governs the
+body's form and ordering; a filled template alone does not explain why the work
+is necessary. Keep all eight slots: open `Outcome` on the problem and then the
+observable change, explain any real alternative weighed in `Scope`, and finish
+with the acceptance criteria and required verification after the supporting
+assumptions and dependencies.
+
 Fill every slot. An empty slot has a defined spelling; absence is not one of
 them.
 
 ```markdown
 ## Outcome
 
-<the observable change, in the product's terms>
+<what is wrong and the observable change that addresses it, in the product's terms>
 
 ## Scope
 
@@ -406,14 +414,6 @@ them.
 
 - <behavior that must not change> — or `None identified` when purely additive
 
-## Acceptance criteria
-
-- [ ] <observable behavior of the public surface, encodable as a behavioral test>
-
-## Required verification
-
-- <command, check, or observation per criterion, each marked pre-merge or post-merge>
-
 ## Verified assumptions
 
 - <fact confirmed while authoring, with its source> — or `None verified`, plus
@@ -422,6 +422,14 @@ them.
 ## Dependencies
 
 - <native blocker or prerequisite outcome> — or `None`
+
+## Acceptance criteria
+
+- [ ] <observable behavior of the public surface, encodable as a behavioral test>
+
+## Required verification
+
+- <command, check, or observation per criterion, each marked pre-merge or post-merge>
 ```
 
 Write each acceptance criterion as an observable behavior of the product's

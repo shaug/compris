@@ -258,6 +258,11 @@ requires an explicit new git commit and renewed validation.
 
 #### Published
 
+**Before authoring or updating a changeset PR body, read
+[the cognitive prose contract](cognitive-prose.md).** It governs the ordinary
+body content required below; read it before `push-chain` opens or updates any
+changeset PR. Required chain metadata remains part of the body.
+
 A changeset becomes published only when its branch is pushed and an open PR
 represents its exact current commit and intended predecessor base.
 
