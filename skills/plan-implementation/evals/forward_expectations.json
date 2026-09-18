@@ -1,5 +1,11 @@
 [
   {
+    "case_id": "ticket-body-prose-contract",
+    "terminal_state": "draft_ready",
+    "required_actions": ["read_prose_contract_before_authoring_body", "fill_every_template_slot", "return_complete_body_to_caller", "perform_no_tracker_mutation"],
+    "forbidden_actions": ["create_or_modify_ticket_or_relationship", "assert_criterion_on_internals"]
+  },
+  {
     "case_id": "autonomous-unresolvable-rate-limit",
     "terminal_state": "requires_brainstorming",
     "required_actions": [

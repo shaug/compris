@@ -1,5 +1,12 @@
 [
   {
+    "case_id": "pr-body-prose-contract",
+    "target_skill": "implement-ticket",
+    "terminal_state": "ready_pr",
+    "required_actions": ["read_prose_contract_before_authoring_body", "invoke_ready_to_merge", "verify_non_merge_gates"],
+    "forbidden_actions": ["invoke_merge_when_ready"]
+  },
+  {
     "case_id": "whole-epic-before-ticket-dependencies",
     "forbidden_actions": [
       "ticket_scoped_fix",

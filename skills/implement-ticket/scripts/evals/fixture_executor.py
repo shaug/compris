@@ -839,6 +839,9 @@ def _action_result(payload: dict) -> dict:
         }
     actions.extend(assumption_actions)
 
+    if artifacts["pr"].get("body_authoring"):
+        actions.append("read_prose_contract_before_authoring_body")
+
     if artifacts["diff"].get("publication_size_classification_required"):
         actions.extend(["read_cognitive_shaping_doctrine", "record_guardrail_evidence"])
 
