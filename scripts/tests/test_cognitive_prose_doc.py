@@ -96,10 +96,13 @@ class CognitiveProseContractTests(unittest.TestCase):
                 self.assertRegex(row[-1], r"\[#\d+\]")
 
     def test_the_contract_records_the_rationalization_table_as_unwritten(self) -> None:
-        # The voice half is deliberately incomplete. Saying so is what keeps a
-        # reader from treating the prohibitions as fully armed.
+        # The recorded baselines did not supply a prose-voice excuse. Preserve
+        # that negative result and its sources rather than inventing table rows.
         prohibitions = compact(_section("## The prohibitions"))
-        self.assertIn("rationalization table is deliberately unwritten", prohibitions)
+        self.assertIn("no rationalization about prose voice", prohibitions)
+        for skill in ("implement-ticket", "plan-implementation"):
+            with self.subTest(skill=skill):
+                self.assertIn(f"skills/{skill}/evals/baseline/prose/", prohibitions)
 
     def test_every_link_is_absolute(self) -> None:
         # A bundled copy sits in skills/<skill>/references/ with none of this
