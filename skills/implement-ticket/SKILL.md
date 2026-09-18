@@ -790,11 +790,15 @@ path through `publish-candidate`: `carve-changesets` already owns its own
 publication and its own per-changeset `babysit-pr` delegations.
 
 The ticket-wide outcome, important non-goals, actual validation, and
-acceptance-ledger state must reach the PR body in every path. Author them
-directly when publishing inline; supply them as input to `carve-changesets` or
-`publish-candidate`, each of which owns the body of every PR it opens. Never
-author, paraphrase, or infer content a delegate reports only the ticket's author
-may supply — a delegate that says so returns `needs_author_input`, which
+acceptance-ledger state must reach the PR body in every path. **Before authoring
+the body, read [the cognitive prose contract](references/cognitive-prose.md).**
+It governs form and ordering without removing those content obligations.
+
+Author them directly when publishing inline; supply them as input to
+`carve-changesets` or `publish-candidate`, each of which owns the body of every
+PR it opens. Never author, paraphrase, or infer content a delegate reports only
+the ticket's author may supply — a delegate that says so returns
+`needs_author_input`, which
 [its handoff](references/publish-candidate-handoff.md#terminal-result-mapping)
 maps to `blocked` with the converged candidate preserved.
 
