@@ -6,6 +6,10 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-18 — Bound body authoring to the cognitive prose contract
 
+- test(evals): record clean after-state attempts and the unchanged deterministic
+  carve replay; model-behavior evidence remains deferred to a Claude-capable
+  run.
+
 - feat(skills): require the bundled prose contract before PR and ticket body
   authoring, preserving all body content and the planner's eight slots while
   placing verification last.
