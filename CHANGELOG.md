@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-18 — Bound body authoring to the cognitive prose contract
 
+- test(evals): renew adoption baselines against the merged prose contract,
+  retaining original measurement ancestry without altering the integrated tree.
+
 - test(evals): add result-blind body-authoring cases and fixture support before
   changing the three consuming skills' prose.
 
