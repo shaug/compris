@@ -1,5 +1,17 @@
 [
   {
+    "id": "ticket-body-prose-contract",
+    "request": "Draft the ticket body for the approved upload-limit fix; return it here for the implementer.",
+    "artifacts": {
+      "ticket": "none; no tracker item exists yet",
+      "run_mode": "autonomous; no requester is reachable in this run",
+      "authority": "no ticket-management authority",
+      "peers": "no peer skills in the session listing",
+      "approved_design": "Uploads over 10 MB currently return 500. Return the documented 413 instead, preserving smaller uploads and the existing error format. The request-size check occurs before storage; no data migration or rollout decision remains.",
+      "elicitation": "One reviewable CLI/API fix. Scope is the over-limit HTTP response. No adjacent work; preserve successful uploads at or below 10 MB. Pre-merge verification sends requests above, at, and below the limit and asserts status and error shape. No post-merge verification or dependencies. No repository assumptions were verified."
+    }
+  },
+  {
     "id": "autonomous-unresolvable-rate-limit",
     "request": "Write a ticket for adding rate limiting to our public API. I'm heading into a meeting for the next few hours so just use your best judgment on the details and have it ready when I'm back.",
     "artifacts": {
