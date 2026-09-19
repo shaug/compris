@@ -4,10 +4,14 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-18 — Recorded skill-withheld prose baselines
+## 2026-09-18 — Recorded prose baselines and their negative rationalization result
+
+- docs(prose): record that neither prose baseline supplied a voice
+  rationalization, name both source directories, and guard the negative result.
 
 - docs(evals): record isolated pull-request and ticket-body prose baselines,
   preserving opening explanations and the observed absence of voice excuses.
+  (1b01b2668df9ece59a30e741f3759618541d2e79)
 
 ## 2026-09-16 — Cut over plan-implementation and reconciled its authority doctrine
 

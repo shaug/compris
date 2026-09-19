@@ -66,12 +66,10 @@ Each is sourced to a pull request where it was observed.
 | Write a feature list as a sentence.    | Nobody holds five nouns joined by commas. They can hold one claim.                               | [#20], "cross-system GitHub and Linear ownership, explicit authority boundaries, current-candidate review gates, safe base-drift handling, and post-merge dependency refresh" |
 | Open on what was added.                | Opening on the addition leaves the reason unstated, and the reason is what a reader needs first. | [#20] and [#60], both opening on "Adds"/"Add"                                                                                                                                 |
 
-**The rationalization table is deliberately unwritten.** The repository's
-authoring standard admits only rows sourced to the agent's own wording, and the
-pull requests above carry observed output rather than the reasoning that
-produced it. Inventing those rows is what that rule exists to forbid. Until
-baseline transcripts supply them, this contract's voice half is weaker than its
-final form, and that is stated here rather than left for a reader to find out.
+The baselines recorded for this purpose in
+`skills/implement-ticket/evals/baseline/prose/` and
+`skills/plan-implementation/evals/baseline/prose/` carried no rationalization
+about prose voice.
 
 ## Scale
 
