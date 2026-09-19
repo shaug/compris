@@ -4,28 +4,35 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-18 — Bound body authoring to the cognitive prose contract
+## 2026-09-18 — Bound body authoring to the prose contract and clarified its authority
+
+- docs: make cognitive-prose canonical for pull request and ticket bodies while
+  preserving AGENTS.md's commit conventions and the skill-authoring doctrine;
+  distinguish registered forward and triggering model executors.
 
 - test(evals): renew adoption outcomes after sibling integration, preserving
   clean before/after identities and every original measured subtree.
+  (f80457e5d8d98173c911e3cedf994f6296901aac)
 
 - test(evals): record clean after-state attempts and the unchanged deterministic
   carve replay; model-behavior evidence remains deferred to a Claude-capable
-  run.
+  run. (ba9637a1e05a5b56926145a5e65a714f0eca0cf7)
 
 - feat(skills): require the bundled prose contract before PR and ticket body
   authoring, preserving all body content and the planner's eight slots while
-  placing verification last.
+  placing verification last. (220af5f2d89d7293c9fb00f113bd9cf02e880488)
 
 - test(evals): record the clean before state for body-authoring adoption;
   real-model attempts name the unavailable Claude CLI and carve replay records
-  its deterministic evidence gap.
+  its deterministic evidence gap. (dbdbe8c6f642ee15d63dc1a093992afb47281ef8)
 
 - test(evals): renew adoption baselines against the merged prose contract,
   retaining original measurement ancestry without altering the integrated tree.
+  (1846aaa2ee71a7f5044d05faef13af6c9d472f5c)
 
 - test(evals): add result-blind body-authoring cases and fixture support before
   changing the three consuming skills' prose.
+  (2249274823b30ed1dc4ec35cb1a6d1d91a5ee982)
 
 - docs(prose): record that neither prose baseline supplied a voice
   rationalization, name both source directories, and guard the negative result.

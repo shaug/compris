@@ -21,6 +21,12 @@ description never loads, so its contract governs nothing. A skill that loads
 reliably but reports in free prose produces claims a caller cannot verify, which
 is the same as producing no claim at all.
 
+## Skill prose and emitted prose
+
+This document governs `SKILL.md` prose written for an agent reader. For the pull
+request and ticket bodies a skill emits, it defers to the canonical
+[cognitive prose contract](cognitive-prose.md) at `docs/cognitive-prose.md`.
+
 ## The failure-first rule
 
 Every other rule in this document is an application of one:

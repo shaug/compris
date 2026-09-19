@@ -28,14 +28,23 @@ A change to a skill's normative prose — its `SKILL.md` or any `references/` fi
 that governs behavior — ships with recorded model-behavior evidence. Editorial
 changes that alter no obligation do not.
 
-- **Where a real-model executor exists**, run the skill's evals with it before
-  and after the change and commit both summaries. `implement-ticket` is the
-  skill this covers today; `implement-epic` is covered through the same corpus.
-- **Where one does not**, record the skill's deterministic corpus replay —
-  `carve-changesets` and `review-fix-loop` have one. Any deterministic run
-  carries gap text stating that no model read the prose, whether or not a
-  real-model executor exists for that skill: the gap describes what the run
-  collected, not what the registry offers.
+Executor availability is per-suite. `scripts/record_eval_run.py` registers
+forward executors in `EVAL_TARGETS` and triggering executors in
+`TRIGGERING_TARGETS`. The triggering suite registers a real-model tier for every
+skill in its corpus, including `carve-changesets` and `review-fix-loop`; their
+deterministic-only registration applies to the forward suite.
+
+- **Where a real-model executor exists for the suite**, run the skill's evals
+  with it before and after the change and commit both summaries. The forward
+  suite registers real-model executors for `implement-ticket` and
+  `plan-implementation`; `implement-epic` is covered through the
+  `implement-ticket` corpus.
+- **Where the suite has no real-model executor**, record the skill's
+  deterministic corpus replay — in the forward suite, `carve-changesets` and
+  `review-fix-loop` have one. Any deterministic run carries gap text stating
+  that no model read the prose, whether or not a real-model executor exists for
+  that skill: the gap describes what the run collected, not what the registry
+  offers.
 - **Where `just eval-record <skill>` has no corpus registered for that target**,
   it says so instead of recording something — that gap describes what the
   recorder can drive, not whether a corpus exists at all. The review-lens skills
@@ -307,6 +316,10 @@ said. Neither satisfies the other.
 
 - If a ticket subject or title includes backticks, escape them as \`\`\` before
   placing the text into shell commands or temp files.
+
+- [The cognitive prose contract](docs/cognitive-prose.md) governs pull request
+  and ticket bodies. It does not govern commit bodies; `AGENTS.md` is their sole
+  authority.
 
 - Write commit bodies in Markdown. Summarize what changed and why it was added.
   Example of a good commit body:
