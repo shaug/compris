@@ -6,6 +6,9 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-18 — Bound body authoring to the cognitive prose contract
 
+- test(evals): renew adoption outcomes after sibling integration, preserving
+  clean before/after identities and every original measured subtree.
+
 - test(evals): record clean after-state attempts and the unchanged deterministic
   carve replay; model-behavior evidence remains deferred to a Claude-capable
   run.
