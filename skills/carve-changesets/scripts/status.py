@@ -48,6 +48,7 @@ def status_from_live(
     base_branch: str | None = None,
     cwd: Path | str = Path.cwd(),
     remote: str = "origin",
+    read_remote: bool = True,
     allow_stack_state_refresh: bool = False,
     stack_client: GhStackClient | None = None,
     profile_probe: Callable[[], ProfileProbeResult] | None = None,
@@ -61,6 +62,7 @@ def status_from_live(
             pull_requests=pull_requests,
             cwd=repo,
             remote=remote,
+            read_remote=read_remote,
         )
 
     observed_profile = (
@@ -182,6 +184,7 @@ def _render_passive_evidence(
     pull_requests: Sequence[PullRequestRecord],
     cwd: Path,
     remote: str,
+    read_remote: bool,
 ) -> str:
     ref_output = _git(
         cwd,
@@ -210,8 +213,19 @@ def _render_passive_evidence(
             refs.setdefault(branch, {})[kind] = head
 
     prs = {pr.head_branch: pr for pr in pull_requests}
+    branches = sorted(set(refs) | set(prs))
+    live_remote_heads = (
+        _live_remote_heads(cwd, remote, tuple(branches)) if read_remote else {}
+    )
+    for branch in branches:
+        heads = refs.setdefault(branch, {})
+        live_head = live_remote_heads.get(branch)
+        if live_head is None:
+            heads.pop("remote", None)
+        else:
+            heads["remote"] = live_head
     rows = [("BRANCH", "LOCAL HEAD", "REMOTE HEAD", "PR", "PR HEAD", "BASE", "STATE")]
-    for branch in sorted(set(refs) | set(prs)):
+    for branch in branches:
         pr = prs.get(branch)
         heads = refs.get(branch, {})
         rows.append(

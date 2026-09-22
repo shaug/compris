@@ -415,6 +415,30 @@ class RehydrationTests(unittest.TestCase):
         self.assertNotEqual(cached, advanced)
         self.assertEqual(advanced, heads[branch])
 
+    def test_passive_status_renders_live_remote_not_cached_tracking_head(self) -> None:
+        _, prs = self._materialize()
+        clone = self._fresh_clone()
+        branch = "feature/report-2"
+        cached = helpers.run(clone, "git", "rev-parse", f"refs/remotes/origin/{branch}")
+        helpers.run(self.repo, "git", "checkout", branch)
+        (self.repo / "advanced-passive.txt").write_text("advanced\n")
+        helpers.run(self.repo, "git", "add", "advanced-passive.txt")
+        advanced = helpers.commit(self.repo, "test: advance passive status branch")
+        helpers.run(self.repo, "git", "push", "origin", branch)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+        )
+
+        self.assertNotEqual(cached, advanced)
+        branch_row = next(
+            line for line in output.splitlines() if line.startswith(branch)
+        )
+        self.assertIn(f"unavailable  {advanced[:12]}", branch_row)
+        self.assertIn(f"#102  {cached[:12]}", branch_row)
+
     def test_status_refresh_rejects_checkout_movement(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()

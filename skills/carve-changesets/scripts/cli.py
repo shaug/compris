@@ -195,6 +195,7 @@ def cmd_status(args: argparse.Namespace) -> None:
             pull_requests=pull_requests,
             pull_request_loader=pull_request_loader,
             remote=args.remote,
+            read_remote=not args.local_only,
             allow_stack_state_refresh=args.allow_stack_state_refresh,
         )
     )
