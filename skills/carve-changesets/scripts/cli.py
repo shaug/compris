@@ -19,7 +19,7 @@ from common import (
     validate_plan,
 )
 from db_compare import db_compare
-from github import pr_create, pull_requests_for_source
+from github import pr_create, pull_request_by_number, pull_requests_for_source
 from patch_apply import build_diff
 from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
@@ -178,14 +178,22 @@ def cmd_validate(args: argparse.Namespace) -> None:
 def cmd_status(args: argparse.Namespace) -> None:
     pull_requests = (
         []
-        if args.local_only
+        if args.local_only or args.allow_stack_state_refresh
         else pull_requests_for_source(args.source, remote=args.remote)
     )
+    pull_request_loader = None
+    if args.allow_stack_state_refresh and not args.local_only:
+
+        def load_pull_request(number: int):
+            return pull_request_by_number(number, remote=args.remote)
+
+        pull_request_loader = load_pull_request
     print(
         status_from_live(
             source_branch=args.source,
             base_branch=args.base,
             pull_requests=pull_requests,
+            pull_request_loader=pull_request_loader,
             remote=args.remote,
             allow_stack_state_refresh=args.allow_stack_state_refresh,
         )

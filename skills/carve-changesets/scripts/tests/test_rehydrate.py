@@ -4,6 +4,9 @@ import shutil
 import sys
 import tempfile
 import unittest
+from argparse import Namespace
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest import mock
 
@@ -14,6 +17,7 @@ if str(TESTS_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+import cli as cli_mod  # noqa: E402
 import helpers  # noqa: E402
 from metadata import (  # noqa: E402
     ChangesetMetadata,
@@ -34,7 +38,7 @@ from rehydrate import (  # noqa: E402
     adopt_legacy_chain,
     rehydrate_chain,
 )
-from status import status_from_live  # noqa: E402
+from status import _live_remote_heads, status_from_live  # noqa: E402
 
 
 class RehydrationTests(unittest.TestCase):
@@ -306,6 +310,88 @@ class RehydrationTests(unittest.TestCase):
         self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
         self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
         client.view_json.assert_called_once_with(allow_state_refresh=True)
+
+    def test_status_refresh_loads_exact_native_pr_numbers(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+        records = {pr.number: pr for pr in prs}
+        loader = mock.Mock(side_effect=records.__getitem__)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_request_loader=loader,
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+        )
+
+        self.assertIn("layers/zeta", output)
+        self.assertEqual([mock.call(201), mock.call(202)], loader.call_args_list)
+
+    def test_status_cli_defers_pr_discovery_to_exact_native_numbers(self) -> None:
+        args = Namespace(
+            source="feature/report",
+            base="main",
+            local_only=False,
+            remote="origin",
+            allow_stack_state_refresh=True,
+        )
+        record = mock.sentinel.record
+        with (
+            mock.patch.object(cli_mod, "pull_requests_for_source") as suffix_discovery,
+            mock.patch.object(
+                cli_mod, "pull_request_by_number", return_value=record
+            ) as exact_lookup,
+            mock.patch.object(cli_mod, "status_from_live", return_value="ok") as status,
+            redirect_stdout(StringIO()),
+        ):
+            cli_mod.cmd_status(args)
+
+            loader = status.call_args.kwargs["pull_request_loader"]
+            self.assertEqual(record, loader(321))
+
+        suffix_discovery.assert_not_called()
+        exact_lookup.assert_called_once_with(321, remote="origin")
+
+    def test_live_remote_heads_ignore_stale_tracking_refs(self) -> None:
+        snapshot, _ = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        branch = snapshot.layers[-1].branch
+        cached = helpers.run(clone, "git", "rev-parse", f"refs/remotes/origin/{branch}")
+        helpers.run(self.repo, "git", "checkout", branch)
+        (self.repo / "advanced.txt").write_text("advanced\n")
+        helpers.run(self.repo, "git", "add", "advanced.txt")
+        advanced = helpers.commit(self.repo, "test: advance published layer")
+        helpers.run(self.repo, "git", "push", "origin", branch)
+
+        heads = _live_remote_heads(clone, "origin", (branch,))
+
+        self.assertNotEqual(cached, advanced)
+        self.assertEqual(advanced, heads[branch])
 
     def test_status_refresh_rejects_checkout_movement(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()

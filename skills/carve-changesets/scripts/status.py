@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Sequence
 
@@ -43,6 +44,7 @@ def status_from_live(
     *,
     source_branch: str,
     pull_requests: Sequence[PullRequestRecord] = (),
+    pull_request_loader: Callable[[int], PullRequestRecord] | None = None,
     base_branch: str | None = None,
     cwd: Path | str = Path.cwd(),
     remote: str = "origin",
@@ -60,7 +62,7 @@ def status_from_live(
             remote=remote,
         )
 
-    client = stack_client or GhStackClient()
+    client = stack_client or GhStackClient(cwd=repo)
     before = _checkout_identity(repo)
     try:
         payload = client.view_json(allow_state_refresh=True)
@@ -74,16 +76,30 @@ def status_from_live(
     trunk = payload.get("trunk")
     if not isinstance(trunk, str) or not trunk:
         raise RehydrationError("Native stack view has no trunk branch.")
-    trunk_head = _git(repo, "rev-parse", f"refs/remotes/{remote}/{trunk}").strip()
+    trunk_heads = _live_remote_heads(repo, remote, (trunk,))
+    trunk_head = trunk_heads.get(trunk)
+    if trunk_head is None:
+        raise RehydrationError(
+            f"Selected remote {remote!r} has no live trunk branch {trunk!r}."
+        )
     snapshot = parse_native_stack(payload, trunk_head=trunk_head)
-    remote_heads = {
-        layer.branch: _git(
-            repo, "rev-parse", f"refs/remotes/{remote}/{layer.branch}"
-        ).strip()
-        for layer in snapshot.open_suffix
-    }
-    pull_requests_by_number = {pr.number: pr for pr in pull_requests}
-    if len(pull_requests_by_number) != len(pull_requests):
+    published_branches = tuple(
+        layer.branch for layer in snapshot.open_suffix if layer.pull_request is not None
+    )
+    materialized_branches = tuple(
+        layer.branch for layer in snapshot.layers if layer.pull_request is None
+    )
+    remote_heads = _live_remote_heads(repo, remote, published_branches)
+    local_heads = _local_heads(repo, materialized_branches)
+    effective_pull_requests = list(pull_requests)
+    if pull_request_loader is not None:
+        effective_pull_requests = [
+            pull_request_loader(layer.pull_request.number)
+            for layer in snapshot.layers
+            if layer.pull_request is not None
+        ]
+    pull_requests_by_number = {pr.number: pr for pr in effective_pull_requests}
+    if len(pull_requests_by_number) != len(effective_pull_requests):
         raise RehydrationError(
             "GitHub evidence contains duplicate pull-request numbers."
         )
@@ -91,17 +107,50 @@ def status_from_live(
         snapshot,
         remote_heads=remote_heads,
         pull_requests=pull_requests_by_number,
+        local_heads=local_heads,
     )
     chain = rehydrate_chain(
         source_branch=source_branch,
         native_snapshot=reconciled,
-        pull_requests=pull_requests,
+        pull_requests=effective_pull_requests,
         cwd=repo,
     )
     return (
         "NATIVE LOCAL TOPOLOGY  available (refreshed with authority)\n"
         + render_status(chain)
     )
+
+
+def _live_remote_heads(
+    cwd: Path, remote: str, branches: Sequence[str]
+) -> dict[str, str]:
+    if not branches:
+        return {}
+    refs = tuple(f"refs/heads/{branch}" for branch in branches)
+    output = _git(cwd, "ls-remote", "--refs", remote, *refs)
+    requested = set(branches)
+    heads: dict[str, str] = {}
+    for line in output.splitlines():
+        head, separator, ref = line.partition("\t")
+        if not separator or not ref.startswith("refs/heads/"):
+            continue
+        branch = ref.removeprefix("refs/heads/")
+        if branch in requested:
+            heads[branch] = head
+    return heads
+
+
+def _local_heads(cwd: Path, branches: Sequence[str]) -> dict[str, str]:
+    if not branches:
+        return {}
+    refs = tuple(f"refs/heads/{branch}" for branch in branches)
+    output = _git(cwd, "for-each-ref", "--format=%(refname)%00%(objectname)", *refs)
+    heads: dict[str, str] = {}
+    for line in output.splitlines():
+        ref, separator, head = line.partition("\0")
+        if separator and ref.startswith("refs/heads/"):
+            heads[ref.removeprefix("refs/heads/")] = head
+    return heads
 
 
 def _checkout_identity(cwd: Path) -> tuple[str, str]:

@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-22 — Made native gh stack topology authoritative
 
+- fix: reconcile native status against exact live repository evidence
+
 - feat: make native stack topology authoritative
 
 - fix: seal gh stack command surface (42f90991e9b2eb38ae0bdcf7f8fdcdc7109d9161)

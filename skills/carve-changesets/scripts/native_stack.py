@@ -153,7 +153,7 @@ def parse_native_stack(
     seen_branches: set[str] = set()
     seen_pull_requests: set[int] = set()
     current_layers: list[str] = []
-    predecessor = checked_trunk_head
+    predecessor: str | None = None
     first_open_branch: str | None = None
     for offset, item in enumerate(branches):
         if not isinstance(item, dict):
@@ -165,11 +165,6 @@ def parse_native_stack(
         seen_branches.add(branch)
         head = _sha(item["head"], f"layer {branch} head")
         base = _sha(item["base"], f"layer {branch} base")
-        if base != predecessor:
-            label = "trunk head" if not layers else "predecessor head"
-            raise NativeStackError(
-                f"layer {branch} base {base} does not match expected {label} {predecessor}"
-            )
         is_current = _boolean(item["isCurrent"], f"layer {branch} isCurrent")
         if is_current:
             current_layers.append(branch)
@@ -193,6 +188,15 @@ def parse_native_stack(
             )
         if not merged and first_open_branch is None:
             first_open_branch = branch
+        expected_base = predecessor
+        label = "predecessor head"
+        if not merged and first_open_branch == branch:
+            expected_base = checked_trunk_head
+            label = "trunk head"
+        if expected_base is not None and base != expected_base:
+            raise NativeStackError(
+                f"layer {branch} base {base} does not match expected {label} {expected_base}"
+            )
         layers.append(
             NativeLayer(
                 branch=branch,
@@ -235,13 +239,24 @@ def reconcile_native_stack(
     *,
     remote_heads: Mapping[str, str],
     pull_requests: Mapping[int, PullRequestRecord],
+    local_heads: Mapping[str, str] | None = None,
 ) -> NativeStackSnapshot:
     """Fail closed unless native, remote, and live GitHub evidence agree."""
 
     previous_branch = snapshot.trunk_branch
     previous_merged = True
+    available_local_heads = local_heads or {}
     for layer in snapshot.layers:
-        if not layer.merged:
+        native_pr = layer.pull_request
+        if native_pr is None:
+            local_head = available_local_heads.get(layer.branch)
+            if local_head != layer.head:
+                shown_local = local_head if local_head is not None else "missing"
+                raise NativeStackError(
+                    f"layer {layer.branch} local head mismatch: native {layer.head}; "
+                    f"local {shown_local}"
+                )
+        elif not layer.merged:
             remote_head = remote_heads.get(layer.branch)
             if remote_head != layer.head:
                 shown_remote = remote_head if remote_head is not None else "missing"
@@ -249,7 +264,6 @@ def reconcile_native_stack(
                     f"layer {layer.branch} remote head mismatch: native {layer.head}; "
                     f"remote {shown_remote}"
                 )
-        native_pr = layer.pull_request
         if native_pr is None:
             previous_branch = layer.branch
             previous_merged = layer.merged
@@ -269,7 +283,11 @@ def reconcile_native_stack(
                 f"layer {layer.branch} GitHub PR #{live.number} head mismatch: "
                 f"native {layer.head}; GitHub {live.head_sha}"
             )
-        expected_base = snapshot.trunk_branch if previous_merged else previous_branch
+        expected_base = (
+            previous_branch
+            if layer.merged or not previous_merged
+            else snapshot.trunk_branch
+        )
         if live.base_branch != expected_base:
             relation = (
                 "trunk" if expected_base == snapshot.trunk_branch else "predecessor"

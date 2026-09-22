@@ -121,6 +121,29 @@ class NativeStackSnapshotTest(unittest.TestCase):
         ):
             parse_native_stack(payload, trunk_head=A_SHA)
 
+    def test_accepts_merged_prefix_before_open_suffix_at_current_trunk(self) -> None:
+        payload = copy.deepcopy(VIEW_OPEN)
+        payload["branches"][0]["base"] = B_SHA
+        payload["branches"][0]["isMerged"] = True
+        payload["branches"][0]["pr"]["state"] = "MERGED"
+        payload["branches"][1]["base"] = A_SHA
+
+        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+
+        self.assertTrue(snapshot.layers[0].merged)
+        self.assertFalse(snapshot.layers[1].merged)
+
+    def test_accepts_fully_merged_historical_chain(self) -> None:
+        payload = copy.deepcopy(VIEW_OPEN)
+        payload["branches"][0]["base"] = B_SHA
+        for layer in payload["branches"]:
+            layer["isMerged"] = True
+            layer["pr"]["state"] = "MERGED"
+
+        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+
+        self.assertTrue(all(layer.merged for layer in snapshot.layers))
+
     def test_reconcile_rejects_remote_head_disagreement(self) -> None:
         snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
 
@@ -158,6 +181,81 @@ class NativeStackSnapshotTest(unittest.TestCase):
                 snapshot,
                 remote_heads={"feature-1": "1" * 40, "feature-2": "2" * 40},
                 pull_requests={101: OPEN_PR_101, 102: wrong_state},
+            )
+
+    def test_reconcile_retains_merged_historical_predecessor_base(self) -> None:
+        payload = copy.deepcopy(VIEW_OPEN)
+        for layer in payload["branches"]:
+            layer["isMerged"] = True
+            layer["pr"]["state"] = "MERGED"
+        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        merged_prs = {
+            101: PullRequestRecord(**{**OPEN_PR_101.__dict__, "state": "MERGED"}),
+            102: PullRequestRecord(**{**OPEN_PR_102.__dict__, "state": "MERGED"}),
+        }
+
+        reconciled = reconcile_native_stack(
+            snapshot,
+            remote_heads={},
+            pull_requests=merged_prs,
+        )
+
+        self.assertEqual(snapshot, reconciled)
+
+    def test_reconcile_materialized_layer_uses_local_not_remote_head(self) -> None:
+        materialized = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=A_SHA,
+            current_branch="feature-one",
+            layers=(
+                NativeLayer(
+                    branch="feature-one",
+                    head=B_SHA,
+                    base=A_SHA,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=None,
+                ),
+            ),
+        )
+
+        reconciled = reconcile_native_stack(
+            materialized,
+            local_heads={"feature-one": B_SHA},
+            remote_heads={},
+            pull_requests={},
+        )
+
+        self.assertEqual(materialized, reconciled)
+
+    def test_reconcile_rejects_materialized_local_head_disagreement(self) -> None:
+        materialized = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=A_SHA,
+            current_branch="feature-one",
+            layers=(
+                NativeLayer(
+                    branch="feature-one",
+                    head=B_SHA,
+                    base=A_SHA,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=None,
+                ),
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            "layer feature-one local head mismatch",
+        ):
+            reconcile_native_stack(
+                materialized,
+                local_heads={"feature-one": C_SHA},
+                remote_heads={},
+                pull_requests={},
             )
 
     def test_truth_phases_are_distinct_from_terminal_states(self) -> None:

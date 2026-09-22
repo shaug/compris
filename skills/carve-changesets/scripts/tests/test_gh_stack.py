@@ -50,6 +50,21 @@ class GhStackClientTest(unittest.TestCase):
 
         runner.assert_not_called()
 
+    def test_default_runner_executes_in_the_bound_repository(self) -> None:
+        repo = Path("/tmp/native-stack-target")
+        completed = subprocess.CompletedProcess(
+            args=["gh", "stack", "view", "--json"],
+            returncode=0,
+            stdout=VIEW_OPEN_JSON,
+            stderr="",
+        )
+        with mock.patch("gh_stack.subprocess.run", return_value=completed) as run:
+            client = GhStackClient(cwd=repo)
+
+            client.view_json(allow_state_refresh=True)
+
+        self.assertEqual(repo, run.call_args.kwargs["cwd"])
+
     def test_only_reviewed_local_mutations_have_adapter_methods(self) -> None:
         runner = mock.Mock(return_value="")
         client = GhStackClient(runner=runner)

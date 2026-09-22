@@ -69,7 +69,9 @@ class Runner(Protocol):
     def __call__(self, argv: Sequence[str], *, env: Mapping[str, str]) -> str: ...
 
 
-def _run(argv: Sequence[str], *, env: Mapping[str, str]) -> str:
+def _run(
+    argv: Sequence[str], *, env: Mapping[str, str], cwd: Path | str | None = None
+) -> str:
     completed = subprocess.run(
         list(argv),
         check=True,
@@ -77,6 +79,7 @@ def _run(argv: Sequence[str], *, env: Mapping[str, str]) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env={**os.environ, **env},
+        cwd=cwd,
     )
     return completed.stdout
 
@@ -156,8 +159,13 @@ def reviewed_preview_profile(
 
 
 class GhStackClient:
-    def __init__(self, runner: Runner = _run) -> None:
-        self._runner = runner
+    def __init__(
+        self,
+        runner: Runner | None = None,
+        *,
+        cwd: Path | str | None = None,
+    ) -> None:
+        self._runner = runner or (lambda argv, *, env: _run(argv, env=env, cwd=cwd))
 
     def _capture(self, args: Sequence[str]) -> str:
         if isinstance(args, (str, bytes)):
