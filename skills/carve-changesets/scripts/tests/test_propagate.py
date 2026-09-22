@@ -13,17 +13,61 @@ from chain import create_chain
 from cli import cmd_merge_propagate
 from common import CommandError
 from legacy_helpers import chdir, init_remote, init_repo, run
-from metadata import ChangesetMetadata, embed_pr_metadata, stamp_commit_message
+from metadata import (
+    ChangesetMetadata,
+    SourceIdentity,
+    embed_pr_metadata,
+    stamp_commit_message,
+)
 from propagate import (
     merge_propagate_from_live,
     propagate_from_live,
     push_chain,
     push_changeset_branch,
 )
-from rehydrate import PullRequestRecord
+from rehydrate import ChangesetRecord, PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
+    def test_native_downstream_verification_uses_exact_head_not_pr_body(self) -> None:
+        head = "a" * 40
+        metadata = ChangesetMetadata(
+            slug="payments",
+            source_lineage=(SourceIdentity("origin", "feature/source", head),),
+        )
+        record = ChangesetRecord(
+            metadata=metadata,
+            branch="feature/source-1",
+            head=head,
+            base="main",
+            pr_number=91,
+            pr_state="OPEN",
+            topology_position=1,
+        )
+        pull_request = PullRequestRecord(
+            number=91,
+            head_branch=record.branch,
+            head_sha=head,
+            base_branch="main",
+            state="OPEN",
+            body="Human-readable context only.\n",
+        )
+
+        with (
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", return_value=pull_request
+            ),
+            mock.patch.object(propagate_mod, "remote_branch_head", return_value=head),
+        ):
+            verified = propagate_mod._verify_live_downstream(
+                record,
+                expected_remote_head=head,
+                allowed_bases={"main"},
+                remote="origin",
+            )
+
+        self.assertEqual(pull_request, verified)
+
     def test_propagation_push_rejects_remote_head_moved_since_rehydration(self) -> None:
         with (
             mock.patch("propagate.remote_branch_head", return_value="b" * 40),

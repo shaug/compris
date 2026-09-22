@@ -296,6 +296,16 @@ def stamp_commit_message(
 
     if not message.strip():
         raise MetadataError("Commit message must not be empty.")
+    cleanup = ["--if-exists=replace", "--if-missing=doNothing", "--trim-empty"]
+    for trailer in (
+        TRAILER_SLUG,
+        TRAILER_INDEX,
+        TRAILER_SOURCE,
+        TRAILER_LINEAGE,
+        TRAILER_RECOVERY_FROM,
+    ):
+        cleanup.extend(("--trailer", f"{trailer}:"))
+    clean_message = runner(tuple(cleanup), message.rstrip() + "\n")
     trailers = [
         "--if-exists=replace",
         "--if-missing=add",
@@ -336,7 +346,7 @@ def stamp_commit_message(
                     f"{TRAILER_RECOVERY_FROM}: {metadata.recovery_from_head}",
                 )
             )
-    return runner(tuple(trailers), message.rstrip() + "\n")
+    return runner(tuple(trailers), clean_message)
 
 
 def _trailer_values(message: str, *, runner: GitRunner) -> dict[str, list[str]]:
@@ -561,7 +571,7 @@ def normalize_legacy_pr_metadata(body: str, *, remote: str) -> LegacyMetadataEvi
         raise MetadataError("PR metadata field 'source_branch' must be a string.")
     if not isinstance(payload["source_sha"], str):
         raise MetadataError("PR metadata field 'source_sha' must be a string.")
-    lineage: tuple[SourceIdentity, ...] = ()
+    lineage = (SourceIdentity(remote, payload["source_branch"], payload["source_sha"]),)
     recovery_from: str | None = None
     if version == 2:
         lineage = _parse_lineage(

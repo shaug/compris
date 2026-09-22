@@ -351,7 +351,7 @@ def rehydrate_chain(
             )
         message = _git(repo, "show", "-s", "--format=%B", head)
         try:
-            metadata = parse_commit_message(message)
+            metadata = parse_commit_message(message, remote=remote)
         except MetadataError as exc:
             raise RehydrationError(f"Changeset branch {branch}: {exc}") from exc
         if metadata.legacy_position is not None and metadata.index != index:

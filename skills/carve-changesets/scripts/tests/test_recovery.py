@@ -22,11 +22,54 @@ from metadata import (
     stamp_commit_message,
 )
 from recovery import recover_suffix_from_live
-from rehydrate import PullRequestRecord, rehydrate_chain
+from rehydrate import ChangesetRecord, PullRequestRecord, rehydrate_chain
 from validate import validate_live_chain
 
 
 class SuffixRecoveryTests(unittest.TestCase):
+    def test_native_suffix_verification_uses_exact_head_not_pr_body(self) -> None:
+        head = "a" * 40
+        lineage = (SourceIdentity("origin", "feature/report", head),)
+        record = ChangesetRecord(
+            metadata=ChangesetMetadata(slug="part-1", source_lineage=lineage),
+            branch="feature/report-1",
+            head=head,
+            base="main",
+            pr_number=91,
+            pr_state="OPEN",
+            topology_position=1,
+        )
+        pull_request = PullRequestRecord(
+            number=91,
+            head_branch=record.branch,
+            head_sha=head,
+            base_branch="main",
+            state="OPEN",
+            body="Human-readable context only.\n",
+        )
+
+        with (
+            mock.patch.object(
+                recovery_mod, "pull_request_by_number", return_value=pull_request
+            ),
+            mock.patch.object(recovery_mod, "remote_branch_head", return_value=head),
+        ):
+            verified = recovery_mod._verify_open_suffix_pr(
+                record,
+                expected_head=head,
+                expected_base="main",
+                target_lineage=lineage,
+                remote="origin",
+            )
+
+        self.assertEqual(pull_request, verified)
+
+    def test_source_identity_rejects_a_different_selected_remote(self) -> None:
+        identity = SourceIdentity("upstream", "feature/report", "a" * 40)
+
+        with self.assertRaisesRegex(CommandError, "records remote 'upstream'"):
+            recovery_mod._resolve_identity(identity, remote="origin")
+
     def setUp(self) -> None:
         self.temp_dir = Path(tempfile.mkdtemp())
         self.repo, self.bare, _ = helpers.init_repo(self.temp_dir)

@@ -129,10 +129,27 @@ def validate_live_chain(
                 )
             )
 
-    if len(chain.source_lineage) > 1:
+    native_lineage = any(
+        changeset.metadata.version == 3 for changeset in chain.changesets
+    )
+    published_native_lineage = native_lineage and any(
+        changeset.pr_number is not None for changeset in chain.changesets
+    )
+    if published_native_lineage or len(chain.source_lineage) > 1:
         for identity in chain.source_lineage:
+            if identity.remote != remote:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        "source_lineage_remote_mismatch",
+                        "error",
+                        f"Immutable lineage source {identity.branch!r} records remote "
+                        f"{identity.remote!r}; selected remote is {remote!r}.",
+                    )
+                )
+                continue
             current_identity = _resolve(
-                repo, f"refs/remotes/{remote}/{identity.branch}^{{commit}}"
+                repo,
+                f"refs/remotes/{identity.remote}/{identity.branch}^{{commit}}",
             )
             if current_identity is None:
                 diagnostics.append(
@@ -315,9 +332,9 @@ def validate_live_chain(
     current_source = (
         _resolve(
             repo,
-            f"refs/remotes/{remote}/{chain.active_source.branch}^{{commit}}",
+            f"refs/remotes/{chain.active_source.remote}/{chain.active_source.branch}^{{commit}}",
         )
-        if len(chain.source_lineage) > 1
+        if published_native_lineage or len(chain.source_lineage) > 1
         else _resolve_branch(repo, chain.active_source.branch, remote)
     )
     if current_source is None:

@@ -52,8 +52,13 @@ def _resolve(ref: str) -> str | None:
 
 
 def _resolve_identity(identity: SourceIdentity, *, remote: str) -> str:
+    if identity.remote != remote:
+        raise CommandError(
+            f"Immutable source records remote {identity.remote!r}, not selected "
+            f"remote {remote!r}."
+        )
     local = _resolve(f"refs/heads/{identity.branch}")
-    published = _resolve(f"refs/remotes/{remote}/{identity.branch}")
+    published = _resolve(f"refs/remotes/{identity.remote}/{identity.branch}")
     if published is None:
         raise CommandError(
             f"Immutable source {identity.branch!r} is unavailable on {remote}; "
@@ -235,12 +240,14 @@ def _verify_open_suffix_pr(
             f"Remote suffix branch {remote}/{record.branch} moved from "
             f"{expected_head} to {current_remote}."
         )
-    try:
-        metadata = parse_pr_metadata(live.body)
-    except MetadataError as exc:
-        raise CommandError(
-            f"Suffix PR #{live.number} metadata is invalid: {exc}"
-        ) from exc
+    metadata = record.metadata
+    if record.metadata.version in {1, 2}:
+        try:
+            metadata = parse_pr_metadata(live.body, remote=remote)
+        except MetadataError as exc:
+            raise CommandError(
+                f"Suffix PR #{live.number} metadata is invalid: {exc}"
+            ) from exc
     current_lineage = target_lineage[:-1]
     if (
         metadata.slug != record.metadata.slug
@@ -422,7 +429,10 @@ def recover_suffix_from_live(
                         local_ref=temp_by_index[index],
                     )
                 updated_body = embed_pr_metadata(live.body, metadata)
-                if parse_pr_metadata(live.body) != metadata:
+                if (
+                    metadata.version in {1, 2}
+                    and parse_pr_metadata(live.body, remote=remote) != metadata
+                ):
                     edit_pull_request(
                         live.number,
                         remote=remote,
@@ -431,10 +441,11 @@ def recover_suffix_from_live(
                     )
                 if not dry_run:
                     verified = pull_request_by_number(live.number, remote=remote)
-                    if (
-                        verified.head_sha != candidate
-                        or parse_pr_metadata(verified.body) != metadata
-                    ):
+                    verified_metadata = parse_commit_message(
+                        git("show", "-s", "--format=%B", candidate).stdout,
+                        remote=remote,
+                    )
+                    if verified.head_sha != candidate or verified_metadata != metadata:
                         raise CommandError(
                             f"Recovered PR #{live.number} could not be verified at "
                             f"exact head {candidate}."

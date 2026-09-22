@@ -168,6 +168,39 @@ class MetadataTests(unittest.TestCase):
         self.assertNotIn("Changeset-Index", message)
         self.assertEqual(metadata, parse_commit_message(message))
 
+    def test_v3_restamp_replaces_single_source_with_successor(self) -> None:
+        original = ChangesetMetadata(
+            slug="payments",
+            source_lineage=(SourceIdentity("origin", "feature/payments", "a" * 40),),
+        )
+        successor = ChangesetMetadata(
+            slug="payments",
+            source_lineage=(
+                *original.source_lineage,
+                SourceIdentity("origin", "feature/payments-v2", "c" * 40),
+            ),
+            recovery_from_head="b" * 40,
+        )
+
+        message = stamp_commit_message("fix: payment model", original)
+        restamped = stamp_commit_message(message, successor)
+
+        self.assertNotIn("Changeset-Source:", restamped)
+        self.assertNotIn("Changeset-Index:", restamped)
+        self.assertEqual(successor, parse_commit_message(restamped))
+
+    def test_v3_restamp_removes_legacy_position(self) -> None:
+        native = ChangesetMetadata(
+            slug="api-foundation",
+            source_lineage=(SourceIdentity("upstream", "feature/report", "a" * 40),),
+        )
+
+        legacy_message = stamp_commit_message("feat: layer", self.metadata)
+        restamped = stamp_commit_message(legacy_message, native)
+
+        self.assertNotIn("Changeset-Index:", restamped)
+        self.assertEqual(native, parse_commit_message(restamped))
+
     def test_legacy_pr_block_normalizes_without_rewrite(self) -> None:
         body = """Human prose.
 
@@ -193,6 +226,14 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(1, normalized.marker_version)
         self.assertEqual("upstream", normalized.metadata.active_source.remote)
         self.assertEqual(message, normalized.original)
+
+    def test_legacy_v1_pr_normalization_preserves_selected_remote(self) -> None:
+        body = embed_pr_metadata("Human prose.\n", self.metadata)
+
+        normalized = normalize_legacy_pr_metadata(body, remote="upstream")
+
+        self.assertEqual("upstream", normalized.metadata.active_source.remote)
+        self.assertEqual(body, normalized.original)
 
 
 if __name__ == "__main__":

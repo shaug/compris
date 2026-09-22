@@ -411,17 +411,18 @@ def _verify_live_downstream(
             f"{', '.join(repr(item) for item in sorted(allowed_bases))}. "
             f"Remote mutation was withheld.{hint}"
         )
-    try:
-        live_metadata = parse_pr_metadata(live.body)
-    except MetadataError as exc:
-        raise CommandError(
-            f"{role} PR #{live.number} metadata is invalid: {exc}"
-        ) from exc
-    if live_metadata != record.metadata:
-        raise CommandError(
-            f"{role} PR #{live.number} no longer belongs to changeset "
-            f"{record.position}; remote mutation was withheld."
-        )
+    if record.metadata.version in {1, 2}:
+        try:
+            live_metadata = parse_pr_metadata(live.body, remote=remote)
+        except MetadataError as exc:
+            raise CommandError(
+                f"{role} PR #{live.number} metadata is invalid: {exc}"
+            ) from exc
+        if live_metadata != record.metadata:
+            raise CommandError(
+                f"{role} PR #{live.number} no longer belongs to changeset "
+                f"{record.position}; remote mutation was withheld."
+            )
     remote_head = remote_branch_head(remote, record.branch)
     if remote_head != expected_remote_head:
         raise CommandError(

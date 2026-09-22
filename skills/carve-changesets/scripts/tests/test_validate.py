@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest import mock
 
 import helpers
-from metadata import ChangesetMetadata, stamp_commit_message
-from rehydrate import rehydrate_chain
+from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
+from rehydrate import PullRequestRecord, rehydrate_chain
 from validate import validate_live_chain
 
 
@@ -183,6 +183,43 @@ class LiveValidationTests(unittest.TestCase):
         )
         self.assertNotIn(
             "source_history_mismatch", {item.code for item in result.errors}
+        )
+
+    def test_native_single_source_requires_the_stamped_remote_ref(self) -> None:
+        helpers.run(self.repo, "git", "checkout", "-b", "feature/report-1", "main")
+        for path in ("source.txt", "second.txt", "third.txt"):
+            content = helpers.run(self.repo, "git", "show", f"feature/report:{path}")
+            (self.repo / path).write_text(content + "\n")
+        helpers.run(self.repo, "git", "add", "source.txt", "second.txt", "third.txt")
+        metadata = ChangesetMetadata(
+            slug="report",
+            source_lineage=(
+                SourceIdentity("upstream", "feature/report", self.source_sha),
+            ),
+        )
+        head = helpers.commit(self.repo, stamp_commit_message("feat: report", metadata))
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            base_branch="main",
+            cwd=self.repo,
+            remote="upstream",
+            pull_requests=(
+                PullRequestRecord(
+                    number=91,
+                    head_branch="feature/report-1",
+                    head_sha=head,
+                    base_branch="main",
+                    state="OPEN",
+                    body="Human-readable context only.\n",
+                ),
+            ),
+        )
+
+        result = validate_live_chain(chain, cwd=self.repo, remote="upstream")
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "source_lineage_ref_missing", {item.code for item in result.errors}
         )
 
 
