@@ -6,6 +6,10 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-22 — Established the native gh stack adapter baseline
 
+- chore: record failed probe fix in changelog
+
+- fix: block on failed gh stack probes
+
 - feat: add native gh stack adapter
 
 - test: record carve changesets gh stack baseline
