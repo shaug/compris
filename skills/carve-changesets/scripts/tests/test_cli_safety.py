@@ -53,12 +53,18 @@ class CliSafetyTests(unittest.TestCase):
         self.assertNotIn('"--body",', implementation)
         self.assertNotIn('"reset", "--hard"', implementation)
 
-    def test_issue_30_only_github_chokepoint_invokes_gh(self) -> None:
+    def test_issue_163_stack_and_non_stack_gh_calls_have_separate_chokepoints(
+        self,
+    ) -> None:
         scripts = Path(__file__).resolve().parents[1]
         for path in scripts.glob("*.py"):
-            if path.name == "github.py":
-                continue
             source = path.read_text()
+            if path.name == "github.py":
+                self.assertNotIn('["gh", "stack",', source, path.name)
+                continue
+            if path.name == "gh_stack.py":
+                self.assertIn('["gh", "stack",', source, path.name)
+                continue
             self.assertNotIn('["gh",', source, path.name)
             self.assertNotIn('("gh",', source, path.name)
 

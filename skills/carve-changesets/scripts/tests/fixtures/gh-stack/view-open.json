@@ -1,0 +1,34 @@
+{
+  "branches": [
+    {
+      "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "head": "1111111111111111111111111111111111111111",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "name": "feature-1",
+      "needsRebase": false,
+      "pr": {
+        "number": 101,
+        "state": "OPEN",
+        "url": "https://github.com/acme/widgets/pull/101"
+      }
+    },
+    {
+      "base": "1111111111111111111111111111111111111111",
+      "head": "2222222222222222222222222222222222222222",
+      "isCurrent": true,
+      "isMerged": false,
+      "isQueued": false,
+      "name": "feature-2",
+      "needsRebase": false,
+      "pr": {
+        "number": 102,
+        "state": "OPEN",
+        "url": "https://github.com/acme/widgets/pull/102"
+      }
+    }
+  ],
+  "currentBranch": "feature-2",
+  "trunk": "main"
+}

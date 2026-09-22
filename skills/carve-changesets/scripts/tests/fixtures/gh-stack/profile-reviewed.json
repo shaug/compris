@@ -1,0 +1,71 @@
+{
+  "commands": {
+    "init": {
+      "flags": [
+        "--base",
+        "--help"
+      ],
+      "help_sha256": "eeff4b5739e6a673cf0aa6ae04b91c6681138cda1bbbe0c1a36b368d96ae6472"
+    },
+    "merge": {
+      "flags": [
+        "--help",
+        "--merge",
+        "--merge-method",
+        "--rebase",
+        "--squash",
+        "--yes"
+      ],
+      "help_sha256": "9201a8aa204e40671c99d3e09c42ce1f98029671d2dc04ca4704ff08f275ec22"
+    },
+    "push": {
+      "flags": [
+        "--help",
+        "--remote"
+      ],
+      "help_sha256": "0824f1db7bdd57104e1f80b2baf1efe224a7addf54767ce3e771483d57f4e061"
+    },
+    "rebase": {
+      "flags": [
+        "--abort",
+        "--committer-date-is-author-date",
+        "--continue",
+        "--downstack",
+        "--help",
+        "--no-trunk",
+        "--preserve-dates",
+        "--remote",
+        "--upstack"
+      ],
+      "help_sha256": "1acaa22d264208610ece9dd74379160b5c25f1d18202e130bdeff2f06160bfed"
+    },
+    "submit": {
+      "flags": [
+        "--auto",
+        "--help",
+        "--open",
+        "--remote"
+      ],
+      "help_sha256": "11212b515fb88b409a8bcec7a044dbec12c5d5ac93a0cb1750f8bd77b959079e"
+    },
+    "sync": {
+      "flags": [
+        "--help",
+        "--prune",
+        "--remote"
+      ],
+      "help_sha256": "67d79b9898ea1dcb4dd27e37b78744fbaf965a6bb40e27b4894349c9bcba61da"
+    },
+    "view": {
+      "flags": [
+        "--help",
+        "--json",
+        "--short"
+      ],
+      "help_sha256": "c35008b5a3975004e157fa44715bb70f55057b69b0a6cb8f7cdf0c31fed641b5"
+    }
+  },
+  "schema_version": 1,
+  "source_revision": "14fc42ed9b6c376a53b2f999f138d3bd26dac546",
+  "version": "gh stack version 0.1.1"
+}
