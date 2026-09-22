@@ -39,7 +39,7 @@ COMMAND_MUTATION_CLASSES = {
     "preflight": LOCAL_MUTATING,
     "init-plan": LOCAL_MUTATING,
     "validate": LOCAL_MUTATING,
-    "status": READ_ONLY,
+    "status": LOCAL_MUTATING,
     "create-chain": LOCAL_MUTATING,
     "compare": LOCAL_MUTATING,
     "validate-chain": LOCAL_MUTATING,

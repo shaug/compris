@@ -43,6 +43,9 @@ class CliSafetyTests(unittest.TestCase):
             self.assertIn(command, help_text)
             self.assertIn(f"[{mutation_class}]", help_text)
 
+    def test_status_class_covers_authorized_native_state_refresh(self) -> None:
+        self.assertEqual("local-mutating", COMMAND_MUTATION_CLASSES["status"])
+
     def test_issue_30_all_remote_mutations_default_to_dry_run(self) -> None:
         parser = build_parser()
         for argv in (
