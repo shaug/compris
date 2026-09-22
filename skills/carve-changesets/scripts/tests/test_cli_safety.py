@@ -1,10 +1,37 @@
 from __future__ import annotations
 
+import ast
 import unittest
 from pathlib import Path
 
 import helpers  # noqa: F401
 from cli import COMMAND_MUTATION_CLASSES, build_parser
+
+
+def _gh_chokepoint_errors(filename: str, source: str) -> list[str]:
+    commands: list[str | None] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, (ast.List, ast.Tuple)) or not node.elts:
+            continue
+        first = node.elts[0]
+        if not isinstance(first, ast.Constant) or first.value != "gh":
+            continue
+        second = node.elts[1] if len(node.elts) > 1 else None
+        commands.append(second.value if isinstance(second, ast.Constant) else None)
+
+    if filename == "github.py":
+        if "stack" in commands:
+            return ["github.py may not contain literal gh stack argv"]
+        return []
+    if filename == "gh_stack.py":
+        if not commands:
+            return ["gh_stack.py must contain its literal gh stack boundary"]
+        if any(command != "stack" for command in commands):
+            return ["gh_stack.py may contain only literal gh stack argv"]
+        return []
+    if commands:
+        return [f"{filename} may not contain literal gh argv"]
+    return []
 
 
 class CliSafetyTests(unittest.TestCase):
@@ -59,14 +86,12 @@ class CliSafetyTests(unittest.TestCase):
         scripts = Path(__file__).resolve().parents[1]
         for path in scripts.glob("*.py"):
             source = path.read_text()
-            if path.name == "github.py":
-                self.assertNotIn('["gh", "stack",', source, path.name)
-                continue
-            if path.name == "gh_stack.py":
-                self.assertIn('["gh", "stack",', source, path.name)
-                continue
-            self.assertNotIn('["gh",', source, path.name)
-            self.assertNotIn('("gh",', source, path.name)
+            self.assertEqual([], _gh_chokepoint_errors(path.name, source), path.name)
+
+    def test_issue_163_stack_chokepoint_rejects_non_stack_gh_argv(self) -> None:
+        errors = _gh_chokepoint_errors("gh_stack.py", 'runner(["gh", "pr", "view"])')
+
+        self.assertEqual(["gh_stack.py may contain only literal gh stack argv"], errors)
 
     def test_database_compare_spelling_is_standardized(self) -> None:
         scripts = Path(__file__).resolve().parents[1]
