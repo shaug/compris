@@ -4,6 +4,10 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-22 — Established the native gh stack adapter baseline
+
+- test: record carve changesets gh stack baseline
+
 ## 2026-09-18 — Bound body authoring to the prose contract and clarified its authority
 
 - docs: make cognitive-prose canonical for pull request and ticket bodies while
