@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import sys
 import unittest
 from copy import deepcopy
@@ -152,6 +153,32 @@ class GhStackClientTest(unittest.TestCase):
         self.assertEqual("surface_mismatch", result.blocker.reason)
         self.assertEqual(("submit",), result.blocker.mismatched_surfaces)
         self.assertEqual(7, len(result.blocker.observed_surfaces))
+
+    def test_probe_blocks_failed_help_command_with_observed_evidence(self) -> None:
+        runner, reviewed_profile = self._profile_runner()
+        successful_runner = runner.side_effect
+
+        def fail_init_help(argv: list[str], *, env: dict[str, str]) -> str:
+            if argv == ["gh", "stack", "init", "--help"]:
+                raise subprocess.CalledProcessError(
+                    2, argv, stderr="unknown command init"
+                )
+            return successful_runner(argv, env=env)
+
+        runner.side_effect = fail_init_help
+
+        result = probe_profile(runner=runner, reviewed_profile=reviewed_profile)
+
+        self.assertEqual("blocked", result.status)
+        self.assertIsNone(result.profile)
+        self.assertIsNotNone(result.blocker)
+        self.assertEqual("surface_probe_failed", result.blocker.reason)
+        self.assertEqual(PROFILE["version"], result.blocker.observed_version)
+        self.assertEqual(6, len(result.blocker.observed_surfaces))
+        self.assertEqual(
+            (("init", "exit 2: unknown command init"),),
+            result.blocker.probe_errors,
+        )
 
     @staticmethod
     def _profile_runner(

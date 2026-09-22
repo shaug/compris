@@ -53,6 +53,7 @@ class GhStackProfileBlocker:
     observed_version: str
     observed_surfaces: tuple[tuple[str, str], ...]
     mismatched_surfaces: tuple[str, ...]
+    probe_errors: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,15 @@ def _normalize_surface(output: str) -> str:
 
 def _surface_digest(output: str) -> str:
     return hashlib.sha256(_normalize_surface(output).encode()).hexdigest()
+
+
+def _probe_error(exc: OSError | subprocess.CalledProcessError) -> str:
+    if isinstance(exc, subprocess.CalledProcessError):
+        detail = f"exit {exc.returncode}"
+        if isinstance(exc.stderr, str) and exc.stderr.strip():
+            detail += f": {exc.stderr.strip()}"
+        return detail
+    return str(exc)
 
 
 def _load_reviewed_profile() -> dict[str, object]:
@@ -186,16 +196,55 @@ def probe_profile(
     contract = reviewed_profile or _load_reviewed_profile()
     commands = _profile_commands(contract)
     client = GhStackClient(runner=runner)
-    observed_version = _normalize_surface(client.capture(("--version",))).strip()
-    observed_surfaces = tuple(
-        (command, _surface_digest(client.capture((command, "--help"))))
-        for command in sorted(commands)
-    )
+    try:
+        observed_version = _normalize_surface(client.capture(("--version",))).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        blocker = GhStackProfileBlocker(
+            reason="version_probe_failed",
+            observed_version="",
+            observed_surfaces=(),
+            mismatched_surfaces=(),
+            probe_errors=(("--version", _probe_error(exc)),),
+        )
+        return ProfileProbeResult(
+            status="blocked",
+            observed_version="",
+            observed_surfaces=(),
+            profile=None,
+            blocker=blocker,
+        )
+
+    observed: list[tuple[str, str]] = []
+    probe_errors: list[tuple[str, str]] = []
+    for command in sorted(commands):
+        try:
+            output = client.capture((command, "--help"))
+        except (OSError, subprocess.CalledProcessError) as exc:
+            probe_errors.append((command, _probe_error(exc)))
+        else:
+            observed.append((command, _surface_digest(output)))
+    observed_surfaces = tuple(observed)
     mismatched = tuple(
         command
         for command, digest in observed_surfaces
         if digest != commands[command]["help_sha256"]
     )
+    if probe_errors:
+        blocker = GhStackProfileBlocker(
+            reason="surface_probe_failed",
+            observed_version=observed_version,
+            observed_surfaces=observed_surfaces,
+            mismatched_surfaces=mismatched,
+            probe_errors=tuple(probe_errors),
+        )
+        return ProfileProbeResult(
+            status="blocked",
+            observed_version=observed_version,
+            observed_surfaces=observed_surfaces,
+            profile=None,
+            blocker=blocker,
+        )
+
     expected_version = contract.get("version")
     if observed_version != expected_version or mismatched:
         reason = (
