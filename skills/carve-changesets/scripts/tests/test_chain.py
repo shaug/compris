@@ -1,16 +1,67 @@
 from __future__ import annotations
 
 import shutil
+import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-import helpers  # noqa: F401  # ensures sys.path is set
-from chain import compare_chain, create_chain, validate_chain
-from common import CommandError
-from legacy_helpers import chdir, commit, init_repo
+TESTS_DIR = Path(__file__).resolve().parent
+SCRIPTS_DIR = TESTS_DIR.parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import helpers  # noqa: E402,F401
+from chain import compare_chain, create_chain, validate_chain  # noqa: E402
+from common import CommandError  # noqa: E402
+from legacy_helpers import chdir, commit, init_repo  # noqa: E402
+from metadata import parse_commit_message  # noqa: E402
 
 
 class ChainTests(unittest.TestCase):
+    def test_new_layers_share_the_selected_active_remote_source(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            from legacy_helpers import run
+
+            source_sha = run(
+                ["git", "rev-parse", plan["source_branch"]], cwd=repo_dir
+            ).stdout.strip()
+            with chdir(repo_dir):
+                branches = create_chain(plan, remote="upstream")
+                metadata = [
+                    parse_commit_message(
+                        run(
+                            ["git", "show", "-s", "--format=%B", branch],
+                            cwd=repo_dir,
+                        ).stdout
+                    )
+                    for branch in branches
+                ]
+
+            expected = ("upstream", plan["source_branch"], source_sha)
+            self.assertTrue(
+                all(
+                    (
+                        item.active_source.remote,
+                        item.active_source.branch,
+                        item.active_source.sha,
+                    )
+                    == expected
+                    for item in metadata
+                )
+            )
+            self.assertTrue(
+                all(
+                    item.source_lineage == metadata[0].source_lineage
+                    for item in metadata
+                )
+            )
+        finally:
+            shutil.rmtree(repo_dir)
+
     def test_validate_chain_rejects_unknown_command_representations_before_git(
         self,
     ) -> None:

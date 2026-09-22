@@ -202,16 +202,17 @@ def _verify_created_pr(
             f"Created PR for {head} has base {created.get('baseRefName')!r}; "
             f"expected {expected_base!r}."
         )
-    try:
-        actual_metadata = parse_pr_metadata(str(created.get("body") or ""))
-    except MetadataError as exc:
-        raise CommandError(
-            f"Created PR for {head} has invalid changeset metadata: {exc}"
-        ) from exc
-    if actual_metadata != expected_metadata:
-        raise CommandError(
-            f"Created PR for {head} metadata does not match its exact changeset commit."
-        )
+    if expected_metadata.version in {1, 2}:
+        try:
+            actual_metadata = parse_pr_metadata(str(created.get("body") or ""))
+        except MetadataError as exc:
+            raise CommandError(
+                f"Created PR for {head} has invalid changeset metadata: {exc}"
+            ) from exc
+        if actual_metadata != expected_metadata:
+            raise CommandError(
+                f"Created PR for {head} metadata does not match its exact changeset commit."
+            )
     if not created.get("number") or not created.get("url"):
         raise CommandError(f"Created PR for {head} is missing its number or URL.")
     return created

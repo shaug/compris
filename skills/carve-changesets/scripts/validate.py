@@ -165,12 +165,12 @@ def validate_live_chain(
             )
         )
 
-    expected_indices = {item.metadata.index for item in chain.changesets}
+    expected_indices = {item.position for item in chain.changesets}
     if live_heads is not None:
         missing_open = {
-            item.metadata.index
+            item.position
             for item in chain.changesets
-            if item.pr_state != "MERGED" and item.metadata.index not in live_heads
+            if item.pr_state != "MERGED" and item.position not in live_heads
         }
         unexpected = set(live_heads) - expected_indices
         if missing_open or unexpected:
@@ -198,9 +198,7 @@ def validate_live_chain(
     merged_changeset_seen = False
     rehydrated_heads = {item.branch: item.head for item in chain.changesets}
     for changeset in chain.changesets:
-        live = (
-            live_heads.get(changeset.metadata.index) if live_heads is not None else None
-        )
+        live = live_heads.get(changeset.position) if live_heads is not None else None
         is_merged = changeset.pr_state == "MERGED"
         if live is None and not is_merged:
             diagnostics.append(
@@ -289,7 +287,7 @@ def validate_live_chain(
 
     if stamped_source is not None and chain.changesets and live_heads is not None:
         tip_record = chain.changesets[-1]
-        live_tip = live_heads.get(tip_record.metadata.index)
+        live_tip = live_heads.get(tip_record.position)
         tip = live_tip[1] if live_tip is not None else None
         if tip is None and tip_record.pr_state == "MERGED":
             tip = base_head

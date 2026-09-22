@@ -45,6 +45,19 @@ class ChangesetRecord:
     pr_number: int | None = None
     pr_state: str | None = None
     pr_metadata: ChangesetMetadata | None = None
+    topology_position: int | None = None
+
+    @property
+    def position(self) -> int:
+        """Return live topology order, falling back to legacy evidence."""
+
+        if self.topology_position is not None:
+            return self.topology_position
+        if self.metadata.legacy_position is not None:
+            return self.metadata.legacy_position
+        raise RehydrationError(
+            f"Changeset branch {self.branch!r} has no live topology position."
+        )
 
 
 @dataclass(frozen=True)
@@ -155,9 +168,14 @@ def _pr_by_branch(
 
 
 def _same_changeset_position(left: ChangesetMetadata, right: ChangesetMetadata) -> bool:
+    same_legacy_position = (
+        left.legacy_position == right.legacy_position
+        if left.legacy_position is not None or right.legacy_position is not None
+        else True
+    )
     return (
         left.slug == right.slug
-        and left.index == right.index
+        and same_legacy_position
         and left.root_source == right.root_source
     )
 
@@ -336,7 +354,7 @@ def rehydrate_chain(
             metadata = parse_commit_message(message)
         except MetadataError as exc:
             raise RehydrationError(f"Changeset branch {branch}: {exc}") from exc
-        if metadata.index != index:
+        if metadata.legacy_position is not None and metadata.index != index:
             raise RehydrationError(
                 f"Changeset branch {branch} has Changeset-Index {metadata.index}; expected {index}."
             )
@@ -380,14 +398,15 @@ def rehydrate_chain(
                     f"base(s) {', '.join(repr(item) for item in sorted(allowed_bases))} "
                     f"for changeset {index}."
                 )
-            try:
-                pr_metadata = parse_pr_metadata(pr.body)
-            except MetadataError as exc:
-                raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
-            if pr_metadata != metadata and recovery_successor is None:
-                raise RehydrationError(
-                    f"PR #{pr.number} metadata disagrees with commit trailers for {branch}."
-                )
+            if metadata.version in {1, 2}:
+                try:
+                    pr_metadata = parse_pr_metadata(pr.body)
+                except MetadataError as exc:
+                    raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
+                if pr_metadata != metadata and recovery_successor is None:
+                    raise RehydrationError(
+                        f"PR #{pr.number} metadata disagrees with commit trailers for {branch}."
+                    )
         records.append(
             ChangesetRecord(
                 metadata=metadata,
@@ -397,6 +416,7 @@ def rehydrate_chain(
                 pr_number=pr.number if pr else None,
                 pr_state=pr.state.upper() if pr else None,
                 pr_metadata=pr_metadata,
+                topology_position=index,
             )
         )
         prior_prs_merged = (

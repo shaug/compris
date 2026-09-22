@@ -204,7 +204,7 @@ def _target(
             )
     if record.pr_number is None or record.pr_number not in pull_requests:
         raise CommandError(
-            f"Changeset {record.metadata.index} has no verified GitHub pull request."
+            f"Changeset {record.position} has no verified GitHub pull request."
         )
     return record, pull_requests[record.pr_number]
 
@@ -214,13 +214,11 @@ def _require_sequential_target(chain: Chain, target_index: int) -> None:
         if item.pr_state != "MERGED":
             raise CommandError(
                 f"Changeset {target_index} cannot proceed before PR for changeset "
-                f"{item.metadata.index} is verified merged."
+                f"{item.position} is verified merged."
             )
     for item in chain.changesets[target_index:]:
         if item.pr_state == "MERGED":
-            raise CommandError(
-                f"Changeset {item.metadata.index} is merged out of sequence."
-            )
+            raise CommandError(f"Changeset {item.position} is merged out of sequence.")
         if item.pr_state != "OPEN":
             raise CommandError(
                 f"Downstream PR #{item.pr_number} must be OPEN, got {item.pr_state or 'missing'}."
@@ -348,15 +346,21 @@ def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> 
             metadata = parse_commit_message(message)
         except MetadataError:
             continue
+        same_legacy_position = (
+            metadata.legacy_position == previous.metadata.legacy_position
+            if metadata.legacy_position is not None
+            or previous.metadata.legacy_position is not None
+            else True
+        )
         if (
-            metadata.index == previous.metadata.index
-            and metadata.source_branch == record.metadata.source_branch
-            and metadata.source_sha == record.metadata.source_sha
+            same_legacy_position
+            and metadata.slug == previous.metadata.slug
+            and metadata.root_source == previous.metadata.root_source
         ):
             return commit
     raise CommandError(
         f"Changeset branch {record.branch} does not contain durable predecessor "
-        f"metadata for changeset {previous.metadata.index}."
+        f"metadata for changeset {previous.position}."
     )
 
 
@@ -372,7 +376,7 @@ def _verify_live_downstream(
 
     if record.pr_number is None:
         raise CommandError(
-            f"Downstream changeset {record.metadata.index} has no verified PR."
+            f"Downstream changeset {record.position} has no verified PR."
         )
     live = pull_request_by_number(record.pr_number, remote=remote)
     if live.state.upper() != "OPEN":
@@ -416,7 +420,7 @@ def _verify_live_downstream(
     if live_metadata != record.metadata:
         raise CommandError(
             f"{role} PR #{live.number} no longer belongs to changeset "
-            f"{record.metadata.index}; remote mutation was withheld."
+            f"{record.position}; remote mutation was withheld."
         )
     remote_head = remote_branch_head(remote, record.branch)
     if remote_head != expected_remote_head:
@@ -492,13 +496,13 @@ def _propagate_chain(
         pr_number = record.pr_number
         if pr_number is None or pr_number not in pull_requests:
             raise CommandError(
-                f"Downstream changeset {record.metadata.index} has no verified PR."
+                f"Downstream changeset {record.position} has no verified PR."
             )
         pr = pull_requests[pr_number]
         expected_base = (
             chain.base_branch
-            if record.metadata.index == merged_index + 1
-            else chain.changesets[record.metadata.index - 2].branch
+            if record.position == merged_index + 1
+            else chain.changesets[record.position - 2].branch
         )
         planned.append((record, pr, expected_base))
 
@@ -524,7 +528,7 @@ def _propagate_chain(
             print(f"[INFO] {record.branch} is already propagated; push not needed.")
         else:
             rewrite_frontier_reached = True
-            previous = chain.changesets[record.metadata.index - 2]
+            previous = chain.changesets[record.position - 2]
             old_base = _durable_predecessor(record, previous)
             if strategy == "rebase":
                 new_head = _rewrite_rebase(
@@ -545,7 +549,7 @@ def _propagate_chain(
                 remote=remote,
             )
         expected_title = _updated_title(
-            live, index=record.metadata.index, total=len(chain.changesets)
+            live, index=record.position, total=len(chain.changesets)
         )
         if not already_propagated:
             push_changeset_branch(
@@ -603,7 +607,7 @@ def propagate_from_live(
     _require_authority(dry_run=dry_run, authority_acknowledged=authority_acknowledged)
     chain, pull_requests = _rehydrate_live(source=source, base=base, remote=remote)
     record, pr = _target(chain, pull_requests, pr_number=pr_number, index=index)
-    target_index = record.metadata.index
+    target_index = record.position
     _require_sequential_target(chain, target_index)
     if pr.state.upper() != "MERGED":
         raise CommandError(
@@ -650,7 +654,7 @@ def merge_propagate_from_live(
     _require_authority(dry_run=dry_run, authority_acknowledged=authority_acknowledged)
     chain, pull_requests = _rehydrate_live(source=source, base=base, remote=remote)
     record, pr = _target(chain, pull_requests, pr_number=pr_number, index=index)
-    target_index = record.metadata.index
+    target_index = record.position
     _require_sequential_target(chain, target_index)
     state = pr.state.upper()
     if state == "CLOSED":
@@ -659,7 +663,7 @@ def merge_propagate_from_live(
         for prior in chain.changesets[: target_index - 1]:
             if prior.pr_number is None or prior.pr_number not in pull_requests:
                 raise CommandError(
-                    f"Preceding changeset {prior.metadata.index} has no verified PR."
+                    f"Preceding changeset {prior.position} has no verified PR."
                 )
             _verify_merged_on_base(
                 pull_requests[prior.pr_number],

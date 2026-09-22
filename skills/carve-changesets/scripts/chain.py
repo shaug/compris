@@ -23,7 +23,7 @@ from common import (
     git,
     unique_temp_branch,
 )
-from metadata import ChangesetMetadata, stamp_commit_message
+from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
 from patch_apply import (
     apply_patch_file,
     apply_patch_text,
@@ -95,7 +95,12 @@ class ApplySummary:
 
 
 def _commit_changeset(
-    *, source_branch: str, source_sha: str, index: int, changeset: Dict
+    *,
+    remote: str,
+    source_branch: str,
+    source_sha: str,
+    index: int,
+    changeset: Dict,
 ) -> None:
     commit_message = changeset.get("commit_message")
     slug = str(changeset.get("slug", f"cs-{index}")).strip() or f"cs-{index}"
@@ -105,9 +110,7 @@ def _commit_changeset(
         commit_message,
         ChangesetMetadata(
             slug=slug,
-            index=index,
-            source_branch=source_branch,
-            source_sha=source_sha,
+            source_lineage=(SourceIdentity(remote, source_branch, source_sha),),
         ),
     )
     commit_with_message(stamped)
@@ -115,6 +118,7 @@ def _commit_changeset(
 
 def _apply_changeset_paths(
     *,
+    remote: str,
     base_branch: str,
     source_branch: str,
     source_sha: str,
@@ -166,6 +170,7 @@ def _apply_changeset_paths(
         )
 
     _commit_changeset(
+        remote=remote,
         source_branch=source_branch,
         source_sha=source_sha,
         index=index,
@@ -181,6 +186,7 @@ def _apply_changeset_paths(
 
 def _apply_changeset_patch(
     *,
+    remote: str,
     source_branch: str,
     source_sha: str,
     index: int,
@@ -200,6 +206,7 @@ def _apply_changeset_patch(
         )
 
     _commit_changeset(
+        remote=remote,
         source_branch=source_branch,
         source_sha=source_sha,
         index=index,
@@ -210,6 +217,7 @@ def _apply_changeset_patch(
 
 def _apply_changeset_hunks(
     *,
+    remote: str,
     base_branch: str,
     source_branch: str,
     source_sha: str,
@@ -243,6 +251,7 @@ def _apply_changeset_hunks(
         )
 
     _commit_changeset(
+        remote=remote,
         source_branch=source_branch,
         source_sha=source_sha,
         index=index,
@@ -256,6 +265,7 @@ def _apply_changeset_hunks(
 
 def apply_changeset(
     *,
+    remote: str = "origin",
     base_branch: str,
     source_branch: str,
     source_sha: str,
@@ -266,6 +276,7 @@ def apply_changeset(
     label = f"Changeset {index}"
     if mode == "paths":
         return _apply_changeset_paths(
+            remote=remote,
             base_branch=base_branch,
             source_branch=source_branch,
             source_sha=source_sha,
@@ -274,6 +285,7 @@ def apply_changeset(
         )
     if mode == "patch":
         return _apply_changeset_patch(
+            remote=remote,
             source_branch=source_branch,
             source_sha=source_sha,
             index=index,
@@ -282,6 +294,7 @@ def apply_changeset(
         )
     if mode == "hunks":
         return _apply_changeset_hunks(
+            remote=remote,
             base_branch=base_branch,
             source_branch=source_branch,
             source_sha=source_sha,
@@ -294,7 +307,7 @@ def apply_changeset(
     )
 
 
-def create_chain(plan: Dict) -> List[str]:
+def create_chain(plan: Dict, *, remote: str = "origin") -> List[str]:
     ensure_git_repo()
     ensure_clean_tree()
 
@@ -338,6 +351,7 @@ def create_chain(plan: Dict) -> List[str]:
             git("checkout", "-B", name, prev_branch)
 
             summary = apply_changeset(
+                remote=remote,
                 base_branch=base,
                 source_branch=source,
                 source_sha=source_sha,

@@ -101,13 +101,19 @@ def _metadata_for_recovery(
         return record.metadata
     if record.metadata.source_lineage != target_lineage[:-1]:
         raise CommandError(
-            f"Changeset {record.metadata.index} does not carry the current lineage "
+            f"Changeset {record.position} does not carry the current lineage "
             "or the requested successor lineage."
+        )
+    if record.metadata.version == 3:
+        return ChangesetMetadata(
+            slug=record.metadata.slug,
+            source_lineage=target_lineage,
+            recovery_from_head=record.head,
         )
     successor = target_lineage[-1]
     return ChangesetMetadata(
         slug=record.metadata.slug,
-        index=record.metadata.index,
+        index=record.position,
         source_branch=successor.branch,
         source_sha=successor.sha,
         source_lineage=target_lineage,
@@ -125,15 +131,21 @@ def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> 
             )
         except MetadataError:
             continue
+        same_legacy_position = (
+            metadata.legacy_position == previous.metadata.legacy_position
+            if metadata.legacy_position is not None
+            or previous.metadata.legacy_position is not None
+            else True
+        )
         if (
-            metadata.index == previous.metadata.index
+            same_legacy_position
             and metadata.slug == previous.metadata.slug
             and metadata.root_source == previous.metadata.root_source
         ):
             return commit
     raise CommandError(
-        f"Changeset {record.metadata.index} does not contain the durable predecessor "
-        f"for changeset {previous.metadata.index}."
+        f"Changeset {record.position} does not contain the durable predecessor "
+        f"for changeset {previous.position}."
     )
 
 
@@ -197,7 +209,7 @@ def _verify_open_suffix_pr(
 ) -> PullRequestRecord:
     if record.pr_number is None:
         raise CommandError(
-            f"Changeset {record.metadata.index} has no canonical published PR."
+            f"Changeset {record.position} has no canonical published PR."
         )
     live = pull_request_by_number(record.pr_number, remote=remote)
     if live.state.upper() != "OPEN":
@@ -232,7 +244,7 @@ def _verify_open_suffix_pr(
     current_lineage = target_lineage[:-1]
     if (
         metadata.slug != record.metadata.slug
-        or metadata.index != record.metadata.index
+        or metadata.legacy_position != record.metadata.legacy_position
         or metadata.root_source != record.metadata.root_source
         or metadata.source_lineage not in (current_lineage, target_lineage)
     ):
@@ -278,7 +290,7 @@ def recover_suffix_from_live(
             "to --no-dry-run."
         )
     git("fetch", "--prune", remote)
-    successor = SourceIdentity(successor_branch, successor_sha)
+    successor = SourceIdentity(remote, successor_branch, successor_sha)
     pull_requests = pull_requests_for_source(source, remote=remote)
     _ensure_pr_heads_available(pull_requests, remote=remote)
     try:
@@ -321,7 +333,7 @@ def recover_suffix_from_live(
     for record in prefix:
         if record.pr_state != "MERGED" or record.pr_number not in by_number:
             raise CommandError(
-                f"Changeset {record.metadata.index} is not a verified merged prefix."
+                f"Changeset {record.position} is not a verified merged prefix."
             )
         _verify_merged_on_base(
             by_number[record.pr_number], base=chain.base_branch, remote=remote
@@ -330,10 +342,10 @@ def recover_suffix_from_live(
     suffix = list(chain.changesets[first_open - 1 :])
     target_lineage = chain.source_lineage
     expected_bases = {
-        record.metadata.index: (
+        record.position: (
             chain.base_branch
-            if record.metadata.index == first_open
-            else chain.changesets[record.metadata.index - 2].branch
+            if record.position == first_open
+            else chain.changesets[record.position - 2].branch
         )
         for record in suffix
     }
@@ -341,7 +353,7 @@ def recover_suffix_from_live(
         _verify_open_suffix_pr(
             record,
             expected_head=record.head,
-            expected_base=expected_bases[record.metadata.index],
+            expected_base=expected_bases[record.position],
             target_lineage=target_lineage,
             remote=remote,
         )
@@ -354,16 +366,16 @@ def recover_suffix_from_live(
         try:
             for record in suffix:
                 metadata = _metadata_for_recovery(record, target_lineage)
-                metadata_by_index[record.metadata.index] = metadata
+                metadata_by_index[record.position] = metadata
                 if record.metadata == metadata:
-                    candidates[record.metadata.index] = record.head
+                    candidates[record.position] = record.head
                     continue
-                temp = unique_temp_branch(f"carve-recover-{record.metadata.index}")
+                temp = unique_temp_branch(f"carve-recover-{record.position}")
                 temp_branches.append(temp)
-                temp_by_index[record.metadata.index] = temp
+                temp_by_index[record.position] = temp
                 git("branch", temp, record.head)
                 git("checkout", temp)
-                if record.metadata.index == first_open:
+                if record.position == first_open:
                     base_head = _resolve(f"refs/remotes/{remote}/{chain.base_branch}")
                     if base_head is None or not _is_ancestor(base_head, record.head):
                         raise CommandError(
@@ -371,19 +383,19 @@ def recover_suffix_from_live(
                             f"onto current {remote}/{chain.base_branch}."
                         )
                 else:
-                    previous = chain.changesets[record.metadata.index - 2]
+                    previous = chain.changesets[record.position - 2]
                     old_base = _durable_predecessor(record, previous)
                     git(
                         "rebase",
                         "--onto",
-                        candidates[record.metadata.index - 1],
+                        candidates[record.position - 1],
                         old_base,
                         temp,
                     )
-                candidates[record.metadata.index] = _amend_metadata(metadata)
+                candidates[record.position] = _amend_metadata(metadata)
 
             successor_tree = _resolve(f"{successor.sha}^{{tree}}")
-            tip = candidates[suffix[-1].metadata.index]
+            tip = candidates[suffix[-1].position]
             tip_tree = _resolve(f"{tip}^{{tree}}")
             if successor_tree is None or tip_tree != successor_tree:
                 raise CommandError(
@@ -391,7 +403,7 @@ def recover_suffix_from_live(
                 )
 
             for record in suffix:
-                index = record.metadata.index
+                index = record.position
                 candidate = candidates[index]
                 metadata = metadata_by_index[index]
                 live = _verify_open_suffix_pr(
