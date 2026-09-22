@@ -88,12 +88,11 @@ class GhStackClientTest(unittest.TestCase):
         for unsupported in ("push", "submit", "sync", "merge"):
             self.assertFalse(hasattr(client, unsupported), unsupported)
 
-    def test_capture_rejects_shell_command_strings(self) -> None:
+    def test_generic_capture_is_not_public(self) -> None:
         runner = mock.Mock()
         client = GhStackClient(runner=runner)
 
-        with self.assertRaisesRegex(TypeError, "sequence of tokens"):
-            client.capture("view --json")
+        self.assertFalse(hasattr(client, "capture"))
 
         runner.assert_not_called()
 

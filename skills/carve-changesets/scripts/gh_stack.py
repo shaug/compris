@@ -159,7 +159,7 @@ class GhStackClient:
     def __init__(self, runner: Runner = _run) -> None:
         self._runner = runner
 
-    def capture(self, args: Sequence[str]) -> str:
+    def _capture(self, args: Sequence[str]) -> str:
         if isinstance(args, (str, bytes)):
             raise TypeError("gh stack arguments must be a sequence of tokens")
         tokens = list(args)
@@ -174,7 +174,7 @@ class GhStackClient:
                 "local-state authority is required"
             )
         try:
-            payload = json.loads(self.capture(("view", "--json")))
+            payload = json.loads(self._capture(("view", "--json")))
         except json.JSONDecodeError as exc:
             raise GhStackError("gh stack view --json returned invalid JSON") from exc
         if not isinstance(payload, dict):
@@ -182,10 +182,10 @@ class GhStackClient:
         return payload
 
     def init(self, *, base: str, branches: Sequence[str]) -> None:
-        self.capture(("init", "--base", base, *branches))
+        self._capture(("init", "--base", base, *branches))
 
     def rebase_no_trunk_upstack(self, branch: str) -> None:
-        self.capture(("rebase", "--no-trunk", "--upstack", branch))
+        self._capture(("rebase", "--no-trunk", "--upstack", branch))
 
 
 def probe_profile(
@@ -197,7 +197,7 @@ def probe_profile(
     commands = _profile_commands(contract)
     client = GhStackClient(runner=runner)
     try:
-        observed_version = _normalize_surface(client.capture(("--version",))).strip()
+        observed_version = _normalize_surface(client._capture(("--version",))).strip()
     except (OSError, subprocess.CalledProcessError) as exc:
         blocker = GhStackProfileBlocker(
             reason="version_probe_failed",
@@ -218,7 +218,7 @@ def probe_profile(
     probe_errors: list[tuple[str, str]] = []
     for command in sorted(commands):
         try:
-            output = client.capture((command, "--help"))
+            output = client._capture((command, "--help"))
         except (OSError, subprocess.CalledProcessError) as exc:
             probe_errors.append((command, _probe_error(exc)))
         else:
