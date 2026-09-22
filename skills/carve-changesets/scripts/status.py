@@ -64,6 +64,11 @@ def status_from_live(
             remote=remote,
             read_remote=read_remote,
         )
+    if not read_remote:
+        raise RehydrationError(
+            "--local-only and stack-state refresh are mutually exclusive; "
+            "native reconciliation requires live remote and GitHub evidence."
+        )
 
     observed_profile = (
         profile_probe() if profile_probe is not None else probe_profile(cwd=repo)

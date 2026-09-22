@@ -492,6 +492,27 @@ class RehydrationTests(unittest.TestCase):
         probe.assert_called_once_with()
         client.view_json.assert_not_called()
 
+    def test_local_only_status_rejects_refresh_before_any_native_call(self) -> None:
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        probe = mock.Mock()
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "local-only.*stack-state refresh.*mutually exclusive",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                cwd=clone,
+                read_remote=False,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=probe,
+            )
+
+        probe.assert_not_called()
+        client.view_json.assert_not_called()
+
     def test_status_refresh_rejects_requested_base_disagreement(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
