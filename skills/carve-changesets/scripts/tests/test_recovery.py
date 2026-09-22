@@ -27,6 +27,50 @@ from validate import validate_live_chain
 
 
 class SuffixRecoveryTests(unittest.TestCase):
+    def test_durable_predecessor_normalizes_selected_non_origin_remote(self) -> None:
+        root = SourceIdentity("upstream", "feature/report", "a" * 40)
+        previous_metadata = ChangesetMetadata(
+            "part-1",
+            1,
+            root.branch,
+            root.sha,
+            source_lineage=(root,),
+            marker_version=1,
+        )
+        previous = ChangesetRecord(
+            previous_metadata,
+            "feature/report-1",
+            "b" * 40,
+            "main",
+        )
+        record = ChangesetRecord(
+            ChangesetMetadata(
+                "part-2",
+                2,
+                root.branch,
+                root.sha,
+                source_lineage=(root,),
+                marker_version=1,
+            ),
+            "feature/report-2",
+            "c" * 40,
+            "feature/report-1",
+        )
+        historical = "d" * 40
+        message = stamp_commit_message("feat: changeset 1", previous_metadata)
+
+        def git_result(*args, **_kwargs):
+            stdout = historical if args[0] == "rev-list" else message
+            return mock.Mock(stdout=stdout)
+
+        with (
+            mock.patch.object(recovery_mod, "_is_ancestor", return_value=False),
+            mock.patch.object(recovery_mod, "git", side_effect=git_result),
+        ):
+            predecessor = recovery_mod._durable_predecessor(record, previous)
+
+        self.assertEqual(historical, predecessor)
+
     def test_native_suffix_verification_uses_exact_head_not_pr_body(self) -> None:
         head = "a" * 40
         lineage = (SourceIdentity("origin", "feature/report", head),)

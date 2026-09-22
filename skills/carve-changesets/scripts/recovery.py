@@ -132,7 +132,8 @@ def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> 
     for commit in git("rev-list", record.head).stdout.splitlines():
         try:
             metadata = parse_commit_message(
-                git("show", "-s", "--format=%B", commit).stdout
+                git("show", "-s", "--format=%B", commit).stdout,
+                remote=previous.metadata.root_source.remote,
             )
         except MetadataError:
             continue

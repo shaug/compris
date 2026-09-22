@@ -400,7 +400,7 @@ def rehydrate_chain(
                 )
             if metadata.version in {1, 2}:
                 try:
-                    pr_metadata = parse_pr_metadata(pr.body)
+                    pr_metadata = parse_pr_metadata(pr.body, remote=remote)
                 except MetadataError as exc:
                     raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
                 if pr_metadata != metadata and recovery_successor is None:
