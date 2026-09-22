@@ -1,25 +1,40 @@
 from __future__ import annotations
 
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-import helpers
-from metadata import (
+TESTS_DIR = Path(__file__).resolve().parent
+SCRIPTS_DIR = TESTS_DIR.parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import helpers  # noqa: E402
+from metadata import (  # noqa: E402
     ChangesetMetadata,
     SourceIdentity,
     embed_pr_metadata,
     stamp_commit_message,
 )
-from rehydrate import (
+from native_stack import (  # noqa: E402
+    NativeLayer,
+    NativePullRequest,
+    NativeStackSnapshot,
+)
+from rehydrate import (  # noqa: E402
     ChangesetRecord,
     PullRequestRecord,
     RehydrationError,
     _validate_recovery_transition,
+    adopt_legacy_chain,
     rehydrate_chain,
 )
-from status import status_from_live
+from status import status_from_live  # noqa: E402
 
 
 class RehydrationTests(unittest.TestCase):
@@ -75,6 +90,71 @@ class RehydrationTests(unittest.TestCase):
         helpers.run(clone, "git", "fetch", "--prune", "origin")
         return clone
 
+    def _materialize_named_native_stack(
+        self,
+    ) -> tuple[NativeStackSnapshot, list[PullRequestRecord]]:
+        trunk_head = helpers.run(self.repo, "git", "rev-parse", "main")
+        layers: list[NativeLayer] = []
+        prs: list[PullRequestRecord] = []
+        predecessor_branch = "main"
+        predecessor_head = trunk_head
+        for offset, (branch, legacy_index) in enumerate(
+            (("layers/zeta", 9), ("layers/alpha", 3)), start=1
+        ):
+            helpers.run(self.repo, "git", "checkout", "-b", branch, predecessor_branch)
+            path = f"native-{offset}.txt"
+            (self.repo / path).write_text(f"native layer {offset}\n")
+            helpers.run(self.repo, "git", "add", path)
+            metadata = ChangesetMetadata(
+                slug=f"native-{offset}",
+                index=legacy_index,
+                source_branch="feature/report",
+                source_sha=self.source_sha,
+            )
+            head = helpers.commit(
+                self.repo,
+                stamp_commit_message(f"feat: native layer {offset}", metadata),
+            )
+            helpers.run(self.repo, "git", "push", "-u", "origin", branch)
+            pr_number = 200 + offset
+            pr = NativePullRequest(
+                number=pr_number,
+                url=f"https://github.com/acme/widgets/pull/{pr_number}",
+                state="OPEN",
+            )
+            layers.append(
+                NativeLayer(
+                    branch=branch,
+                    head=head,
+                    base=predecessor_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=pr,
+                )
+            )
+            prs.append(
+                PullRequestRecord(
+                    number=pr_number,
+                    head_branch=branch,
+                    head_sha=head,
+                    base_branch=predecessor_branch,
+                    state="OPEN",
+                    body=embed_pr_metadata("Native layer\n", metadata),
+                )
+            )
+            predecessor_branch = branch
+            predecessor_head = head
+        return (
+            NativeStackSnapshot(
+                trunk_branch="main",
+                trunk_head=trunk_head,
+                current_branch=layers[-1].branch,
+                layers=tuple(layers),
+            ),
+            prs,
+        )
+
     def test_rehydrates_full_chain_after_local_state_is_deleted(self) -> None:
         heads, prs = self._materialize()
         state_dir = self.repo / ".carve-changesets"
@@ -83,7 +163,7 @@ class RehydrationTests(unittest.TestCase):
         shutil.rmtree(state_dir)
         clone = self._fresh_clone()
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=prs, cwd=clone
         )
 
@@ -116,7 +196,7 @@ class RehydrationTests(unittest.TestCase):
             for pr in prs
         ]
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=edited, cwd=clone
         )
 
@@ -131,7 +211,7 @@ class RehydrationTests(unittest.TestCase):
         heads, prs = self._materialize(indices=(1,))
         clone = self._fresh_clone()
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=prs, cwd=clone
         )
 
@@ -139,18 +219,114 @@ class RehydrationTests(unittest.TestCase):
         self.assertEqual(heads[1], chain.changesets[0].head)
         self.assertEqual(1, chain.changesets[0].metadata.index)
 
-    def test_status_is_rendered_from_rehydration_without_local_files(self) -> None:
-        _, prs = self._materialize()
+    def test_native_rehydration_uses_snapshot_order_not_suffixes_or_indices(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
-        output = status_from_live(
-            source_branch="feature/report", pull_requests=prs, cwd=clone
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            native_snapshot=snapshot,
+            pull_requests=prs,
+            cwd=clone,
         )
 
+        self.assertEqual(
+            ["layers/zeta", "layers/alpha"],
+            [item.branch for item in chain.changesets],
+        )
+        self.assertEqual([9, 3], [item.metadata.index for item in chain.changesets])
+
+    def test_ordinary_rehydration_requires_a_native_snapshot(self) -> None:
+        self._materialize()
+
+        with self.assertRaisesRegex(RehydrationError, "native snapshot is required"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                cwd=self._fresh_clone(),
+            )
+
+    def test_status_without_refresh_authority_never_invokes_native_view(self) -> None:
+        _, prs = self._materialize()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+            stack_client=client,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  unavailable", output)
         self.assertIn("feature/report-1", output)
         self.assertIn("#101", output)
         self.assertIn("MERGED", output)
         self.assertIn("feature/report-2", output)
         self.assertIn("OPEN", output)
+        client.view_json.assert_not_called()
+
+    def test_status_with_refresh_authority_reconciles_native_topology(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
+        self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
+        client.view_json.assert_called_once_with(allow_state_refresh=True)
+
+    def test_status_refresh_rejects_checkout_movement(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+
+        def move_checkout(*, allow_state_refresh: bool) -> dict[str, object]:
+            self.assertTrue(allow_state_refresh)
+            helpers.run(clone, "git", "checkout", "--detach", snapshot.layers[0].head)
+            return {}
+
+        client = mock.Mock()
+        client.view_json.side_effect = move_checkout
+
+        with self.assertRaisesRegex(RehydrationError, "moved the checkout"):
+            status_from_live(
+                source_branch="feature/report",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+            )
 
     def test_trailers_survive_propagation_rebase(self) -> None:
         _, _ = self._materialize()
@@ -174,7 +350,7 @@ class RehydrationTests(unittest.TestCase):
         clone = self._fresh_clone()
 
         with self.assertRaisesRegex(RehydrationError, "missing index 2"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", base_branch="main", cwd=clone
             )
 
@@ -189,7 +365,7 @@ class RehydrationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RehydrationError, "Missing required changeset trailer"
         ):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", base_branch="main", cwd=clone
             )
 
@@ -202,7 +378,7 @@ class RehydrationTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RehydrationError, "conflicts with allowed base"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=conflicting, cwd=clone
             )
 
@@ -218,7 +394,7 @@ class RehydrationTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RehydrationError, "metadata disagrees"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=conflicting, cwd=clone
             )
 
@@ -231,7 +407,7 @@ class RehydrationTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RehydrationError, "uses a fork head"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=forked, cwd=clone
             )
 
@@ -277,7 +453,7 @@ class RehydrationTests(unittest.TestCase):
         )
         clone = self._fresh_clone()
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=prs, cwd=clone
         )
 
@@ -338,7 +514,7 @@ class RehydrationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RehydrationError, "conflicting recovered provenance"
         ):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report",
                 pull_requests=prs,
                 cwd=self._fresh_clone(),
@@ -425,7 +601,7 @@ class RehydrationTests(unittest.TestCase):
         clone = self._fresh_clone()
 
         with self.assertRaisesRegex(RehydrationError, "discontinuous"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=prs, cwd=clone
             )
 

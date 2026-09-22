@@ -25,7 +25,7 @@ from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
 from propagate import merge_propagate_from_live, propagate_from_live, push_chain
 from recovery import recover_suffix_from_live
-from rehydrate import RehydrationError, discover_changeset_heads, rehydrate_chain
+from rehydrate import RehydrationError, adopt_legacy_chain, discover_changeset_heads
 from squash_check import squash_check
 from squash_ref import _resolve_base_source, create_squashed_ref
 from status import status_from_live
@@ -160,7 +160,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
                 if args.local_only
                 else pull_requests_for_source(plan["source_branch"], remote=args.remote)
             )
-            chain = rehydrate_chain(
+            chain = adopt_legacy_chain(
                 source_branch=plan["source_branch"],
                 base_branch=plan["base_branch"],
                 pull_requests=pull_requests,
@@ -187,6 +187,7 @@ def cmd_status(args: argparse.Namespace) -> None:
             base_branch=args.base,
             pull_requests=pull_requests,
             remote=args.remote,
+            allow_stack_state_refresh=args.allow_stack_state_refresh,
         )
     )
 
@@ -229,7 +230,7 @@ def cmd_validate_chain(args: argparse.Namespace) -> None:
         if args.local_only
         else pull_requests_for_source(plan["source_branch"], remote=args.remote)
     )
-    chain = rehydrate_chain(
+    chain = adopt_legacy_chain(
         source_branch=plan["source_branch"],
         base_branch=plan["base_branch"],
         pull_requests=pull_requests,
@@ -496,6 +497,11 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--base", default=None, help="Base branch")
     item.add_argument("--remote", default="origin")
     item.add_argument("--local-only", action="store_true")
+    item.add_argument(
+        "--allow-stack-state-refresh",
+        action="store_true",
+        help="Authorize the bounded local-state refresh performed by gh stack view.",
+    )
     item.set_defaults(func=cmd_status)
 
     item = _command(sub, "create-chain", "Materialize append-only changeset branches.")
