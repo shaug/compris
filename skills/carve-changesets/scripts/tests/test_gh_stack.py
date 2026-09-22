@@ -50,6 +50,20 @@ class GhStackClientTest(unittest.TestCase):
 
         runner.assert_not_called()
 
+    def test_view_reports_command_failure_with_stderr(self) -> None:
+        failure = subprocess.CalledProcessError(
+            7,
+            ["gh", "stack", "view", "--json"],
+            stderr="native state unavailable",
+        )
+        client = GhStackClient(runner=mock.Mock(side_effect=failure))
+
+        with self.assertRaisesRegex(
+            GhStackError,
+            "gh stack view --json failed: exit 7: native state unavailable",
+        ):
+            client.view_json(allow_state_refresh=True)
+
     def test_default_runner_executes_in_the_bound_repository(self) -> None:
         repo = Path("/tmp/native-stack-target")
         completed = subprocess.CompletedProcess(

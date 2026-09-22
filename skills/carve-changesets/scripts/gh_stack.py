@@ -182,7 +182,13 @@ class GhStackClient:
                 "local-state authority is required"
             )
         try:
-            payload = json.loads(self._capture(("view", "--json")))
+            raw_payload = self._capture(("view", "--json"))
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise GhStackError(
+                f"gh stack view --json failed: {_probe_error(exc)}"
+            ) from exc
+        try:
+            payload = json.loads(raw_payload)
         except json.JSONDecodeError as exc:
             raise GhStackError("gh stack view --json returned invalid JSON") from exc
         if not isinstance(payload, dict):

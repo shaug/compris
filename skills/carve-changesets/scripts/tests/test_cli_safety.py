@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import ast
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
+from unittest import mock
 
+import cli as cli_mod
 import helpers  # noqa: F401
 from cli import COMMAND_MUTATION_CLASSES, build_parser
+from gh_stack import GhStackError
+from native_stack import NativeStackError
 
 
 def _gh_chokepoint_errors(filename: str, source: str) -> list[str]:
@@ -45,6 +51,42 @@ class CliSafetyTests(unittest.TestCase):
 
     def test_status_class_covers_authorized_native_state_refresh(self) -> None:
         self.assertEqual("local-mutating", COMMAND_MUTATION_CLASSES["status"])
+
+    def test_status_cli_bounds_native_reconciliation_errors(self) -> None:
+        output = StringIO()
+        error = NativeStackError("layer feature-2 remote head differs from native head")
+
+        with (
+            mock.patch.object(cli_mod, "status_from_live", side_effect=error),
+            redirect_stdout(output),
+        ):
+            result = cli_mod.main(
+                ["status", "--source", "feature", "--allow-stack-state-refresh"]
+            )
+
+        self.assertEqual(1, result)
+        self.assertEqual(
+            "[ERROR] layer feature-2 remote head differs from native head\n",
+            output.getvalue(),
+        )
+
+    def test_status_cli_bounds_failed_native_view_invocation(self) -> None:
+        output = StringIO()
+        error = GhStackError("gh stack view --json failed: exit 7: denied")
+
+        with (
+            mock.patch.object(cli_mod, "status_from_live", side_effect=error),
+            redirect_stdout(output),
+        ):
+            result = cli_mod.main(
+                ["status", "--source", "feature", "--allow-stack-state-refresh"]
+            )
+
+        self.assertEqual(1, result)
+        self.assertEqual(
+            "[ERROR] gh stack view --json failed: exit 7: denied\n",
+            output.getvalue(),
+        )
 
     def test_issue_30_all_remote_mutations_default_to_dry_run(self) -> None:
         parser = build_parser()

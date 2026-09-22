@@ -19,7 +19,9 @@ from common import (
     validate_plan,
 )
 from db_compare import db_compare
+from gh_stack import GhStackError
 from github import pr_create, pull_request_by_number, pull_requests_for_source
+from native_stack import NativeStackError
 from patch_apply import build_diff
 from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
@@ -670,7 +672,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.mutation_class != READ_ONLY:
             ensure_clean_tree()
         return 0
-    except (CommandError, RehydrationError) as exc:
+    except (CommandError, GhStackError, NativeStackError, RehydrationError) as exc:
         print(f"[ERROR] {exc}")
         return 1
 
