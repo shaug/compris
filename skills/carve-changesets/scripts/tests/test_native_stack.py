@@ -144,6 +144,17 @@ class NativeStackSnapshotTest(unittest.TestCase):
 
         self.assertTrue(all(layer.merged for layer in snapshot.layers))
 
+    def test_accepts_sequentially_rebased_merged_history(self) -> None:
+        payload = copy.deepcopy(VIEW_OPEN)
+        payload["branches"][1]["base"] = C_SHA
+        for layer in payload["branches"]:
+            layer["isMerged"] = True
+            layer["pr"]["state"] = "MERGED"
+
+        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+
+        self.assertEqual(C_SHA, snapshot.layers[1].base)
+
     def test_reconcile_rejects_remote_head_disagreement(self) -> None:
         snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
 
@@ -192,6 +203,32 @@ class NativeStackSnapshotTest(unittest.TestCase):
         merged_prs = {
             101: PullRequestRecord(**{**OPEN_PR_101.__dict__, "state": "MERGED"}),
             102: PullRequestRecord(**{**OPEN_PR_102.__dict__, "state": "MERGED"}),
+        }
+
+        reconciled = reconcile_native_stack(
+            snapshot,
+            remote_heads={},
+            pull_requests=merged_prs,
+        )
+
+        self.assertEqual(snapshot, reconciled)
+
+    def test_reconcile_accepts_merged_pr_retargeted_to_trunk(self) -> None:
+        payload = copy.deepcopy(VIEW_OPEN)
+        payload["branches"][1]["base"] = C_SHA
+        for layer in payload["branches"]:
+            layer["isMerged"] = True
+            layer["pr"]["state"] = "MERGED"
+        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        merged_prs = {
+            101: PullRequestRecord(**{**OPEN_PR_101.__dict__, "state": "MERGED"}),
+            102: PullRequestRecord(
+                **{
+                    **OPEN_PR_102.__dict__,
+                    "base_branch": "main",
+                    "state": "MERGED",
+                }
+            ),
         }
 
         reconciled = reconcile_native_stack(

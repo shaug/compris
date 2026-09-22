@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-22 — Made native gh stack topology authoritative
 
+- fix: gate native status refresh and preserve sequential merge truth
+
 - fix: reconcile native status against exact live repository evidence
 
 - feat: make native stack topology authoritative

@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Sequence
 
-from gh_stack import GhStackClient
+from gh_stack import GhStackClient, ProfileProbeResult, StackCapability, probe_profile
 from native_stack import parse_native_stack, reconcile_native_stack
 from rehydrate import Chain, PullRequestRecord, RehydrationError, _git, rehydrate_chain
 
@@ -50,6 +50,7 @@ def status_from_live(
     remote: str = "origin",
     allow_stack_state_refresh: bool = False,
     stack_client: GhStackClient | None = None,
+    profile_probe: Callable[[], ProfileProbeResult] | None = None,
 ) -> str:
     """Render native truth when refresh is authorized, otherwise passive evidence."""
 
@@ -61,6 +62,21 @@ def status_from_live(
             cwd=repo,
             remote=remote,
         )
+
+    observed_profile = (
+        profile_probe() if profile_probe is not None else probe_profile(cwd=repo)
+    )
+    if (
+        observed_profile.status != "supported"
+        or observed_profile.profile is None
+        or StackCapability.VIEW_JSON not in observed_profile.profile.capabilities
+    ):
+        reason = (
+            observed_profile.blocker.reason
+            if observed_profile.blocker is not None
+            else "view_json_capability_unavailable"
+        )
+        raise RehydrationError(f"Native stack profile blocks state refresh: {reason}.")
 
     client = stack_client or GhStackClient(cwd=repo)
     before = _checkout_identity(repo)
@@ -113,6 +129,7 @@ def status_from_live(
         source_branch=source_branch,
         native_snapshot=reconciled,
         pull_requests=effective_pull_requests,
+        base_branch=base_branch,
         cwd=repo,
     )
     return (

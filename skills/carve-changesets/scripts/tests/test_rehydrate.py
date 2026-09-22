@@ -19,6 +19,12 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import cli as cli_mod  # noqa: E402
 import helpers  # noqa: E402
+from gh_stack import (  # noqa: E402
+    GhStackProfile,
+    GhStackProfileBlocker,
+    ProfileProbeResult,
+    StackCapability,
+)
 from metadata import (  # noqa: E402
     ChangesetMetadata,
     SourceIdentity,
@@ -93,6 +99,20 @@ class RehydrationTests(unittest.TestCase):
         helpers.run(self.temp_dir, "git", "clone", str(self.bare), str(clone))
         helpers.run(clone, "git", "fetch", "--prune", "origin")
         return clone
+
+    @staticmethod
+    def _supported_profile_probe() -> ProfileProbeResult:
+        return ProfileProbeResult(
+            status="supported",
+            observed_version="gh stack version reviewed",
+            observed_surfaces=(),
+            profile=GhStackProfile(
+                version="gh stack version reviewed",
+                source_revision="reviewed",
+                capabilities=frozenset({StackCapability.VIEW_JSON}),
+            ),
+            blocker=None,
+        )
 
     def _materialize_named_native_stack(
         self,
@@ -305,6 +325,7 @@ class RehydrationTests(unittest.TestCase):
             cwd=clone,
             allow_stack_state_refresh=True,
             stack_client=client,
+            profile_probe=self._supported_profile_probe,
         )
 
         self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
@@ -347,6 +368,7 @@ class RehydrationTests(unittest.TestCase):
             cwd=clone,
             allow_stack_state_refresh=True,
             stack_client=client,
+            profile_probe=self._supported_profile_probe,
         )
 
         self.assertIn("layers/zeta", output)
@@ -412,6 +434,80 @@ class RehydrationTests(unittest.TestCase):
                 cwd=clone,
                 allow_stack_state_refresh=True,
                 stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_blocks_unsupported_profile_before_view(self) -> None:
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        blocker = GhStackProfileBlocker(
+            reason="unknown_version",
+            observed_version="gh stack version unknown",
+            observed_surfaces=(),
+            mismatched_surfaces=(),
+        )
+        probe = mock.Mock(
+            return_value=ProfileProbeResult(
+                status="blocked",
+                observed_version=blocker.observed_version,
+                observed_surfaces=(),
+                profile=None,
+                blocker=blocker,
+            )
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "unknown_version"):
+            status_from_live(
+                source_branch="feature/report",
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=probe,
+            )
+
+        probe.assert_called_once_with()
+        client.view_json.assert_not_called()
+
+    def test_status_refresh_rejects_requested_base_disagreement(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "Requested base 'release'.*native trunk 'main'",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="release",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
             )
 
     def test_trailers_survive_propagation_rebase(self) -> None:

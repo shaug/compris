@@ -198,12 +198,13 @@ class GhStackClient:
 
 def probe_profile(
     *,
-    runner: Runner = _run,
+    runner: Runner | None = None,
+    cwd: Path | str | None = None,
     reviewed_profile: Mapping[str, object] | None = None,
 ) -> ProfileProbeResult:
     contract = reviewed_profile or _load_reviewed_profile()
     commands = _profile_commands(contract)
-    client = GhStackClient(runner=runner)
+    client = GhStackClient(runner=runner, cwd=cwd)
     try:
         observed_version = _normalize_surface(client._capture(("--version",))).strip()
     except (OSError, subprocess.CalledProcessError) as exc:

@@ -188,9 +188,9 @@ def parse_native_stack(
             )
         if not merged and first_open_branch is None:
             first_open_branch = branch
-        expected_base = predecessor
+        expected_base = None if merged else predecessor
         label = "predecessor head"
-        if not merged and first_open_branch == branch:
+        if first_open_branch == branch:
             expected_base = checked_trunk_head
             label = "trunk head"
         if expected_base is not None and base != expected_base:
@@ -283,12 +283,13 @@ def reconcile_native_stack(
                 f"layer {layer.branch} GitHub PR #{live.number} head mismatch: "
                 f"native {layer.head}; GitHub {live.head_sha}"
             )
-        expected_base = (
-            previous_branch
-            if layer.merged or not previous_merged
-            else snapshot.trunk_branch
-        )
-        if live.base_branch != expected_base:
+        expected_bases = {previous_branch}
+        if previous_merged:
+            expected_bases.add(snapshot.trunk_branch)
+        if live.base_branch not in expected_bases:
+            expected_base = (
+                snapshot.trunk_branch if previous_merged else previous_branch
+            )
             relation = (
                 "trunk" if expected_base == snapshot.trunk_branch else "predecessor"
             )
