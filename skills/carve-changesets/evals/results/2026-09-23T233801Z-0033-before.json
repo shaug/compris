@@ -1,0 +1,185 @@
+{
+  "candidate": {
+    "branch": "scott/carve-changesets-source-lineage",
+    "sha": "1f523bc7615ae3bc8c38d5f2174e4a61595d9d16",
+    "tree": "e236c3a638d330552bbe6b7a40efcaa5de727a8f",
+    "trees": {
+      "skills/carve-changesets": "7fcc6f69c5673de25c7a0cad85921691611f05d7"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {
+    "blocked-after-publication": {
+      "actions": [
+        "mark_lifecycle_observations_non_gating",
+        "preserve_partial_chain",
+        "return_exact_head_lifecycle_observations"
+      ],
+      "executor_pid": 37464,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "decompose-independent-subsystems": {
+      "actions": [
+        "split_by_subsystem"
+      ],
+      "executor_pid": 37452,
+      "target_skill": "carve-changesets",
+      "terminal_state": "plan_ready"
+    },
+    "mechanical-guardrail-exception": {
+      "actions": [
+        "accept_mechanical_exception",
+        "document_exception_evidence"
+      ],
+      "executor_pid": 37455,
+      "target_skill": "carve-changesets",
+      "terminal_state": "plan_ready"
+    },
+    "oversized-guardrail-negotiation": {
+      "actions": [
+        "request_guardrail_decision",
+        "stop_for_oversized_changeset"
+      ],
+      "executor_pid": 37454,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "publish-with-merge-withheld": {
+      "actions": [
+        "mark_lifecycle_observations_non_gating",
+        "publish_without_merge",
+        "return_exact_head_lifecycle_observations",
+        "withhold_merge"
+      ],
+      "executor_pid": 37458,
+      "target_skill": "carve-changesets",
+      "terminal_state": "prs_open"
+    },
+    "recover-successor-suffix": {
+      "actions": [
+        "create_successor_lineage",
+        "invalidate_candidate_evidence",
+        "mark_lifecycle_observations_non_gating",
+        "recover_owned_suffix_with_exact_lease",
+        "rehandoff_babysit_pr",
+        "return_exact_head_lifecycle_observations",
+        "verify_merged_prefix",
+        "verify_successor_equivalence"
+      ],
+      "executor_pid": 37461,
+      "target_skill": "carve-changesets",
+      "terminal_state": "all_merged"
+    },
+    "refuse-dirty-source": {
+      "actions": [
+        "diagnose_dirty_tree",
+        "refuse_dirty_source"
+      ],
+      "executor_pid": 37459,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "refuse-source-behind-base": {
+      "actions": [
+        "diagnose_source_behind_base",
+        "refuse_source_behind_base"
+      ],
+      "executor_pid": 37460,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "refuse-validated-reorder": {
+      "actions": [
+        "preserve_validated_order",
+        "refuse_reorder_or_renumber"
+      ],
+      "executor_pid": 37456,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "reject-conflicting-successor-lineage": {
+      "actions": [
+        "preserve_partial_chain",
+        "reject_conflicting_lineage",
+        "reject_unexpected_suffix_head"
+      ],
+      "executor_pid": 37462,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "reject-original-source-mutation": {
+      "actions": [
+        "reject_original_source_mutation",
+        "require_distinct_successor_source"
+      ],
+      "executor_pid": 37463,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    },
+    "separate-mechanical-rename": {
+      "actions": [
+        "separate_rename_from_behavior"
+      ],
+      "executor_pid": 37453,
+      "target_skill": "carve-changesets",
+      "terminal_state": "plan_ready"
+    },
+    "validated-plan-conflict": {
+      "actions": [
+        "escalate_material_decision",
+        "stop_on_plan_conflict"
+      ],
+      "executor_pid": 37457,
+      "target_skill": "carve-changesets",
+      "terminal_state": "blocked"
+    }
+  },
+  "cases": {
+    "blocked-after-publication": "pass",
+    "decompose-independent-subsystems": "pass",
+    "mechanical-guardrail-exception": "pass",
+    "oversized-guardrail-negotiation": "pass",
+    "publish-with-merge-withheld": "pass",
+    "recover-successor-suffix": "pass",
+    "refuse-dirty-source": "pass",
+    "refuse-source-behind-base": "pass",
+    "refuse-validated-reorder": "pass",
+    "reject-conflicting-successor-lineage": "pass",
+    "reject-original-source-mutation": "pass",
+    "separate-mechanical-rename": "pass",
+    "validated-plan-conflict": "pass"
+  },
+  "command": [
+    "/private/tmp/compris-ticket-163-tools/bin/python3",
+    "skills/carve-changesets/scripts/evals/runner.py"
+  ],
+  "compared_to": "2026-09-23T225711Z-0032-after.json",
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 13
+  },
+  "exit_code": 0,
+  "failures": [],
+  "forward_evals": false,
+  "gap": "recorded tier is deterministic, so no model read the prose and the model-behavior evidence is absent No real-model executor is registered for this skill, so this tier is the only one available here.",
+  "limitation": null,
+  "model": null,
+  "note": null,
+  "output_tail": "{\n  \"failed\": 0,\n  \"failures\": [],\n  \"mode\": \"forward\",\n  \"passed\": 13,\n  \"total\": 13\n}",
+  "recorded_at": "2026-09-23T23:38:01Z",
+  "schema": "eval-run-summary/1",
+  "skill": "carve-changesets",
+  "stage": "before",
+  "status": "completed",
+  "suite": "forward",
+  "tier": "deterministic",
+  "totals": {
+    "failed": 0,
+    "passed": 13,
+    "total": 13
+  }
+}
