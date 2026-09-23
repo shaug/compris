@@ -23,7 +23,7 @@ from github import (
     pull_requests_for_source,
 )
 from metadata import MetadataError, parse_commit_message, parse_pr_metadata
-from rehydrate import Chain, ChangesetRecord, PullRequestRecord, rehydrate_chain
+from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
 AUTHORITY_FLAG = "--ack-merge-and-propagate"
@@ -154,7 +154,7 @@ def _rehydrate_live(
                 f"Merged PR #{pr.number} head {pr.head_sha} is unavailable; "
                 "fetch its exact GitHub PR head before retrying."
             )
-    chain = rehydrate_chain(
+    chain = adopt_legacy_chain(
         source_branch=source,
         base_branch=base,
         pull_requests=pull_requests,

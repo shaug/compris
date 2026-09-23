@@ -15,6 +15,7 @@ from metadata import (
     parse_commit_message,
     parse_pr_metadata,
 )
+from native_stack import NativeStackSnapshot
 
 
 class RehydrationError(RuntimeError):
@@ -270,7 +271,7 @@ def _validate_recovery_transition(
     return target
 
 
-def rehydrate_chain(
+def adopt_legacy_chain(
     *,
     source_branch: str,
     pull_requests: Sequence[PullRequestRecord] = (),
@@ -280,7 +281,7 @@ def rehydrate_chain(
     prefer_remote: bool = False,
     recovery_successor: SourceIdentity | None = None,
 ) -> Chain:
-    """Reconstruct an ordered chain without consulting local plan or state files."""
+    """Adopt one legacy ``source-N`` chain from suffix and index evidence."""
 
     if not source_branch.strip():
         raise RehydrationError("Source branch must not be empty.")
@@ -412,6 +413,123 @@ def rehydrate_chain(
     active_source = source_lineage[-1]
     return Chain(
         base_branch=base_branch,
+        source_branch=source_branch,
+        source_sha=active_source.sha,
+        root_source_sha=root_source.sha,
+        source_lineage=source_lineage,
+        changesets=tuple(records),
+    )
+
+
+def rehydrate_chain(
+    *,
+    source_branch: str,
+    native_snapshot: NativeStackSnapshot | None = None,
+    pull_requests: Sequence[PullRequestRecord] = (),
+    base_branch: str | None = None,
+    cwd: Path | str = Path.cwd(),
+) -> Chain:
+    """Rehydrate ordinary stack truth exclusively from native layer order."""
+
+    if native_snapshot is None:
+        raise RehydrationError(
+            "A reconciled native snapshot is required for ordinary rehydration; "
+            "use adopt_legacy_chain() only for explicit legacy adoption."
+        )
+    if not source_branch.strip():
+        raise RehydrationError("Source branch must not be empty.")
+    if not native_snapshot.layers:
+        raise RehydrationError("Native snapshot has no changeset layers.")
+    if base_branch is not None and base_branch != native_snapshot.trunk_branch:
+        raise RehydrationError(
+            f"Requested base {base_branch!r} disagrees with native trunk "
+            f"{native_snapshot.trunk_branch!r}."
+        )
+
+    repo = Path(cwd)
+    prs: dict[int, PullRequestRecord] = {}
+    for pr in pull_requests:
+        if pr.number in prs:
+            raise RehydrationError(
+                f"Multiple GitHub records were supplied for PR #{pr.number}."
+            )
+        prs[pr.number] = pr
+
+    records: list[ChangesetRecord] = []
+    root_source: SourceIdentity | None = None
+    slugs: set[str] = set()
+    previous_branch = native_snapshot.trunk_branch
+    previous_layer_merged = False
+    for layer in native_snapshot.layers:
+        message = _git(repo, "show", "-s", "--format=%B", layer.head)
+        try:
+            metadata = parse_commit_message(message)
+        except MetadataError as exc:
+            raise RehydrationError(f"Native layer {layer.branch}: {exc}") from exc
+        if metadata.root_source.branch != source_branch:
+            raise RehydrationError(
+                f"Native layer {layer.branch} names chain root "
+                f"{metadata.root_source.branch!r}; expected {source_branch!r}."
+            )
+        if root_source is None:
+            root_source = metadata.root_source
+        elif metadata.root_source != root_source:
+            raise RehydrationError(
+                f"Native layer {layer.branch} names root source "
+                f"{metadata.root_source.trailer}; expected {root_source.trailer}."
+            )
+        if metadata.slug in slugs:
+            raise RehydrationError(
+                f"Duplicate changeset slug {metadata.slug!r} in native stack."
+            )
+        slugs.add(metadata.slug)
+
+        native_pr = layer.pull_request
+        pr = prs.get(native_pr.number) if native_pr is not None else None
+        if native_pr is not None and pr is None:
+            raise RehydrationError(
+                f"Native layer {layer.branch} is missing GitHub PR #{native_pr.number}."
+            )
+        pr_metadata: ChangesetMetadata | None = None
+        if pr is not None:
+            if pr.is_cross_repository:
+                raise RehydrationError(
+                    f"PR #{pr.number} uses a fork head; native layers must belong "
+                    "to the selected repository."
+                )
+            try:
+                pr_metadata = parse_pr_metadata(pr.body)
+            except MetadataError as exc:
+                raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
+            if pr_metadata != metadata:
+                raise RehydrationError(
+                    f"PR #{pr.number} metadata disagrees with commit trailers for "
+                    f"native layer {layer.branch}."
+                )
+        materialized_base = (
+            native_snapshot.trunk_branch
+            if previous_layer_merged and not layer.merged
+            else previous_branch
+        )
+        records.append(
+            ChangesetRecord(
+                metadata=metadata,
+                branch=layer.branch,
+                head=layer.head,
+                base=pr.base_branch if pr is not None else materialized_base,
+                pr_number=pr.number if pr is not None else None,
+                pr_state=pr.state.upper() if pr is not None else None,
+                pr_metadata=pr_metadata,
+            )
+        )
+        previous_branch = layer.branch
+        previous_layer_merged = layer.merged
+
+    assert root_source is not None
+    source_lineage = _validate_lineage_sequence(records)
+    active_source = source_lineage[-1]
+    return Chain(
+        base_branch=native_snapshot.trunk_branch,
         source_branch=source_branch,
         source_sha=active_source.sha,
         root_source_sha=root_source.sha,

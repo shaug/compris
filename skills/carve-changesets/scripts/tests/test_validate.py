@@ -8,7 +8,7 @@ from unittest import mock
 
 import helpers
 from metadata import ChangesetMetadata, stamp_commit_message
-from rehydrate import rehydrate_chain
+from rehydrate import adopt_legacy_chain
 from validate import validate_live_chain
 
 
@@ -54,7 +54,7 @@ class LiveValidationTests(unittest.TestCase):
         return heads
 
     def _rehydrate(self):
-        return rehydrate_chain(
+        return adopt_legacy_chain(
             source_branch="feature/report", base_branch="main", cwd=self.repo
         )
 

@@ -17,7 +17,7 @@ from rehydrate import (
     PullRequestRecord,
     RehydrationError,
     _validate_recovery_transition,
-    rehydrate_chain,
+    adopt_legacy_chain,
 )
 from status import status_from_live
 
@@ -83,7 +83,7 @@ class RehydrationTests(unittest.TestCase):
         shutil.rmtree(state_dir)
         clone = self._fresh_clone()
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=prs, cwd=clone
         )
 
@@ -116,7 +116,7 @@ class RehydrationTests(unittest.TestCase):
             for pr in prs
         ]
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=edited, cwd=clone
         )
 
@@ -131,7 +131,7 @@ class RehydrationTests(unittest.TestCase):
         heads, prs = self._materialize(indices=(1,))
         clone = self._fresh_clone()
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=prs, cwd=clone
         )
 
@@ -174,7 +174,7 @@ class RehydrationTests(unittest.TestCase):
         clone = self._fresh_clone()
 
         with self.assertRaisesRegex(RehydrationError, "missing index 2"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", base_branch="main", cwd=clone
             )
 
@@ -189,7 +189,7 @@ class RehydrationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RehydrationError, "Missing required changeset trailer"
         ):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", base_branch="main", cwd=clone
             )
 
@@ -202,7 +202,7 @@ class RehydrationTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RehydrationError, "conflicts with allowed base"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=conflicting, cwd=clone
             )
 
@@ -218,7 +218,7 @@ class RehydrationTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RehydrationError, "metadata disagrees"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=conflicting, cwd=clone
             )
 
@@ -231,7 +231,7 @@ class RehydrationTests(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(RehydrationError, "uses a fork head"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=forked, cwd=clone
             )
 
@@ -277,7 +277,7 @@ class RehydrationTests(unittest.TestCase):
         )
         clone = self._fresh_clone()
 
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report", pull_requests=prs, cwd=clone
         )
 
@@ -338,7 +338,7 @@ class RehydrationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RehydrationError, "conflicting recovered provenance"
         ):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report",
                 pull_requests=prs,
                 cwd=self._fresh_clone(),
@@ -425,7 +425,7 @@ class RehydrationTests(unittest.TestCase):
         clone = self._fresh_clone()
 
         with self.assertRaisesRegex(RehydrationError, "discontinuous"):
-            rehydrate_chain(
+            adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=prs, cwd=clone
             )
 
