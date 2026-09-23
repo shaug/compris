@@ -283,8 +283,12 @@ def reconcile_native_stack(
                 f"layer {layer.branch} GitHub PR #{live.number} head mismatch: "
                 f"native {layer.head}; GitHub {live.head_sha}"
             )
-        expected_bases = {previous_branch}
-        if previous_merged:
+        expected_bases = (
+            {snapshot.trunk_branch}
+            if previous_merged and not layer.merged
+            else {previous_branch}
+        )
+        if previous_merged and layer.merged:
             expected_bases.add(snapshot.trunk_branch)
         if live.base_branch not in expected_bases:
             expected_base = (
