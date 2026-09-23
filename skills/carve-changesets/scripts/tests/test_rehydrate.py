@@ -401,6 +401,75 @@ class RehydrationTests(unittest.TestCase):
         self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
         client.view_json.assert_called_once_with(allow_state_refresh=True)
 
+    def test_status_refresh_fetches_missing_published_head_objects(self) -> None:
+        clone = self._fresh_clone()
+        snapshot, prs = self._materialize_named_native_stack()
+        client = mock.Mock()
+        client.view_json.return_value = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+            profile_probe=self._supported_profile_probe,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
+        self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
+
+    def test_status_refresh_fetches_deleted_merged_branch_from_pr_head(self) -> None:
+        clone = self._fresh_clone()
+        snapshot, prs = self._materialize_named_native_stack()
+        first, second = snapshot.layers
+        helpers.run(
+            self.bare,
+            "git",
+            "update-ref",
+            f"refs/pull/{first.pull_request.number}/head",
+            first.head,
+        )
+        helpers.run(self.repo, "git", "push", "origin", "--delete", first.branch)
+        client = mock.Mock()
+        client.view_json.return_value = self._merged_prefix_payload(snapshot)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_requests=[
+                replace(prs[0], state="MERGED"),
+                replace(prs[1], base_branch=snapshot.trunk_branch),
+            ],
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+            profile_probe=self._supported_profile_probe,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
+        self.assertLess(output.index(first.branch), output.index(second.branch))
+
     def test_status_refresh_rejects_divergent_published_local_head(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()

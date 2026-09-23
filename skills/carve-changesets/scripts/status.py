@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from gh_stack import GhStackClient, ProfileProbeResult, StackCapability, probe_profile
-from native_stack import parse_native_stack, reconcile_native_stack
+from native_stack import NativeStackSnapshot, parse_native_stack, reconcile_native_stack
 from rehydrate import Chain, PullRequestRecord, RehydrationError, _git, rehydrate_chain
 
 
@@ -129,6 +129,7 @@ def status_from_live(
         pull_requests=pull_requests_by_number,
         local_heads=local_heads,
     )
+    _ensure_layer_heads_available(repo, remote, reconciled, remote_heads)
     chain = rehydrate_chain(
         source_branch=source_branch,
         native_snapshot=reconciled,
@@ -140,6 +141,49 @@ def status_from_live(
         "NATIVE LOCAL TOPOLOGY  available (refreshed with authority)\n"
         + render_status(chain)
     )
+
+
+def _ensure_layer_heads_available(
+    cwd: Path,
+    remote: str,
+    snapshot: NativeStackSnapshot,
+    remote_heads: dict[str, str],
+) -> None:
+    for layer in snapshot.layers:
+        if _commit_available(cwd, layer.head):
+            continue
+        if layer.branch in remote_heads:
+            ref = f"refs/heads/{layer.branch}"
+            evidence = f"remote branch {remote}/{layer.branch}"
+        elif layer.merged and layer.pull_request is not None:
+            ref = f"refs/pull/{layer.pull_request.number}/head"
+            evidence = f"GitHub PR #{layer.pull_request.number} head"
+        else:
+            raise RehydrationError(
+                f"Native layer {layer.branch} head {layer.head} is unavailable; "
+                "no reconciled remote or preserved PR head can supply it."
+            )
+        try:
+            _git(cwd, "fetch", "--no-tags", remote, ref)
+            fetched = _git(cwd, "rev-parse", "FETCH_HEAD^{commit}").strip()
+        except RehydrationError as exc:
+            raise RehydrationError(
+                f"Native layer {layer.branch} head {layer.head} is unavailable; "
+                f"failed to fetch its exact {evidence}."
+            ) from exc
+        if fetched != layer.head or not _commit_available(cwd, layer.head):
+            raise RehydrationError(
+                f"Native layer {layer.branch} fetched head mismatch: reconciled "
+                f"{layer.head}; {evidence} supplied {fetched}."
+            )
+
+
+def _commit_available(cwd: Path, head: str) -> bool:
+    try:
+        _git(cwd, "cat-file", "-e", f"{head}^{{commit}}")
+    except RehydrationError:
+        return False
+    return True
 
 
 def _live_remote_heads(
