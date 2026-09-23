@@ -31,6 +31,7 @@ from metadata import (
     stamp_commit_message,
 )
 from propagate import (
+    _durable_predecessor,
     _verify_merged_on_base,
     push_changeset_branch,
     remote_branch_head,
@@ -123,35 +124,6 @@ def _metadata_for_recovery(
         source_sha=successor.sha,
         source_lineage=target_lineage,
         recovery_from_head=record.head,
-    )
-
-
-def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> str:
-    if _is_ancestor(previous.head, record.head):
-        return previous.head
-    for commit in git("rev-list", record.head).stdout.splitlines():
-        try:
-            metadata = parse_commit_message(
-                git("show", "-s", "--format=%B", commit).stdout,
-                remote=previous.metadata.root_source.remote,
-            )
-        except MetadataError:
-            continue
-        same_legacy_position = (
-            metadata.legacy_position == previous.metadata.legacy_position
-            if metadata.legacy_position is not None
-            or previous.metadata.legacy_position is not None
-            else True
-        )
-        if (
-            same_legacy_position
-            and metadata.slug == previous.metadata.slug
-            and metadata.root_source == previous.metadata.root_source
-        ):
-            return commit
-    raise CommandError(
-        f"Changeset {record.position} does not contain the durable predecessor "
-        f"for changeset {previous.position}."
     )
 
 
@@ -392,7 +364,14 @@ def recover_suffix_from_live(
                         )
                 else:
                     previous = chain.changesets[record.position - 2]
-                    old_base = _durable_predecessor(record, previous)
+                    old_base = _durable_predecessor(
+                        record,
+                        previous,
+                        missing_message=(
+                            f"Changeset {record.position} does not contain the durable "
+                            f"predecessor for changeset {previous.position}."
+                        ),
+                    )
                     git(
                         "rebase",
                         "--onto",

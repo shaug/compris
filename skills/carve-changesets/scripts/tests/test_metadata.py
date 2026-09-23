@@ -41,6 +41,31 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("Changeset-Slug: api-foundation", message)
         self.assertEqual(self.metadata, parse_commit_message(message))
 
+    def test_stable_identity_centralizes_native_and_legacy_rules(self) -> None:
+        native = ChangesetMetadata(
+            slug="api-foundation",
+            source_lineage=(SourceIdentity("origin", "feature/report", "a" * 40),),
+        )
+        successor = ChangesetMetadata(
+            slug="api-foundation",
+            source_lineage=(
+                *native.source_lineage,
+                SourceIdentity("origin", "feature/report-v2", "b" * 40),
+            ),
+            recovery_from_head="c" * 40,
+        )
+        other_legacy_position = ChangesetMetadata(
+            slug="api-foundation",
+            index=3,
+            source_branch="feature/report",
+            source_sha="a" * 40,
+        )
+
+        self.assertTrue(native.same_changeset_as(successor))
+        self.assertTrue(self.metadata.same_changeset_as(self.metadata))
+        self.assertFalse(self.metadata.same_changeset_as(other_legacy_position))
+        self.assertFalse(native.same_changeset_as(self.metadata))
+
     def test_parse_commit_message_rejects_missing_trailer(self) -> None:
         with self.assertRaisesRegex(MetadataError, "Changeset-Source"):
             parse_commit_message(

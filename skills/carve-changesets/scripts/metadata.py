@@ -208,6 +208,20 @@ class ChangesetMetadata:
     def version(self) -> int:
         return self.marker_version
 
+    def same_changeset_as(self, other: ChangesetMetadata) -> bool:
+        """Return whether two metadata records identify one stable changeset."""
+
+        same_legacy_position = (
+            self.legacy_position == other.legacy_position
+            if self.legacy_position is not None or other.legacy_position is not None
+            else True
+        )
+        return (
+            self.slug == other.slug
+            and same_legacy_position
+            and self.root_source == other.root_source
+        )
+
 
 @dataclass(frozen=True)
 class LegacyMetadataEvidence:

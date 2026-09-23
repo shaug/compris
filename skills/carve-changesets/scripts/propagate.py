@@ -335,7 +335,12 @@ def _updated_title(pr: PullRequestRecord, *, index: int, total: int) -> str:
     return f"{prefix} ({index} of {total})"
 
 
-def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> str:
+def _durable_predecessor(
+    record: ChangesetRecord,
+    previous: ChangesetRecord,
+    *,
+    missing_message: str | None = None,
+) -> str:
     """Find the prior changeset commit in an unpropagated branch's ancestry."""
 
     if _is_ancestor(previous.head, record.head):
@@ -348,21 +353,14 @@ def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> 
             )
         except MetadataError:
             continue
-        same_legacy_position = (
-            metadata.legacy_position == previous.metadata.legacy_position
-            if metadata.legacy_position is not None
-            or previous.metadata.legacy_position is not None
-            else True
-        )
-        if (
-            same_legacy_position
-            and metadata.slug == previous.metadata.slug
-            and metadata.root_source == previous.metadata.root_source
-        ):
+        if metadata.same_changeset_as(previous.metadata):
             return commit
     raise CommandError(
-        f"Changeset branch {record.branch} does not contain durable predecessor "
-        f"metadata for changeset {previous.position}."
+        missing_message
+        or (
+            f"Changeset branch {record.branch} does not contain durable predecessor "
+            f"metadata for changeset {previous.position}."
+        )
     )
 
 

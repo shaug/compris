@@ -169,19 +169,6 @@ def _pr_by_branch(
     return {branch: prs[0] for branch, prs in grouped.items()}
 
 
-def _same_changeset_position(left: ChangesetMetadata, right: ChangesetMetadata) -> bool:
-    same_legacy_position = (
-        left.legacy_position == right.legacy_position
-        if left.legacy_position is not None or right.legacy_position is not None
-        else True
-    )
-    return (
-        left.slug == right.slug
-        and same_legacy_position
-        and left.root_source == right.root_source
-    )
-
-
 def _validate_lineage_sequence(
     records: Sequence[ChangesetRecord],
 ) -> tuple[SourceIdentity, ...]:
@@ -261,7 +248,7 @@ def _validate_recovery_transition(
                     f"PR #{record.pr_number} has lineage outside the current or "
                     "requested successor recovery."
                 )
-            if not _same_changeset_position(record.metadata, pr_metadata):
+            if not record.metadata.same_changeset_as(pr_metadata):
                 raise RehydrationError(
                     f"PR #{record.pr_number} metadata changes the stable changeset "
                     "position during recovery."
