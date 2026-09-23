@@ -498,28 +498,7 @@ class RehydrationTests(unittest.TestCase):
         clone = self._fresh_clone()
         snapshot, prs = self._materialize_named_native_stack()
         client = mock.Mock()
-        client.view_json.return_value = {
-            "trunk": snapshot.trunk_branch,
-            "currentBranch": snapshot.current_branch,
-            "branches": [
-                {
-                    "name": layer.branch,
-                    "head": layer.head,
-                    "base": layer.base,
-                    "isCurrent": layer.branch == snapshot.current_branch,
-                    "isMerged": layer.merged,
-                    "isQueued": layer.queued,
-                    "needsRebase": layer.needs_rebase,
-                    "pr": {
-                        "number": layer.pull_request.number,
-                        "url": layer.pull_request.url,
-                        "state": layer.pull_request.state,
-                    },
-                }
-                for layer in snapshot.layers
-                if layer.pull_request is not None
-            ],
-        }
+        client.view_json.return_value = self._native_payload(snapshot)
 
         output = status_from_live(
             source_branch="feature/report",
@@ -570,30 +549,8 @@ class RehydrationTests(unittest.TestCase):
         clone = self._fresh_clone()
         first, second = snapshot.layers
         helpers.run(clone, "git", "branch", first.branch, second.head)
-        payload = {
-            "trunk": snapshot.trunk_branch,
-            "currentBranch": snapshot.current_branch,
-            "branches": [
-                {
-                    "name": layer.branch,
-                    "head": layer.head,
-                    "base": layer.base,
-                    "isCurrent": layer.branch == snapshot.current_branch,
-                    "isMerged": layer.merged,
-                    "isQueued": layer.queued,
-                    "needsRebase": layer.needs_rebase,
-                    "pr": {
-                        "number": layer.pull_request.number,
-                        "url": layer.pull_request.url,
-                        "state": layer.pull_request.state,
-                    },
-                }
-                for layer in snapshot.layers
-                if layer.pull_request is not None
-            ],
-        }
         client = mock.Mock()
-        client.view_json.return_value = payload
+        client.view_json.return_value = self._native_payload(snapshot)
 
         with self.assertRaisesRegex(
             NativeStackError,
@@ -722,30 +679,8 @@ class RehydrationTests(unittest.TestCase):
     def test_status_refresh_loads_exact_native_pr_numbers(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
-        payload = {
-            "trunk": snapshot.trunk_branch,
-            "currentBranch": snapshot.current_branch,
-            "branches": [
-                {
-                    "name": layer.branch,
-                    "head": layer.head,
-                    "base": layer.base,
-                    "isCurrent": layer.branch == snapshot.current_branch,
-                    "isMerged": layer.merged,
-                    "isQueued": layer.queued,
-                    "needsRebase": layer.needs_rebase,
-                    "pr": {
-                        "number": layer.pull_request.number,
-                        "url": layer.pull_request.url,
-                        "state": layer.pull_request.state,
-                    },
-                }
-                for layer in snapshot.layers
-                if layer.pull_request is not None
-            ],
-        }
         client = mock.Mock()
-        client.view_json.return_value = payload
+        client.view_json.return_value = self._native_payload(snapshot)
         records = {pr.number: pr for pr in prs}
         loader = mock.Mock(side_effect=records.__getitem__)
 
@@ -906,30 +841,8 @@ class RehydrationTests(unittest.TestCase):
     def test_status_refresh_rejects_requested_base_disagreement(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
-        payload = {
-            "trunk": snapshot.trunk_branch,
-            "currentBranch": snapshot.current_branch,
-            "branches": [
-                {
-                    "name": layer.branch,
-                    "head": layer.head,
-                    "base": layer.base,
-                    "isCurrent": layer.branch == snapshot.current_branch,
-                    "isMerged": layer.merged,
-                    "isQueued": layer.queued,
-                    "needsRebase": layer.needs_rebase,
-                    "pr": {
-                        "number": layer.pull_request.number,
-                        "url": layer.pull_request.url,
-                        "state": layer.pull_request.state,
-                    },
-                }
-                for layer in snapshot.layers
-                if layer.pull_request is not None
-            ],
-        }
         client = mock.Mock()
-        client.view_json.return_value = payload
+        client.view_json.return_value = self._native_payload(snapshot)
 
         with self.assertRaisesRegex(
             NativeStackError,
