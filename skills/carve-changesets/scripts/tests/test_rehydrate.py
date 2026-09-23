@@ -34,6 +34,7 @@ from metadata import (  # noqa: E402
 from native_stack import (  # noqa: E402
     NativeLayer,
     NativePullRequest,
+    NativeStackError,
     NativeStackSnapshot,
 )
 from rehydrate import (  # noqa: E402
@@ -331,6 +332,64 @@ class RehydrationTests(unittest.TestCase):
         self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
         self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
         client.view_json.assert_called_once_with(allow_state_refresh=True)
+
+    def test_status_refresh_rejects_materialized_layer_with_divergent_remote(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        helpers.run(clone, "git", "branch", first.branch, first.head)
+        helpers.run(self.repo, "git", "checkout", first.branch)
+        (self.repo / "divergent-remote.txt").write_text("divergent\n")
+        helpers.run(self.repo, "git", "add", "divergent-remote.txt")
+        divergent = helpers.commit(self.repo, "test: diverge materialized remote")
+        helpers.run(self.repo, "git", "push", "origin", first.branch)
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": first.branch,
+                    "head": first.head,
+                    "base": first.base,
+                    "isCurrent": False,
+                    "isMerged": False,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": None,
+                },
+                {
+                    "name": second.branch,
+                    "head": second.head,
+                    "base": second.base,
+                    "isCurrent": True,
+                    "isMerged": False,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": {
+                        "number": second.pull_request.number,
+                        "url": second.pull_request.url,
+                        "state": second.pull_request.state,
+                    },
+                },
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {first.branch} remote head mismatch: native {first.head}; remote {divergent}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                pull_requests=[prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
 
     def test_status_refresh_loads_exact_native_pr_numbers(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()

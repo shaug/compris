@@ -256,9 +256,11 @@ def reconcile_native_stack(
                     f"layer {layer.branch} local head mismatch: native {layer.head}; "
                     f"local {shown_local}"
                 )
-        if native_pr is not None and not layer.merged:
+        if not layer.merged:
             remote_head = remote_heads.get(layer.branch)
-            if remote_head != layer.head:
+            if (
+                native_pr is not None or remote_head is not None
+            ) and remote_head != layer.head:
                 shown_remote = remote_head if remote_head is not None else "missing"
                 raise NativeStackError(
                     f"layer {layer.branch} remote head mismatch: native {layer.head}; "
