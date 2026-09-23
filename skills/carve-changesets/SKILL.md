@@ -118,8 +118,8 @@ override and confirmation are both present.
 Suffix recovery is a separate acknowledgement within merge-and-propagate
 authority. It permits `recover-suffix` to restamp and exact-lease update only an
 owned, unmerged suffix onto a verified successor source. It does not permit
-changing the root source, a merged position, a stable index, or another owner's
-branch.
+changing the root source, a merged position, the established live topology
+order, or another owner's branch.
 
 Pass authority to delegated skills without expansion. Reply and thread
 resolution authority remain separate from branch mutation and merge authority.

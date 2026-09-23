@@ -312,8 +312,9 @@ prefix is already represented on current base.
 - Must write: new suffix commits carrying continuous lineage, exact-lease
   updates to exclusively owned suffix branches, human-readable PR bodies, and
   freshly rebuilt candidate-bound evidence.
-- Must preserve: merged prefix commits and PRs, root source identity, stable
-  indexes, slugs, branch names, PR identities, and ordinary stack bases.
+- Must preserve: merged prefix commits and PRs, root source identity, live
+  topology positions, slugs, branch names, PR identities, and ordinary stack
+  bases.
 - Must not depend on: the plan file, a local cache, stale validation or review
   results, or a previously observed remote head.
 

@@ -149,8 +149,11 @@ successor source containing all accepted fixes, then:
 1. rehydrate the root chain and exact open suffix from live git and GitHub;
 2. prove continuous source lineage and exclusive same-repository branch and PR
    ownership;
-3. preview and exact-lease update only the unmerged suffix with v2 commit and PR
-   metadata while preserving stable indexes, slugs, branches, and PRs;
+3. preview and exact-lease update only the unmerged suffix with v3
+   commit-trailer lineage and exact recovery provenance while preserving live
+   topology positions, slugs, branches, PRs, and human-readable PR bodies;
+   historical v1/v2 indexes and PR blocks remain read-only compatibility
+   evidence;
 4. prove current base plus the recovered suffix equals the successor source;
 5. invalidate every candidate-bound validation, review, CI, connector, feedback,
    and mergeability result for each changed head;
