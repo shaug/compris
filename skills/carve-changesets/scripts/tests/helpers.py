@@ -40,7 +40,7 @@ def commit(cwd: Path, message: str) -> str:
 def init_repo(root: Path) -> tuple[Path, Path, str]:
     bare = root / "remote.git"
     repo = root / "builder"
-    run(root, "git", "init", "--bare", str(bare))
+    run(root, "git", "init", "--bare", "-b", "main", str(bare))
     run(root, "git", "init", "-b", "main", str(repo))
     run(repo, "git", "config", "user.name", "Carve Tests")
     run(repo, "git", "config", "user.email", "carve@example.test")
