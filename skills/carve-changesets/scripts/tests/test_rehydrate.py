@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from argparse import Namespace
 from contextlib import redirect_stdout
+from dataclasses import replace
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -262,6 +263,35 @@ class RehydrationTests(unittest.TestCase):
             [item.branch for item in chain.changesets],
         )
         self.assertEqual([9, 3], [item.metadata.index for item in chain.changesets])
+
+    def test_native_rehydration_restarts_materialized_suffix_at_trunk_after_merged_prefix(
+        self,
+    ) -> None:
+        original, prs = self._materialize_named_native_stack()
+        merged = replace(
+            original.layers[0],
+            merged=True,
+            pull_request=replace(original.layers[0].pull_request, state="MERGED"),
+        )
+        materialized = replace(original.layers[1], pull_request=None)
+        snapshot = NativeStackSnapshot(
+            trunk_branch=original.trunk_branch,
+            trunk_head=merged.head,
+            current_branch=materialized.branch,
+            layers=(merged, materialized),
+        )
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            native_snapshot=snapshot,
+            pull_requests=(replace(prs[0], state="MERGED"),),
+            cwd=self._fresh_clone(),
+        )
+
+        self.assertEqual(
+            ["main", "main"],
+            [item.base for item in chain.changesets],
+        )
 
     def test_ordinary_rehydration_requires_a_native_snapshot(self) -> None:
         self._materialize()

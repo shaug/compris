@@ -459,6 +459,7 @@ def rehydrate_chain(
     root_source: SourceIdentity | None = None
     slugs: set[str] = set()
     previous_branch = native_snapshot.trunk_branch
+    previous_layer_merged = False
     for layer in native_snapshot.layers:
         message = _git(repo, "show", "-s", "--format=%B", layer.head)
         try:
@@ -505,18 +506,24 @@ def rehydrate_chain(
                     f"PR #{pr.number} metadata disagrees with commit trailers for "
                     f"native layer {layer.branch}."
                 )
+        materialized_base = (
+            native_snapshot.trunk_branch
+            if previous_layer_merged and not layer.merged
+            else previous_branch
+        )
         records.append(
             ChangesetRecord(
                 metadata=metadata,
                 branch=layer.branch,
                 head=layer.head,
-                base=pr.base_branch if pr is not None else previous_branch,
+                base=pr.base_branch if pr is not None else materialized_base,
                 pr_number=pr.number if pr is not None else None,
                 pr_state=pr.state.upper() if pr is not None else None,
                 pr_metadata=pr_metadata,
             )
         )
         previous_branch = layer.branch
+        previous_layer_merged = layer.merged
 
     assert root_source is not None
     source_lineage = _validate_lineage_sequence(records)
