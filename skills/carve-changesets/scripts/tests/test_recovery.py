@@ -22,98 +22,11 @@ from metadata import (
     stamp_commit_message,
 )
 from recovery import recover_suffix_from_live
-from rehydrate import ChangesetRecord, PullRequestRecord, rehydrate_chain
+from rehydrate import PullRequestRecord, rehydrate_chain
 from validate import validate_live_chain
 
 
 class SuffixRecoveryTests(unittest.TestCase):
-    def test_durable_predecessor_normalizes_selected_non_origin_remote(self) -> None:
-        root = SourceIdentity("upstream", "feature/report", "a" * 40)
-        previous_metadata = ChangesetMetadata(
-            "part-1",
-            1,
-            root.branch,
-            root.sha,
-            source_lineage=(root,),
-            marker_version=1,
-        )
-        previous = ChangesetRecord(
-            previous_metadata,
-            "feature/report-1",
-            "b" * 40,
-            "main",
-        )
-        record = ChangesetRecord(
-            ChangesetMetadata(
-                "part-2",
-                2,
-                root.branch,
-                root.sha,
-                source_lineage=(root,),
-                marker_version=1,
-            ),
-            "feature/report-2",
-            "c" * 40,
-            "feature/report-1",
-        )
-        historical = "d" * 40
-        message = stamp_commit_message("feat: changeset 1", previous_metadata)
-
-        def git_result(*args, **_kwargs):
-            stdout = historical if args[0] == "rev-list" else message
-            return mock.Mock(stdout=stdout)
-
-        with (
-            mock.patch.object(recovery_mod, "_is_ancestor", return_value=False),
-            mock.patch.object(recovery_mod, "git", side_effect=git_result),
-        ):
-            predecessor = recovery_mod._durable_predecessor(record, previous)
-
-        self.assertEqual(historical, predecessor)
-
-    def test_native_suffix_verification_uses_exact_head_not_pr_body(self) -> None:
-        head = "a" * 40
-        lineage = (SourceIdentity("origin", "feature/report", head),)
-        record = ChangesetRecord(
-            metadata=ChangesetMetadata(slug="part-1", source_lineage=lineage),
-            branch="feature/report-1",
-            head=head,
-            base="main",
-            pr_number=91,
-            pr_state="OPEN",
-            topology_position=1,
-        )
-        pull_request = PullRequestRecord(
-            number=91,
-            head_branch=record.branch,
-            head_sha=head,
-            base_branch="main",
-            state="OPEN",
-            body="Human-readable context only.\n",
-        )
-
-        with (
-            mock.patch.object(
-                recovery_mod, "pull_request_by_number", return_value=pull_request
-            ),
-            mock.patch.object(recovery_mod, "remote_branch_head", return_value=head),
-        ):
-            verified = recovery_mod._verify_open_suffix_pr(
-                record,
-                expected_head=head,
-                expected_base="main",
-                target_lineage=lineage,
-                remote="origin",
-            )
-
-        self.assertEqual(pull_request, verified)
-
-    def test_source_identity_rejects_a_different_selected_remote(self) -> None:
-        identity = SourceIdentity("upstream", "feature/report", "a" * 40)
-
-        with self.assertRaisesRegex(CommandError, "records remote 'upstream'"):
-            recovery_mod._resolve_identity(identity, remote="origin")
-
     def setUp(self) -> None:
         self.temp_dir = Path(tempfile.mkdtemp())
         self.repo, self.bare, _ = helpers.init_repo(self.temp_dir)
@@ -302,6 +215,45 @@ class SuffixRecoveryTests(unittest.TestCase):
             )
         return output.getvalue()
 
+    def _restamp_open_suffix_as_native(self, *, identity_remote: str) -> str:
+        metadata = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(
+                SourceIdentity(
+                    identity_remote,
+                    "feature/report",
+                    self.source_sha,
+                ),
+            ),
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("fix: accept review feedback", metadata),
+        )
+        head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": head,
+                "body": "Human-readable recovery context only.\n",
+            }
+        )
+        return head
+
     def test_recovers_two_position_chain_and_preserves_merged_prefix(self) -> None:
         output = self._run_recovery()
 
@@ -337,6 +289,250 @@ class SuffixRecoveryTests(unittest.TestCase):
         validation = validate_live_chain(chain, cwd=clone)
         self.assertTrue(validation.valid, validation.errors)
         self.assertEqual(self.successor_sha, chain.source_sha)
+
+    def test_native_human_only_pr_recovers_through_public_workflow(self) -> None:
+        native_head = self._restamp_open_suffix_as_native(identity_remote="origin")
+
+        output = self._run_recovery()
+
+        recovered_head = self._remote_head("feature/report-2")
+        self.assertNotEqual(native_head, recovered_head)
+        self.assertEqual(
+            "Human-readable recovery context only.\n",
+            self.prs[102].body,
+        )
+        metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_head,
+            )
+        )
+        self.assertEqual(3, metadata.version)
+        self.assertEqual(2, len(metadata.source_lineage))
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_public_recovery_rejects_lineage_from_another_remote(self) -> None:
+        self._restamp_open_suffix_as_native(identity_remote="upstream")
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*root source",
+        ):
+            self._run_recovery()
+
+    def test_non_origin_public_recovery_finds_historical_predecessor(self) -> None:
+        case_dir = self.temp_dir / "non-origin"
+        case_dir.mkdir()
+        repo, bare, source_sha = helpers.init_repo(case_dir)
+        helpers.run(repo, "git", "remote", "add", "upstream", str(bare))
+        helpers.run(repo, "git", "fetch", "upstream")
+        root = SourceIdentity("feature/report", source_sha)
+
+        helpers.run(repo, "git", "checkout", "-b", "feature/report-1", "main")
+        source_text = helpers.run(repo, "git", "show", "feature/report:source.txt")
+        (repo / "source.txt").write_text(source_text + "\n")
+        helpers.run(repo, "git", "add", "source.txt")
+        first_metadata = ChangesetMetadata("part-1", 1, root.branch, root.sha)
+        first_head = helpers.commit(
+            repo,
+            stamp_commit_message("feat: changeset 1", first_metadata),
+        )
+        helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-1")
+        helpers.run(repo, "git", "checkout", "main")
+        helpers.run(
+            repo,
+            "git",
+            "merge",
+            "--no-ff",
+            "--no-edit",
+            "feature/report-1",
+        )
+        merge_sha = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(repo, "git", "push", "upstream", "main")
+
+        helpers.run(
+            repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-2",
+            "main",
+        )
+        (repo / "second.txt").write_text("second source part\n")
+        helpers.run(repo, "git", "add", "second.txt")
+        second_metadata = ChangesetMetadata("part-2", 2, root.branch, root.sha)
+        second_head = helpers.commit(
+            repo,
+            stamp_commit_message("feat: changeset 2", second_metadata),
+        )
+        helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-2")
+        helpers.run(
+            repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-3",
+            "feature/report-2",
+        )
+        (repo / "third.txt").write_text("third source part\n")
+        helpers.run(repo, "git", "add", "third.txt")
+        third_metadata = ChangesetMetadata("part-3", 3, root.branch, root.sha)
+        third_head = helpers.commit(
+            repo,
+            stamp_commit_message("feat: changeset 3", third_metadata),
+        )
+        helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-3")
+        helpers.run(repo, "git", "branch", "feature/report-corrected", third_head)
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "-u",
+            "upstream",
+            "feature/report-corrected",
+        )
+
+        helpers.run(repo, "git", "checkout", "main")
+        helpers.run(repo, "git", "cherry-pick", second_head)
+        helpers.run(
+            repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message(
+                "feat: changeset 2 rewritten", second_metadata
+            ),
+        )
+        rewritten_second = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            "HEAD:refs/heads/feature/report-2",
+            f"--force-with-lease=refs/heads/feature/report-2:{second_head}",
+        )
+        helpers.run(repo, "git", "branch", "-f", "feature/report-2", rewritten_second)
+        helpers.run(repo, "git", "checkout", "feature/report-3")
+        helpers.run(repo, "git", "branch", "-f", "main", merge_sha)
+
+        prs = {
+            101: PullRequestRecord(
+                number=101,
+                head_branch="feature/report-1",
+                head_sha=first_head,
+                base_branch="main",
+                state="MERGED",
+                body=embed_pr_metadata("Position 1\n", first_metadata),
+                merge_sha=merge_sha,
+            ),
+            102: PullRequestRecord(
+                number=102,
+                head_branch="feature/report-2",
+                head_sha=rewritten_second,
+                base_branch="main",
+                state="OPEN",
+                body=embed_pr_metadata("Position 2\n", second_metadata),
+            ),
+            103: PullRequestRecord(
+                number=103,
+                head_branch="feature/report-3",
+                head_sha=third_head,
+                base_branch="feature/report-2",
+                state="OPEN",
+                body=embed_pr_metadata("Position 3\n", third_metadata),
+            ),
+        }
+
+        def remote_head(branch: str) -> str:
+            output = helpers.run(
+                repo,
+                "git",
+                "ls-remote",
+                "upstream",
+                f"refs/heads/{branch}",
+            )
+            return output.split()[0]
+
+        def live_pr(number: int, **_kwargs) -> PullRequestRecord:
+            pr = prs[number]
+            return PullRequestRecord(
+                **{**pr.__dict__, "head_sha": remote_head(pr.head_branch)}
+            )
+
+        def all_live_prs(*_args, **_kwargs) -> list[PullRequestRecord]:
+            return [live_pr(number) for number in sorted(prs)]
+
+        def edit_pr(number: int, *, body=None, **_kwargs) -> None:
+            prs[number] = PullRequestRecord(
+                **{
+                    **prs[number].__dict__,
+                    "body": body if body is not None else prs[number].body,
+                }
+            )
+
+        with (
+            chdir(repo),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "edit_pull_request",
+                side_effect=edit_pr,
+            ),
+        ):
+            recover_suffix_from_live(
+                source="feature/report",
+                base="main",
+                from_index=2,
+                successor_branch="feature/report-corrected",
+                successor_sha=third_head,
+                remote="upstream",
+                dry_run=False,
+                authority_acknowledged=True,
+            )
+
+        recovered_first = remote_head("feature/report-1")
+        recovered_second = remote_head("feature/report-2")
+        recovered_third = remote_head("feature/report-3")
+        self.assertEqual(first_head, recovered_first)
+        self.assertNotEqual(rewritten_second, recovered_second)
+        self.assertNotEqual(third_head, recovered_third)
+        metadata = parse_commit_message(
+            helpers.run(
+                repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_third,
+            ),
+            remote="upstream",
+        )
+        self.assertEqual(
+            ("upstream", "upstream"),
+            tuple(identity.remote for identity in metadata.source_lineage),
+        )
+        self.assertEqual(metadata, parse_pr_metadata(prs[103].body, remote="upstream"))
 
     def test_recovery_rejects_original_source_mutation(self) -> None:
         helpers.run(self.repo, "git", "checkout", "feature/report")

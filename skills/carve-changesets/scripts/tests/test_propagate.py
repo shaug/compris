@@ -17,6 +17,7 @@ from metadata import (
     ChangesetMetadata,
     SourceIdentity,
     embed_pr_metadata,
+    parse_commit_message,
     stamp_commit_message,
 )
 from propagate import (
@@ -25,93 +26,10 @@ from propagate import (
     push_chain,
     push_changeset_branch,
 )
-from rehydrate import ChangesetRecord, PullRequestRecord
+from rehydrate import PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
-    def test_durable_predecessor_normalizes_selected_non_origin_remote(self) -> None:
-        root = SourceIdentity("upstream", "feature/report", "a" * 40)
-        previous_metadata = ChangesetMetadata(
-            "part-1",
-            1,
-            root.branch,
-            root.sha,
-            source_lineage=(root,),
-            marker_version=1,
-        )
-        previous = ChangesetRecord(
-            previous_metadata,
-            "feature/report-1",
-            "b" * 40,
-            "main",
-        )
-        record = ChangesetRecord(
-            ChangesetMetadata(
-                "part-2",
-                2,
-                root.branch,
-                root.sha,
-                source_lineage=(root,),
-                marker_version=1,
-            ),
-            "feature/report-2",
-            "c" * 40,
-            "feature/report-1",
-        )
-        historical = "d" * 40
-        message = stamp_commit_message("feat: changeset 1", previous_metadata)
-
-        def git_result(*args, **_kwargs):
-            stdout = historical if args[0] == "rev-list" else message
-            return mock.Mock(stdout=stdout)
-
-        with (
-            mock.patch.object(propagate_mod, "_is_ancestor", return_value=False),
-            mock.patch.object(propagate_mod, "git", side_effect=git_result),
-        ):
-            predecessor = propagate_mod._durable_predecessor(record, previous)
-
-        self.assertEqual(historical, predecessor)
-
-    def test_native_downstream_verification_uses_exact_head_not_pr_body(self) -> None:
-        head = "a" * 40
-        metadata = ChangesetMetadata(
-            slug="payments",
-            source_lineage=(SourceIdentity("origin", "feature/source", head),),
-        )
-        record = ChangesetRecord(
-            metadata=metadata,
-            branch="feature/source-1",
-            head=head,
-            base="main",
-            pr_number=91,
-            pr_state="OPEN",
-            topology_position=1,
-        )
-        pull_request = PullRequestRecord(
-            number=91,
-            head_branch=record.branch,
-            head_sha=head,
-            base_branch="main",
-            state="OPEN",
-            body="Human-readable context only.\n",
-        )
-
-        with (
-            mock.patch.object(
-                propagate_mod, "pull_request_by_number", return_value=pull_request
-            ),
-            mock.patch.object(propagate_mod, "remote_branch_head", return_value=head),
-        ):
-            verified = propagate_mod._verify_live_downstream(
-                record,
-                expected_remote_head=head,
-                allowed_bases={"main"},
-                remote="origin",
-            )
-
-        self.assertEqual(pull_request, verified)
-
     def test_propagation_push_rejects_remote_head_moved_since_rehydration(self) -> None:
         with (
             mock.patch("propagate.remote_branch_head", return_value="b" * 40),
@@ -409,6 +327,90 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("Report API (2 of 3)", self.prs[102].title)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
+    def test_native_human_only_prs_propagate_through_public_workflow(self) -> None:
+        self._merge(101)
+        human_bodies: dict[int, str] = {}
+        lineage = (SourceIdentity("origin", "feature/report", self.source_sha),)
+
+        def restamp_native(index: int) -> str:
+            branch = f"feature/report-{index}"
+            helpers.run(self.repo, "git", "checkout", branch)
+            metadata = ChangesetMetadata(slug=f"part-{index}", source_lineage=lineage)
+            helpers.run(
+                self.repo,
+                "git",
+                "commit",
+                "--amend",
+                "-F",
+                "-",
+                input_text=stamp_commit_message(f"feat: changeset {index}", metadata),
+            )
+            head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+            helpers.run(
+                self.repo,
+                "git",
+                "push",
+                "--force-with-lease",
+                "origin",
+                branch,
+            )
+            human_bodies[100 + index] = f"Human context for layer {index}.\n"
+            self.prs[100 + index] = PullRequestRecord(
+                **{
+                    **self.prs[100 + index].__dict__,
+                    "head_sha": head,
+                    "body": human_bodies[100 + index],
+                }
+            )
+            return head
+
+        old_second = self.prs[102].head_sha
+        native_second = restamp_native(2)
+        helpers.run(self.repo, "git", "checkout", "feature/report-3")
+        helpers.run(
+            self.repo,
+            "git",
+            "rebase",
+            "--onto",
+            native_second,
+            old_second,
+            "feature/report-3",
+        )
+        restamp_native(3)
+
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ),
+        ):
+            propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=101,
+                index=None,
+                strategy="rebase",
+                remote="origin",
+                dry_run=False,
+                authority_acknowledged=True,
+            )
+
+        for number in (102, 103):
+            self.assertEqual(human_bodies[number], self.prs[number].body)
+            head = self._live_pr(number).head_sha
+            metadata = parse_commit_message(
+                helpers.run(self.repo, "git", "show", "-s", "--format=%B", head)
+            )
+            self.assertEqual(3, metadata.version)
+
     def test_execution_requires_authority_acknowledgement(self) -> None:
         with chdir(self.repo):
             with self.assertRaisesRegex(CommandError, "ack-merge-and-propagate"):
@@ -464,8 +466,9 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("main", self.prs[102].base_branch)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
-    def test_partial_propagation_resumes_only_missing_remote_work(self) -> None:
+    def test_non_origin_partial_propagation_resumes_public_workflow(self) -> None:
         self._merge(101)
+        helpers.run(self.repo, "git", "remote", "add", "upstream", str(self.bare))
         old_second = self._live_pr(102).head_sha
         old_third = self._live_pr(103).head_sha
 
@@ -495,7 +498,7 @@ class StatelessPropagationTests(unittest.TestCase):
                     pr_number=101,
                     index=None,
                     strategy="rebase",
-                    remote="origin",
+                    remote="upstream",
                     dry_run=False,
                     authority_acknowledged=True,
                 )
@@ -503,6 +506,7 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertNotEqual(old_second, self._live_pr(102).head_sha)
         self.assertEqual(old_third, self._live_pr(103).head_sha)
         clone = self._fresh_clone("partial-frontier")
+        helpers.run(clone, "git", "remote", "add", "upstream", str(self.bare))
         real_push = propagate_mod.push_changeset_branch
         with (
             chdir(clone),
@@ -527,7 +531,7 @@ class StatelessPropagationTests(unittest.TestCase):
                 pr_number=101,
                 index=None,
                 strategy="rebase",
-                remote="origin",
+                remote="upstream",
                 dry_run=False,
                 authority_acknowledged=True,
             )
@@ -537,6 +541,12 @@ class StatelessPropagationTests(unittest.TestCase):
         )
         self.assertEqual("main", self.prs[102].base_branch)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
+        third = self._live_pr(103).head_sha
+        metadata = parse_commit_message(
+            helpers.run(clone, "git", "show", "-s", "--format=%B", third),
+            remote="upstream",
+        )
+        self.assertEqual("upstream", metadata.root_source.remote)
 
     def test_pr_state_change_after_planning_withholds_force_push(self) -> None:
         self._merge(101)
