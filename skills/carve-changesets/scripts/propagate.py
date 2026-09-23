@@ -23,6 +23,7 @@ from github import (
     pull_requests_for_source,
 )
 from metadata import MetadataError, parse_commit_message, parse_pr_metadata
+from publication import verify_lineage_for_publication
 from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
@@ -94,6 +95,8 @@ def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
     base = plan["base_branch"]
     source = plan["source_branch"]
     chain = _ensure_chain_exists(source, len(plan["changesets"]))
+    if not dry_run:
+        verify_lineage_for_publication(chain, remote=remote)
     print(
         f"[INFO] Base branch {base} is intentionally excluded. Push or update it "
         "separately with a verified fast-forward-only workflow."

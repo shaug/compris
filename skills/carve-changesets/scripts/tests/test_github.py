@@ -177,6 +177,7 @@ class GithubTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             with chdir(repo_dir):
                 create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
                 run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
                 head = run(
                     ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
@@ -226,6 +227,36 @@ class GithubTests(unittest.TestCase):
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 
+    def test_pr_create_rejects_a_different_stamped_remote_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan, remote="upstream")
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "records remote"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_non_dry_run_pr_create_executes_against_a_gh_stub(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
@@ -234,6 +265,7 @@ class GithubTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             with chdir(repo_dir):
                 create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
                 run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
                 head = run(
                     ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
@@ -328,7 +360,6 @@ class GithubTests(unittest.TestCase):
         repo_dir, plan = init_repo()
         try:
             with chdir(repo_dir):
-                create_chain(plan)
                 run(
                     ["git", "remote", "add", "origin", "git@github.com:wrong/repo.git"],
                     cwd=repo_dir,
@@ -343,6 +374,7 @@ class GithubTests(unittest.TestCase):
                     ],
                     cwd=repo_dir,
                 )
+                create_chain(plan, remote="release")
                 head = run(
                     ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
                 ).stdout.strip()
@@ -362,6 +394,9 @@ class GithubTests(unittest.TestCase):
                     mock.patch.object(
                         github_mod, "_local_remote_head", return_value=head
                     ),
+                    mock.patch.object(
+                        github_mod, "verify_lineage_for_publication"
+                    ) as provenance,
                     mock.patch.object(github_mod, "gh_capture") as create_call,
                     mock.patch.object(
                         github_mod, "gh_json", return_value=created
@@ -372,6 +407,9 @@ class GithubTests(unittest.TestCase):
                     )
 
                 repository = "github.enterprise.test/acme/widgets"
+                provenance.assert_called_once_with(
+                    ("feature/test-1",), remote="release"
+                )
                 auth.assert_called_once_with(repository)
                 self.assertIn(
                     ("-R", repository),

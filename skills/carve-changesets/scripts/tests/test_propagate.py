@@ -30,6 +30,43 @@ from rehydrate import PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
+    def test_push_chain_rejects_missing_recorded_source_before_any_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                with mock.patch("propagate.push_changeset_branch") as push:
+                    with self.assertRaisesRegex(CommandError, "is unavailable"):
+                        push_chain(plan, remote="origin", dry_run=False)
+            push.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_push_chain_rejects_moved_recorded_source_before_any_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                (repo_dir / "after-carve.txt").write_text("advanced source\n")
+                run(["git", "add", "after-carve.txt"], cwd=repo_dir)
+                helpers.commit(repo_dir, "advance source")
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                with mock.patch("propagate.push_changeset_branch") as push:
+                    with self.assertRaisesRegex(CommandError, "moved from"):
+                        push_chain(plan, remote="origin", dry_run=False)
+            push.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_propagation_push_rejects_remote_head_moved_since_rehydration(self) -> None:
         with (
             mock.patch("propagate.remote_branch_head", return_value="b" * 40),
@@ -671,6 +708,7 @@ class StatelessPropagationTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             with chdir(repo_dir):
                 create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
                 push_chain(plan, remote="origin", dry_run=False)
 
             for branch in ("feature/test-1", "feature/test-2"):

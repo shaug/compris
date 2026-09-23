@@ -25,6 +25,7 @@ from metadata import (
     parse_commit_message,
     parse_pr_metadata,
 )
+from publication import verify_lineage_for_publication
 from rehydrate import PullRequestRecord
 
 _PR_JSON_FIELDS = (
@@ -224,8 +225,6 @@ def pr_create(
     ensure_git_repo()
     ensure_clean_tree()
     repository = github_repo_for_remote(remote)
-    if not dry_run:
-        ensure_gh_ready(repository)
 
     base = plan["base_branch"]
     source = plan["source_branch"]
@@ -244,6 +243,9 @@ def pr_create(
         if not dry_run
         else {}
     )
+    if not dry_run:
+        verify_lineage_for_publication(tuple(expected_heads), remote=remote)
+        ensure_gh_ready(repository)
     for index in indices:
         head = branch_name_for(source, index)
         pr_base = base_for_changeset(base, source, index)
