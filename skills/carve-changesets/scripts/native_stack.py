@@ -248,7 +248,7 @@ def reconcile_native_stack(
     available_local_heads = local_heads or {}
     for layer in snapshot.layers:
         native_pr = layer.pull_request
-        if native_pr is None:
+        if native_pr is None or layer.branch in available_local_heads:
             local_head = available_local_heads.get(layer.branch)
             if local_head != layer.head:
                 shown_local = local_head if local_head is not None else "missing"
