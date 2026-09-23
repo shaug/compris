@@ -8,7 +8,8 @@ from unittest import mock
 
 import helpers
 from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
-from rehydrate import PullRequestRecord, rehydrate_chain
+from native_stack import NativeLayer, NativePullRequest, NativeStackSnapshot
+from rehydrate import PullRequestRecord, adopt_legacy_chain, rehydrate_chain
 from validate import validate_live_chain
 
 
@@ -54,7 +55,7 @@ class LiveValidationTests(unittest.TestCase):
         return heads
 
     def _rehydrate(self):
-        return rehydrate_chain(
+        return adopt_legacy_chain(
             source_branch="feature/report", base_branch="main", cwd=self.repo
         )
 
@@ -198,21 +199,38 @@ class LiveValidationTests(unittest.TestCase):
             ),
         )
         head = helpers.commit(self.repo, stamp_commit_message("feat: report", metadata))
+        pull_request = PullRequestRecord(
+            number=91,
+            head_branch="feature/report-1",
+            head_sha=head,
+            base_branch="main",
+            state="OPEN",
+            body="Human-readable context only.\n",
+        )
         chain = rehydrate_chain(
             source_branch="feature/report",
-            base_branch="main",
-            cwd=self.repo,
-            remote="upstream",
-            pull_requests=(
-                PullRequestRecord(
-                    number=91,
-                    head_branch="feature/report-1",
-                    head_sha=head,
-                    base_branch="main",
-                    state="OPEN",
-                    body="Human-readable context only.\n",
+            native_snapshot=NativeStackSnapshot(
+                trunk_branch="main",
+                trunk_head=helpers.run(self.repo, "git", "rev-parse", "main"),
+                current_branch="feature/report-1",
+                layers=(
+                    NativeLayer(
+                        branch="feature/report-1",
+                        head=head,
+                        base=helpers.run(self.repo, "git", "rev-parse", "main"),
+                        merged=False,
+                        queued=False,
+                        needs_rebase=False,
+                        pull_request=NativePullRequest(
+                            number=91,
+                            url="https://github.com/acme/widgets/pull/91",
+                            state="OPEN",
+                        ),
+                    ),
                 ),
             ),
+            cwd=self.repo,
+            pull_requests=(pull_request,),
         )
 
         result = validate_live_chain(chain, cwd=self.repo, remote="upstream")

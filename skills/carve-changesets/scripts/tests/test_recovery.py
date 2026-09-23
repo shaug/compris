@@ -22,7 +22,7 @@ from metadata import (
     stamp_commit_message,
 )
 from recovery import recover_suffix_from_live
-from rehydrate import PullRequestRecord, rehydrate_chain
+from rehydrate import PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
 
@@ -280,7 +280,7 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         clone = self.temp_dir / "fresh"
         helpers.run(self.temp_dir, "git", "clone", str(self.bare), str(clone))
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch="feature/report",
             base_branch="main",
             pull_requests=self._all_live_prs(),

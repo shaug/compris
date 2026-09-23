@@ -39,7 +39,7 @@ from rehydrate import (
     ChangesetRecord,
     PullRequestRecord,
     RehydrationError,
-    rehydrate_chain,
+    adopt_legacy_chain,
 )
 from validate import validate_live_chain
 
@@ -302,7 +302,7 @@ def recover_suffix_from_live(
     pull_requests = pull_requests_for_source(source, remote=remote)
     _ensure_pr_heads_available(pull_requests, remote=remote)
     try:
-        chain = rehydrate_chain(
+        chain = adopt_legacy_chain(
             source_branch=source,
             base_branch=base,
             pull_requests=pull_requests,
@@ -467,7 +467,7 @@ def recover_suffix_from_live(
 
     git("fetch", "--prune", remote)
     live_prs = pull_requests_for_source(source, remote=remote)
-    recovered = rehydrate_chain(
+    recovered = adopt_legacy_chain(
         source_branch=source,
         base_branch=base,
         pull_requests=live_prs,
