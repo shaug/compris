@@ -23,7 +23,13 @@ from common import (
     git,
     unique_temp_branch,
 )
-from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
+from metadata import (
+    ChangesetMetadata,
+    MetadataError,
+    SourceIdentity,
+    parse_commit_message,
+    stamp_commit_message,
+)
 from patch_apply import (
     apply_patch_file,
     apply_patch_text,
@@ -334,6 +340,21 @@ def create_chain(plan: Dict, *, remote: str = "origin") -> List[str]:
 
     start_index = existing_prefix + 1
     if existing_prefix > 0:
+        expected_source = SourceIdentity(remote, source, source_sha)
+        for name in chain[:existing_prefix]:
+            message = git("show", "-s", "--format=%B", name).stdout
+            try:
+                metadata = parse_commit_message(message, remote=remote)
+            except MetadataError as exc:
+                raise CommandError(
+                    f"Existing changeset branch {name} has invalid source identity: {exc}"
+                ) from exc
+            if metadata.source_lineage != (expected_source,):
+                raise CommandError(
+                    f"Existing changeset branch {name} has source identity "
+                    f"{metadata.active_source.trailer}; expected "
+                    f"{expected_source.trailer}."
+                )
         print(
             f"[INFO] Reusing existing changeset branches through index {existing_prefix}."
         )

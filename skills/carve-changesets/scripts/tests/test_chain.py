@@ -171,6 +171,70 @@ class ChainTests(unittest.TestCase):
         finally:
             shutil.rmtree(repo_dir)
 
+    def test_create_chain_rejects_a_reused_prefix_from_another_remote(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            from legacy_helpers import run
+
+            with chdir(repo_dir):
+                create_chain(plan)
+                plan["changesets"].append(
+                    {
+                        "slug": "noop-3",
+                        "description": "Append only after validating the prefix.",
+                        "include_paths": ["does-not-exist.txt"],
+                        "exclude_paths": [],
+                        "commit_message": "cs3",
+                        "pr_notes": [],
+                    }
+                )
+
+                with self.assertRaisesRegex(CommandError, "source identity"):
+                    create_chain(plan, remote="upstream")
+
+                missing = run(
+                    ["git", "rev-parse", "--verify", "feature/test-3"],
+                    cwd=repo_dir,
+                    check=False,
+                )
+                self.assertNotEqual(0, missing.returncode)
+        finally:
+            shutil.rmtree(repo_dir)
+
+    def test_create_chain_rejects_a_reused_prefix_after_source_advances(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            from legacy_helpers import run
+
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "checkout", plan["source_branch"]], cwd=repo_dir)
+                (repo_dir / "later.txt").write_text("later source work\n")
+                run(["git", "add", "later.txt"], cwd=repo_dir)
+                commit(repo_dir, "advance source")
+                plan["changesets"].append(
+                    {
+                        "slug": "later",
+                        "description": "Append only after validating the prefix.",
+                        "include_paths": ["later.txt"],
+                        "exclude_paths": [],
+                        "commit_message": "cs3",
+                        "pr_notes": [],
+                    }
+                )
+
+                with self.assertRaisesRegex(CommandError, "source identity"):
+                    create_chain(plan)
+
+                missing = run(
+                    ["git", "rev-parse", "--verify", "feature/test-3"],
+                    cwd=repo_dir,
+                    check=False,
+                )
+                self.assertNotEqual(0, missing.returncode)
+        finally:
+            shutil.rmtree(repo_dir)
+
 
 if __name__ == "__main__":
     unittest.main()

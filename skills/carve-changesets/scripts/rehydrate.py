@@ -69,6 +69,7 @@ class Chain:
     root_source_sha: str
     source_lineage: tuple[SourceIdentity, ...]
     changesets: tuple[ChangesetRecord, ...]
+    native_topology: bool
 
     @property
     def active_source(self) -> SourceIdentity:
@@ -438,6 +439,7 @@ def adopt_legacy_chain(
         root_source_sha=root_source.sha,
         source_lineage=source_lineage,
         changesets=tuple(records),
+        native_topology=False,
     )
 
 
@@ -558,4 +560,5 @@ def rehydrate_chain(
         root_source_sha=root_source.sha,
         source_lineage=source_lineage,
         changesets=tuple(records),
+        native_topology=True,
     )

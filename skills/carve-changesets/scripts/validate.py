@@ -169,7 +169,24 @@ def validate_live_chain(
 
     live_heads: dict[int, tuple[str, str]] | None
     try:
-        live_heads = discover_changeset_heads(repo, chain.source_branch, remote)
+        if chain.native_topology:
+            live_heads = {}
+            for changeset in chain.changesets:
+                local = _resolve(repo, f"refs/heads/{changeset.branch}^{{commit}}")
+                published = _resolve(
+                    repo,
+                    f"refs/remotes/{remote}/{changeset.branch}^{{commit}}",
+                )
+                if local is not None and published is not None and local != published:
+                    raise RehydrationError(
+                        f"Changeset branch {changeset.branch} is ambiguous: local "
+                        f"head {local} differs from {remote} head {published}."
+                    )
+                head = published or local
+                if head is not None:
+                    live_heads[changeset.position] = (changeset.branch, head)
+        else:
+            live_heads = discover_changeset_heads(repo, chain.source_branch, remote)
     except RehydrationError as exc:
         live_heads = None
         diagnostics.append(
@@ -187,7 +204,9 @@ def validate_live_chain(
             for item in chain.changesets
             if item.pr_state != "MERGED" and item.position not in live_heads
         }
-        unexpected = set(live_heads) - expected_indices
+        unexpected = (
+            set(live_heads) - expected_indices if not chain.native_topology else set()
+        )
         if missing_open or unexpected:
             diagnostics.append(
                 ValidationDiagnostic(
