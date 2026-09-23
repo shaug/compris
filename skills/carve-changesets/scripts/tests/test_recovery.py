@@ -274,8 +274,11 @@ class SuffixRecoveryTests(unittest.TestCase):
             ("feature/report", "feature/report-corrected"),
             tuple(identity.branch for identity in metadata.source_lineage),
         )
+        self.assertEqual(3, metadata.version)
+        self.assertIsNone(metadata.legacy_position)
         self.assertEqual(self.fixed_head, metadata.recovery_from_head)
-        self.assertEqual(metadata, parse_pr_metadata(self.prs[102].body))
+        self.assertEqual("Position 2\n", self.prs[102].body)
+        self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
         self.assertIn("EVIDENCE-INVALIDATED", output)
 
         clone = self.temp_dir / "fresh"
@@ -532,7 +535,12 @@ class SuffixRecoveryTests(unittest.TestCase):
             ("upstream", "upstream"),
             tuple(identity.remote for identity in metadata.source_lineage),
         )
-        self.assertEqual(metadata, parse_pr_metadata(prs[103].body, remote="upstream"))
+        self.assertEqual(3, metadata.version)
+        self.assertIsNone(metadata.legacy_position)
+        self.assertEqual("Position 2\n", prs[102].body)
+        self.assertEqual("Position 3\n", prs[103].body)
+        self.assertNotIn("carve-changesets:metadata", prs[102].body)
+        self.assertNotIn("carve-changesets:metadata", prs[103].body)
 
     def test_recovery_rejects_original_source_mutation(self) -> None:
         helpers.run(self.repo, "git", "checkout", "feature/report")
@@ -629,6 +637,12 @@ class SuffixRecoveryTests(unittest.TestCase):
         pushed_head = self._remote_head("feature/report-2")
         self.assertNotEqual(self.fixed_head, pushed_head)
         self.assertEqual(
+            3,
+            parse_commit_message(
+                helpers.run(self.repo, "git", "show", "-s", "--format=%B", pushed_head)
+            ).version,
+        )
+        self.assertEqual(
             2,
             len(
                 parse_commit_message(
@@ -643,12 +657,8 @@ class SuffixRecoveryTests(unittest.TestCase):
         output = self._run_recovery(edit_side_effect=fail_once)
 
         self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
-        self.assertEqual(
-            parse_commit_message(
-                helpers.run(self.repo, "git", "show", "-s", "--format=%B", pushed_head)
-            ),
-            parse_pr_metadata(self.prs[102].body),
-        )
+        self.assertEqual("Position 2\n", self.prs[102].body)
+        self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
         self.assertIn("Suffix recovery completed", output)
 
 

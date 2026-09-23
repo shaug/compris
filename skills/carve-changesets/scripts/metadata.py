@@ -533,11 +533,17 @@ def render_pr_metadata(metadata: ChangesetMetadata) -> str:
 def embed_pr_metadata(body: str, metadata: ChangesetMetadata) -> str:
     """Preserve human prose for v3; append or replace legacy metadata blocks."""
 
-    if metadata.version == 3:
-        return body
     matches = list(_BLOCK_RE.finditer(body))
     if len(matches) > 1:
         raise MetadataError("PR body contains multiple changeset metadata blocks.")
+    if metadata.version == 3:
+        if not matches:
+            return body
+        match = matches[0]
+        before = body[: match.start()].rstrip()
+        after = body[match.end() :].strip()
+        prose = "\n\n".join(part for part in (before, after) if part)
+        return prose + ("\n" if prose else "")
     block = render_pr_metadata(metadata)
     if matches:
         match = matches[0]

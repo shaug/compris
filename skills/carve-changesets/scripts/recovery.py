@@ -110,18 +110,8 @@ def _metadata_for_recovery(
             f"Changeset {record.position} does not carry the current lineage "
             "or the requested successor lineage."
         )
-    if record.metadata.version == 3:
-        return ChangesetMetadata(
-            slug=record.metadata.slug,
-            source_lineage=target_lineage,
-            recovery_from_head=record.head,
-        )
-    successor = target_lineage[-1]
     return ChangesetMetadata(
         slug=record.metadata.slug,
-        index=record.position,
-        source_branch=successor.branch,
-        source_sha=successor.sha,
         source_lineage=target_lineage,
         recovery_from_head=record.head,
     )
@@ -409,10 +399,7 @@ def recover_suffix_from_live(
                         local_ref=temp_by_index[index],
                     )
                 updated_body = embed_pr_metadata(live.body, metadata)
-                if (
-                    metadata.version in {1, 2}
-                    and parse_pr_metadata(live.body, remote=remote) != metadata
-                ):
+                if updated_body != live.body:
                     edit_pull_request(
                         live.number,
                         remote=remote,

@@ -161,6 +161,21 @@ class MetadataTests(unittest.TestCase):
         self.assertNotIn("carve-changesets:metadata", body)
         self.assertEqual(metadata, parse_commit_message(message))
 
+    def test_v3_embedding_removes_one_legacy_block_and_preserves_prose(self) -> None:
+        native = ChangesetMetadata(
+            slug="payments",
+            source_lineage=(SourceIdentity("upstream", "feature/payments", "a" * 40),),
+        )
+        legacy = embed_pr_metadata(
+            "Before metadata.\n\nAfter metadata.\n",
+            self.metadata,
+        )
+
+        updated = embed_pr_metadata(legacy, native)
+
+        self.assertEqual("Before metadata.\n\nAfter metadata.\n", updated)
+        self.assertNotIn("carve-changesets:metadata", updated)
+
     def test_v3_requires_non_empty_unique_remote_source_lineage(self) -> None:
         with self.assertRaisesRegex(MetadataError, "lineage.*non-empty"):
             ChangesetMetadata(slug="payments", source_lineage=())
