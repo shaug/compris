@@ -84,8 +84,8 @@ rehydrated chain. Immediately before handoff, capture and verify:
 
 - repository, PR number and URL, head repository, branch, head SHA, base branch,
   and base SHA;
-- changeset index, slug, source identity, required metadata, complete diff,
-  resulting tree, and commit history;
+- live changeset position, slug, source lineage, required commit identity,
+  complete diff, resulting tree, and commit history;
 - tracked, staged, unstaged, untracked, and ignored worktree state;
 - focused and full validation evidence and the current clean per-changeset
   review result;

@@ -192,8 +192,9 @@ Every materialized and published chain must remain ordinary git and GitHub:
 - every PR is based on its predecessor changeset branch, except the first PR,
   which is based on the base branch;
 - no synthetic refs or tool-specific metadata stores are required; and
-- skill metadata is carried only by commit trailers and delimited PR metadata
-  blocks.
+- native skill metadata is carried only by commit trailers. PR bodies remain
+  human-readable prose; historical v1/v2 metadata blocks are read-only
+  compatibility evidence, never the native write format.
 
 Materialized changesets are append-only: they are not silently reordered or
 renumbered. PR titles may report `(N of M)`, with `M` updated when changesets
@@ -215,7 +216,7 @@ Truth moves forward through four phases:
 ```text
 proposed (plan file)
   -> materialized (branch and commit trailers)
-  -> published (PR metadata)
+  -> published (live remote branch and PR topology)
   -> recovered (successor lineage on owned unmerged suffix)
   -> merged (mainline)
 ```
@@ -243,7 +244,8 @@ nothing stronger.
 #### Materialized
 
 A changeset becomes materialized only when a local branch exists at a validated
-commit whose trailers identify its chain position and source identity.
+commit whose trailers identify its semantic slug and source lineage. Its
+position comes from the live branch chain, not durable positional metadata.
 
 - May read: live git refs, commit ancestry, commit trailers, source and base
   trees, approved validation results, and plan entries for proposals not yet
@@ -261,15 +263,16 @@ requires an explicit new git commit and renewed validation.
 **Before authoring or updating a changeset PR body, read
 [the cognitive prose contract](cognitive-prose.md).** It governs the ordinary
 body content required below; read it before `push-chain` opens or updates any
-changeset PR. Required chain metadata remains part of the body.
+changeset PR. Native chain metadata does not belong in the body.
 
 A changeset becomes published only when its branch is pushed and an open PR
 represents its exact current commit and intended predecessor base.
 
 - May read: live remote branches, git ancestry, commit trailers, PR head and
-  base identities, PR metadata blocks, reviews, checks, and mergeability.
-- Must write: the pushed changeset branch, one PR with the required metadata
-  block, and ordinary PR title and body content.
+  base identities, reviews, checks, and mergeability. Historical v1/v2 PR blocks
+  may be normalized as read-only compatibility evidence.
+- Must write: the pushed changeset branch and one PR with ordinary title and
+  human-readable body content, without a native machine metadata block.
 - Must not depend on: `.carve-changesets/plan.json` or any cached local chain
   record.
 
@@ -283,7 +286,8 @@ mainline evidence proves that the changeset result is represented on the base
 branch.
 
 - May read: live GitHub PR state, remote branch and base refs, merge commits or
-  patch-equivalent mainline trees, commit trailers, and PR metadata blocks.
+  patch-equivalent mainline trees, and commit trailers. Historical v1/v2 PR
+  blocks may remain additional read-only evidence.
 - Must write: only the authorized GitHub merge and authorized downstream chain
   propagation needed to preserve the stack after that merge.
 - Must not depend on: the plan file, cached head SHAs, deleted local branches,
@@ -299,23 +303,23 @@ contains all accepted corrections and live evidence proves that the preceding
 prefix is already represented on current base.
 
 - May read: current base and source refs, exact commit trailers, same-repository
-  PR heads and bases, PR metadata, remote branch heads, and merged PR evidence.
+  PR heads and bases, remote branch heads, and merged PR evidence. Historical
+  v1/v2 PR blocks may be normalized as read-only compatibility evidence.
 - Must write: new suffix commits carrying continuous lineage, exact-lease
-  updates to exclusively owned suffix branches, matching v2 PR metadata, and
+  updates to exclusively owned suffix branches, human-readable PR bodies, and
   freshly rebuilt candidate-bound evidence.
 - Must preserve: merged prefix commits and PRs, root source identity, stable
   indexes, slugs, branch names, PR identities, and ordinary stack bases.
 - Must not depend on: the plan file, a local cache, stale validation or review
   results, or a previously observed remote head.
 
-Recovery is resumable from live refs and PR metadata. During the narrow
-branch-updated/PR-metadata-not-yet-updated interval, `recover-suffix` may
-rehydrate the exact transition only when the commit identifies the exact prior
-head, the PR block retains the immediately prior metadata, and every other
-identity is unambiguous. Recovered commit heads must form a leading prefix of
-the open suffix, and v2 PR provenance must either match its commit exactly or
-retain the immediately prior lineage during that one metadata-update interval.
-Ordinary `status` may report that interval as inconsistent; it must not silently
+Native recovery is resumable from live refs, PR topology, and v3 commit
+trailers. A recovered commit identifies the exact prior head, and recovered
+heads must form a leading prefix of the open suffix. Because native PR bodies
+carry no machine metadata, a branch update has no second PR-metadata write to
+complete. For historical v1/v2 chains only, the immediately prior PR block may
+be normalized during the narrow branch-updated/body-not-yet-updated interval;
+ordinary `status` may report that interval as inconsistent and must not silently
 accept it as a complete chain.
 
 Before any remote recovery write, every root and successor identity in the
@@ -325,38 +329,63 @@ the published lineage.
 
 ### Metadata authority
 
-Commit trailers and delimited PR metadata blocks are the only carriers of
-`carve-changesets` metadata outside the ephemeral plan file.
+Native `carve-changesets` metadata outside the ephemeral plan file is carried
+only by commit trailers.
 
 - Commit trailers identify materialized changesets in local and remote git.
-- PR metadata blocks identify published changesets and their current chain
-  relationships in GitHub.
+- Live branch ancestry and PR head/base relationships establish current chain
+  topology and publication state.
 - Mainline representation and merged PR state establish merged truth.
+- Historical v1/v2 PR blocks remain readable compatibility evidence and are
+  never created or rewritten merely to convert them to the native form.
 
-The concrete trailer fields and PR block schema must be deterministic,
-machine-readable, versioned when compatibility requires it, and specified by the
-implementation that introduces them. No local database, cached state file,
+The concrete trailer fields must be deterministic, machine-readable, versioned
+when compatibility requires it, and specified by the implementation that
+introduces them. No PR-body machine block, local database, cached state file,
 synthetic ref, label convention, comment convention, or external stacking-tool
-store may replace these carriers.
+store may replace the native trailers and live topology.
 
 #### Concrete metadata versions
 
-Version 1 is the ordinary single-source form. Each commit carries exactly one
-`Changeset-Slug`, `Changeset-Index`, and `Changeset-Source: <branch> @ <sha>`
-trailer. Its PR contains one `carve-changesets:metadata:v1` block with exactly
-`slug`, `index`, `source_branch`, and `source_sha`.
+Version 1 is a legacy ordinary single-source form. Each commit carries exactly
+one `Changeset-Slug`, `Changeset-Index`, and
+`Changeset-Source: <branch> @ <sha>` trailer. Its PR may contain one
+`carve-changesets:metadata:v1` block with exactly `slug`, `index`,
+`source_branch`, and `source_sha`.
 
-Version 2 is the recovered-suffix form. It retains those fields with
+Version 2 is a legacy recovered-suffix form. It retains those fields with
 `Changeset-Source` identifying the active successor and additionally carries:
 
 - `Changeset-Lineage`: compact JSON containing the ordered immutable
   `{"branch": ..., "sha": ...}` identities from root through active source; and
 - `Changeset-Recovery-From`: the exact pre-recovery head of that position.
 
-The matching `carve-changesets:metadata:v2` PR block contains the v1 fields plus
-`source_lineage` and `recovery_from_head`. Commit and PR metadata must
-reconstruct the same identity. Missing, duplicate, repeated-branch,
-discontinuous, or conflicting lineage fails closed.
+Its matching `carve-changesets:metadata:v2` PR block contains the v1 fields plus
+`source_lineage` and `recovery_from_head`. When both legacy commit and PR
+evidence exist, they must reconstruct the same identity.
+
+Version 3 is the native trailer-only form. Every commit carries exactly one
+`Changeset-Slug` and no `Changeset-Index`. An ordinary one-source changeset also
+carries exactly one `Changeset-Source: <remote> <branch> @ <full-lowercase-sha>`
+trailer. A successor-source changeset instead carries:
+
+- `Changeset-Lineage`: compact JSON containing the non-empty ordered immutable
+  `{"remote": ..., "branch": ..., "sha": ...}` identities from root through
+  active source; and
+- `Changeset-Recovery-From`: the exact pre-recovery head of that changeset.
+
+Every lineage identity must be unique, and a remote/branch pair must not recur
+with a different SHA. Every stamped source must exist at that exact SHA on its
+named remote before publication. Missing, duplicate, repeated-branch,
+discontinuous, unverifiable, or conflicting lineage fails closed. Version 3 has
+no durable predecessor, index, stack number, base, or PR-body metadata field:
+those positional relationships come only from live branch ancestry and PR
+head/base topology.
+
+Versions 1 and 2 are normalized in memory for read-only compatibility. Their
+original commit messages and PR bodies remain untouched unless an independently
+authorized behavior change requires a new commit; compatibility alone never
+rewrites them into version 3.
 
 ### Authority matrix
 
@@ -382,8 +411,8 @@ Includes decompose-only authority and additionally permits:
 
 - pushing changeset branches;
 - opening one correctly based PR per changeset; and
-- updating changeset PR titles, bodies, and metadata blocks to keep the
-  published chain accurate.
+- updating changeset PR titles and human-readable bodies to keep the published
+  chain accurate.
 
 Publish authority does not permit merging, force-pushing any branch, changing
 the source or base branch, or speaking in review threads unless separately
@@ -413,10 +442,10 @@ destructive data operations.
 Recovering a published suffix additionally requires explicit suffix-recovery
 acknowledgement. Under that acknowledgement, merge-and-propagate authority
 permits replacing only the exact owned unmerged suffix through
-`--force-with-lease`, updating its existing PR metadata, and rebuilding the
-stack onto current base. It never permits changing a root or successor source,
-rewriting a merged position, renumbering a materialized changeset, replacing an
-unowned or forked PR, or treating recovery as merge authority.
+`--force-with-lease`, updating its existing PR prose when needed, and rebuilding
+the stack onto current base. It never permits changing a root or successor
+source, rewriting a merged position, renumbering a materialized changeset,
+replacing an unowned or forked PR, or treating recovery as merge authority.
 
 The base branch must never be force-pushed under any authority.
 
@@ -432,7 +461,7 @@ protocol are defined in [suite-handoffs.md](suite-handoffs.md).
 - decomposition analysis and changeset boundary selection;
 - plan authoring and truth promotion;
 - chain branch creation and ordering;
-- commit-trailer and PR-metadata stamping;
+- native commit-trailer stamping and human-readable PR authoring;
 - whole-chain equivalence verification; and
 - downstream base updates and branch propagation after an upstream merge; and
 - successor-source lineage and corrected unmerged-suffix recovery.
@@ -531,7 +560,7 @@ Requires:
 - approved per-changeset validation and repository-owned review evidence;
 - whole-chain equivalence evidence against the active immutable source;
 - exact remote head and predecessor base identity for every changeset PR;
-- one open PR per changeset with current metadata;
+- one open PR per changeset whose live topology matches its commit identity;
 - every applicable non-merge gate required at the requested boundary; and
 - merge explicitly withheld or not authorized.
 
@@ -589,13 +618,15 @@ Return `blocked` without widening scope when:
 
 ### Compatibility
 
-Existing v1 chains remain valid ordinary single-source chains and require no
-migration. A published v1 chain may opt into recovery only when its exact live
-commit and PR metadata independently satisfy this contract, its merged prefix is
-represented on current base, and every suffix branch and PR is unambiguously
-same-repository and exclusively owned. Recovery upgrades only the unmerged
-suffix to v2; merged v1 metadata remains unchanged and reconstructs the root
-lineage prefix.
+Existing v1/v2 chains remain readable historical input for native adoption and
+require no metadata-only migration. Adoption requires exact live commit and PR
+evidence to agree, a represented merged prefix, and unambiguous same-repository
+ownership of every suffix branch and PR. The implementation normalizes their
+semantic slug, source lineage, recovery provenance, and legacy position in
+memory, then derives post-adoption topology from the live native stack. It does
+not amend an unchanged head merely to replace v1/v2 metadata; a later head that
+changes for an independently required semantic or recovery reason is stamped in
+the native v3 format.
 
 No backwards compatibility is provided for cached predecessor-skill chain
 snapshots, old plan files, metadata predating v1, or legacy chains. Those

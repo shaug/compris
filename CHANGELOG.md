@@ -8,6 +8,8 @@ summary: Chronological history of repository and skill changes.
 
 - feat: recover recorded source lineage
 
+- feat: establish remote source lineage contract
+
 ## 2026-09-22 — Established the native gh stack adapter baseline
 
 - fix: seal gh stack command surface (42f90991e9b2eb38ae0bdcf7f8fdcdc7109d9161)

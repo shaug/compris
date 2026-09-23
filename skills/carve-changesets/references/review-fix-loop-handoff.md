@@ -36,15 +36,15 @@ stacked base that has not finished changing.
 ## Responsibility boundary
 
 `carve-changesets` retains decomposition analysis, plan authoring, chain branch
-creation and ordering, commit-trailer and PR-metadata stamping, each changeset's
-change-contract authored content (goal and acceptance criteria derived from the
-changeset's slug and description, non-goals naming work reserved for later
-changesets, preserved behaviors from `SPEC.md`'s applicable invariants, and
-`allowed_remediation_scope` bounded to that changeset's own extraction
-selectors), the validation commands it approves, invocation construction,
-host-port implementation (see below), terminal-result validation, whole-chain
-equivalence, downstream propagation, publication-path selection, the handoff to
-`babysit-pr`, and successor-source recovery mechanics.
+creation and ordering, native commit-trailer stamping and PR prose, each
+changeset's change-contract authored content (goal and acceptance criteria
+derived from the changeset's slug and description, non-goals naming work
+reserved for later changesets, preserved behaviors from `SPEC.md`'s applicable
+invariants, and `allowed_remediation_scope` bounded to that changeset's own
+extraction selectors), the validation commands it approves, invocation
+construction, host-port implementation (see below), terminal-result validation,
+whole-chain equivalence, downstream propagation, publication-path selection, the
+handoff to `babysit-pr`, and successor-source recovery mechanics.
 
 After delegation, `review-fix-loop` owns the local candidate lock for that one
 changeset, reviewer isolation and integrity enforcement, raw
