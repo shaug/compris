@@ -24,6 +24,11 @@ from legacy_helpers import (  # noqa: E402
     init_repo,
     run,
 )
+from metadata import (  # noqa: E402
+    ChangesetMetadata,
+    SourceIdentity,
+    stamp_commit_message,
+)
 
 
 class GithubTests(unittest.TestCase):
@@ -257,6 +262,87 @@ class GithubTests(unittest.TestCase):
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 
+    def test_pr_create_rejects_divergent_unselected_layer_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "branch", "feature/alternate", "main"], cwd=repo_dir)
+                for branch in (
+                    "feature/test",
+                    "feature/alternate",
+                    "feature/test-1",
+                    "feature/test-2",
+                ):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+
+                alternate_sha = run(
+                    ["git", "rev-parse", "feature/alternate"], cwd=repo_dir
+                ).stdout.strip()
+                run(["git", "checkout", "feature/test-2"], cwd=repo_dir)
+                divergent_message = stamp_commit_message(
+                    "cs2",
+                    ChangesetMetadata(
+                        slug="rest",
+                        source_lineage=(
+                            SourceIdentity(
+                                "origin", "feature/alternate", alternate_sha
+                            ),
+                        ),
+                    ),
+                )
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8"
+                ) as message_file:
+                    message_file.write(divergent_message)
+                    message_file.flush()
+                    run(
+                        ["git", "commit", "--amend", "-F", message_file.name],
+                        cwd=repo_dir,
+                    )
+                run(
+                    ["git", "push", "--force", "origin", "feature/test-2"],
+                    cwd=repo_dir,
+                )
+
+                selected_head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                created = {
+                    "number": 91,
+                    "url": "https://example.test/pr/91",
+                    "headRefOid": selected_head,
+                    "baseRefName": "main",
+                    "body": github_mod.pr_body_for(
+                        plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                    ),
+                }
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(
+                        CommandError, "consistent source lineage"
+                    ):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_non_dry_run_pr_create_executes_against_a_gh_stub(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
@@ -408,7 +494,7 @@ class GithubTests(unittest.TestCase):
 
                 repository = "github.enterprise.test/acme/widgets"
                 provenance.assert_called_once_with(
-                    ("feature/test-1",), remote="release"
+                    ("feature/test-1", "feature/test-2"), remote="release"
                 )
                 auth.assert_called_once_with(repository)
                 self.assertIn(

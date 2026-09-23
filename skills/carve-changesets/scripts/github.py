@@ -244,7 +244,10 @@ def pr_create(
         else {}
     )
     if not dry_run:
-        verify_lineage_for_publication(tuple(expected_heads), remote=remote)
+        verify_lineage_for_publication(
+            tuple(branch_name_for(source, index) for index in range(1, total + 1)),
+            remote=remote,
+        )
         ensure_gh_ready(repository)
     for index in indices:
         head = branch_name_for(source, index)
