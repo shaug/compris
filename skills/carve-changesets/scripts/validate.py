@@ -366,7 +366,9 @@ def validate_live_chain(
         source_status = "unchanged"
     elif stamped_source is not None:
         advanced = _is_ancestor(repo, stamped_source, current_source)
-        if advanced is True:
+        if durable_remote_lineage:
+            source_status = "different"
+        elif advanced is True:
             source_status = "advanced"
             diagnostics.append(
                 ValidationDiagnostic(

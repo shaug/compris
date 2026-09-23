@@ -401,7 +401,7 @@ class ScriptIntegrationTests(unittest.TestCase):
         finally:
             shutil.rmtree(repo_dir)
 
-    def test_strict_validate_rejects_different_source_history(self) -> None:
+    def test_strict_validate_rejects_moved_native_source_ref(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
         try:
@@ -432,7 +432,7 @@ class ScriptIntegrationTests(unittest.TestCase):
 
             self.assertEqual(1, result.returncode)
             self.assertIn("source_lineage_ref_moved", result.stdout)
-            self.assertIn("source_history_mismatch", result.stdout)
+            self.assertNotIn("source_history_mismatch", result.stdout)
         finally:
             shutil.rmtree(repo_dir)
             if remote_dir is not None:

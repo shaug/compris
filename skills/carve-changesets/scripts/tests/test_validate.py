@@ -276,6 +276,8 @@ class LiveValidationTests(unittest.TestCase):
 
         self.assertFalse(result.valid)
         self.assertIn("source_lineage_ref_moved", {item.code for item in result.errors})
+        self.assertNotIn("source_advanced", {item.code for item in result.warnings})
+        self.assertEqual("different", result.source_status)
 
 
 if __name__ == "__main__":
