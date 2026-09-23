@@ -315,23 +315,34 @@ def classify_truth_phase(
     plan_validated: bool,
     snapshot: NativeStackSnapshot | None,
     reconciled: bool,
+    mainline_represented: bool = False,
 ) -> TruthPhase:
     """Classify evidence strength independently of workflow terminal readiness."""
 
-    if not plan_validated:
-        raise NativeStackError("truth phase requires a validated plan")
     if snapshot is None or not snapshot.layers:
+        if not plan_validated:
+            raise NativeStackError("proposed truth requires a validated plan")
         return TruthPhase.PROPOSED
     if not reconciled or any(layer.pull_request is None for layer in snapshot.layers):
         return TruthPhase.MATERIALIZED
     if snapshot.open_suffix:
-        return TruthPhase.PUBLISHED
+        if all(
+            layer.pull_request is not None
+            and layer.pull_request.state.upper() == "OPEN"
+            for layer in snapshot.open_suffix
+        ):
+            return TruthPhase.PUBLISHED
+        return TruthPhase.MATERIALIZED
     if all(
         layer.merged
         and layer.pull_request is not None
         and layer.pull_request.state == "MERGED"
         for layer in snapshot.layers
     ):
+        if not mainline_represented:
+            raise NativeStackError(
+                "merged truth requires verified mainline representation"
+            )
         return TruthPhase.MERGED
     raise NativeStackError(
         "reconciled native stack has no open suffix but is not verified merged"

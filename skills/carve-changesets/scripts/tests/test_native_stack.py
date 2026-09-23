@@ -351,7 +351,7 @@ class NativeStackSnapshotTest(unittest.TestCase):
         self.assertEqual(
             TruthPhase.MATERIALIZED,
             classify_truth_phase(
-                plan_validated=True, snapshot=materialized, reconciled=False
+                plan_validated=False, snapshot=materialized, reconciled=False
             ),
         )
 
@@ -359,7 +359,7 @@ class NativeStackSnapshotTest(unittest.TestCase):
         self.assertEqual(
             TruthPhase.PUBLISHED,
             classify_truth_phase(
-                plan_validated=True, snapshot=published, reconciled=True
+                plan_validated=False, snapshot=published, reconciled=True
             ),
         )
 
@@ -383,11 +383,56 @@ class NativeStackSnapshotTest(unittest.TestCase):
                 ),
             ),
         )
+        with self.assertRaisesRegex(
+            NativeStackError,
+            "verified mainline representation",
+        ):
+            classify_truth_phase(
+                plan_validated=False,
+                snapshot=merged,
+                reconciled=True,
+            )
         self.assertEqual(
             TruthPhase.MERGED,
-            classify_truth_phase(plan_validated=True, snapshot=merged, reconciled=True),
+            classify_truth_phase(
+                plan_validated=False,
+                snapshot=merged,
+                reconciled=True,
+                mainline_represented=True,
+            ),
         )
         self.assertNotEqual(TruthPhase.MERGED.value, TerminalState.ALL_MERGED)
+
+    def test_closed_pull_request_is_not_published_truth(self) -> None:
+        closed = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=A_SHA,
+            current_branch="feature-one",
+            layers=(
+                NativeLayer(
+                    branch="feature-one",
+                    head=B_SHA,
+                    base=A_SHA,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(
+                        number=101,
+                        url="https://github.com/acme/widgets/pull/101",
+                        state="CLOSED",
+                    ),
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            TruthPhase.MATERIALIZED,
+            classify_truth_phase(
+                plan_validated=False,
+                snapshot=closed,
+                reconciled=True,
+            ),
+        )
 
 
 if __name__ == "__main__":
