@@ -256,16 +256,14 @@ def reconcile_native_stack(
                     f"layer {layer.branch} local head mismatch: native {layer.head}; "
                     f"local {shown_local}"
                 )
-        if not layer.merged:
-            remote_head = remote_heads.get(layer.branch)
-            if (
-                native_pr is not None or remote_head is not None
-            ) and remote_head != layer.head:
-                shown_remote = remote_head if remote_head is not None else "missing"
-                raise NativeStackError(
-                    f"layer {layer.branch} remote head mismatch: native {layer.head}; "
-                    f"remote {shown_remote}"
-                )
+        remote_head = remote_heads.get(layer.branch)
+        remote_required = not layer.merged and native_pr is not None
+        if (remote_head is not None or remote_required) and remote_head != layer.head:
+            shown_remote = remote_head if remote_head is not None else "missing"
+            raise NativeStackError(
+                f"layer {layer.branch} remote head mismatch: native {layer.head}; "
+                f"remote {shown_remote}"
+            )
         if native_pr is None:
             previous_branch = layer.branch
             previous_merged = layer.merged

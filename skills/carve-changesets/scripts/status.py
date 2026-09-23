@@ -106,8 +106,9 @@ def status_from_live(
             f"Selected remote {remote!r} has no live trunk branch {trunk!r}."
         )
     snapshot = parse_native_stack(payload, trunk_head=trunk_head)
-    remote_branches = tuple(layer.branch for layer in snapshot.open_suffix)
-    local_branches = tuple(layer.branch for layer in snapshot.layers)
+    layer_branches = tuple(layer.branch for layer in snapshot.layers)
+    remote_branches = layer_branches
+    local_branches = layer_branches
     remote_heads = _live_remote_heads(repo, remote, remote_branches)
     local_heads = _local_heads(repo, local_branches)
     effective_pull_requests = list(pull_requests)

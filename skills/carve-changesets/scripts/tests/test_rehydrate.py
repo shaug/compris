@@ -464,6 +464,67 @@ class RehydrationTests(unittest.TestCase):
                 profile_probe=self._supported_profile_probe,
             )
 
+    def test_status_refresh_rejects_merged_layer_with_divergent_remote(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        helpers.run(self.repo, "git", "checkout", first.branch)
+        (self.repo / "divergent-merged-remote.txt").write_text("divergent\n")
+        helpers.run(self.repo, "git", "add", "divergent-merged-remote.txt")
+        divergent = helpers.commit(self.repo, "test: diverge merged remote")
+        helpers.run(self.repo, "git", "push", "origin", first.branch)
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": first.branch,
+                    "head": first.head,
+                    "base": first.base,
+                    "isCurrent": False,
+                    "isMerged": True,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": {
+                        "number": first.pull_request.number,
+                        "url": first.pull_request.url,
+                        "state": "MERGED",
+                    },
+                },
+                {
+                    "name": second.branch,
+                    "head": second.head,
+                    "base": snapshot.trunk_head,
+                    "isCurrent": True,
+                    "isMerged": False,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": {
+                        "number": second.pull_request.number,
+                        "url": second.pull_request.url,
+                        "state": second.pull_request.state,
+                    },
+                },
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {first.branch} remote head mismatch: native {first.head}; remote {divergent}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                pull_requests=[replace(prs[0], state="MERGED"), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
     def test_status_refresh_loads_exact_native_pr_numbers(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
