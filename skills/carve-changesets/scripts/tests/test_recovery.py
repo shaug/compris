@@ -327,7 +327,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         ):
             self._run_recovery()
 
-    def test_non_origin_public_recovery_finds_historical_predecessor(self) -> None:
+    def test_multi_layer_legacy_recovery_resumes_after_first_v3_push(self) -> None:
         case_dir = self.temp_dir / "non-origin"
         case_dir.mkdir()
         repo, bare, source_sha = helpers.init_repo(case_dir)
@@ -479,6 +479,64 @@ class SuffixRecoveryTests(unittest.TestCase):
                     "body": body if body is not None else prs[number].body,
                 }
             )
+
+        actual_push = recovery_mod.push_changeset_branch
+
+        def interrupt_on_third_push(branch: str, **kwargs) -> None:
+            if branch == "feature/report-3":
+                raise CommandError("injected after first suffix push")
+            actual_push(branch, **kwargs)
+
+        with (
+            chdir(repo),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "edit_pull_request",
+                side_effect=edit_pr,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "push_changeset_branch",
+                side_effect=interrupt_on_third_push,
+            ),
+        ):
+            with self.assertRaisesRegex(CommandError, "injected after first"):
+                recover_suffix_from_live(
+                    source="feature/report",
+                    base="main",
+                    from_index=2,
+                    successor_branch="feature/report-corrected",
+                    successor_sha=third_head,
+                    remote="upstream",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                )
+
+        partial_second = remote_head("feature/report-2")
+        self.assertNotEqual(rewritten_second, partial_second)
+        self.assertEqual(third_head, remote_head("feature/report-3"))
+        self.assertEqual(
+            3,
+            parse_commit_message(
+                helpers.run(repo, "git", "show", "-s", "--format=%B", partial_second),
+                remote="upstream",
+            ).version,
+        )
 
         with (
             chdir(repo),

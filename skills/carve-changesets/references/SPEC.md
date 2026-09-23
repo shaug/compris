@@ -174,12 +174,16 @@ recovered suffix position and every later recovered position carry the complete
 active lineage.
 
 Every source ref is classified against its stamped exact commit. An unchanged
-ref is clean. For an ordinary root source, a descendant may be reported as
-`source_advanced` while validation remains bound to the stamp. A successor
-source that moves, disappears, or resolves differently is an error. A ref whose
+ref is clean. Every native v3 lineage is immutable publication provenance,
+including a one-entry ordinary root: a ref that moves from its exact stamped
+commit is a `source_lineage_ref_moved` error even when the new head descends
+from the stamp, and a missing ref is a `source_lineage_ref_missing` error. The
+`source_advanced` warning remains valid only for a normalized one-entry legacy
+v1/v2 ordinary root that has no durable remote-aware lineage. A legacy ref whose
 history does not contain its stamped commit is a `source_history_mismatch`
 error. Legitimate downstream rebase propagation therefore validates cleanly:
-validation compares live ancestry and trees, never cached branch heads.
+validation compares live changeset ancestry and trees without requiring a native
+source ref to move.
 
 ### Plain git and GitHub stack shape
 

@@ -22,7 +22,12 @@ from github import (
     pull_request_by_number,
     pull_requests_for_source,
 )
-from metadata import MetadataError, parse_commit_message, parse_pr_metadata
+from metadata import (
+    ChangesetMetadata,
+    MetadataError,
+    parse_commit_message,
+    parse_pr_metadata,
+)
 from publication import verify_lineage_for_publication
 from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
@@ -338,6 +343,21 @@ def _updated_title(pr: PullRequestRecord, *, index: int, total: int) -> str:
     return f"{prefix} ({index} of {total})"
 
 
+def _matches_historical_predecessor(
+    metadata: ChangesetMetadata, previous: ChangesetRecord
+) -> bool:
+    """Match legacy history to the live topology position during migration."""
+
+    if (
+        metadata.slug != previous.metadata.slug
+        or metadata.root_source != previous.metadata.root_source
+    ):
+        return False
+    if metadata.legacy_position is not None:
+        return metadata.legacy_position == previous.position
+    return metadata.same_changeset_as(previous.metadata)
+
+
 def _durable_predecessor(
     record: ChangesetRecord,
     previous: ChangesetRecord,
@@ -356,7 +376,7 @@ def _durable_predecessor(
             )
         except MetadataError:
             continue
-        if metadata.same_changeset_as(previous.metadata):
+        if _matches_historical_predecessor(metadata, previous):
             return commit
     raise CommandError(
         missing_message
