@@ -69,7 +69,9 @@ class Runner(Protocol):
     def __call__(self, argv: Sequence[str], *, env: Mapping[str, str]) -> str: ...
 
 
-def _run(argv: Sequence[str], *, env: Mapping[str, str]) -> str:
+def _run(
+    argv: Sequence[str], *, env: Mapping[str, str], cwd: Path | str | None = None
+) -> str:
     completed = subprocess.run(
         list(argv),
         check=True,
@@ -77,6 +79,7 @@ def _run(argv: Sequence[str], *, env: Mapping[str, str]) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env={**os.environ, **env},
+        cwd=cwd,
     )
     return completed.stdout
 
@@ -156,8 +159,13 @@ def reviewed_preview_profile(
 
 
 class GhStackClient:
-    def __init__(self, runner: Runner = _run) -> None:
-        self._runner = runner
+    def __init__(
+        self,
+        runner: Runner | None = None,
+        *,
+        cwd: Path | str | None = None,
+    ) -> None:
+        self._runner = runner or (lambda argv, *, env: _run(argv, env=env, cwd=cwd))
 
     def _capture(self, args: Sequence[str]) -> str:
         if isinstance(args, (str, bytes)):
@@ -174,7 +182,13 @@ class GhStackClient:
                 "local-state authority is required"
             )
         try:
-            payload = json.loads(self._capture(("view", "--json")))
+            raw_payload = self._capture(("view", "--json"))
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise GhStackError(
+                f"gh stack view --json failed: {_probe_error(exc)}"
+            ) from exc
+        try:
+            payload = json.loads(raw_payload)
         except json.JSONDecodeError as exc:
             raise GhStackError("gh stack view --json returned invalid JSON") from exc
         if not isinstance(payload, dict):
@@ -190,12 +204,13 @@ class GhStackClient:
 
 def probe_profile(
     *,
-    runner: Runner = _run,
+    runner: Runner | None = None,
+    cwd: Path | str | None = None,
     reviewed_profile: Mapping[str, object] | None = None,
 ) -> ProfileProbeResult:
     contract = reviewed_profile or _load_reviewed_profile()
     commands = _profile_commands(contract)
-    client = GhStackClient(runner=runner)
+    client = GhStackClient(runner=runner, cwd=cwd)
     try:
         observed_version = _normalize_surface(client._capture(("--version",))).strip()
     except (OSError, subprocess.CalledProcessError) as exc:
