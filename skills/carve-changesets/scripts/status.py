@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 
-from rehydrate import Chain, PullRequestRecord, rehydrate_chain
+from rehydrate import Chain, PullRequestRecord, adopt_legacy_chain
 
 
 def render_status(chain: Chain) -> str:
@@ -48,7 +48,7 @@ def status_from_live(
     """Rehydrate and render status using only supplied GitHub records and git refs."""
 
     return render_status(
-        rehydrate_chain(
+        adopt_legacy_chain(
             source_branch=source_branch,
             pull_requests=pull_requests,
             base_branch=base_branch,
