@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import shutil
 import sys
 import tempfile
@@ -182,6 +183,33 @@ class RehydrationTests(unittest.TestCase):
         )
 
     @staticmethod
+    def _native_payload(
+        snapshot: NativeStackSnapshot, *, trunk: str | None = None
+    ) -> dict[str, object]:
+        return {
+            "trunk": trunk or snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+
+    @staticmethod
     def _merged_prefix_payload(snapshot: NativeStackSnapshot) -> dict[str, object]:
         first, second = snapshot.layers
         return {
@@ -347,6 +375,7 @@ class RehydrationTests(unittest.TestCase):
         client = mock.Mock()
         output = status_from_live(
             source_branch="feature/report",
+            base_branch="main",
             pull_requests=prs,
             cwd=clone,
             stack_client=client,
@@ -363,33 +392,12 @@ class RehydrationTests(unittest.TestCase):
     def test_status_with_refresh_authority_reconciles_native_topology(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
-        payload = {
-            "trunk": snapshot.trunk_branch,
-            "currentBranch": snapshot.current_branch,
-            "branches": [
-                {
-                    "name": layer.branch,
-                    "head": layer.head,
-                    "base": layer.base,
-                    "isCurrent": layer.branch == snapshot.current_branch,
-                    "isMerged": layer.merged,
-                    "isQueued": layer.queued,
-                    "needsRebase": layer.needs_rebase,
-                    "pr": {
-                        "number": layer.pull_request.number,
-                        "url": layer.pull_request.url,
-                        "state": layer.pull_request.state,
-                    },
-                }
-                for layer in snapshot.layers
-                if layer.pull_request is not None
-            ],
-        }
         client = mock.Mock()
-        client.view_json.return_value = payload
+        client.view_json.return_value = self._native_payload(snapshot)
 
         output = status_from_live(
             source_branch="feature/report",
+            base_branch="main",
             pull_requests=prs,
             cwd=clone,
             allow_stack_state_refresh=True,
@@ -400,6 +408,91 @@ class RehydrationTests(unittest.TestCase):
         self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
         self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
         client.view_json.assert_called_once_with(allow_state_refresh=True)
+
+    def test_status_refresh_rejects_native_trunk_that_disagrees_with_selected_base(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        helpers.run(self.repo, "git", "push", "origin", "main:release")
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot, trunk="release")
+        wrong_trunk_prs = [replace(prs[0], base_branch="release"), prs[1]]
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            "native trunk 'release'.*selected base 'main'",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=wrong_trunk_prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_cross_repository_pull_request(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {snapshot.layers[0].branch} GitHub PR #201 uses a fork head",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[replace(prs[0], is_cross_repository=True), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_noncanonical_native_and_live_pr_states(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        payload = self._native_payload(snapshot)
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        native_lowercase = copy.deepcopy(payload)
+        native_lowercase["branches"][0]["pr"]["state"] = "open"
+        client.view_json.return_value = native_lowercase
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {snapshot.layers[0].branch} has unknown PR state open",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+        client.view_json.return_value = payload
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {snapshot.layers[0].branch} GitHub PR #201 has unknown state open",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[replace(prs[0], state="open"), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
 
     def test_status_refresh_fetches_missing_published_head_objects(self) -> None:
         clone = self._fresh_clone()
@@ -430,6 +523,7 @@ class RehydrationTests(unittest.TestCase):
 
         output = status_from_live(
             source_branch="feature/report",
+            base_branch="main",
             pull_requests=prs,
             cwd=clone,
             allow_stack_state_refresh=True,
@@ -457,6 +551,7 @@ class RehydrationTests(unittest.TestCase):
 
         output = status_from_live(
             source_branch="feature/report",
+            base_branch="main",
             pull_requests=[
                 replace(prs[0], state="MERGED"),
                 replace(prs[1], base_branch=snapshot.trunk_branch),
@@ -506,6 +601,7 @@ class RehydrationTests(unittest.TestCase):
         ):
             status_from_live(
                 source_branch="feature/report",
+                base_branch="main",
                 pull_requests=prs,
                 cwd=clone,
                 allow_stack_state_refresh=True,
@@ -564,6 +660,7 @@ class RehydrationTests(unittest.TestCase):
         ):
             status_from_live(
                 source_branch="feature/report",
+                base_branch="main",
                 pull_requests=[prs[1]],
                 cwd=clone,
                 allow_stack_state_refresh=True,
@@ -591,6 +688,7 @@ class RehydrationTests(unittest.TestCase):
         ):
             status_from_live(
                 source_branch="feature/report",
+                base_branch="main",
                 pull_requests=[replace(prs[0], state="MERGED"), prs[1]],
                 cwd=clone,
                 allow_stack_state_refresh=True,
@@ -613,6 +711,7 @@ class RehydrationTests(unittest.TestCase):
         ):
             status_from_live(
                 source_branch="feature/report",
+                base_branch="main",
                 pull_requests=[replace(prs[0], state="MERGED"), prs[1]],
                 cwd=clone,
                 allow_stack_state_refresh=True,
@@ -652,6 +751,7 @@ class RehydrationTests(unittest.TestCase):
 
         output = status_from_live(
             source_branch="feature/report",
+            base_branch="main",
             pull_request_loader=loader,
             cwd=clone,
             allow_stack_state_refresh=True,
@@ -742,6 +842,7 @@ class RehydrationTests(unittest.TestCase):
         with self.assertRaisesRegex(RehydrationError, "moved the checkout"):
             status_from_live(
                 source_branch="feature/report",
+                base_branch="main",
                 pull_requests=prs,
                 cwd=clone,
                 allow_stack_state_refresh=True,
@@ -771,6 +872,7 @@ class RehydrationTests(unittest.TestCase):
         with self.assertRaisesRegex(RehydrationError, "unknown_version"):
             status_from_live(
                 source_branch="feature/report",
+                base_branch="main",
                 cwd=clone,
                 allow_stack_state_refresh=True,
                 stack_client=client,
@@ -830,8 +932,8 @@ class RehydrationTests(unittest.TestCase):
         client.view_json.return_value = payload
 
         with self.assertRaisesRegex(
-            RehydrationError,
-            "Requested base 'release'.*native trunk 'main'",
+            NativeStackError,
+            "native trunk 'main'.*selected base 'release'",
         ):
             status_from_live(
                 source_branch="feature/report",

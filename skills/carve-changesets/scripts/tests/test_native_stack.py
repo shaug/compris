@@ -50,7 +50,9 @@ OPEN_PR_102 = PullRequestRecord(
 
 class NativeStackSnapshotTest(unittest.TestCase):
     def test_parses_ordered_native_layers(self) -> None:
-        snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         self.assertEqual(snapshot.trunk_branch, "main")
         self.assertEqual(snapshot.trunk_head, A_SHA)
@@ -76,29 +78,37 @@ class NativeStackSnapshotTest(unittest.TestCase):
             NativeStackError,
             "feature-2.*base.*expected predecessor head 1111111111111111111111111111111111111111",
         ):
-            parse_native_stack(payload, trunk_head=A_SHA)
+            parse_native_stack(payload, expected_trunk_branch="main", trunk_head=A_SHA)
 
     def test_rejects_duplicate_branches_and_multiple_current_layers(self) -> None:
         duplicate = copy.deepcopy(VIEW_OPEN)
         duplicate["branches"][1]["name"] = "feature-1"
         with self.assertRaisesRegex(NativeStackError, "duplicate branch feature-1"):
-            parse_native_stack(duplicate, trunk_head=A_SHA)
+            parse_native_stack(
+                duplicate, expected_trunk_branch="main", trunk_head=A_SHA
+            )
 
         multiple_current = copy.deepcopy(VIEW_OPEN)
         multiple_current["branches"][0]["isCurrent"] = True
         with self.assertRaisesRegex(NativeStackError, "exactly one current layer"):
-            parse_native_stack(multiple_current, trunk_head=A_SHA)
+            parse_native_stack(
+                multiple_current, expected_trunk_branch="main", trunk_head=A_SHA
+            )
 
     def test_rejects_invalid_sha_and_unknown_pull_request_state(self) -> None:
         invalid_sha = copy.deepcopy(VIEW_OPEN)
         invalid_sha["branches"][0]["head"] = "short"
         with self.assertRaisesRegex(NativeStackError, "feature-1.*head.*full SHA"):
-            parse_native_stack(invalid_sha, trunk_head=A_SHA)
+            parse_native_stack(
+                invalid_sha, expected_trunk_branch="main", trunk_head=A_SHA
+            )
 
         invalid_state = copy.deepcopy(VIEW_OPEN)
         invalid_state["branches"][0]["pr"]["state"] = "DRAFT"
         with self.assertRaisesRegex(NativeStackError, "feature-1.*PR state.*DRAFT"):
-            parse_native_stack(invalid_state, trunk_head=A_SHA)
+            parse_native_stack(
+                invalid_state, expected_trunk_branch="main", trunk_head=A_SHA
+            )
 
     def test_rejects_pull_request_state_that_disagrees_with_merged_flag(self) -> None:
         payload = copy.deepcopy(VIEW_OPEN)
@@ -108,7 +118,7 @@ class NativeStackSnapshotTest(unittest.TestCase):
             NativeStackError,
             "feature-1.*merged flag.*PR state OPEN",
         ):
-            parse_native_stack(payload, trunk_head=A_SHA)
+            parse_native_stack(payload, expected_trunk_branch="main", trunk_head=A_SHA)
 
     def test_rejects_merged_layer_after_open_layer(self) -> None:
         payload = copy.deepcopy(VIEW_OPEN)
@@ -119,7 +129,7 @@ class NativeStackSnapshotTest(unittest.TestCase):
             NativeStackError,
             "feature-2.*merged layer follows open layer feature-1",
         ):
-            parse_native_stack(payload, trunk_head=A_SHA)
+            parse_native_stack(payload, expected_trunk_branch="main", trunk_head=A_SHA)
 
     def test_accepts_merged_prefix_before_open_suffix_at_current_trunk(self) -> None:
         payload = copy.deepcopy(VIEW_OPEN)
@@ -128,7 +138,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
         payload["branches"][0]["pr"]["state"] = "MERGED"
         payload["branches"][1]["base"] = A_SHA
 
-        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            payload, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         self.assertTrue(snapshot.layers[0].merged)
         self.assertFalse(snapshot.layers[1].merged)
@@ -140,7 +152,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
             layer["isMerged"] = True
             layer["pr"]["state"] = "MERGED"
 
-        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            payload, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         self.assertTrue(all(layer.merged for layer in snapshot.layers))
 
@@ -151,12 +165,16 @@ class NativeStackSnapshotTest(unittest.TestCase):
             layer["isMerged"] = True
             layer["pr"]["state"] = "MERGED"
 
-        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            payload, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         self.assertEqual(C_SHA, snapshot.layers[1].base)
 
     def test_reconcile_rejects_remote_head_disagreement(self) -> None:
-        snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         with self.assertRaisesRegex(
             NativeStackError,
@@ -171,7 +189,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
     def test_reconcile_rejects_supplied_published_local_head_disagreement(
         self,
     ) -> None:
-        snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         with self.assertRaisesRegex(
             NativeStackError,
@@ -187,7 +207,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
     def test_reconcile_checks_remote_after_matching_published_local_head(
         self,
     ) -> None:
-        snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
 
         with self.assertRaisesRegex(
             NativeStackError,
@@ -201,7 +223,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
             )
 
     def test_reconcile_rejects_exact_github_base_and_state_disagreement(self) -> None:
-        snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
         wrong_base = PullRequestRecord(
             **{**OPEN_PR_102.__dict__, "base_branch": "main"}
         )
@@ -231,7 +255,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
         for layer in payload["branches"]:
             layer["isMerged"] = True
             layer["pr"]["state"] = "MERGED"
-        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            payload, expected_trunk_branch="main", trunk_head=A_SHA
+        )
         merged_prs = {
             101: PullRequestRecord(**{**OPEN_PR_101.__dict__, "state": "MERGED"}),
             102: PullRequestRecord(**{**OPEN_PR_102.__dict__, "state": "MERGED"}),
@@ -251,7 +277,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
         for layer in payload["branches"]:
             layer["isMerged"] = True
             layer["pr"]["state"] = "MERGED"
-        snapshot = parse_native_stack(payload, trunk_head=A_SHA)
+        snapshot = parse_native_stack(
+            payload, expected_trunk_branch="main", trunk_head=A_SHA
+        )
         merged_prs = {
             101: PullRequestRecord(**{**OPEN_PR_101.__dict__, "state": "MERGED"}),
             102: PullRequestRecord(
@@ -355,7 +383,9 @@ class NativeStackSnapshotTest(unittest.TestCase):
             ),
         )
 
-        published = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+        published = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
         self.assertEqual(
             TruthPhase.PUBLISHED,
             classify_truth_phase(

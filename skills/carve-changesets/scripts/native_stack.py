@@ -81,6 +81,7 @@ class PullRequestRecord(Protocol):
     head_sha: str
     base_branch: str
     state: str
+    is_cross_repository: bool
 
 
 def _exact_keys(
@@ -128,14 +129,17 @@ def _pull_request(value: object, branch: str) -> NativePullRequest | None:
     if not isinstance(number, int) or isinstance(number, bool) or number < 1:
         raise NativeStackError(f"layer {branch} PR number must be a positive integer")
     url = _string(value["url"], f"layer {branch} PR URL")
-    state = _string(value["state"], f"layer {branch} PR state").upper()
+    state = _string(value["state"], f"layer {branch} PR state")
     if state not in PULL_REQUEST_STATES:
         raise NativeStackError(f"layer {branch} has unknown PR state {state}")
     return NativePullRequest(number=number, url=url, state=state)
 
 
 def parse_native_stack(
-    payload: Mapping[str, object], *, trunk_head: str
+    payload: Mapping[str, object],
+    *,
+    expected_trunk_branch: str,
+    trunk_head: str,
 ) -> NativeStackSnapshot:
     """Decode the reviewed ``gh stack view --json`` schema without coercion."""
 
@@ -143,6 +147,12 @@ def parse_native_stack(
         raise NativeStackError("gh stack view --json must be an object")
     _exact_keys(payload, TOP_LEVEL_KEYS, "gh stack view")
     trunk_branch = _string(payload["trunk"], "native trunk")
+    selected_trunk = _string(expected_trunk_branch, "selected base branch")
+    if trunk_branch != selected_trunk:
+        raise NativeStackError(
+            f"native trunk {trunk_branch!r} disagrees with selected base "
+            f"{selected_trunk!r}"
+        )
     current_branch = _string(payload["currentBranch"], "native current branch")
     checked_trunk_head = _sha(trunk_head, "native trunk head")
     branches = payload["branches"]
@@ -278,6 +288,10 @@ def reconcile_native_stack(
                 f"layer {layer.branch} GitHub PR #{live.number} head branch mismatch: "
                 f"native {layer.branch}; GitHub {live.head_branch}"
             )
+        if live.is_cross_repository:
+            raise NativeStackError(
+                f"layer {layer.branch} GitHub PR #{live.number} uses a fork head"
+            )
         if live.head_sha != layer.head:
             raise NativeStackError(
                 f"layer {layer.branch} GitHub PR #{live.number} head mismatch: "
@@ -301,7 +315,12 @@ def reconcile_native_stack(
                 f"layer {layer.branch} GitHub PR #{live.number} base mismatch: "
                 f"native {relation} {expected_base}; GitHub {live.base_branch}"
             )
-        live_state = live.state.upper()
+        live_state = live.state
+        if live_state not in PULL_REQUEST_STATES:
+            raise NativeStackError(
+                f"layer {layer.branch} GitHub PR #{live.number} has unknown state "
+                f"{live_state}"
+            )
         if live_state != native_pr.state:
             raise NativeStackError(
                 f"layer {layer.branch} GitHub PR #{live.number} state mismatch: "
@@ -329,8 +348,7 @@ def classify_truth_phase(
         return TruthPhase.MATERIALIZED
     if snapshot.open_suffix:
         if all(
-            layer.pull_request is not None
-            and layer.pull_request.state.upper() == "OPEN"
+            layer.pull_request is not None and layer.pull_request.state == "OPEN"
             for layer in snapshot.open_suffix
         ):
             return TruthPhase.PUBLISHED

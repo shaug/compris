@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Sequence
 
 from gh_stack import GhStackClient, ProfileProbeResult, StackCapability, probe_profile
-from native_stack import NativeStackSnapshot, parse_native_stack, reconcile_native_stack
+from native_stack import (
+    NativeStackError,
+    NativeStackSnapshot,
+    parse_native_stack,
+    reconcile_native_stack,
+)
 from rehydrate import Chain, PullRequestRecord, RehydrationError, _git, rehydrate_chain
 
 
@@ -69,6 +74,10 @@ def status_from_live(
             "--local-only and stack-state refresh are mutually exclusive; "
             "native reconciliation requires live remote and GitHub evidence."
         )
+    if base_branch is None or not base_branch.strip():
+        raise RehydrationError(
+            "Native stack refresh requires an independently selected base branch."
+        )
 
     observed_profile = (
         profile_probe() if profile_probe is not None else probe_profile(cwd=repo)
@@ -96,16 +105,23 @@ def status_from_live(
                 "gh stack view --json moved the checkout: "
                 f"before {before[0]}@{before[1]}; after {after[0]}@{after[1]}."
             )
-    trunk = payload.get("trunk")
-    if not isinstance(trunk, str) or not trunk:
-        raise RehydrationError("Native stack view has no trunk branch.")
-    trunk_heads = _live_remote_heads(repo, remote, (trunk,))
-    trunk_head = trunk_heads.get(trunk)
+    observed_trunk = payload.get("trunk")
+    if observed_trunk != base_branch:
+        raise NativeStackError(
+            f"native trunk {observed_trunk!r} disagrees with selected base "
+            f"{base_branch!r}"
+        )
+    trunk_heads = _live_remote_heads(repo, remote, (base_branch,))
+    trunk_head = trunk_heads.get(base_branch)
     if trunk_head is None:
         raise RehydrationError(
-            f"Selected remote {remote!r} has no live trunk branch {trunk!r}."
+            f"Selected remote {remote!r} has no live trunk branch {base_branch!r}."
         )
-    snapshot = parse_native_stack(payload, trunk_head=trunk_head)
+    snapshot = parse_native_stack(
+        payload,
+        expected_trunk_branch=base_branch,
+        trunk_head=trunk_head,
+    )
     layer_branches = tuple(layer.branch for layer in snapshot.layers)
     remote_branches = layer_branches
     local_branches = layer_branches
