@@ -4,9 +4,11 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-22 — Established the native gh stack adapter baseline
+## 2026-09-23 — Completed remote-aware source lineage
 
-- feat: adopt trailer only changeset lineage
+- feat: recover recorded source lineage
+
+## 2026-09-22 — Established the native gh stack adapter baseline
 
 - fix: seal gh stack command surface (42f90991e9b2eb38ae0bdcf7f8fdcdc7109d9161)
 
