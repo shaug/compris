@@ -363,6 +363,49 @@ class RehydrationTests(unittest.TestCase):
         self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
         client.view_json.assert_called_once_with(allow_state_refresh=True)
 
+    def test_status_refresh_rejects_divergent_published_local_head(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        helpers.run(clone, "git", "branch", first.branch, second.head)
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {first.branch} local head mismatch: native {first.head}; local {second.head}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
     def test_status_refresh_rejects_materialized_layer_with_divergent_remote(
         self,
     ) -> None:

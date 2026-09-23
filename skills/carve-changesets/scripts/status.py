@@ -107,11 +107,9 @@ def status_from_live(
         )
     snapshot = parse_native_stack(payload, trunk_head=trunk_head)
     remote_branches = tuple(layer.branch for layer in snapshot.open_suffix)
-    materialized_branches = tuple(
-        layer.branch for layer in snapshot.layers if layer.pull_request is None
-    )
+    local_branches = tuple(layer.branch for layer in snapshot.layers)
     remote_heads = _live_remote_heads(repo, remote, remote_branches)
-    local_heads = _local_heads(repo, materialized_branches)
+    local_heads = _local_heads(repo, local_branches)
     effective_pull_requests = list(pull_requests)
     if pull_request_loader is not None:
         effective_pull_requests = [
