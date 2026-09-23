@@ -109,6 +109,7 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
 
         chain = rehydrate_chain(
             source_branch="feature/report",
+            remote="origin",
             native_snapshot=snapshot,
             pull_requests=pull_requests,
             cwd=clone,
@@ -137,6 +138,7 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
 
         chain = rehydrate_chain(
             source_branch="feature/report",
+            remote="origin",
             native_snapshot=snapshot,
             pull_requests=(replace(pull_requests[0], state="MERGED"),),
             cwd=clone,
@@ -151,9 +153,28 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
         with self.assertRaisesRegex(RehydrationError, "native snapshot is required"):
             rehydrate_chain(
                 source_branch="feature/report",
+                remote="origin",
                 base_branch="main",
                 cwd=self.repo,
             )
+
+    def test_legacy_native_layers_normalize_through_the_selected_remote(self) -> None:
+        snapshot, pull_requests, clone = self._native_stack()
+        helpers.run(clone, "git", "remote", "add", "upstream", str(self.bare))
+        helpers.run(clone, "git", "fetch", "upstream")
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="upstream",
+            native_snapshot=snapshot,
+            pull_requests=pull_requests,
+            cwd=clone,
+        )
+
+        self.assertEqual(
+            ("upstream",),
+            tuple(identity.remote for identity in chain.source_lineage),
+        )
 
 
 if __name__ == "__main__":

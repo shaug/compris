@@ -132,10 +132,8 @@ def validate_live_chain(
     native_lineage = any(
         changeset.metadata.version == 3 for changeset in chain.changesets
     )
-    published_native_lineage = native_lineage and any(
-        changeset.pr_number is not None for changeset in chain.changesets
-    )
-    if published_native_lineage or len(chain.source_lineage) > 1:
+    durable_remote_lineage = native_lineage or len(chain.source_lineage) > 1
+    if durable_remote_lineage:
         for identity in chain.source_lineage:
             if identity.remote != remote:
                 diagnostics.append(
@@ -334,7 +332,7 @@ def validate_live_chain(
             repo,
             f"refs/remotes/{chain.active_source.remote}/{chain.active_source.branch}^{{commit}}",
         )
-        if published_native_lineage or len(chain.source_lineage) > 1
+        if durable_remote_lineage
         else _resolve_branch(repo, chain.active_source.branch, remote)
     )
     if current_source is None:

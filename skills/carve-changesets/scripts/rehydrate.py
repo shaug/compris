@@ -444,6 +444,7 @@ def adopt_legacy_chain(
 def rehydrate_chain(
     *,
     source_branch: str,
+    remote: str,
     native_snapshot: NativeStackSnapshot | None = None,
     pull_requests: Sequence[PullRequestRecord] = (),
     base_branch: str | None = None,
@@ -483,7 +484,7 @@ def rehydrate_chain(
     for topology_position, layer in enumerate(native_snapshot.layers, start=1):
         message = _git(repo, "show", "-s", "--format=%B", layer.head)
         try:
-            metadata = parse_commit_message(message)
+            metadata = parse_commit_message(message, remote=remote)
         except MetadataError as exc:
             raise RehydrationError(f"Native layer {layer.branch}: {exc}") from exc
         if metadata.root_source.branch != source_branch:
@@ -519,7 +520,7 @@ def rehydrate_chain(
                 )
             if metadata.version in {1, 2}:
                 try:
-                    pr_metadata = parse_pr_metadata(pr.body)
+                    pr_metadata = parse_pr_metadata(pr.body, remote=remote)
                 except MetadataError as exc:
                     raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
                 if pr_metadata != metadata:

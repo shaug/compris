@@ -6,9 +6,44 @@ import unittest
 
 from common import DEFAULT_PLAN_PATH
 from legacy_helpers import SCRIPTS_DIR, commit, init_remote, init_repo, run, write_plan
+from metadata import parse_commit_message
 
 
 class ScriptIntegrationTests(unittest.TestCase):
+    def test_materialization_commands_stamp_the_selected_remote(self) -> None:
+        for command in ("create-chain", "run"):
+            with self.subTest(command=command):
+                repo_dir, plan = init_repo()
+                try:
+                    cli = str(SCRIPTS_DIR / "cli.py")
+                    write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
+                    argv = [cli, command]
+                    if command == "run":
+                        argv.extend(
+                            [
+                                "--base",
+                                plan["base_branch"],
+                                "--source",
+                                plan["source_branch"],
+                                "--title",
+                                plan["feature_title"],
+                                "--skip-tests",
+                                "--create-chain",
+                            ]
+                        )
+                    argv.extend(["--remote", "upstream"])
+
+                    run(argv, cwd=repo_dir)
+
+                    message = run(
+                        ["git", "show", "-s", "--format=%B", "feature/test-1"],
+                        cwd=repo_dir,
+                    ).stdout
+                    metadata = parse_commit_message(message)
+                    self.assertEqual("upstream", metadata.active_source.remote)
+                finally:
+                    shutil.rmtree(repo_dir)
+
     def test_single_cli_exercises_ported_surface(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
@@ -368,9 +403,12 @@ class ScriptIntegrationTests(unittest.TestCase):
 
     def test_strict_validate_rejects_different_source_history(self) -> None:
         repo_dir, plan = init_repo()
+        remote_dir = None
         try:
             cli = str(SCRIPTS_DIR / "cli.py")
             plan_path = repo_dir / DEFAULT_PLAN_PATH
+            remote_dir = init_remote(repo_dir)
+            run(["git", "push", "origin", "main", "feature/test"], cwd=repo_dir)
             write_plan(plan_path, plan)
             run([cli, "create-chain"], cwd=repo_dir)
             run(["git", "checkout", "-b", "alternate-source", "main"], cwd=repo_dir)
@@ -382,7 +420,7 @@ class ScriptIntegrationTests(unittest.TestCase):
             commit(repo_dir, "alternate source history")
             alternate = run(["git", "rev-parse", "HEAD"], cwd=repo_dir).stdout.strip()
             run(
-                ["git", "update-ref", "refs/heads/feature/test", alternate],
+                ["git", "push", "--force", "origin", f"{alternate}:feature/test"],
                 cwd=repo_dir,
             )
 
@@ -393,9 +431,12 @@ class ScriptIntegrationTests(unittest.TestCase):
             )
 
             self.assertEqual(1, result.returncode)
+            self.assertIn("source_lineage_ref_moved", result.stdout)
             self.assertIn("source_history_mismatch", result.stdout)
         finally:
             shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
 
 
 if __name__ == "__main__":

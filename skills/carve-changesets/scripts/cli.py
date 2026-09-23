@@ -199,7 +199,7 @@ def _print_live_diagnostics(result: ChainValidation) -> None:
 
 
 def cmd_create_chain(args: argparse.Namespace) -> None:
-    create_chain(load_and_validate(Path(args.plan)))
+    create_chain(load_and_validate(Path(args.plan)), remote=args.remote)
 
 
 def cmd_compare(args: argparse.Namespace) -> None:
@@ -387,7 +387,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         args.force = args.force or args.force_init
         cmd_init_plan(args)
     if args.create_chain:
-        create_chain(load_and_validate(plan_path))
+        create_chain(load_and_validate(plan_path), remote=args.remote)
     else:
         print("[NEXT] Review the plan, then run create-chain.")
 
@@ -500,6 +500,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     item = _command(sub, "create-chain", "Materialize append-only changeset branches.")
     _add_plan(item)
+    item.add_argument("--remote", default="origin")
     item.set_defaults(func=cmd_create_chain)
 
     item = _command(sub, "compare", "Compare reconstructed chain output with source.")
@@ -643,6 +644,7 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--force", action="store_true")
     item.add_argument("--force-init", action="store_true")
     item.add_argument("--create-chain", action="store_true")
+    item.add_argument("--remote", default="origin")
     item.set_defaults(func=cmd_run)
     return parser
 
