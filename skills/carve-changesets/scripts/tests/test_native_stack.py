@@ -184,6 +184,22 @@ class NativeStackSnapshotTest(unittest.TestCase):
                 pull_requests={101: OPEN_PR_101, 102: OPEN_PR_102},
             )
 
+    def test_reconcile_checks_remote_after_matching_published_local_head(
+        self,
+    ) -> None:
+        snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            "layer feature-1 remote head mismatch: native 1111111111111111111111111111111111111111; remote bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        ):
+            reconcile_native_stack(
+                snapshot,
+                local_heads={"feature-1": "1" * 40},
+                remote_heads={"feature-1": B_SHA, "feature-2": "2" * 40},
+                pull_requests={101: OPEN_PR_101, 102: OPEN_PR_102},
+            )
+
     def test_reconcile_rejects_exact_github_base_and_state_disagreement(self) -> None:
         snapshot = parse_native_stack(VIEW_OPEN, trunk_head=A_SHA)
         wrong_base = PullRequestRecord(
