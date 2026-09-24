@@ -301,6 +301,23 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
                 cwd=self.repo,
             )
 
+    def test_completed_successor_allows_retired_marker_text_in_human_prose(
+        self,
+    ) -> None:
+        snapshot, pull_requests = self._completed_successor_stack()
+        prose = "This changeset removes carve-changesets:metadata blocks.\n"
+        pull_requests = [replace(pr, body=prose) for pr in pull_requests]
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="origin",
+            native_snapshot=snapshot,
+            pull_requests=pull_requests,
+            cwd=self.repo,
+        )
+
+        self.assertEqual(snapshot.layers[-1].head, chain.changesets[-1].head)
+
 
 if __name__ == "__main__":
     unittest.main()

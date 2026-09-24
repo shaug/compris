@@ -12,6 +12,7 @@ from metadata import (
     ChangesetMetadata,
     MetadataError,
     SourceIdentity,
+    has_legacy_pr_metadata_comment,
     parse_commit_message,
     parse_pr_metadata,
     stamp_commit_message,
@@ -121,7 +122,7 @@ def _interrupted_legacy_pr_evidence(
 ) -> ChangesetMetadata | None:
     """Reject a stale legacy block beside a recovered v3 head."""
 
-    if "carve-changesets:metadata" not in pr.body:
+    if not has_legacy_pr_metadata_comment(pr.body):
         return None
     raise RehydrationError(
         f"PR #{pr.number} has an unsupported interrupted recovery state: a native "
@@ -522,7 +523,7 @@ def adopt_legacy_chain(
                     f"for changeset {index}."
                 )
             if metadata.version in {1, 2}:
-                if "carve-changesets:metadata" in pr.body:
+                if has_legacy_pr_metadata_comment(pr.body):
                     try:
                         pr_metadata = parse_pr_metadata(pr.body, remote=remote)
                     except MetadataError as exc:

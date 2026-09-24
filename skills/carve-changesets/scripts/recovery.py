@@ -26,6 +26,7 @@ from metadata import (
     MetadataError,
     SourceIdentity,
     embed_pr_metadata,
+    has_legacy_pr_metadata_comment,
     parse_commit_message,
     parse_pr_metadata,
     stamp_commit_message,
@@ -216,7 +217,7 @@ def _verify_open_suffix_pr(
             f"{expected_head} to {current_remote}."
         )
     metadata = record.metadata
-    if "carve-changesets:metadata" in live.body:
+    if has_legacy_pr_metadata_comment(live.body):
         try:
             metadata = parse_pr_metadata(live.body, remote=remote)
         except MetadataError as exc:

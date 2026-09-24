@@ -787,6 +787,21 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertEqual(forged_head, self._remote_head("feature/report-2"))
         self.assertEqual(body_before, self.prs[102].body)
 
+    def test_interrupted_resume_allows_retired_marker_text_in_human_prose(
+        self,
+    ) -> None:
+        interrupted_head = self._push_v3_with_legacy_body(
+            recovery_from_head=self.fixed_head
+        )
+        prose = "Position 2 removes carve-changesets:metadata blocks.\n"
+        self.prs[102] = PullRequestRecord(**{**self.prs[102].__dict__, "body": prose})
+
+        output = self._run_recovery()
+
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
+        self.assertEqual(prose, self.prs[102].body)
+        self.assertIn("Suffix recovery completed", output)
+
     def test_interrupted_resume_rejects_conflicting_legacy_pr_evidence(self) -> None:
         pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
         conflicting = ChangesetMetadata(
