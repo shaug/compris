@@ -228,6 +228,23 @@ class GithubTests(unittest.TestCase):
                 ),
                 view.call_args.args[0],
             )
+
+            created["body"] = "GitHub replaced the submitted body.\n"
+            with (
+                chdir(repo_dir),
+                mock.patch.object(
+                    github_mod,
+                    "github_repo_for_remote",
+                    return_value="github.com/acme/widgets",
+                ),
+                mock.patch.object(github_mod, "ensure_gh_ready"),
+                mock.patch.object(github_mod, "gh_capture"),
+                mock.patch.object(github_mod, "gh_json", return_value=created),
+            ):
+                with self.assertRaisesRegex(CommandError, "body"):
+                    github_mod.pr_create(
+                        plan, indices=[1], dry_run=False, remote="origin"
+                    )
         finally:
             shutil.rmtree(repo_dir)
             if remote_dir is not None:

@@ -190,6 +190,7 @@ def _verify_created_pr(
     expected_head: str,
     expected_base: str,
     expected_metadata: ChangesetMetadata,
+    expected_body: str,
 ) -> Dict:
     if not isinstance(created, dict):
         raise CommandError(f"PR for {head} was created but could not be verified.")
@@ -214,6 +215,10 @@ def _verify_created_pr(
             raise CommandError(
                 f"Created PR for {head} metadata does not match its exact changeset commit."
             )
+    elif str(created.get("body") or "") != expected_body:
+        raise CommandError(
+            f"Created PR for {head} body does not match the submitted human-readable body."
+        )
     if not created.get("number") or not created.get("url"):
         raise CommandError(f"Created PR for {head} is missing its number or URL.")
     return created
@@ -295,6 +300,7 @@ def pr_create(
             expected_head=expected_head,
             expected_base=pr_base,
             expected_metadata=expected_metadata,
+            expected_body=body,
         )
         print(f"[OK] PR #{created['number']} created: {created['url']}")
 
