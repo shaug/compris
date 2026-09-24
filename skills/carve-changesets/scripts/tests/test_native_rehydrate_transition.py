@@ -26,6 +26,7 @@ from native_stack import (  # noqa: E402
     NativeStackSnapshot,
 )
 from rehydrate import PullRequestRecord, RehydrationError, rehydrate_chain  # noqa: E402
+from validate import validate_live_chain  # noqa: E402
 
 
 class NativeRehydrationTransitionTests(unittest.TestCase):
@@ -39,17 +40,26 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
     def _native_stack(
         self,
     ) -> tuple[NativeStackSnapshot, list[PullRequestRecord], Path]:
+        helpers.run(self.repo, "git", "checkout", "feature/report")
+        (self.repo / "native-2.txt").write_text("native layer 2\n")
+        helpers.run(self.repo, "git", "add", "native-2.txt")
+        self.source_sha = helpers.commit(self.repo, "complete native source")
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
         trunk_head = helpers.run(self.repo, "git", "rev-parse", "main")
         layers: list[NativeLayer] = []
         pull_requests: list[PullRequestRecord] = []
         predecessor_branch = "main"
         predecessor_head = trunk_head
-        for offset, (branch, historical_index) in enumerate(
-            (("layers/zeta", 9), ("layers/alpha", 3)), start=1
+        for offset, (branch, historical_index, path) in enumerate(
+            (
+                ("layers/zeta", 9, "source.txt"),
+                ("layers/alpha", 3, "native-2.txt"),
+            ),
+            start=1,
         ):
             helpers.run(self.repo, "git", "checkout", "-b", branch, predecessor_branch)
-            path = f"native-{offset}.txt"
-            (self.repo / path).write_text(f"native layer {offset}\n")
+            content = helpers.run(self.repo, "git", "show", f"feature/report:{path}")
+            (self.repo / path).write_text(content + "\n")
             helpers.run(self.repo, "git", "add", path)
             metadata = ChangesetMetadata(
                 slug=f"native-{offset}",
@@ -109,6 +119,7 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
 
         chain = rehydrate_chain(
             source_branch="feature/report",
+            remote="origin",
             native_snapshot=snapshot,
             pull_requests=pull_requests,
             cwd=clone,
@@ -119,6 +130,10 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
             [item.branch for item in chain.changesets],
         )
         self.assertEqual([9, 3], [item.metadata.index for item in chain.changesets])
+
+        result = validate_live_chain(chain, cwd=clone)
+
+        self.assertTrue(result.valid, result.diagnostics)
 
     def test_materialized_suffix_restarts_at_trunk_after_merged_prefix(self) -> None:
         original, pull_requests, clone = self._native_stack()
@@ -137,6 +152,7 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
 
         chain = rehydrate_chain(
             source_branch="feature/report",
+            remote="origin",
             native_snapshot=snapshot,
             pull_requests=(replace(pull_requests[0], state="MERGED"),),
             cwd=clone,
@@ -151,9 +167,28 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
         with self.assertRaisesRegex(RehydrationError, "native snapshot is required"):
             rehydrate_chain(
                 source_branch="feature/report",
+                remote="origin",
                 base_branch="main",
                 cwd=self.repo,
             )
+
+    def test_legacy_native_layers_normalize_through_the_selected_remote(self) -> None:
+        snapshot, pull_requests, clone = self._native_stack()
+        helpers.run(clone, "git", "remote", "add", "upstream", str(self.bare))
+        helpers.run(clone, "git", "fetch", "upstream")
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="upstream",
+            native_snapshot=snapshot,
+            pull_requests=pull_requests,
+            cwd=clone,
+        )
+
+        self.assertEqual(
+            ("upstream",),
+            tuple(identity.remote for identity in chain.source_lineage),
+        )
 
 
 if __name__ == "__main__":

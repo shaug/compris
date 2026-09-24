@@ -4,19 +4,43 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-24 — Verified native source lineage
+
+- fix: validate open suffix from live trunk
+
+- fix: bind publication validation to live remote
+
+- fix: verify merged prefix on trunk
+
+- test: configure portable git fixture
+
+- feat: establish verified native source lineage
+
+## 2026-09-23 — Completed remote-aware source lineage
+
+- fix: reject checkout shorthand in source lineage
+
+- feat: recover recorded source lineage
+
+- feat: establish remote source lineage contract
+
 ## 2026-09-22 — Established the native gh stack adapter baseline
 
-- fix: seal gh stack command surface
+- fix: seal gh stack command surface (42f90991e9b2eb38ae0bdcf7f8fdcdc7109d9161)
 
 - test: enforce gh command chokepoints
+  (6bcfe437aae39079855a076aab0edbb9056ef783)
 
 - chore: record failed probe fix in changelog
+  (58a2b813032cde185312e5515eeeecb90eac40a7)
 
 - fix: block on failed gh stack probes
+  (58a2b813032cde185312e5515eeeecb90eac40a7)
 
-- feat: add native gh stack adapter
+- feat: add native gh stack adapter (1e646d7838c4a02d5c2b840935daf00f585a85bf)
 
 - test: record carve changesets gh stack baseline
+  (e60ee2682ad6707afcb5b1f7824afe3bc37910a5)
 
 ## 2026-09-18 — Bound body authoring to the prose contract and clarified its authority
 

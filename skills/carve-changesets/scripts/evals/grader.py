@@ -110,13 +110,18 @@ def _check_successor_recovery_metadata(
     head = git("rev-parse", branch).stdout.strip()
     try:
         current = parse_commit_message(git("show", "-s", "--format=%B", head).stdout)
-        successor = SourceIdentity(f"{source}-successor", current.source_sha)
+        successor = SourceIdentity(
+            current.active_source.remote,
+            f"{source}-successor",
+            current.source_sha,
+        )
         recovered = _metadata_for_recovery(
             ChangesetRecord(
                 metadata=current,
                 branch=branch,
                 head=head,
                 base=branch_name_for(source, index - 1),
+                topology_position=index,
             ),
             (current.source_lineage[0], successor),
         )
@@ -126,7 +131,6 @@ def _check_successor_recovery_metadata(
 
     if (
         recovered.slug != current.slug
-        or recovered.index != current.index
         or recovered.root_source != current.root_source
         or recovered.active_source != successor
         or recovered.recovery_from_head != head

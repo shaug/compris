@@ -46,6 +46,20 @@ class ChangesetRecord:
     pr_number: int | None = None
     pr_state: str | None = None
     pr_metadata: ChangesetMetadata | None = None
+    topology_position: int | None = None
+    merge_sha: str | None = None
+
+    @property
+    def position(self) -> int:
+        """Return live topology order, falling back to legacy evidence."""
+
+        if self.topology_position is not None:
+            return self.topology_position
+        if self.metadata.legacy_position is not None:
+            return self.metadata.legacy_position
+        raise RehydrationError(
+            f"Changeset branch {self.branch!r} has no live topology position."
+        )
 
 
 @dataclass(frozen=True)
@@ -56,6 +70,7 @@ class Chain:
     root_source_sha: str
     source_lineage: tuple[SourceIdentity, ...]
     changesets: tuple[ChangesetRecord, ...]
+    native_topology: bool
 
     @property
     def active_source(self) -> SourceIdentity:
@@ -155,14 +170,6 @@ def _pr_by_branch(
     return {branch: prs[0] for branch, prs in grouped.items()}
 
 
-def _same_changeset_position(left: ChangesetMetadata, right: ChangesetMetadata) -> bool:
-    return (
-        left.slug == right.slug
-        and left.index == right.index
-        and left.root_source == right.root_source
-    )
-
-
 def _validate_lineage_sequence(
     records: Sequence[ChangesetRecord],
 ) -> tuple[SourceIdentity, ...]:
@@ -242,7 +249,7 @@ def _validate_recovery_transition(
                     f"PR #{record.pr_number} has lineage outside the current or "
                     "requested successor recovery."
                 )
-            if not _same_changeset_position(record.metadata, pr_metadata):
+            if not record.metadata.same_changeset_as(pr_metadata):
                 raise RehydrationError(
                     f"PR #{record.pr_number} metadata changes the stable changeset "
                     "position during recovery."
@@ -334,10 +341,10 @@ def adopt_legacy_chain(
             )
         message = _git(repo, "show", "-s", "--format=%B", head)
         try:
-            metadata = parse_commit_message(message)
+            metadata = parse_commit_message(message, remote=remote)
         except MetadataError as exc:
             raise RehydrationError(f"Changeset branch {branch}: {exc}") from exc
-        if metadata.index != index:
+        if metadata.legacy_position is not None and metadata.index != index:
             raise RehydrationError(
                 f"Changeset branch {branch} has Changeset-Index {metadata.index}; expected {index}."
             )
@@ -381,14 +388,15 @@ def adopt_legacy_chain(
                     f"base(s) {', '.join(repr(item) for item in sorted(allowed_bases))} "
                     f"for changeset {index}."
                 )
-            try:
-                pr_metadata = parse_pr_metadata(pr.body)
-            except MetadataError as exc:
-                raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
-            if pr_metadata != metadata and recovery_successor is None:
-                raise RehydrationError(
-                    f"PR #{pr.number} metadata disagrees with commit trailers for {branch}."
-                )
+            if metadata.version in {1, 2}:
+                try:
+                    pr_metadata = parse_pr_metadata(pr.body, remote=remote)
+                except MetadataError as exc:
+                    raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
+                if pr_metadata != metadata and recovery_successor is None:
+                    raise RehydrationError(
+                        f"PR #{pr.number} metadata disagrees with commit trailers for {branch}."
+                    )
         records.append(
             ChangesetRecord(
                 metadata=metadata,
@@ -398,6 +406,8 @@ def adopt_legacy_chain(
                 pr_number=pr.number if pr else None,
                 pr_state=pr.state.upper() if pr else None,
                 pr_metadata=pr_metadata,
+                topology_position=index,
+                merge_sha=pr.merge_sha if pr else None,
             )
         )
         prior_prs_merged = (
@@ -418,12 +428,14 @@ def adopt_legacy_chain(
         root_source_sha=root_source.sha,
         source_lineage=source_lineage,
         changesets=tuple(records),
+        native_topology=False,
     )
 
 
 def rehydrate_chain(
     *,
     source_branch: str,
+    remote: str,
     native_snapshot: NativeStackSnapshot | None = None,
     pull_requests: Sequence[PullRequestRecord] = (),
     base_branch: str | None = None,
@@ -460,10 +472,10 @@ def rehydrate_chain(
     slugs: set[str] = set()
     previous_branch = native_snapshot.trunk_branch
     previous_layer_merged = False
-    for layer in native_snapshot.layers:
+    for topology_position, layer in enumerate(native_snapshot.layers, start=1):
         message = _git(repo, "show", "-s", "--format=%B", layer.head)
         try:
-            metadata = parse_commit_message(message)
+            metadata = parse_commit_message(message, remote=remote)
         except MetadataError as exc:
             raise RehydrationError(f"Native layer {layer.branch}: {exc}") from exc
         if metadata.root_source.branch != source_branch:
@@ -497,15 +509,16 @@ def rehydrate_chain(
                     f"PR #{pr.number} uses a fork head; native layers must belong "
                     "to the selected repository."
                 )
-            try:
-                pr_metadata = parse_pr_metadata(pr.body)
-            except MetadataError as exc:
-                raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
-            if pr_metadata != metadata:
-                raise RehydrationError(
-                    f"PR #{pr.number} metadata disagrees with commit trailers for "
-                    f"native layer {layer.branch}."
-                )
+            if metadata.version in {1, 2}:
+                try:
+                    pr_metadata = parse_pr_metadata(pr.body, remote=remote)
+                except MetadataError as exc:
+                    raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
+                if pr_metadata != metadata:
+                    raise RehydrationError(
+                        f"PR #{pr.number} metadata disagrees with commit trailers for "
+                        f"native layer {layer.branch}."
+                    )
         materialized_base = (
             native_snapshot.trunk_branch
             if previous_layer_merged and not layer.merged
@@ -520,6 +533,8 @@ def rehydrate_chain(
                 pr_number=pr.number if pr is not None else None,
                 pr_state=pr.state.upper() if pr is not None else None,
                 pr_metadata=pr_metadata,
+                topology_position=topology_position,
+                merge_sha=pr.merge_sha if pr is not None else None,
             )
         )
         previous_branch = layer.branch
@@ -535,4 +550,5 @@ def rehydrate_chain(
         root_source_sha=root_source.sha,
         source_lineage=source_lineage,
         changesets=tuple(records),
+        native_topology=True,
     )

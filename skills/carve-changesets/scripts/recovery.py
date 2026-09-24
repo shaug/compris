@@ -31,10 +31,12 @@ from metadata import (
     stamp_commit_message,
 )
 from propagate import (
+    _durable_predecessor,
     _verify_merged_on_base,
     push_changeset_branch,
     remote_branch_head,
 )
+from publication import remote_identity_head, verify_remote_lineage
 from rehydrate import (
     ChangesetRecord,
     PullRequestRecord,
@@ -52,13 +54,13 @@ def _resolve(ref: str) -> str | None:
 
 
 def _resolve_identity(identity: SourceIdentity, *, remote: str) -> str:
-    local = _resolve(f"refs/heads/{identity.branch}")
-    published = _resolve(f"refs/remotes/{remote}/{identity.branch}")
-    if published is None:
+    if identity.remote != remote:
         raise CommandError(
-            f"Immutable source {identity.branch!r} is unavailable on {remote}; "
-            "published suffix lineage must be reconstructible from remote refs."
+            f"Immutable source records remote {identity.remote!r}, not selected "
+            f"remote {remote!r}."
         )
+    local = _resolve(f"refs/heads/{identity.branch}")
+    published = remote_identity_head(identity)
     if local and local != published:
         raise CommandError(
             f"Immutable source {identity.branch!r} is ambiguous: local head {local} "
@@ -101,39 +103,13 @@ def _metadata_for_recovery(
         return record.metadata
     if record.metadata.source_lineage != target_lineage[:-1]:
         raise CommandError(
-            f"Changeset {record.metadata.index} does not carry the current lineage "
+            f"Changeset {record.position} does not carry the current lineage "
             "or the requested successor lineage."
         )
-    successor = target_lineage[-1]
     return ChangesetMetadata(
         slug=record.metadata.slug,
-        index=record.metadata.index,
-        source_branch=successor.branch,
-        source_sha=successor.sha,
         source_lineage=target_lineage,
         recovery_from_head=record.head,
-    )
-
-
-def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> str:
-    if _is_ancestor(previous.head, record.head):
-        return previous.head
-    for commit in git("rev-list", record.head).stdout.splitlines():
-        try:
-            metadata = parse_commit_message(
-                git("show", "-s", "--format=%B", commit).stdout
-            )
-        except MetadataError:
-            continue
-        if (
-            metadata.index == previous.metadata.index
-            and metadata.slug == previous.metadata.slug
-            and metadata.root_source == previous.metadata.root_source
-        ):
-            return commit
-    raise CommandError(
-        f"Changeset {record.metadata.index} does not contain the durable predecessor "
-        f"for changeset {previous.metadata.index}."
     )
 
 
@@ -197,7 +173,7 @@ def _verify_open_suffix_pr(
 ) -> PullRequestRecord:
     if record.pr_number is None:
         raise CommandError(
-            f"Changeset {record.metadata.index} has no canonical published PR."
+            f"Changeset {record.position} has no canonical published PR."
         )
     live = pull_request_by_number(record.pr_number, remote=remote)
     if live.state.upper() != "OPEN":
@@ -223,16 +199,18 @@ def _verify_open_suffix_pr(
             f"Remote suffix branch {remote}/{record.branch} moved from "
             f"{expected_head} to {current_remote}."
         )
-    try:
-        metadata = parse_pr_metadata(live.body)
-    except MetadataError as exc:
-        raise CommandError(
-            f"Suffix PR #{live.number} metadata is invalid: {exc}"
-        ) from exc
+    metadata = record.metadata
+    if record.metadata.version in {1, 2}:
+        try:
+            metadata = parse_pr_metadata(live.body, remote=remote)
+        except MetadataError as exc:
+            raise CommandError(
+                f"Suffix PR #{live.number} metadata is invalid: {exc}"
+            ) from exc
     current_lineage = target_lineage[:-1]
     if (
         metadata.slug != record.metadata.slug
-        or metadata.index != record.metadata.index
+        or metadata.legacy_position != record.metadata.legacy_position
         or metadata.root_source != record.metadata.root_source
         or metadata.source_lineage not in (current_lineage, target_lineage)
     ):
@@ -278,7 +256,7 @@ def recover_suffix_from_live(
             "to --no-dry-run."
         )
     git("fetch", "--prune", remote)
-    successor = SourceIdentity(successor_branch, successor_sha)
+    successor = SourceIdentity(remote, successor_branch, successor_sha)
     pull_requests = pull_requests_for_source(source, remote=remote)
     _ensure_pr_heads_available(pull_requests, remote=remote)
     try:
@@ -321,7 +299,7 @@ def recover_suffix_from_live(
     for record in prefix:
         if record.pr_state != "MERGED" or record.pr_number not in by_number:
             raise CommandError(
-                f"Changeset {record.metadata.index} is not a verified merged prefix."
+                f"Changeset {record.position} is not a verified merged prefix."
             )
         _verify_merged_on_base(
             by_number[record.pr_number], base=chain.base_branch, remote=remote
@@ -330,10 +308,10 @@ def recover_suffix_from_live(
     suffix = list(chain.changesets[first_open - 1 :])
     target_lineage = chain.source_lineage
     expected_bases = {
-        record.metadata.index: (
+        record.position: (
             chain.base_branch
-            if record.metadata.index == first_open
-            else chain.changesets[record.metadata.index - 2].branch
+            if record.position == first_open
+            else chain.changesets[record.position - 2].branch
         )
         for record in suffix
     }
@@ -341,7 +319,7 @@ def recover_suffix_from_live(
         _verify_open_suffix_pr(
             record,
             expected_head=record.head,
-            expected_base=expected_bases[record.metadata.index],
+            expected_base=expected_bases[record.position],
             target_lineage=target_lineage,
             remote=remote,
         )
@@ -354,16 +332,16 @@ def recover_suffix_from_live(
         try:
             for record in suffix:
                 metadata = _metadata_for_recovery(record, target_lineage)
-                metadata_by_index[record.metadata.index] = metadata
+                metadata_by_index[record.position] = metadata
                 if record.metadata == metadata:
-                    candidates[record.metadata.index] = record.head
+                    candidates[record.position] = record.head
                     continue
-                temp = unique_temp_branch(f"carve-recover-{record.metadata.index}")
+                temp = unique_temp_branch(f"carve-recover-{record.position}")
                 temp_branches.append(temp)
-                temp_by_index[record.metadata.index] = temp
+                temp_by_index[record.position] = temp
                 git("branch", temp, record.head)
                 git("checkout", temp)
-                if record.metadata.index == first_open:
+                if record.position == first_open:
                     base_head = _resolve(f"refs/remotes/{remote}/{chain.base_branch}")
                     if base_head is None or not _is_ancestor(base_head, record.head):
                         raise CommandError(
@@ -371,19 +349,26 @@ def recover_suffix_from_live(
                             f"onto current {remote}/{chain.base_branch}."
                         )
                 else:
-                    previous = chain.changesets[record.metadata.index - 2]
-                    old_base = _durable_predecessor(record, previous)
+                    previous = chain.changesets[record.position - 2]
+                    old_base = _durable_predecessor(
+                        record,
+                        previous,
+                        missing_message=(
+                            f"Changeset {record.position} does not contain the durable "
+                            f"predecessor for changeset {previous.position}."
+                        ),
+                    )
                     git(
                         "rebase",
                         "--onto",
-                        candidates[record.metadata.index - 1],
+                        candidates[record.position - 1],
                         old_base,
                         temp,
                     )
-                candidates[record.metadata.index] = _amend_metadata(metadata)
+                candidates[record.position] = _amend_metadata(metadata)
 
             successor_tree = _resolve(f"{successor.sha}^{{tree}}")
-            tip = candidates[suffix[-1].metadata.index]
+            tip = candidates[suffix[-1].position]
             tip_tree = _resolve(f"{tip}^{{tree}}")
             if successor_tree is None or tip_tree != successor_tree:
                 raise CommandError(
@@ -391,7 +376,7 @@ def recover_suffix_from_live(
                 )
 
             for record in suffix:
-                index = record.metadata.index
+                index = record.position
                 candidate = candidates[index]
                 metadata = metadata_by_index[index]
                 live = _verify_open_suffix_pr(
@@ -409,8 +394,10 @@ def recover_suffix_from_live(
                         expected_remote_head=record.head,
                         local_ref=temp_by_index[index],
                     )
+                    if not dry_run:
+                        verify_remote_lineage(target_lineage, remote=remote)
                 updated_body = embed_pr_metadata(live.body, metadata)
-                if parse_pr_metadata(live.body) != metadata:
+                if updated_body != live.body:
                     edit_pull_request(
                         live.number,
                         remote=remote,
@@ -419,13 +406,18 @@ def recover_suffix_from_live(
                     )
                 if not dry_run:
                     verified = pull_request_by_number(live.number, remote=remote)
+                    verified_metadata = parse_commit_message(
+                        git("show", "-s", "--format=%B", candidate).stdout,
+                        remote=remote,
+                    )
                     if (
                         verified.head_sha != candidate
-                        or parse_pr_metadata(verified.body) != metadata
+                        or verified.body != updated_body
+                        or verified_metadata != metadata
                     ):
                         raise CommandError(
                             f"Recovered PR #{live.number} could not be verified at "
-                            f"exact head {candidate}."
+                            f"exact head {candidate} with its expected body."
                         )
                     _sync_local_branch(record, candidate=candidate, metadata=metadata)
         finally:
