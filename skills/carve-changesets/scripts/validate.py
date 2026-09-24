@@ -300,7 +300,7 @@ def validate_live_chain(
 
         if is_merged and base_head is not None:
             merged_result = _resolve(
-                repo, f"{changeset.merge_sha or changeset.head}^{{commit}}"
+                repo, f"{changeset.pr_merge_sha or changeset.head}^{{commit}}"
             )
             represented = (
                 _is_ancestor(repo, merged_result, base_head)

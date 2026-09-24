@@ -26,6 +26,7 @@ from metadata import (
     MetadataError,
     SourceIdentity,
     embed_pr_metadata,
+    has_legacy_pr_metadata_comment,
     parse_commit_message,
     parse_pr_metadata,
     stamp_commit_message,
@@ -87,13 +88,29 @@ def _ensure_pr_heads_available(
     pull_requests: list[PullRequestRecord], *, remote: str
 ) -> None:
     for pr in pull_requests:
-        if _resolve(pr.head_sha) is not None:
-            continue
-        fetched = git("fetch", remote, f"refs/pull/{pr.number}/head", check=False)
-        if fetched.returncode != 0 or _resolve(pr.head_sha) is None:
-            raise CommandError(
-                f"PR #{pr.number} head {pr.head_sha} is unavailable in live git."
+        if _resolve(pr.head_sha) is None:
+            fetched = git("fetch", remote, f"refs/pull/{pr.number}/head", check=False)
+            if fetched.returncode != 0 or _resolve(pr.head_sha) is None:
+                raise CommandError(
+                    f"PR #{pr.number} head {pr.head_sha} is unavailable in live git."
+                )
+        try:
+            metadata = parse_commit_message(
+                git("show", "-s", "--format=%B", pr.head_sha).stdout,
+                remote=remote,
             )
+        except MetadataError as exc:
+            raise CommandError(
+                f"PR #{pr.number} head metadata is invalid: {exc}"
+            ) from exc
+        predecessor = metadata.recovery_from_head
+        if predecessor is not None and _resolve(predecessor) is None:
+            fetched = git("fetch", remote, predecessor, check=False)
+            if fetched.returncode != 0 or _resolve(predecessor) is None:
+                raise CommandError(
+                    f"PR #{pr.number} exact recovery predecessor {predecessor} "
+                    "is unavailable in live git."
+                )
 
 
 def _metadata_for_recovery(
@@ -200,17 +217,28 @@ def _verify_open_suffix_pr(
             f"{expected_head} to {current_remote}."
         )
     metadata = record.metadata
-    if record.metadata.version in {1, 2}:
+    has_legacy_metadata = has_legacy_pr_metadata_comment(live.body)
+    if record.metadata.version in {1, 2} and not has_legacy_metadata:
+        raise CommandError(f"Suffix PR #{live.number} lacks required legacy metadata.")
+    if has_legacy_metadata:
         try:
             metadata = parse_pr_metadata(live.body, remote=remote)
         except MetadataError as exc:
             raise CommandError(
                 f"Suffix PR #{live.number} metadata is invalid: {exc}"
             ) from exc
+        if record.pr_metadata is not None and metadata != record.pr_metadata:
+            raise CommandError(
+                f"Suffix PR #{live.number} metadata conflicts with live recovery evidence."
+            )
     current_lineage = target_lineage[:-1]
+    expected_position = record.metadata.legacy_position
     if (
         metadata.slug != record.metadata.slug
-        or metadata.legacy_position != record.metadata.legacy_position
+        or (
+            expected_position is not None
+            and metadata.legacy_position != expected_position
+        )
         or metadata.root_source != record.metadata.root_source
         or metadata.source_lineage not in (current_lineage, target_lineage)
     ):
