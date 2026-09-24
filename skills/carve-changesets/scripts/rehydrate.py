@@ -336,13 +336,6 @@ def _validate_completed_recovery_provenance(
 
         return _git(repo, "rev-list", "--first-parent", f"{head}^").splitlines()
 
-    def is_ancestor(ancestor: str, descendant: str) -> bool:
-        try:
-            _git(repo, "merge-base", "--is-ancestor", ancestor, descendant)
-        except RehydrationError:
-            return False
-        return True
-
     def proven_post_merge_parent(
         previous: ChangesetRecord,
         record: ChangesetRecord,
@@ -449,7 +442,7 @@ def _validate_completed_recovery_provenance(
                 else:
                     recovered_parent = (
                         previous.head
-                        if is_ancestor(previous.head, record.head)
+                        if previous.head in first_parent_ancestors(record.head)
                         else None
                     )
                 if recovered_parent is None:

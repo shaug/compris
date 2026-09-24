@@ -762,6 +762,51 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertNotIn("carve-changesets:metadata", prs[102].body)
         self.assertNotIn("carve-changesets:metadata", prs[103].body)
 
+        recovered_third_tree = helpers.run(
+            repo, "git", "rev-parse", f"{recovered_third}^{{tree}}"
+        )
+        recovered_third_message = helpers.run(
+            repo, "git", "show", "-s", "--format=%B", recovered_third
+        )
+        second_parent_forgery = helpers.run(
+            repo,
+            "git",
+            "commit-tree",
+            recovered_third_tree,
+            "-p",
+            source_sha,
+            "-p",
+            recovered_second,
+            input_text=recovered_third_message,
+        )
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            f"{second_parent_forgery}:refs/heads/feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{recovered_third}",
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "cannot prove"):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=all_live_prs(),
+                cwd=repo,
+                remote="upstream",
+                prefer_remote=True,
+            )
+
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            f"{recovered_third}:refs/heads/feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{second_parent_forgery}",
+        )
+
         original = helpers.run(repo, "git", "branch", "--show-current")
         helpers.run(repo, "git", "checkout", "main")
         helpers.run(repo, "git", "merge", "--no-ff", "--no-edit", recovered_second)
