@@ -202,6 +202,21 @@ class MetadataTests(unittest.TestCase):
             repo = Path(directory)
             subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
             subprocess.run(
+                ["git", "-C", str(repo), "config", "user.name", "Carve Tests"],
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "config",
+                    "user.email",
+                    "carve@example.test",
+                ],
+                check=True,
+            )
+            subprocess.run(
                 ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "base"],
                 check=True,
                 capture_output=True,
