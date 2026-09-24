@@ -37,6 +37,7 @@ class PullRequestRecord:
     title: str = ""
     merge_sha: str | None = None
     is_cross_repository: bool = False
+    head_rewrite_edges: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ class ChangesetRecord:
     pr_metadata: ChangesetMetadata | None = None
     topology_position: int | None = None
     pr_merge_sha: str | None = None
+    pr_head_rewrite_edges: tuple[tuple[str, str], ...] = ()
 
     @property
     def position(self) -> int:
@@ -258,6 +260,35 @@ def _validate_completed_recovery_provenance(
 
     proven_predecessors: dict[int, tuple[str, ChangesetMetadata]] = {}
 
+    def proves_remote_rewrite_path(record: ChangesetRecord, predecessor: str) -> bool:
+        """Require the exact first remote transition into this successor lineage."""
+
+        boundary: int | None = None
+        current: str | None = None
+        for index, (before, after) in enumerate(record.pr_head_rewrite_edges):
+            try:
+                _ensure_commit_available(repo, after, remote=remote)
+                after_metadata = parse_commit_message(
+                    _git(repo, "show", "-s", "--format=%B", after),
+                    remote=remote,
+                )
+            except (MetadataError, RehydrationError):
+                continue
+            if after_metadata.source_lineage != record.metadata.source_lineage:
+                continue
+            if before != predecessor or after_metadata.slug != record.metadata.slug:
+                return False
+            boundary = index
+            current = after
+            break
+        if boundary is None or current is None:
+            return False
+        for before, after in record.pr_head_rewrite_edges[boundary + 1 :]:
+            if before != current:
+                return False
+            current = after
+        return current == record.head
+
     def proven_post_merge_parent(
         previous: ChangesetRecord,
         record: ChangesetRecord,
@@ -346,6 +377,7 @@ def _validate_completed_recovery_provenance(
         if (
             predecessor_metadata.slug != record.metadata.slug
             or predecessor_metadata.source_lineage != lineage[:-1]
+            or not proves_remote_rewrite_path(record, predecessor)
             or (
                 record.pr_metadata is not None
                 and record.pr_metadata.source_lineage == lineage[:-1]
@@ -597,6 +629,7 @@ def adopt_legacy_chain(
                 pr_metadata=pr_metadata,
                 topology_position=index,
                 pr_merge_sha=pr.merge_sha if pr else None,
+                pr_head_rewrite_edges=pr.head_rewrite_edges if pr else (),
             )
         )
         prior_prs_merged = (
@@ -740,6 +773,7 @@ def rehydrate_chain(
                 pr_metadata=pr_metadata,
                 topology_position=topology_position,
                 pr_merge_sha=pr.merge_sha if pr is not None else None,
+                pr_head_rewrite_edges=(pr.head_rewrite_edges if pr is not None else ()),
             )
         )
         previous_branch = layer.branch

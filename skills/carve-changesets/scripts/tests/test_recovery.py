@@ -166,12 +166,18 @@ class SuffixRecoveryTests(unittest.TestCase):
 
     def _live_pr(self, number: int, **_kwargs) -> PullRequestRecord:
         pr = self.prs[number]
-        return PullRequestRecord(
-            **{
-                **pr.__dict__,
-                "head_sha": self._remote_head(pr.head_branch),
-            }
-        )
+        head = self._remote_head(pr.head_branch)
+        if head != pr.head_sha:
+            pr = PullRequestRecord(
+                **{
+                    **pr.__dict__,
+                    "head_sha": head,
+                    "head_rewrite_edges": pr.head_rewrite_edges
+                    + ((pr.head_sha, head),),
+                }
+            )
+            self.prs[number] = pr
+        return pr
 
     def _all_live_prs(self, *_args, **_kwargs) -> list[PullRequestRecord]:
         return [self._live_pr(number) for number in sorted(self.prs)]
@@ -530,9 +536,18 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         def live_pr(number: int, **_kwargs) -> PullRequestRecord:
             pr = prs[number]
-            return PullRequestRecord(
-                **{**pr.__dict__, "head_sha": remote_head(pr.head_branch)}
-            )
+            head = remote_head(pr.head_branch)
+            if head != pr.head_sha:
+                pr = PullRequestRecord(
+                    **{
+                        **pr.__dict__,
+                        "head_sha": head,
+                        "head_rewrite_edges": pr.head_rewrite_edges
+                        + ((pr.head_sha, head),),
+                    }
+                )
+                prs[number] = pr
+            return pr
 
         def all_live_prs(*_args, **_kwargs) -> list[PullRequestRecord]:
             return [live_pr(number) for number in sorted(prs)]

@@ -33,6 +33,63 @@ from metadata import (  # noqa: E402
 
 
 class GithubTests(unittest.TestCase):
+    def test_force_push_history_paginates_exact_commit_edges(self) -> None:
+        first = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "beforeCommit": {"oid": "a" * 40},
+                                    "afterCommit": {"oid": "b" * 40},
+                                }
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": True,
+                                "endCursor": "next-page",
+                            },
+                        }
+                    }
+                }
+            }
+        }
+        second = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "beforeCommit": {"oid": "b" * 40},
+                                    "afterCommit": {"oid": "c" * 40},
+                                }
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": False,
+                                "endCursor": None,
+                            },
+                        }
+                    }
+                }
+            }
+        }
+
+        with mock.patch.object(
+            github_mod,
+            "gh_json",
+            side_effect=(first, second),
+        ) as graphql:
+            edges = github_mod._pull_request_head_rewrite_edges(
+                "github.enterprise.test/acme/widgets",
+                92,
+            )
+
+        self.assertEqual((("a" * 40, "b" * 40), ("b" * 40, "c" * 40)), edges)
+        self.assertIn("--hostname", graphql.call_args_list[0].args[0])
+        self.assertNotIn("cursor=next-page", graphql.call_args_list[0].args[0])
+        self.assertIn("cursor=next-page", graphql.call_args_list[1].args[0])
+
     def test_shared_pr_decoder_reports_operation_context(self) -> None:
         with self.assertRaisesRegex(
             CommandError, "changeset PR for feature/test-2.*valid PR number"

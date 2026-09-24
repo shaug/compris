@@ -119,13 +119,57 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
         self,
         *,
         forged_downstream_predecessor: bool = False,
+        substitute_first_twin_predecessor: bool = False,
         substitute_twin_predecessor: bool = False,
     ) -> tuple[NativeStackSnapshot, list[PullRequestRecord]]:
         original, pull_requests, _ = self._native_stack()
         root = SourceIdentity("feature/report", self.source_sha)
         successor = SourceIdentity("feature/report-corrected", "c" * 40)
         old_first, old_second = (layer.head for layer in original.layers)
+        first_recovery_head = old_first
         second_recovery_head = old_second
+        if substitute_first_twin_predecessor:
+            first_tree = helpers.run(
+                self.repo, "git", "rev-parse", f"{old_first}^{{tree}}"
+            )
+            first_parents = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%P", old_first
+            ).split()
+            first_message = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%B", old_first
+            )
+            twin_args = [
+                "git",
+                "-c",
+                "user.name=Twin Author",
+                "-c",
+                "user.email=twin@example.test",
+                "commit-tree",
+                first_tree,
+            ]
+            for parent in first_parents:
+                twin_args.extend(("-p", parent))
+            first_recovery_head = helpers.run(
+                self.repo,
+                *twin_args,
+                input_text=first_message,
+            )
+            self.assertNotEqual(old_first, first_recovery_head)
+            second_tree = helpers.run(
+                self.repo, "git", "rev-parse", f"{old_second}^{{tree}}"
+            )
+            second_message = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%B", old_second
+            )
+            second_recovery_head = helpers.run(
+                self.repo,
+                "git",
+                "commit-tree",
+                second_tree,
+                "-p",
+                first_recovery_head,
+                input_text=second_message,
+            )
         if substitute_twin_predecessor:
             first_tree = helpers.run(
                 self.repo, "git", "rev-parse", f"{old_first}^{{tree}}"
@@ -172,7 +216,7 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
         first_metadata = ChangesetMetadata(
             slug="native-1",
             source_lineage=(root, successor),
-            recovery_from_head=old_first,
+            recovery_from_head=first_recovery_head,
         )
         helpers.run(self.repo, "git", "checkout", original.layers[0].branch)
         helpers.run(
@@ -222,11 +266,13 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
                 pull_requests[0],
                 head_sha=new_first,
                 body=embed_pr_metadata(pull_requests[0].body, first_metadata),
+                head_rewrite_edges=((old_first, new_first),),
             ),
             replace(
                 pull_requests[1],
                 head_sha=new_second,
                 body=embed_pr_metadata(pull_requests[1].body, second_metadata),
+                head_rewrite_edges=((old_second, new_second),),
             ),
         ]
         return (
@@ -350,6 +396,20 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
     def test_completed_successor_rejects_a_twin_historical_predecessor(self) -> None:
         snapshot, pull_requests = self._completed_successor_stack(
             substitute_twin_predecessor=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
+
+    def test_completed_successor_rejects_a_twin_first_predecessor(self) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            substitute_first_twin_predecessor=True
         )
 
         with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):

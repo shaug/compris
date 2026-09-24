@@ -157,6 +157,7 @@ class RehydrationTests(unittest.TestCase):
                 **prs[0].__dict__,
                 "head_sha": recovered_head,
                 "body": embed_pr_metadata(prs[0].body, recovered),
+                "head_rewrite_edges": ((heads[1], recovered_head),),
             }
         )
         clone = self._fresh_clone()
@@ -355,6 +356,7 @@ class RehydrationTests(unittest.TestCase):
                 **prs[1].__dict__,
                 "head_sha": recovered_head,
                 "body": embed_pr_metadata(prs[1].body, recovered),
+                "head_rewrite_edges": ((heads[2], recovered_head),),
             }
         )
         clone = self._fresh_clone()
@@ -449,6 +451,7 @@ class RehydrationTests(unittest.TestCase):
                 **prs[1].__dict__,
                 "head_sha": recovered_head,
                 "body": embed_pr_metadata(prs[1].body, recovered),
+                "head_rewrite_edges": ((heads[2], recovered_head),),
             }
         )
         helpers.run(

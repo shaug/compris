@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-23 — Completed remote-aware source lineage
 
+- fix: authenticate recovery boundaries from immutable GitHub head history
+
 - feat: recover recorded source lineage
 
 - feat: establish remote source lineage contract
