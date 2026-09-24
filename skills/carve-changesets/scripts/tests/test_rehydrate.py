@@ -460,7 +460,12 @@ class RehydrationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(RehydrationError, "leading prefix"):
-            _validate_recovery_transition(records, successor)
+            _validate_recovery_transition(
+                records,
+                successor,
+                repo=self.repo,
+                remote="origin",
+            )
 
     def test_rejects_discontinuous_successor_lineage(self) -> None:
         heads, prs = self._materialize()

@@ -14,6 +14,7 @@ from metadata import (
     SourceIdentity,
     parse_commit_message,
     parse_pr_metadata,
+    stamp_commit_message,
 )
 from native_stack import NativeStackSnapshot
 
@@ -218,7 +219,11 @@ def _validate_lineage_sequence(
 
 
 def _validate_recovery_transition(
-    records: Sequence[ChangesetRecord], successor: SourceIdentity
+    records: Sequence[ChangesetRecord],
+    successor: SourceIdentity,
+    *,
+    repo: Path,
+    remote: str,
 ) -> tuple[SourceIdentity, ...]:
     first_open = next(
         (
@@ -289,6 +294,45 @@ def _validate_recovery_transition(
                         f"Changeset branch {record.branch} does not identify a distinct "
                         "pre-recovery head."
                     )
+
+    for record in records[first_open:]:
+        if record.metadata.source_lineage != target:
+            break
+        predecessor = record.metadata.recovery_from_head
+        if predecessor is None:
+            raise RehydrationError(
+                f"Changeset branch {record.branch} cannot prove its exact "
+                "pre-recovery head."
+            )
+        try:
+            predecessor_message = _git(repo, "show", "-s", "--format=%B", predecessor)
+            predecessor_metadata = parse_commit_message(
+                predecessor_message,
+                remote=remote,
+            )
+        except (MetadataError, RehydrationError) as exc:
+            raise RehydrationError(
+                f"Changeset branch {record.branch} cannot prove its exact "
+                "pre-recovery head."
+            ) from exc
+        current_message = _git(repo, "show", "-s", "--format=%B", record.head)
+        same_tree = _git(repo, "rev-parse", f"{record.head}^{{tree}}") == _git(
+            repo, "rev-parse", f"{predecessor}^{{tree}}"
+        )
+        current_parents = _git(repo, "show", "-s", "--format=%P", record.head)
+        predecessor_parents = _git(repo, "show", "-s", "--format=%P", predecessor)
+        if (
+            predecessor_metadata.slug != record.metadata.slug
+            or predecessor_metadata.source_lineage != base_lineage
+            or not same_tree
+            or current_parents != predecessor_parents
+            or stamp_commit_message(predecessor_message, record.metadata).strip()
+            != current_message.strip()
+        ):
+            raise RehydrationError(
+                f"Changeset branch {record.branch} cannot prove its exact "
+                "pre-recovery head."
+            )
     return target
 
 
@@ -438,7 +482,12 @@ def adopt_legacy_chain(
 
     assert root_source is not None
     source_lineage = (
-        _validate_recovery_transition(records, recovery_successor)
+        _validate_recovery_transition(
+            records,
+            recovery_successor,
+            repo=repo,
+            remote=remote,
+        )
         if recovery_successor is not None
         else _validate_lineage_sequence(records)
     )

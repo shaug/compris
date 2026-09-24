@@ -8,7 +8,7 @@ from common import CommandError, git
 from metadata import MetadataError, SourceIdentity, parse_commit_message
 
 
-def _remote_identity_head(identity: SourceIdentity) -> str:
+def remote_identity_head(identity: SourceIdentity) -> str:
     expected_ref = f"refs/heads/{identity.branch}"
     result = git(
         "ls-remote",
@@ -70,7 +70,7 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
                 f"Recorded source {identity.branch!r} records remote "
                 f"{identity.remote!r}, not selected remote {remote!r}."
             )
-        published = _remote_identity_head(identity)
+        published = remote_identity_head(identity)
         if published != identity.sha:
             raise CommandError(
                 f"Recorded source {remote}/{identity.branch} moved from "

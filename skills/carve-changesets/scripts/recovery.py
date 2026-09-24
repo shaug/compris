@@ -36,6 +36,7 @@ from propagate import (
     push_changeset_branch,
     remote_branch_head,
 )
+from publication import remote_identity_head
 from rehydrate import (
     ChangesetRecord,
     PullRequestRecord,
@@ -59,12 +60,7 @@ def _resolve_identity(identity: SourceIdentity, *, remote: str) -> str:
             f"remote {remote!r}."
         )
     local = _resolve(f"refs/heads/{identity.branch}")
-    published = _resolve(f"refs/remotes/{identity.remote}/{identity.branch}")
-    if published is None:
-        raise CommandError(
-            f"Immutable source {identity.branch!r} is unavailable on {remote}; "
-            "published suffix lineage must be reconstructible from remote refs."
-        )
+    published = remote_identity_head(identity)
     if local and local != published:
         raise CommandError(
             f"Immutable source {identity.branch!r} is ambiguous: local head {local} "
@@ -98,7 +94,7 @@ def _ensure_pr_heads_available(
                     f"PR #{pr.number} head {pr.head_sha} is unavailable in live git."
                 )
         try:
-            parse_commit_message(
+            metadata = parse_commit_message(
                 git("show", "-s", "--format=%B", pr.head_sha).stdout,
                 remote=remote,
             )
@@ -106,6 +102,14 @@ def _ensure_pr_heads_available(
             raise CommandError(
                 f"PR #{pr.number} head metadata is invalid: {exc}"
             ) from exc
+        predecessor = metadata.recovery_from_head
+        if predecessor is not None and _resolve(predecessor) is None:
+            fetched = git("fetch", remote, predecessor, check=False)
+            if fetched.returncode != 0 or _resolve(predecessor) is None:
+                raise CommandError(
+                    f"PR #{pr.number} exact recovery predecessor {predecessor} "
+                    "is unavailable in live git."
+                )
 
 
 def _metadata_for_recovery(
