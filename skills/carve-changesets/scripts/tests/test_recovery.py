@@ -688,7 +688,36 @@ class SuffixRecoveryTests(unittest.TestCase):
             "feature/report-corrected",
         )
 
-        with self.assertRaisesRegex(CommandError, "unavailable on origin"):
+        with self.assertRaisesRegex(CommandError, "unavailable"):
+            self._run_recovery()
+
+        self.assertEqual(suffix_before, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_recovery_rejects_stale_cached_successor_ref_before_remote_mutation(
+        self,
+    ) -> None:
+        suffix_before = self._remote_head("feature/report-2")
+        body_before = self.prs[102].body
+        helpers.run(
+            self.repo,
+            "git",
+            "config",
+            "--replace-all",
+            "remote.origin.fetch",
+            "+refs/heads/main:refs/remotes/origin/main",
+        )
+        helpers.run(
+            self.temp_dir,
+            "git",
+            "--git-dir",
+            str(self.bare),
+            "update-ref",
+            "-d",
+            "refs/heads/feature/report-corrected",
+        )
+
+        with self.assertRaisesRegex(CommandError, "unavailable"):
             self._run_recovery()
 
         self.assertEqual(suffix_before, self._remote_head("feature/report-2"))

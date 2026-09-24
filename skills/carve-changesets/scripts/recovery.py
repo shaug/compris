@@ -36,7 +36,7 @@ from propagate import (
     push_changeset_branch,
     remote_branch_head,
 )
-from publication import verify_remote_lineage
+from publication import remote_identity_head, verify_remote_lineage
 from rehydrate import (
     ChangesetRecord,
     PullRequestRecord,
@@ -60,12 +60,7 @@ def _resolve_identity(identity: SourceIdentity, *, remote: str) -> str:
             f"remote {remote!r}."
         )
     local = _resolve(f"refs/heads/{identity.branch}")
-    published = _resolve(f"refs/remotes/{identity.remote}/{identity.branch}")
-    if published is None:
-        raise CommandError(
-            f"Immutable source {identity.branch!r} is unavailable on {remote}; "
-            "published suffix lineage must be reconstructible from remote refs."
-        )
+    published = remote_identity_head(identity)
     if local and local != published:
         raise CommandError(
             f"Immutable source {identity.branch!r} is ambiguous: local head {local} "
