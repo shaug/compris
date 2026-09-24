@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: recheck lineage after publication
+
 - fix: verify remote publication readback
 
 - fix: verify published pull request titles

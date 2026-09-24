@@ -506,6 +506,63 @@ class GithubTests(unittest.TestCase):
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 
+    def test_pr_create_rechecks_lineage_after_creation(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
+                head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                body = github_mod.pr_body_for(
+                    plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
+                created = {
+                    "number": 96,
+                    "url": "https://example.test/pr/96",
+                    "headRefOid": head,
+                    "baseRefName": "main",
+                    "title": title,
+                    "body": body,
+                }
+
+                def create_then_delete_source(_args) -> tuple[str, str]:
+                    run(
+                        ["git", "push", "origin", "--delete", "feature/test"],
+                        cwd=repo_dir,
+                    )
+                    return "", ""
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready"),
+                    mock.patch.object(
+                        github_mod,
+                        "gh_capture",
+                        side_effect=create_then_delete_source,
+                    ),
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_pr_create_rejects_a_different_stamped_remote_before_gh(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
@@ -904,8 +961,16 @@ class GithubTests(unittest.TestCase):
                     )
 
                 repository = "github.enterprise.test/acme/widgets"
-                provenance.assert_called_once_with(
-                    ("feature/test-1", "feature/test-2"), remote="release"
+                self.assertEqual(
+                    [
+                        mock.call(
+                            ("feature/test-1", "feature/test-2"), remote="release"
+                        ),
+                        mock.call(
+                            ("feature/test-1", "feature/test-2"), remote="release"
+                        ),
+                    ],
+                    provenance.call_args_list,
                 )
                 auth.assert_called_once_with(repository)
                 self.assertIn(

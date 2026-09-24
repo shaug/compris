@@ -134,6 +134,8 @@ def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
     print(f"[INFO] Source branch {source} is immutable and will not be pushed.")
     for branch in chain:
         push_changeset_branch(branch, remote=remote, dry_run=dry_run)
+        if not dry_run:
+            verify_lineage_for_publication(chain, remote=remote)
 
     if dry_run:
         print("[OK] Dry-run push-chain complete. Re-run with --no-dry-run to execute.")

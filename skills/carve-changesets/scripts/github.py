@@ -248,6 +248,7 @@ def pr_create(
     source = plan["source_branch"]
     changesets = plan["changesets"]
     total = len(changesets)
+    chain = tuple(branch_name_for(source, index) for index in range(1, total + 1))
     for index in indices:
         if index < 1 or index > total:
             raise CommandError(f"--index must be between 1 and {total}.")
@@ -277,10 +278,7 @@ def pr_create(
         else {}
     )
     if not dry_run:
-        verify_lineage_for_publication(
-            tuple(branch_name_for(source, index) for index in range(1, total + 1)),
-            remote=remote,
-        )
+        verify_lineage_for_publication(chain, remote=remote)
         ensure_gh_ready(repository)
     for index in indices:
         head = branch_name_for(source, index)
@@ -327,6 +325,7 @@ def pr_create(
             expected_title=title,
             expected_body=body,
         )
+        verify_lineage_for_publication(chain, remote=remote)
         print(f"[OK] PR #{created['number']} created: {created['url']}")
 
     if dry_run:

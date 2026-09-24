@@ -799,6 +799,39 @@ class StatelessPropagationTests(unittest.TestCase):
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 
+    def test_push_chain_rechecks_lineage_after_each_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                original_push = propagate_mod.push_changeset_branch
+                source_deleted = False
+
+                def push_then_delete_source(*args, **kwargs) -> None:
+                    nonlocal source_deleted
+                    original_push(*args, **kwargs)
+                    if not source_deleted:
+                        run(
+                            ["git", "push", "origin", "--delete", "feature/test"],
+                            cwd=repo_dir,
+                        )
+                        source_deleted = True
+
+                with mock.patch.object(
+                    propagate_mod,
+                    "push_changeset_branch",
+                    side_effect=push_then_delete_source,
+                ):
+                    with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                        push_chain(plan, remote="origin", dry_run=False)
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
 
 if __name__ == "__main__":
     unittest.main()
