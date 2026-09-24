@@ -90,6 +90,11 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
             raise CommandError(
                 f"Changeset branch {head} has invalid source identity: {exc}"
             ) from exc
+        if metadata.version != 3:
+            raise CommandError(
+                f"Changeset branch {head} uses legacy v{metadata.version} metadata; "
+                "new remote publication requires native v3 identity."
+            )
         if expected_lineage is None:
             expected_lineage = metadata.source_lineage
         elif metadata.source_lineage != expected_lineage:

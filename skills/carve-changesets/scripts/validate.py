@@ -9,7 +9,7 @@ from typing import Literal
 
 from common import CommandError
 from metadata import SourceIdentity
-from publication import remote_identity_head
+from publication import remote_branch_head, remote_identity_head
 from rehydrate import Chain, RehydrationError, discover_changeset_heads
 
 Severity = Literal["error", "warning"]
@@ -230,13 +230,28 @@ def validate_live_chain(
                 )
             )
 
-    base_head = _resolve_branch(repo, chain.base_branch, remote)
+    if verify_live_remote:
+        try:
+            base_head = remote_branch_head(remote, chain.base_branch, cwd=repo)
+        except CommandError as exc:
+            base_head = None
+            diagnostics.append(
+                ValidationDiagnostic(
+                    "base_ref_unavailable",
+                    "error",
+                    f"Current selected-remote base {remote}/{chain.base_branch} "
+                    f"could not be resolved exactly: {exc}",
+                )
+            )
+    else:
+        base_head = _resolve_branch(repo, chain.base_branch, remote)
     if base_head is None:
         diagnostics.append(
             ValidationDiagnostic(
                 "base_missing",
                 "error",
-                f"Base branch {chain.base_branch!r} is not available in live git.",
+                f"Base branch {chain.base_branch!r} is not available from "
+                f"{'selected remote ' + remote if verify_live_remote else 'local git'}.",
             )
         )
 
