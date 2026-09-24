@@ -169,6 +169,17 @@ class GithubTests(unittest.TestCase):
                 shutil.rmtree(remote_dir.parent)
 
     def test_force_push_history_paginates_exact_commit_edges(self) -> None:
+        pull_request = {
+            "number": 92,
+            "headRefName": "feature/test-1",
+            "headRefOid": "c" * 40,
+            "baseRefName": "main",
+            "state": "OPEN",
+            "body": "Human context only.\n",
+            "title": "Feature (1 of 1)",
+            "mergeCommit": None,
+            "isCrossRepository": False,
+        }
         first = {
             "data": {
                 "repository": {
@@ -210,20 +221,24 @@ class GithubTests(unittest.TestCase):
             }
         }
 
-        with mock.patch.object(
-            github_mod,
-            "gh_json",
-            side_effect=(first, second),
-        ) as graphql:
-            edges = github_mod._pull_request_head_rewrite_edges(
-                "github.enterprise.test/acme/widgets",
-                92,
-            )
+        with (
+            mock.patch.object(
+                github_mod,
+                "github_repo_for_remote",
+                return_value="github.enterprise.test/acme/widgets",
+            ),
+            mock.patch.object(
+                github_mod,
+                "gh_json",
+                side_effect=([pull_request], first, second),
+            ),
+        ):
+            records = github_mod.pull_requests_for_source("feature/test")
 
-        self.assertEqual((("a" * 40, "b" * 40), ("b" * 40, "c" * 40)), edges)
-        self.assertIn("--hostname", graphql.call_args_list[0].args[0])
-        self.assertNotIn("cursor=next-page", graphql.call_args_list[0].args[0])
-        self.assertIn("cursor=next-page", graphql.call_args_list[1].args[0])
+        self.assertEqual(
+            (("a" * 40, "b" * 40), ("b" * 40, "c" * 40)),
+            records[0].head_rewrite_edges,
+        )
 
     def test_shared_pr_decoder_reports_operation_context(self) -> None:
         with self.assertRaisesRegex(

@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- test: cover pagination through PR discovery
+
 - docs: backfill merged lineage changelog
 
 - fix: reconcile merged lineage validation
