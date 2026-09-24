@@ -634,9 +634,10 @@ changes for an independently required semantic or recovery reason is stamped in
 the native v3 format.
 
 No backwards compatibility is provided for cached predecessor-skill chain
-snapshots, old plan files, metadata predating v1, or legacy chains. Those
-artifacts are ignored rather than migrated or accepted as authoritative
-evidence. Old metadata alone never qualifies a chain for adoption or recovery.
+snapshots, old plan files, metadata predating v1, or predecessor-skill chain
+formats outside v1/v2. Those artifacts are ignored rather than migrated or
+accepted as authoritative evidence. Old metadata alone never qualifies a chain
+for adoption or recovery.
 
 ### Non-goals
 
