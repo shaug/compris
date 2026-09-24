@@ -49,6 +49,7 @@ class ChangesetRecord:
     pr_state: str | None = None
     pr_metadata: ChangesetMetadata | None = None
     topology_position: int | None = None
+    pr_merge_sha: str | None = None
 
     @property
     def position(self) -> int:
@@ -256,6 +257,37 @@ def _validate_completed_recovery_provenance(
     """Prove each completed successor head from its exact prior candidate."""
 
     proven_predecessors: dict[int, ChangesetMetadata] = {}
+
+    def proven_post_merge_parent(
+        previous: ChangesetRecord,
+        record: ChangesetRecord,
+        current_parent: str,
+    ) -> bool:
+        if (
+            previous.pr_state != "MERGED"
+            or previous.pr_merge_sha is None
+            or record.base == previous.branch
+        ):
+            return False
+        try:
+            _ensure_commit_available(repo, previous.pr_merge_sha, remote=remote)
+            live_base = _git(
+                repo,
+                "rev-parse",
+                f"refs/remotes/{remote}/{record.base}^{{commit}}",
+            ).strip()
+            _git(
+                repo,
+                "merge-base",
+                "--is-ancestor",
+                previous.pr_merge_sha,
+                current_parent,
+            )
+            _git(repo, "merge-base", "--is-ancestor", current_parent, live_base)
+        except RehydrationError:
+            return False
+        return True
+
     for offset, record in enumerate(records):
         lineage = record.metadata.source_lineage
         if len(lineage) == 1:
@@ -314,7 +346,14 @@ def _validate_completed_recovery_provenance(
                         f"Changeset branch {record.branch} cannot prove its exact "
                         "pre-recovery head."
                     )
-                expected_parents[0] = previous.head
+                if current_parents and proven_post_merge_parent(
+                    previous,
+                    record,
+                    current_parents[0],
+                ):
+                    expected_parents[0] = current_parents[0]
+                else:
+                    expected_parents[0] = previous.head
 
         if (
             predecessor_metadata.slug != record.metadata.slug
@@ -569,6 +608,7 @@ def adopt_legacy_chain(
                 pr_state=pr.state.upper() if pr else None,
                 pr_metadata=pr_metadata,
                 topology_position=index,
+                pr_merge_sha=pr.merge_sha if pr else None,
             )
         )
         prior_prs_merged = (
@@ -711,6 +751,7 @@ def rehydrate_chain(
                 pr_state=pr.state.upper() if pr is not None else None,
                 pr_metadata=pr_metadata,
                 topology_position=topology_position,
+                pr_merge_sha=pr.merge_sha if pr is not None else None,
             )
         )
         previous_branch = layer.branch

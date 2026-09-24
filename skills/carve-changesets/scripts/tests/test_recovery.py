@@ -21,7 +21,7 @@ from metadata import (
     stamp_commit_message,
 )
 from recovery import recover_suffix_from_live
-from rehydrate import PullRequestRecord, adopt_legacy_chain
+from rehydrate import PullRequestRecord, RehydrationError, adopt_legacy_chain
 from validate import validate_live_chain
 
 
@@ -369,7 +369,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         ):
             self._run_recovery()
 
-    def test_multi_layer_legacy_recovery_resumes_after_first_v3_push(self) -> None:
+    def test_multi_layer_recovery_survives_first_recovered_merge(self) -> None:
         case_dir = self.temp_dir / "non-origin"
         case_dir.mkdir()
         repo, bare, source_sha = helpers.init_repo(case_dir)
@@ -475,6 +475,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 base_branch="main",
                 state="MERGED",
                 body=embed_pr_metadata("Position 1\n", first_metadata),
+                title="Report API (1 of 3)",
                 merge_sha=merge_sha,
             ),
             102: PullRequestRecord(
@@ -484,6 +485,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 base_branch="main",
                 state="OPEN",
                 body=embed_pr_metadata("Position 2\n", second_metadata),
+                title="Report API (2 of 3)",
             ),
             103: PullRequestRecord(
                 number=103,
@@ -492,6 +494,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 base_branch="feature/report-2",
                 state="OPEN",
                 body=embed_pr_metadata("Position 3\n", third_metadata),
+                title="Report API (3 of 3)",
             ),
         }
 
@@ -514,11 +517,15 @@ class SuffixRecoveryTests(unittest.TestCase):
         def all_live_prs(*_args, **_kwargs) -> list[PullRequestRecord]:
             return [live_pr(number) for number in sorted(prs)]
 
-        def edit_pr(number: int, *, body=None, **_kwargs) -> None:
+        def edit_pr(
+            number: int, *, body=None, base=None, title=None, **_kwargs
+        ) -> None:
             prs[number] = PullRequestRecord(
                 **{
                     **prs[number].__dict__,
                     "body": body if body is not None else prs[number].body,
+                    "base_branch": base or prs[number].base_branch,
+                    "title": title or prs[number].title,
                 }
             )
 
@@ -641,6 +648,106 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertEqual("Position 3\n", prs[103].body)
         self.assertNotIn("carve-changesets:metadata", prs[102].body)
         self.assertNotIn("carve-changesets:metadata", prs[103].body)
+
+        original = helpers.run(repo, "git", "branch", "--show-current")
+        helpers.run(repo, "git", "checkout", "main")
+        helpers.run(repo, "git", "merge", "--no-ff", "--no-edit", recovered_second)
+        second_merge = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(repo, "git", "push", "upstream", "main")
+        helpers.run(repo, "git", "checkout", original)
+        prs[102] = PullRequestRecord(
+            **{
+                **prs[102].__dict__,
+                "state": "MERGED",
+                "merge_sha": second_merge,
+            }
+        )
+
+        with (
+            chdir(repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=all_live_prs,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "edit_pull_request",
+                side_effect=edit_pr,
+            ),
+        ):
+            propagate_mod.propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=102,
+                index=None,
+                strategy="rebase",
+                remote="upstream",
+                dry_run=False,
+                authority_acknowledged=True,
+            )
+
+        clone = self.temp_dir / "post-recovery-merge"
+        helpers.run(self.temp_dir, "git", "clone", str(bare), str(clone))
+        helpers.run(clone, "git", "remote", "add", "upstream", str(bare))
+        helpers.run(clone, "git", "fetch", "upstream")
+        chain = adopt_legacy_chain(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_requests=all_live_prs(),
+            cwd=clone,
+            remote="upstream",
+            prefer_remote=True,
+        )
+        validation = validate_live_chain(chain, cwd=clone, remote="upstream")
+        self.assertTrue(validation.valid, validation.errors)
+        self.assertEqual("main", prs[103].base_branch)
+
+        propagated_third = remote_head("feature/report-3")
+        third_tree = helpers.run(
+            repo, "git", "rev-parse", f"{propagated_third}^{{tree}}"
+        )
+        third_message = helpers.run(
+            repo,
+            "git",
+            "show",
+            "-s",
+            "--format=%B",
+            propagated_third,
+        )
+        forged_third = helpers.run(
+            repo,
+            "git",
+            "commit-tree",
+            third_tree,
+            "-p",
+            source_sha,
+            input_text=third_message,
+        )
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            f"{forged_third}:refs/heads/feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{propagated_third}",
+        )
+        helpers.run(clone, "git", "fetch", "upstream", "--prune")
+
+        with self.assertRaisesRegex(RehydrationError, "cannot prove"):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=all_live_prs(),
+                cwd=clone,
+                remote="upstream",
+                prefer_remote=True,
+            )
 
     def test_recovery_rejects_original_source_mutation(self) -> None:
         helpers.run(self.repo, "git", "checkout", "feature/report")
