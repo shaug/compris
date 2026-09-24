@@ -500,6 +500,12 @@ class SuffixRecoveryTests(unittest.TestCase):
             repo,
             stamp_commit_message("feat: changeset 3", third_metadata),
         )
+        (repo / "third-review.txt").write_text("accepted third-layer review fix\n")
+        helpers.run(repo, "git", "add", "third-review.txt")
+        third_head = helpers.commit(
+            repo,
+            stamp_commit_message("fix: changeset 3 review", third_metadata),
+        )
         helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-3")
         successor_sha = third_head
         original_successor_sha = successor_sha
@@ -543,7 +549,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             repo,
             "git",
             "cherry-pick",
-            third_head,
+            f"{second_head}..{third_head}",
         )
         successor_sha = helpers.run(repo, "git", "rev-parse", "HEAD")
         helpers.run(

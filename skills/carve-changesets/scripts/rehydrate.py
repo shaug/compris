@@ -331,6 +331,18 @@ def _validate_completed_recovery_provenance(
             return None
         return identified.stdout.split(maxsplit=1)[0]
 
+    def first_parent_ancestors(head: str) -> list[str]:
+        """Return the head's first-parent history below its tip."""
+
+        return _git(repo, "rev-list", "--first-parent", f"{head}^").splitlines()
+
+    def is_ancestor(ancestor: str, descendant: str) -> bool:
+        try:
+            _git(repo, "merge-base", "--is-ancestor", ancestor, descendant)
+        except RehydrationError:
+            return False
+        return True
+
     def proven_post_merge_parent(
         previous: ChangesetRecord,
         record: ChangesetRecord,
@@ -394,37 +406,61 @@ def _validate_completed_recovery_provenance(
                 "pre-recovery head."
             ) from exc
 
+        parent_proven = current_parents == expected_parents
         if offset > 0:
             previous = records[offset - 1]
             if previous.metadata.source_lineage == lineage:
                 previous_predecessor = proven_predecessors.get(offset - 1)
-                if previous_predecessor is None or not expected_parents:
+                if previous_predecessor is None:
                     raise RehydrationError(
                         f"Changeset branch {record.branch} cannot prove its exact "
                         "pre-recovery head."
                     )
-                prior_parent = expected_parents[0]
-                if not proves_prior_rewrite_path(
-                    previous,
-                    prior_parent,
-                    previous_predecessor[0],
-                ):
+                prior_parent = next(
+                    (
+                        candidate
+                        for candidate in first_parent_ancestors(predecessor)
+                        if proves_prior_rewrite_path(
+                            previous,
+                            candidate,
+                            previous_predecessor[0],
+                        )
+                    ),
+                    None,
+                )
+                if prior_parent is None:
                     raise RehydrationError(
                         f"Changeset branch {record.branch} cannot prove its exact "
                         "pre-recovery head."
                     )
-                if current_parents and proven_post_merge_parent(
-                    previous,
-                    record,
-                    current_parents[0],
-                ):
-                    expected_parents[0] = current_parents[0]
+                if previous.pr_state == "MERGED" and record.base != previous.branch:
+                    recovered_parent = next(
+                        (
+                            candidate
+                            for candidate in first_parent_ancestors(record.head)
+                            if proven_post_merge_parent(
+                                previous,
+                                record,
+                                candidate,
+                            )
+                        ),
+                        None,
+                    )
                 else:
-                    expected_parents[0] = previous.head
-                if not same_tree:
-                    same_tree = patch_id(prior_parent, predecessor) == patch_id(
-                        expected_parents[0], record.head
+                    recovered_parent = (
+                        previous.head
+                        if is_ancestor(previous.head, record.head)
+                        else None
                     )
+                if recovered_parent is None:
+                    raise RehydrationError(
+                        f"Changeset branch {record.branch} cannot prove its exact "
+                        "pre-recovery head."
+                    )
+                same_tree = patch_id(prior_parent, predecessor) == patch_id(
+                    recovered_parent, record.head
+                )
+                parent_proven = True
 
         if (
             predecessor_metadata.slug != record.metadata.slug
@@ -436,7 +472,7 @@ def _validate_completed_recovery_provenance(
                 and record.pr_metadata != predecessor_metadata
             )
             or not same_tree
-            or current_parents != expected_parents
+            or not parent_proven
             or stamp_commit_message(predecessor_message, record.metadata).strip()
             != current_message.strip()
         ):
