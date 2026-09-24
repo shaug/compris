@@ -686,13 +686,16 @@ class GithubTests(unittest.TestCase):
                 actual_git = publication_mod.git
 
                 def duplicate_remote_ref(*args, **kwargs):
-                    if args[0] == "ls-remote":
+                    if (
+                        args[0] == "ls-remote"
+                        and args[-1] == "refs/heads/feature/test-1"
+                    ):
                         return subprocess.CompletedProcess(
                             args,
                             0,
                             (
-                                f"{source_sha}\trefs/heads/feature/test\n"
-                                f"{source_sha}\trefs/heads/feature/test\n"
+                                f"{source_sha}\trefs/heads/feature/test-1\n"
+                                f"{source_sha}\trefs/heads/feature/test-1\n"
                             ),
                             "",
                         )

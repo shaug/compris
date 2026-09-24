@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: share exact PR publication lookup
+
 - refactor: unify exact remote branch lookup
 
 - fix: revalidate lineage across mutations
