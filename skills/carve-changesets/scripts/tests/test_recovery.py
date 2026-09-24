@@ -215,6 +215,20 @@ class SuffixRecoveryTests(unittest.TestCase):
             )
         return output.getvalue()
 
+    def _interrupt_after_v3_push(self) -> str:
+        failed = False
+
+        def fail_once(number: int, *, body=None, **kwargs) -> None:
+            nonlocal failed
+            if not failed:
+                failed = True
+                raise CommandError("injected PR metadata interruption")
+            self._edit(number, body=body, **kwargs)
+
+        with self.assertRaisesRegex(CommandError, "injected"):
+            self._run_recovery(edit_side_effect=fail_once)
+        return self._remote_head("feature/report-2")
+
     def _restamp_open_suffix_as_native(self, *, identity_remote: str) -> str:
         metadata = ChangesetMetadata(
             slug="part-2",
@@ -681,18 +695,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 )
 
     def test_interrupted_metadata_update_resumes_from_live_state(self) -> None:
-        failed = False
-
-        def fail_once(number: int, *, body=None, **kwargs) -> None:
-            nonlocal failed
-            if not failed:
-                failed = True
-                raise CommandError("injected PR metadata interruption")
-            self._edit(number, body=body, **kwargs)
-
-        with self.assertRaisesRegex(CommandError, "injected"):
-            self._run_recovery(edit_side_effect=fail_once)
-        pushed_head = self._remote_head("feature/report-2")
+        pushed_head = self._interrupt_after_v3_push()
         self.assertNotEqual(self.fixed_head, pushed_head)
         self.assertEqual(
             3,
@@ -712,12 +715,54 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         self.assertEqual(1, len(parse_pr_metadata(self.prs[102].body).source_lineage))
 
-        output = self._run_recovery(edit_side_effect=fail_once)
+        output = self._run_recovery()
 
         self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
         self.assertEqual("Position 2\n", self.prs[102].body)
         self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
         self.assertIn("Suffix recovery completed", output)
+
+    def test_interrupted_resume_rejects_conflicting_legacy_pr_evidence(self) -> None:
+        pushed_head = self._interrupt_after_v3_push()
+        conflicting = ChangesetMetadata(
+            "foreign-part",
+            2,
+            "feature/report",
+            self.source_sha,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "body": embed_pr_metadata("Tampered position 2\n", conflicting),
+            }
+        )
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(
+            CommandError, "metadata disagrees|metadata conflicts"
+        ):
+            self._run_recovery()
+
+        self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_interrupted_resume_rejects_malformed_legacy_pr_evidence(self) -> None:
+        pushed_head = self._interrupt_after_v3_push()
+        malformed = (
+            "Tampered position 2\n\n"
+            "<!-- carve-changesets:metadata:v1\n"
+            "{not-json}\n"
+            "-->\n"
+        )
+        self.prs[102] = PullRequestRecord(
+            **{**self.prs[102].__dict__, "body": malformed}
+        )
+
+        with self.assertRaisesRegex(CommandError, "invalid JSON"):
+            self._run_recovery()
+
+        self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
+        self.assertEqual(malformed, self.prs[102].body)
 
 
 if __name__ == "__main__":

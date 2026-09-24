@@ -95,6 +95,49 @@ def _git(cwd: Path, *args: str) -> str:
     return result.stdout
 
 
+def _interrupted_legacy_pr_evidence(
+    repo: Path,
+    *,
+    pr: PullRequestRecord,
+    metadata: ChangesetMetadata,
+    topology_position: int,
+    remote: str,
+) -> ChangesetMetadata | None:
+    """Validate the one legacy PR block allowed beside a recovered v3 head."""
+
+    if "carve-changesets:metadata" not in pr.body:
+        return None
+    if metadata.version != 3 or metadata.recovery_from_head is None:
+        raise RehydrationError(
+            f"PR #{pr.number} carries unexpected legacy metadata beside native trailers."
+        )
+    try:
+        pr_metadata = parse_pr_metadata(pr.body, remote=remote)
+        predecessor = parse_commit_message(
+            _git(
+                repo,
+                "show",
+                "-s",
+                "--format=%B",
+                metadata.recovery_from_head,
+            ),
+            remote=remote,
+        )
+    except MetadataError as exc:
+        raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
+    if (
+        predecessor.version not in {1, 2}
+        or pr_metadata != predecessor
+        or predecessor.slug != metadata.slug
+        or predecessor.legacy_position != topology_position
+        or predecessor.source_lineage != metadata.source_lineage[:-1]
+    ):
+        raise RehydrationError(
+            f"PR #{pr.number} metadata disagrees with its exact recovery predecessor."
+        )
+    return pr_metadata
+
+
 def discover_changeset_heads(
     cwd: Path,
     source_branch: str,
@@ -248,7 +291,16 @@ def _validate_recovery_transition(
                     f"PR #{record.pr_number} has lineage outside the current or "
                     "requested successor recovery."
                 )
-            if not record.metadata.same_changeset_as(pr_metadata):
+            exact_cross_version_transition = (
+                record.metadata.version == 3
+                and pr_metadata.version in {1, 2}
+                and record.metadata.recovery_from_head is not None
+                and pr_metadata.source_lineage == commit_lineage[:-1]
+            )
+            if (
+                not record.metadata.same_changeset_as(pr_metadata)
+                and not exact_cross_version_transition
+            ):
                 raise RehydrationError(
                     f"PR #{record.pr_number} metadata changes the stable changeset "
                     "position during recovery."
@@ -396,6 +448,14 @@ def adopt_legacy_chain(
                     raise RehydrationError(
                         f"PR #{pr.number} metadata disagrees with commit trailers for {branch}."
                     )
+            else:
+                pr_metadata = _interrupted_legacy_pr_evidence(
+                    repo,
+                    pr=pr,
+                    metadata=metadata,
+                    topology_position=index,
+                    remote=remote,
+                )
         records.append(
             ChangesetRecord(
                 metadata=metadata,
@@ -517,6 +577,14 @@ def rehydrate_chain(
                         f"PR #{pr.number} metadata disagrees with commit trailers for "
                         f"native layer {layer.branch}."
                     )
+            else:
+                pr_metadata = _interrupted_legacy_pr_evidence(
+                    repo,
+                    pr=pr,
+                    metadata=metadata,
+                    topology_position=topology_position,
+                    remote=remote,
+                )
         materialized_base = (
             native_snapshot.trunk_branch
             if previous_layer_merged and not layer.merged
