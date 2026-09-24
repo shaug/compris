@@ -33,6 +33,66 @@ from metadata import (  # noqa: E402
 
 
 class GithubTests(unittest.TestCase):
+    def test_pr_discovery_rejects_incomplete_force_push_history(self) -> None:
+        pull_request = {
+            "number": 92,
+            "headRefName": "feature/test-1",
+            "headRefOid": "c" * 40,
+            "baseRefName": "main",
+            "state": "OPEN",
+            "body": "Human context only.\n",
+            "title": "Feature (1 of 2)",
+            "mergeCommit": None,
+            "isCrossRepository": False,
+        }
+        timeline = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "beforeCommit": None,
+                                    "afterCommit": {"oid": "b" * 40},
+                                },
+                                {
+                                    "beforeCommit": {"oid": "b" * 40},
+                                    "afterCommit": {"oid": "c" * 40},
+                                },
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": False,
+                                "endCursor": None,
+                            },
+                        }
+                    }
+                }
+            }
+        }
+        partial = {
+            **timeline,
+            "errors": [{"message": "Commit object is unavailable"}],
+        }
+
+        for force_push_history in (timeline, partial):
+            with self.subTest(partial_errors="errors" in force_push_history):
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        github_mod,
+                        "gh_json",
+                        side_effect=([pull_request], force_push_history),
+                    ),
+                ):
+                    with self.assertRaisesRegex(
+                        CommandError, "incomplete force-push history"
+                    ):
+                        github_mod.pull_requests_for_source("feature/test")
+
     def test_pr_create_rejects_unproven_successor_lineage_before_gh(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None

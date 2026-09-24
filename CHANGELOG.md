@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: reject incomplete rewrite evidence
+
 - fix: reserve successor lineage for recovery
 
 - fix: verify complete recovery evidence

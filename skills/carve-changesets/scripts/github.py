@@ -425,6 +425,10 @@ def _pull_request_head_rewrite_edges(
         if cursor is not None:
             args.extend(("-f", f"cursor={cursor}"))
         payload = gh_json(tuple(args))
+        if isinstance(payload, dict) and payload.get("errors"):
+            raise CommandError(
+                f"GitHub returned incomplete force-push history for PR #{number}."
+            )
         try:
             timeline = payload["data"]["repository"]["pullRequest"]["timelineItems"]
             nodes = timeline["nodes"]
@@ -445,7 +449,9 @@ def _pull_request_head_rewrite_edges(
             before = node.get("beforeCommit")
             after = node.get("afterCommit")
             if before is None or after is None:
-                continue
+                raise CommandError(
+                    f"GitHub returned incomplete force-push history for PR #{number}."
+                )
             if not isinstance(before, dict) or not isinstance(after, dict):
                 raise CommandError(
                     f"Unexpected GitHub force-push event for PR #{number}."
