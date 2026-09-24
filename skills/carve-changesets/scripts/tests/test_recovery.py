@@ -439,7 +439,7 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         edit.assert_not_called()
 
-    def test_multi_layer_recovery_survives_first_recovered_merge(self) -> None:
+    def test_multi_layer_recovery_propagates_fix_and_survives_merge(self) -> None:
         case_dir = self.temp_dir / "non-origin"
         case_dir.mkdir()
         repo, bare, source_sha = helpers.init_repo(case_dir)
@@ -502,6 +502,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-3")
         successor_sha = third_head
+        original_successor_sha = successor_sha
         helpers.run(repo, "git", "branch", "feature/report-corrected", third_head)
         helpers.run(
             repo,
@@ -514,6 +515,8 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         helpers.run(repo, "git", "checkout", "main")
         helpers.run(repo, "git", "cherry-pick", second_head)
+        (repo / "accepted-fix.txt").write_text("accepted second-layer fix\n")
+        helpers.run(repo, "git", "add", "accepted-fix.txt")
         helpers.run(
             repo,
             "git",
@@ -535,26 +538,30 @@ class SuffixRecoveryTests(unittest.TestCase):
             f"--force-with-lease=refs/heads/feature/report-2:{second_head}",
         )
         helpers.run(repo, "git", "branch", "-f", "feature/report-2", rewritten_second)
-        helpers.run(repo, "git", "checkout", "feature/report-3")
+        helpers.run(repo, "git", "checkout", "-b", "feature/report-successor-build")
         helpers.run(
             repo,
             "git",
-            "rebase",
-            "--onto",
-            rewritten_second,
-            second_head,
-            "feature/report-3",
+            "cherry-pick",
+            third_head,
         )
-        rewritten_third = helpers.run(repo, "git", "rev-parse", "HEAD")
+        successor_sha = helpers.run(repo, "git", "rev-parse", "HEAD")
         helpers.run(
             repo,
             "git",
             "push",
             "upstream",
-            "feature/report-3",
-            f"--force-with-lease=refs/heads/feature/report-3:{third_head}",
+            "HEAD:refs/heads/feature/report-corrected",
+            f"--force-with-lease=refs/heads/feature/report-corrected:{original_successor_sha}",
         )
-        third_head = rewritten_third
+        helpers.run(
+            repo,
+            "git",
+            "branch",
+            "-f",
+            "feature/report-corrected",
+            successor_sha,
+        )
         helpers.run(repo, "git", "branch", "-f", "main", merge_sha)
 
         prs = {
@@ -576,6 +583,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 state="OPEN",
                 body=embed_pr_metadata("Position 2\n", second_metadata),
                 title="Report API (2 of 3)",
+                head_rewrite_edges=((second_head, rewritten_second),),
             ),
             103: PullRequestRecord(
                 number=103,

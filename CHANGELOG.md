@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: verify downstream recovery rebases
+
 - fix: require legacy recovery PR evidence
 
 - test: cover pagination through PR discovery

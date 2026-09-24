@@ -289,6 +289,48 @@ def _validate_completed_recovery_provenance(
             current = after
         return current == record.head
 
+    def proves_prior_rewrite_path(
+        record: ChangesetRecord, start: str, end: str
+    ) -> bool:
+        """Prove one earlier published head advanced to the recorded predecessor."""
+
+        if start == end:
+            return True
+        current = start
+        started = False
+        for before, after in record.pr_head_rewrite_edges:
+            if before != current:
+                if started:
+                    return False
+                continue
+            started = True
+            current = after
+            if current == end:
+                return True
+        return False
+
+    def patch_id(parent: str, child: str) -> bytes | None:
+        """Return Git's stable identity for the exact layer delta."""
+
+        diff = subprocess.run(
+            ["git", "diff", "--no-ext-diff", "--binary", parent, child],
+            cwd=repo,
+            capture_output=True,
+            check=False,
+        )
+        if diff.returncode != 0 or not diff.stdout:
+            return None
+        identified = subprocess.run(
+            ["git", "patch-id", "--stable"],
+            cwd=repo,
+            input=diff.stdout,
+            capture_output=True,
+            check=False,
+        )
+        if identified.returncode != 0 or not identified.stdout.strip():
+            return None
+        return identified.stdout.split(maxsplit=1)[0]
+
     def proven_post_merge_parent(
         previous: ChangesetRecord,
         record: ChangesetRecord,
@@ -356,10 +398,16 @@ def _validate_completed_recovery_provenance(
             previous = records[offset - 1]
             if previous.metadata.source_lineage == lineage:
                 previous_predecessor = proven_predecessors.get(offset - 1)
-                if (
-                    previous_predecessor is None
-                    or not expected_parents
-                    or expected_parents[0] != previous_predecessor[0]
+                if previous_predecessor is None or not expected_parents:
+                    raise RehydrationError(
+                        f"Changeset branch {record.branch} cannot prove its exact "
+                        "pre-recovery head."
+                    )
+                prior_parent = expected_parents[0]
+                if not proves_prior_rewrite_path(
+                    previous,
+                    prior_parent,
+                    previous_predecessor[0],
                 ):
                     raise RehydrationError(
                         f"Changeset branch {record.branch} cannot prove its exact "
@@ -373,6 +421,10 @@ def _validate_completed_recovery_provenance(
                     expected_parents[0] = current_parents[0]
                 else:
                     expected_parents[0] = previous.head
+                if not same_tree:
+                    same_tree = patch_id(prior_parent, predecessor) == patch_id(
+                        expected_parents[0], record.head
+                    )
 
         if (
             predecessor_metadata.slug != record.metadata.slug
