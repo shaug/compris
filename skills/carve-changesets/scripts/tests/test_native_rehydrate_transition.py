@@ -17,6 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 import helpers  # noqa: E402
 from metadata import (  # noqa: E402
     ChangesetMetadata,
+    SourceIdentity,
     embed_pr_metadata,
     stamp_commit_message,
 )
@@ -114,6 +115,83 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
             clone,
         )
 
+    def _completed_successor_stack(
+        self, *, forged_downstream_predecessor: bool = False
+    ) -> tuple[NativeStackSnapshot, list[PullRequestRecord]]:
+        original, pull_requests, _ = self._native_stack()
+        root = SourceIdentity("feature/report", self.source_sha)
+        successor = SourceIdentity("feature/report-corrected", "c" * 40)
+        old_first, old_second = (layer.head for layer in original.layers)
+
+        first_metadata = ChangesetMetadata(
+            slug="native-1",
+            source_lineage=(root, successor),
+            recovery_from_head=old_first,
+        )
+        helpers.run(self.repo, "git", "checkout", original.layers[0].branch)
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: native layer 1", first_metadata),
+        )
+        new_first = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+
+        helpers.run(
+            self.repo,
+            "git",
+            "rebase",
+            "--onto",
+            new_first,
+            old_first,
+            original.layers[1].branch,
+        )
+        second_metadata = ChangesetMetadata(
+            slug="native-2",
+            source_lineage=(root, successor),
+            recovery_from_head=(
+                old_first if forged_downstream_predecessor else old_second
+            ),
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: native layer 2", second_metadata),
+        )
+        new_second = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+
+        layers = (
+            replace(original.layers[0], head=new_first),
+            replace(original.layers[1], head=new_second, base=new_first),
+        )
+        recovered_prs = [
+            replace(
+                pull_requests[0],
+                head_sha=new_first,
+                body=embed_pr_metadata(pull_requests[0].body, first_metadata),
+            ),
+            replace(
+                pull_requests[1],
+                head_sha=new_second,
+                body=embed_pr_metadata(pull_requests[1].body, second_metadata),
+            ),
+        ]
+        return (
+            replace(
+                original,
+                current_branch=layers[-1].branch,
+                layers=layers,
+            ),
+            recovered_prs,
+        )
+
     def test_native_order_outranks_branch_suffixes_and_historical_indices(self) -> None:
         snapshot, pull_requests, clone = self._native_stack()
 
@@ -189,6 +267,39 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
             ("upstream",),
             tuple(identity.remote for identity in chain.source_lineage),
         )
+
+    def test_completed_successor_allows_a_rebased_downstream_parent(self) -> None:
+        snapshot, pull_requests = self._completed_successor_stack()
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="origin",
+            native_snapshot=snapshot,
+            pull_requests=pull_requests,
+            cwd=self.repo,
+        )
+
+        self.assertEqual(snapshot.layers[-1].head, chain.changesets[-1].head)
+        self.assertEqual(
+            ("feature/report", "feature/report-corrected"),
+            tuple(identity.branch for identity in chain.source_lineage),
+        )
+
+    def test_completed_successor_rejects_a_forged_downstream_predecessor(
+        self,
+    ) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            forged_downstream_predecessor=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
 
 
 if __name__ == "__main__":

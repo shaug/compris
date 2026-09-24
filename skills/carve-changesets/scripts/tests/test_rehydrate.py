@@ -369,6 +369,50 @@ class RehydrationTests(unittest.TestCase):
             tuple(identity.branch for identity in chain.source_lineage),
         )
 
+    def test_completed_recovery_rejects_a_forged_exact_predecessor(self) -> None:
+        heads, prs = self._materialize()
+        root = SourceIdentity("feature/report", self.source_sha)
+        successor = SourceIdentity("feature/report-corrected", "c" * 40)
+        forged = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(root, successor),
+            recovery_from_head=heads[1],
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: changeset 2", forged),
+        )
+        forged_head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        prs[1] = PullRequestRecord(
+            **{
+                **prs[1].__dict__,
+                "head_sha": forged_head,
+                "body": embed_pr_metadata(prs[1].body, forged),
+            }
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                pull_requests=prs,
+                cwd=self.repo,
+                prefer_remote=True,
+            )
+
     def test_recovery_rejects_conflicting_v2_pr_provenance(self) -> None:
         heads, prs = self._materialize()
         successor = SourceIdentity("feature/report-corrected", "c" * 40)
