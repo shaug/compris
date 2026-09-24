@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -9,43 +10,53 @@ from common import CommandError, git
 from metadata import MetadataError, SourceIdentity, parse_commit_message
 
 
-def remote_identity_head(
-    identity: SourceIdentity, *, cwd: Path | str | None = None
-) -> str:
-    expected_ref = f"refs/heads/{identity.branch}"
+def remote_branch_head(
+    remote: str, branch: str, *, cwd: Path | str | None = None
+) -> str | None:
+    """Resolve one exact remote branch head, or None when it is absent."""
+
+    expected_ref = f"refs/heads/{branch}"
     location = () if cwd is None else ("-C", str(cwd))
     result = git(
         *location,
         "ls-remote",
         "--heads",
-        identity.remote,
+        remote,
         expected_ref,
         check=False,
     )
     if result.returncode != 0:
-        raise CommandError(
-            f"Unable to resolve recorded source {identity.remote}/{identity.branch}."
-        )
-    lines = result.stdout.splitlines()
+        raise CommandError(f"Unable to resolve exact remote branch {remote}/{branch}.")
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
     if not lines:
+        return None
+    if len(lines) != 1:
+        raise CommandError(
+            f"Recorded source {remote}/{branch} did not resolve to one exact "
+            "branch ref."
+        )
+    fields = lines[0].split()
+    if (
+        len(fields) != 2
+        or fields[1] != expected_ref
+        or re.fullmatch(r"[0-9a-f]{40}", fields[0]) is None
+    ):
+        raise CommandError(
+            f"Recorded source {remote}/{branch} did not resolve to one exact "
+            "branch ref."
+        )
+    return fields[0]
+
+
+def remote_identity_head(
+    identity: SourceIdentity, *, cwd: Path | str | None = None
+) -> str:
+    head = remote_branch_head(identity.remote, identity.branch, cwd=cwd)
+    if head is None:
         raise CommandError(
             f"Recorded source {identity.remote}/{identity.branch} is unavailable."
         )
-    matches: list[str] = []
-    for line in lines:
-        fields = line.split("\t")
-        if len(fields) != 2 or fields[1] != expected_ref:
-            raise CommandError(
-                f"Recorded source {identity.remote}/{identity.branch} did not "
-                "resolve to one exact branch ref."
-            )
-        matches.append(fields[0])
-    if len(matches) != 1:
-        raise CommandError(
-            f"Recorded source {identity.remote}/{identity.branch} did not "
-            "resolve to one exact branch ref."
-        )
-    return matches[0]
+    return head
 
 
 def verify_remote_lineage(lineage: Sequence[SourceIdentity], *, remote: str) -> None:

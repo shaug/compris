@@ -9,6 +9,7 @@ from unittest import mock
 
 import helpers
 import propagate as propagate_mod
+import publication as publication_mod
 from chain import create_chain
 from cli import cmd_merge_propagate
 from common import CommandError
@@ -30,6 +31,45 @@ from rehydrate import PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
+    def test_remote_branch_lookups_share_one_exact_parser(self) -> None:
+        self.assertIs(
+            propagate_mod.remote_branch_head,
+            publication_mod.remote_branch_head,
+        )
+        valid = mock.Mock(
+            returncode=0,
+            stdout=f"{'a' * 40} refs/heads/feature/test\n",
+        )
+        with mock.patch.object(publication_mod, "git", return_value=valid):
+            self.assertEqual(
+                "a" * 40,
+                propagate_mod.remote_branch_head("origin", "feature/test"),
+            )
+            self.assertEqual(
+                "a" * 40,
+                publication_mod.remote_identity_head(
+                    SourceIdentity("origin", "feature/test", "a" * 40)
+                ),
+            )
+
+        malformed = mock.Mock(
+            returncode=0,
+            stdout="short refs/heads/feature/test\n",
+        )
+        with mock.patch.object(publication_mod, "git", return_value=malformed):
+            with self.assertRaisesRegex(CommandError, "one exact branch ref"):
+                propagate_mod.remote_branch_head("origin", "feature/test")
+
+        missing = mock.Mock(returncode=0, stdout="")
+        with mock.patch.object(publication_mod, "git", return_value=missing):
+            self.assertIsNone(
+                propagate_mod.remote_branch_head("origin", "feature/test")
+            )
+            with self.assertRaisesRegex(CommandError, "is unavailable"):
+                publication_mod.remote_identity_head(
+                    SourceIdentity("origin", "feature/test", "a" * 40)
+                )
+
     def test_push_chain_rejects_unproven_successor_lineage_before_any_push(
         self,
     ) -> None:
