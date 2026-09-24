@@ -431,6 +431,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             stamp_commit_message("feat: changeset 3", third_metadata),
         )
         helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-3")
+        successor_sha = third_head
         helpers.run(repo, "git", "branch", "feature/report-corrected", third_head)
         helpers.run(
             repo,
@@ -465,6 +466,25 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         helpers.run(repo, "git", "branch", "-f", "feature/report-2", rewritten_second)
         helpers.run(repo, "git", "checkout", "feature/report-3")
+        helpers.run(
+            repo,
+            "git",
+            "rebase",
+            "--onto",
+            rewritten_second,
+            second_head,
+            "feature/report-3",
+        )
+        rewritten_third = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            "feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{third_head}",
+        )
+        third_head = rewritten_third
         helpers.run(repo, "git", "branch", "-f", "main", merge_sha)
 
         prs = {
@@ -570,7 +590,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                     base="main",
                     from_index=2,
                     successor_branch="feature/report-corrected",
-                    successor_sha=third_head,
+                    successor_sha=successor_sha,
                     remote="upstream",
                     dry_run=False,
                     authority_acknowledged=True,
@@ -615,7 +635,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 base="main",
                 from_index=2,
                 successor_branch="feature/report-corrected",
-                successor_sha=third_head,
+                successor_sha=successor_sha,
                 remote="upstream",
                 dry_run=False,
                 authority_acknowledged=True,

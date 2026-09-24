@@ -256,7 +256,7 @@ def _validate_completed_recovery_provenance(
 ) -> None:
     """Prove each completed successor head from its exact prior candidate."""
 
-    proven_predecessors: dict[int, ChangesetMetadata] = {}
+    proven_predecessors: dict[int, tuple[str, ChangesetMetadata]] = {}
 
     def proven_post_merge_parent(
         previous: ChangesetRecord,
@@ -324,23 +324,11 @@ def _validate_completed_recovery_provenance(
         if offset > 0:
             previous = records[offset - 1]
             if previous.metadata.source_lineage == lineage:
-                previous_predecessor_metadata = proven_predecessors.get(offset - 1)
-                try:
-                    old_base_metadata = parse_commit_message(
-                        _git(repo, "show", "-s", "--format=%B", expected_parents[0]),
-                        remote=remote,
-                    )
-                except (IndexError, MetadataError, RehydrationError) as exc:
-                    raise RehydrationError(
-                        f"Changeset branch {record.branch} cannot prove its exact "
-                        "pre-recovery head."
-                    ) from exc
+                previous_predecessor = proven_predecessors.get(offset - 1)
                 if (
-                    previous_predecessor_metadata is None
-                    or old_base_metadata.source_lineage != lineage[:-1]
-                    or not old_base_metadata.same_changeset_as(
-                        previous_predecessor_metadata
-                    )
+                    previous_predecessor is None
+                    or not expected_parents
+                    or expected_parents[0] != previous_predecessor[0]
                 ):
                     raise RehydrationError(
                         f"Changeset branch {record.branch} cannot prove its exact "
@@ -372,7 +360,7 @@ def _validate_completed_recovery_provenance(
                 f"Changeset branch {record.branch} cannot prove its exact "
                 "pre-recovery head."
             )
-        proven_predecessors[offset] = predecessor_metadata
+        proven_predecessors[offset] = (predecessor, predecessor_metadata)
 
 
 def _validate_recovery_transition(
