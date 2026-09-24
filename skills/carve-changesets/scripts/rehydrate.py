@@ -96,6 +96,25 @@ def _git(cwd: Path, *args: str) -> str:
     return result.stdout
 
 
+def _ensure_commit_available(repo: Path, sha: str, *, remote: str) -> None:
+    """Acquire one exact historical commit without creating a synthetic ref."""
+
+    try:
+        _git(repo, "cat-file", "-e", f"{sha}^{{commit}}")
+        return
+    except RehydrationError:
+        pass
+    _git(
+        repo,
+        "fetch",
+        "--no-tags",
+        "--no-write-fetch-head",
+        remote,
+        sha,
+    )
+    _git(repo, "cat-file", "-e", f"{sha}^{{commit}}")
+
+
 def _interrupted_legacy_pr_evidence(
     *,
     pr: PullRequestRecord,
@@ -238,6 +257,7 @@ def _validate_completed_recovery_provenance(
                 "pre-recovery head."
             )
         try:
+            _ensure_commit_available(repo, predecessor, remote=remote)
             predecessor_message = _git(repo, "show", "-s", "--format=%B", predecessor)
             predecessor_metadata = parse_commit_message(
                 predecessor_message,
