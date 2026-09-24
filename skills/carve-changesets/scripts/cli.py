@@ -166,7 +166,11 @@ def cmd_validate(args: argparse.Namespace) -> None:
                 pull_requests=pull_requests,
                 remote=args.remote,
             )
-            result = validate_live_chain(chain, remote=args.remote)
+            result = validate_live_chain(
+                chain,
+                remote=args.remote,
+                verify_live_remote=not args.local_only,
+            )
             _print_live_diagnostics(result)
             if not result.valid:
                 raise CommandError("Strict live chain validation failed.")
@@ -235,7 +239,11 @@ def cmd_validate_chain(args: argparse.Namespace) -> None:
         pull_requests=pull_requests,
         remote=args.remote,
     )
-    result = validate_live_chain(chain, remote=args.remote)
+    result = validate_live_chain(
+        chain,
+        remote=args.remote,
+        verify_live_remote=not args.local_only,
+    )
     _print_live_diagnostics(result)
     if not result.valid:
         raise CommandError("Live chain validation failed.")

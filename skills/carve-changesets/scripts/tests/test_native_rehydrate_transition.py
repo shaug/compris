@@ -17,6 +17,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 import helpers  # noqa: E402
 from metadata import (  # noqa: E402
     ChangesetMetadata,
+    SourceIdentity,
     embed_pr_metadata,
     stamp_commit_message,
 )
@@ -114,6 +115,183 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
             clone,
         )
 
+    def _completed_successor_stack(
+        self,
+        *,
+        forged_downstream_predecessor: bool = False,
+        prepend_unavailable_rewrite_event: bool = False,
+        substitute_first_twin_predecessor: bool = False,
+        substitute_twin_predecessor: bool = False,
+    ) -> tuple[NativeStackSnapshot, list[PullRequestRecord]]:
+        original, pull_requests, _ = self._native_stack()
+        root = SourceIdentity("feature/report", self.source_sha)
+        successor = SourceIdentity("feature/report-corrected", "c" * 40)
+        old_first, old_second = (layer.head for layer in original.layers)
+        first_recovery_head = old_first
+        second_recovery_head = old_second
+        if substitute_first_twin_predecessor:
+            first_tree = helpers.run(
+                self.repo, "git", "rev-parse", f"{old_first}^{{tree}}"
+            )
+            first_parents = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%P", old_first
+            ).split()
+            first_message = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%B", old_first
+            )
+            twin_args = [
+                "git",
+                "-c",
+                "user.name=Twin Author",
+                "-c",
+                "user.email=twin@example.test",
+                "commit-tree",
+                first_tree,
+            ]
+            for parent in first_parents:
+                twin_args.extend(("-p", parent))
+            first_recovery_head = helpers.run(
+                self.repo,
+                *twin_args,
+                input_text=first_message,
+            )
+            self.assertNotEqual(old_first, first_recovery_head)
+            second_tree = helpers.run(
+                self.repo, "git", "rev-parse", f"{old_second}^{{tree}}"
+            )
+            second_message = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%B", old_second
+            )
+            second_recovery_head = helpers.run(
+                self.repo,
+                "git",
+                "commit-tree",
+                second_tree,
+                "-p",
+                first_recovery_head,
+                input_text=second_message,
+            )
+        if substitute_twin_predecessor:
+            first_tree = helpers.run(
+                self.repo, "git", "rev-parse", f"{old_first}^{{tree}}"
+            )
+            first_parents = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%P", old_first
+            ).split()
+            first_message = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%B", old_first
+            )
+            twin_args = [
+                "git",
+                "-c",
+                "user.name=Twin Author",
+                "-c",
+                "user.email=twin@example.test",
+                "commit-tree",
+                first_tree,
+            ]
+            for parent in first_parents:
+                twin_args.extend(("-p", parent))
+            twin_first = helpers.run(
+                self.repo,
+                *twin_args,
+                input_text=first_message,
+            )
+            self.assertNotEqual(old_first, twin_first)
+            second_tree = helpers.run(
+                self.repo, "git", "rev-parse", f"{old_second}^{{tree}}"
+            )
+            second_message = helpers.run(
+                self.repo, "git", "show", "-s", "--format=%B", old_second
+            )
+            second_recovery_head = helpers.run(
+                self.repo,
+                "git",
+                "commit-tree",
+                second_tree,
+                "-p",
+                twin_first,
+                input_text=second_message,
+            )
+
+        first_metadata = ChangesetMetadata(
+            slug="native-1",
+            source_lineage=(root, successor),
+            recovery_from_head=first_recovery_head,
+        )
+        helpers.run(self.repo, "git", "checkout", original.layers[0].branch)
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: native layer 1", first_metadata),
+        )
+        new_first = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+
+        helpers.run(
+            self.repo,
+            "git",
+            "rebase",
+            "--onto",
+            new_first,
+            old_first,
+            original.layers[1].branch,
+        )
+        second_metadata = ChangesetMetadata(
+            slug="native-2",
+            source_lineage=(root, successor),
+            recovery_from_head=(
+                old_first if forged_downstream_predecessor else second_recovery_head
+            ),
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: native layer 2", second_metadata),
+        )
+        new_second = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+
+        layers = (
+            replace(original.layers[0], head=new_first),
+            replace(original.layers[1], head=new_second, base=new_first),
+        )
+        recovered_prs = [
+            replace(
+                pull_requests[0],
+                head_sha=new_first,
+                body=embed_pr_metadata(pull_requests[0].body, first_metadata),
+                head_rewrite_edges=(
+                    *(
+                        ((old_first, "f" * 40),)
+                        if prepend_unavailable_rewrite_event
+                        else ()
+                    ),
+                    (old_first, new_first),
+                ),
+            ),
+            replace(
+                pull_requests[1],
+                head_sha=new_second,
+                body=embed_pr_metadata(pull_requests[1].body, second_metadata),
+                head_rewrite_edges=((old_second, new_second),),
+            ),
+        ]
+        return (
+            replace(
+                original,
+                current_branch=layers[-1].branch,
+                layers=layers,
+            ),
+            recovered_prs,
+        )
+
     def test_native_order_outranks_branch_suffixes_and_historical_indices(self) -> None:
         snapshot, pull_requests, clone = self._native_stack()
 
@@ -189,6 +367,100 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
             ("upstream",),
             tuple(identity.remote for identity in chain.source_lineage),
         )
+
+    def test_completed_successor_allows_a_rebased_downstream_parent(self) -> None:
+        snapshot, pull_requests = self._completed_successor_stack()
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="origin",
+            native_snapshot=snapshot,
+            pull_requests=pull_requests,
+            cwd=self.repo,
+        )
+
+        self.assertEqual(snapshot.layers[-1].head, chain.changesets[-1].head)
+        self.assertEqual(
+            ("feature/report", "feature/report-corrected"),
+            tuple(identity.branch for identity in chain.source_lineage),
+        )
+
+    def test_completed_successor_rejects_a_forged_downstream_predecessor(
+        self,
+    ) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            forged_downstream_predecessor=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
+
+    def test_completed_successor_rejects_a_twin_historical_predecessor(self) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            substitute_twin_predecessor=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
+
+    def test_completed_successor_rejects_a_twin_first_predecessor(self) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            substitute_first_twin_predecessor=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
+
+    def test_completed_successor_rejects_an_unavailable_earlier_rewrite(
+        self,
+    ) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            prepend_unavailable_rewrite_event=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
+
+    def test_completed_successor_allows_retired_marker_text_in_human_prose(
+        self,
+    ) -> None:
+        snapshot, pull_requests = self._completed_successor_stack()
+        prose = "This changeset removes carve-changesets:metadata blocks.\n"
+        pull_requests = [replace(pr, body=prose) for pr in pull_requests]
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="origin",
+            native_snapshot=snapshot,
+            pull_requests=pull_requests,
+            cwd=self.repo,
+        )
+
+        self.assertEqual(snapshot.layers[-1].head, chain.changesets[-1].head)
 
 
 if __name__ == "__main__":

@@ -4,13 +4,33 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-24 — Verified native source lineage
+## 2026-09-24 — Closed recovery verification gaps
 
-- feat: establish verified native source lineage
+- fix: share exact PR publication lookup
+
+- refactor: unify exact remote branch lookup
+
+- fix: revalidate lineage across mutations
+
+- fix: recheck lineage after publication
+
+- fix: verify remote publication readback
+
+- fix: verify published pull request titles
+
+- fix: reject incomplete rewrite evidence
+
+- fix: reserve successor lineage for recovery
+
+- fix: verify complete recovery evidence
 
 ## 2026-09-23 — Completed remote-aware source lineage
 
 - fix: reject checkout shorthand in source lineage
+
+- docs: specify immutable recovery-boundary attestation
+
+- fix: authenticate recovery boundaries from immutable GitHub head history
 
 - feat: recover recorded source lineage
 

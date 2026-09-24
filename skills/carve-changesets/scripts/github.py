@@ -31,6 +31,28 @@ _PR_JSON_FIELDS = (
     "isCrossRepository"
 )
 
+_HEAD_REWRITE_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      timelineItems(
+        first: 100
+        after: $cursor
+        itemTypes: [HEAD_REF_FORCE_PUSHED_EVENT]
+      ) {
+        nodes {
+          ... on HeadRefForcePushedEvent {
+            beforeCommit { oid }
+            afterCommit { oid }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}
+""".strip()
+
 
 def _format_error(command: Sequence[str], error: subprocess.CalledProcessError) -> str:
     stdout = (error.stdout or "").strip()
@@ -332,7 +354,18 @@ def pull_requests_for_source(
         suffix = head.removeprefix(prefix)
         if not head.startswith(prefix) or not suffix.isdigit() or int(suffix) < 1:
             continue
-        records.append(_pull_request_record(item, context=f"changeset PR for {head}"))
+        context = f"changeset PR for {head}"
+        number = _pull_request_number(item, context=context)
+        records.append(
+            _pull_request_record(
+                item,
+                context=context,
+                head_rewrite_edges=_pull_request_head_rewrite_edges(
+                    repository,
+                    number,
+                ),
+            )
+        )
     return records
 
 
@@ -344,17 +377,107 @@ def _merge_sha(item: Dict) -> str | None:
     return oid or None
 
 
-def _pull_request_record(item: object, *, context: str) -> PullRequestRecord:
-    """Decode one selected gh PR payload with operation-specific errors."""
-
+def _pull_request_number(item: object, *, context: str) -> int:
     if not isinstance(item, dict):
         raise CommandError(f"Unexpected GitHub response for {context}.")
     try:
-        number = int(item["number"])
+        return int(item["number"])
     except (KeyError, TypeError, ValueError) as exc:
         raise CommandError(
             f"GitHub response for {context} has no valid PR number."
         ) from exc
+
+
+def _pull_request_head_rewrite_edges(
+    repository: str,
+    number: int,
+) -> tuple[tuple[str, str], ...]:
+    """Read immutable GitHub evidence for every force-pushed head rewrite."""
+
+    try:
+        host, owner, name = repository.split("/", 2)
+    except ValueError as exc:
+        raise CommandError(f"Invalid GitHub repository identity: {repository}") from exc
+    cursor: str | None = None
+    edges: list[tuple[str, str]] = []
+    while True:
+        args = [
+            "api",
+            "graphql",
+            "--hostname",
+            host,
+            "-f",
+            f"query={_HEAD_REWRITE_QUERY}",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"name={name}",
+            "-F",
+            f"number={number}",
+        ]
+        if cursor is not None:
+            args.extend(("-f", f"cursor={cursor}"))
+        payload = gh_json(tuple(args))
+        if isinstance(payload, dict) and payload.get("errors"):
+            raise CommandError(
+                f"GitHub returned incomplete force-push history for PR #{number}."
+            )
+        try:
+            timeline = payload["data"]["repository"]["pullRequest"]["timelineItems"]
+            nodes = timeline["nodes"]
+            page_info = timeline["pageInfo"]
+        except (KeyError, TypeError) as exc:
+            raise CommandError(
+                f"Unexpected GitHub force-push history for PR #{number}."
+            ) from exc
+        if not isinstance(nodes, list) or not isinstance(page_info, dict):
+            raise CommandError(
+                f"Unexpected GitHub force-push history for PR #{number}."
+            )
+        for node in nodes:
+            if not isinstance(node, dict):
+                raise CommandError(
+                    f"Unexpected GitHub force-push event for PR #{number}."
+                )
+            before = node.get("beforeCommit")
+            after = node.get("afterCommit")
+            if before is None or after is None:
+                raise CommandError(
+                    f"GitHub returned incomplete force-push history for PR #{number}."
+                )
+            if not isinstance(before, dict) or not isinstance(after, dict):
+                raise CommandError(
+                    f"Unexpected GitHub force-push event for PR #{number}."
+                )
+            before_oid = str(before.get("oid") or "")
+            after_oid = str(after.get("oid") or "")
+            if not re.fullmatch(r"[0-9a-f]{40}", before_oid) or not re.fullmatch(
+                r"[0-9a-f]{40}", after_oid
+            ):
+                raise CommandError(
+                    f"Unexpected GitHub force-push event for PR #{number}."
+                )
+            edges.append((before_oid, after_oid))
+        if not page_info.get("hasNextPage"):
+            return tuple(edges)
+        cursor_value = page_info.get("endCursor")
+        if not isinstance(cursor_value, str) or not cursor_value:
+            raise CommandError(
+                f"Unexpected GitHub force-push pagination for PR #{number}."
+            )
+        cursor = cursor_value
+
+
+def _pull_request_record(
+    item: object,
+    *,
+    context: str,
+    head_rewrite_edges: tuple[tuple[str, str], ...] = (),
+) -> PullRequestRecord:
+    """Decode one selected gh PR payload with operation-specific errors."""
+
+    number = _pull_request_number(item, context=context)
+    assert isinstance(item, dict)
     return PullRequestRecord(
         number=number,
         head_branch=str(item.get("headRefName") or ""),
@@ -365,6 +488,7 @@ def _pull_request_record(item: object, *, context: str) -> PullRequestRecord:
         title=str(item.get("title") or ""),
         merge_sha=_merge_sha(item),
         is_cross_repository=bool(item.get("isCrossRepository", False)),
+        head_rewrite_edges=head_rewrite_edges,
     )
 
 
@@ -383,7 +507,11 @@ def pull_request_by_number(number: int, *, remote: str = "origin") -> PullReques
             _PR_JSON_FIELDS,
         )
     )
-    record = _pull_request_record(item, context=f"PR #{number}")
+    record = _pull_request_record(
+        item,
+        context=f"PR #{number}",
+        head_rewrite_edges=_pull_request_head_rewrite_edges(repository, number),
+    )
     actual_number = record.number
     if actual_number != number:
         raise CommandError(

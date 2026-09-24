@@ -90,6 +90,12 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
             raise CommandError(
                 f"Changeset branch {head} has invalid source identity: {exc}"
             ) from exc
+        if len(metadata.source_lineage) > 1:
+            raise CommandError(
+                "Successor source lineage must be published through recover-suffix "
+                "so its existing pull request and exact recovery provenance are "
+                "preserved."
+            )
         if expected_lineage is None:
             expected_lineage = metadata.source_lineage
         elif metadata.source_lineage != expected_lineage:

@@ -33,6 +33,198 @@ from metadata import (  # noqa: E402
 
 
 class GithubTests(unittest.TestCase):
+    def test_pr_discovery_rejects_incomplete_force_push_history(self) -> None:
+        pull_request = {
+            "number": 92,
+            "headRefName": "feature/test-1",
+            "headRefOid": "c" * 40,
+            "baseRefName": "main",
+            "state": "OPEN",
+            "body": "Human context only.\n",
+            "title": "Feature (1 of 2)",
+            "mergeCommit": None,
+            "isCrossRepository": False,
+        }
+        timeline = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "beforeCommit": None,
+                                    "afterCommit": {"oid": "b" * 40},
+                                },
+                                {
+                                    "beforeCommit": {"oid": "b" * 40},
+                                    "afterCommit": {"oid": "c" * 40},
+                                },
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": False,
+                                "endCursor": None,
+                            },
+                        }
+                    }
+                }
+            }
+        }
+        partial = {
+            **timeline,
+            "errors": [{"message": "Commit object is unavailable"}],
+        }
+
+        for force_push_history in (timeline, partial):
+            with self.subTest(partial_errors="errors" in force_push_history):
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        github_mod,
+                        "gh_json",
+                        side_effect=([pull_request], force_push_history),
+                    ),
+                ):
+                    with self.assertRaisesRegex(
+                        CommandError, "incomplete force-push history"
+                    ):
+                        github_mod.pull_requests_for_source("feature/test")
+
+    def test_pr_create_rejects_unproven_successor_lineage_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                run(
+                    ["git", "branch", "feature/test-corrected", source_sha],
+                    cwd=repo_dir,
+                )
+                for branch in ("feature/test", "feature/test-corrected"):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+                lineage = (
+                    SourceIdentity("origin", "feature/test", source_sha),
+                    SourceIdentity("origin", "feature/test-corrected", source_sha),
+                )
+                for index in (1, 2):
+                    branch = f"feature/test-{index}"
+                    run(["git", "checkout", branch], cwd=repo_dir)
+                    message = stamp_commit_message(
+                        f"feat: changeset {index}",
+                        ChangesetMetadata(
+                            slug=f"part-{index}",
+                            source_lineage=lineage,
+                            recovery_from_head="f" * 40,
+                        ),
+                    )
+                    with tempfile.NamedTemporaryFile(
+                        mode="w", encoding="utf-8"
+                    ) as message_file:
+                        message_file.write(message)
+                        message_file.flush()
+                        run(
+                            ["git", "commit", "--amend", "-F", message_file.name],
+                            cwd=repo_dir,
+                        )
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+
+                selected_head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                created = {
+                    "number": 91,
+                    "url": "https://example.test/pr/91",
+                    "headRefOid": selected_head,
+                    "baseRefName": "main",
+                    "body": github_mod.pr_body_for(
+                        plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                    ),
+                }
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture"),
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(CommandError, "recover-suffix"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_force_push_history_paginates_exact_commit_edges(self) -> None:
+        first = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "beforeCommit": {"oid": "a" * 40},
+                                    "afterCommit": {"oid": "b" * 40},
+                                }
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": True,
+                                "endCursor": "next-page",
+                            },
+                        }
+                    }
+                }
+            }
+        }
+        second = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "timelineItems": {
+                            "nodes": [
+                                {
+                                    "beforeCommit": {"oid": "b" * 40},
+                                    "afterCommit": {"oid": "c" * 40},
+                                }
+                            ],
+                            "pageInfo": {
+                                "hasNextPage": False,
+                                "endCursor": None,
+                            },
+                        }
+                    }
+                }
+            }
+        }
+
+        with mock.patch.object(
+            github_mod,
+            "gh_json",
+            side_effect=(first, second),
+        ) as graphql:
+            edges = github_mod._pull_request_head_rewrite_edges(
+                "github.enterprise.test/acme/widgets",
+                92,
+            )
+
+        self.assertEqual((("a" * 40, "b" * 40), ("b" * 40, "c" * 40)), edges)
+        self.assertIn("--hostname", graphql.call_args_list[0].args[0])
+        self.assertNotIn("cursor=next-page", graphql.call_args_list[0].args[0])
+        self.assertIn("cursor=next-page", graphql.call_args_list[1].args[0])
+
     def test_shared_pr_decoder_reports_operation_context(self) -> None:
         with self.assertRaisesRegex(
             CommandError, "changeset PR for feature/test-2.*valid PR number"
@@ -390,6 +582,82 @@ class GithubTests(unittest.TestCase):
                     mock.patch.object(github_mod, "gh_capture") as create_call,
                 ):
                     with self.assertRaisesRegex(CommandError, "records remote"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_pattern_lineage_branch_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                body = github_mod.pr_body_for(
+                    plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                )
+                for index in (1, 2):
+                    branch = f"feature/test-{index}"
+                    run(["git", "checkout", branch], cwd=repo_dir)
+                    message = run(
+                        ["git", "show", "-s", "--format=%B", "HEAD"],
+                        cwd=repo_dir,
+                    ).stdout.replace(
+                        "Changeset-Source: origin feature/test @ ",
+                        "Changeset-Source: origin feature/* @ ",
+                    )
+                    with tempfile.NamedTemporaryFile(
+                        mode="w", encoding="utf-8"
+                    ) as message_file:
+                        message_file.write(message)
+                        message_file.flush()
+                        run(
+                            [
+                                "git",
+                                "commit",
+                                "--amend",
+                                "-F",
+                                message_file.name,
+                            ],
+                            cwd=repo_dir,
+                        )
+                    run(
+                        ["git", "push", "--force", "origin", branch],
+                        cwd=repo_dir,
+                    )
+
+                expected_head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                created = {
+                    "number": 92,
+                    "url": "https://github.com/acme/widgets/pull/92",
+                    "headRefOid": expected_head,
+                    "baseRefName": "main",
+                    "body": body,
+                }
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(
+                        CommandError, "branch.*valid literal|invalid source identity"
+                    ):
                         github_mod.pr_create(
                             plan, indices=[1], dry_run=False, remote="origin"
                         )
