@@ -48,6 +48,25 @@ def remote_identity_head(
     return matches[0]
 
 
+def verify_remote_lineage(lineage: Sequence[SourceIdentity], *, remote: str) -> None:
+    """Prove an established lineage still resolves at every recorded head."""
+
+    if not lineage:
+        raise CommandError("No source lineage was selected for publication.")
+    for identity in lineage:
+        if identity.remote != remote:
+            raise CommandError(
+                f"Recorded source {identity.branch!r} records remote "
+                f"{identity.remote!r}, not selected remote {remote!r}."
+            )
+        published = remote_identity_head(identity)
+        if published != identity.sha:
+            raise CommandError(
+                f"Recorded source {remote}/{identity.branch} moved from "
+                f"{identity.sha} to {published}."
+            )
+
+
 def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None:
     """Prove selected heads share remotely reconstructible source lineage."""
 
@@ -75,15 +94,4 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
 
     if expected_lineage is None:
         raise CommandError("No changeset branches were selected for publication.")
-    for identity in expected_lineage:
-        if identity.remote != remote:
-            raise CommandError(
-                f"Recorded source {identity.branch!r} records remote "
-                f"{identity.remote!r}, not selected remote {remote!r}."
-            )
-        published = remote_identity_head(identity)
-        if published != identity.sha:
-            raise CommandError(
-                f"Recorded source {remote}/{identity.branch} moved from "
-                f"{identity.sha} to {published}."
-            )
+    verify_remote_lineage(expected_lineage, remote=remote)

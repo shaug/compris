@@ -28,7 +28,7 @@ from metadata import (
     parse_commit_message,
     parse_pr_metadata,
 )
-from publication import verify_lineage_for_publication
+from publication import verify_lineage_for_publication, verify_remote_lineage
 from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
@@ -609,6 +609,8 @@ def _propagate_chain(
                 dry_run=dry_run,
                 expected_remote_head=current_head,
             )
+            if not dry_run:
+                verify_remote_lineage(chain.source_lineage, remote=remote)
         edit_pull_request(
             live.number,
             remote=remote,

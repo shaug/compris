@@ -37,7 +37,7 @@ from propagate import (
     push_changeset_branch,
     remote_branch_head,
 )
-from publication import remote_identity_head
+from publication import remote_identity_head, verify_remote_lineage
 from rehydrate import (
     ChangesetRecord,
     PullRequestRecord,
@@ -419,6 +419,8 @@ def recover_suffix_from_live(
                         expected_remote_head=record.head,
                         local_ref=temp_by_index[index],
                     )
+                    if not dry_run:
+                        verify_remote_lineage(target_lineage, remote=remote)
                 updated_body = embed_pr_metadata(live.body, metadata)
                 if updated_body != live.body:
                     edit_pull_request(

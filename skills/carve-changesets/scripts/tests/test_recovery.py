@@ -387,6 +387,58 @@ class SuffixRecoveryTests(unittest.TestCase):
         ):
             self._run_recovery()
 
+    def test_recovery_rechecks_lineage_after_each_push(self) -> None:
+        actual_push = recovery_mod.push_changeset_branch
+        successor_deleted = False
+
+        def push_then_delete_successor(*args, **kwargs) -> None:
+            nonlocal successor_deleted
+            actual_push(*args, **kwargs)
+            if not successor_deleted:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "push",
+                    "origin",
+                    "--delete",
+                    "feature/report-corrected",
+                )
+                successor_deleted = True
+
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=self._all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "push_changeset_branch",
+                side_effect=push_then_delete_successor,
+            ),
+            mock.patch.object(
+                recovery_mod, "edit_pull_request", side_effect=self._edit
+            ) as edit,
+            mock.patch.object(recovery_mod, "_verify_merged_on_base"),
+        ):
+            with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                recover_suffix_from_live(
+                    source="feature/report",
+                    base="main",
+                    from_index=2,
+                    successor_branch="feature/report-corrected",
+                    successor_sha=self.successor_sha,
+                    remote="origin",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                )
+
+        edit.assert_not_called()
+
     def test_multi_layer_recovery_survives_first_recovered_merge(self) -> None:
         case_dir = self.temp_dir / "non-origin"
         case_dir.mkdir()
