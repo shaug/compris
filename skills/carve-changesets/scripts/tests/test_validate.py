@@ -9,7 +9,7 @@ from unittest import mock
 import helpers
 from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
 from native_stack import NativeLayer, NativeStackSnapshot
-from rehydrate import adopt_legacy_chain, rehydrate_chain
+from rehydrate import Chain, ChangesetRecord, adopt_legacy_chain, rehydrate_chain
 from validate import validate_live_chain
 
 
@@ -128,6 +128,51 @@ class LiveValidationTests(unittest.TestCase):
         result = validate_live_chain(self._rehydrate(), cwd=self.repo)
 
         self.assertFalse(result.valid)
+        self.assertIn(
+            "source_equivalence_mismatch", {item.code for item in result.errors}
+        )
+
+    def test_fully_merged_chain_requires_the_result_on_current_trunk(self) -> None:
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
+        helpers.run(self.repo, "git", "checkout", "-b", "feature/report-1", "main")
+        for path in ("source.txt", "second.txt", "third.txt"):
+            content = helpers.run(self.repo, "git", "show", f"feature/report:{path}")
+            (self.repo / path).write_text(content + "\n")
+        helpers.run(self.repo, "git", "add", "source.txt", "second.txt", "third.txt")
+        metadata = ChangesetMetadata(
+            slug="report",
+            source_lineage=(
+                SourceIdentity("origin", "feature/report", self.source_sha),
+            ),
+        )
+        head = helpers.commit(self.repo, stamp_commit_message("feat: report", metadata))
+        helpers.run(self.repo, "git", "push", "-u", "origin", "feature/report-1")
+        chain = Chain(
+            base_branch="main",
+            source_branch="feature/report",
+            source_sha=self.source_sha,
+            root_source_sha=self.source_sha,
+            source_lineage=metadata.source_lineage,
+            changesets=(
+                ChangesetRecord(
+                    metadata=metadata,
+                    branch="feature/report-1",
+                    head=head,
+                    base="main",
+                    pr_number=101,
+                    pr_state="MERGED",
+                    topology_position=1,
+                ),
+            ),
+            native_topology=True,
+        )
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "merged_prefix_missing_from_base", {item.code for item in result.errors}
+        )
         self.assertIn(
             "source_equivalence_mismatch", {item.code for item in result.errors}
         )

@@ -283,6 +283,26 @@ def validate_live_chain(
         else:
             merged_changeset_seen = True
 
+        if is_merged and base_head is not None:
+            merged_result = _resolve(
+                repo, f"{changeset.merge_sha or changeset.head}^{{commit}}"
+            )
+            represented = (
+                _is_ancestor(repo, merged_result, base_head)
+                if merged_result is not None
+                else None
+            )
+            if represented is not True:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        "merged_prefix_missing_from_base",
+                        "error",
+                        f"Merged changeset branch {changeset.branch} is not "
+                        f"represented on current base {chain.base_branch} at "
+                        f"{base_head}.",
+                    )
+                )
+
         predecessor_name = changeset.base
         predecessor = _resolve_branch(repo, predecessor_name, remote)
         if predecessor is None:
@@ -332,10 +352,14 @@ def validate_live_chain(
                 )
 
     if stamped_source is not None and chain.changesets and live_heads is not None:
-        tip_record = chain.changesets[-1]
-        live_tip = live_heads.get(tip_record.position)
-        tip = live_tip[1] if live_tip is not None else None
-        if tip is None and tip_record.pr_state == "MERGED":
+        open_suffix = tuple(
+            item for item in chain.changesets if item.pr_state != "MERGED"
+        )
+        tip_record = open_suffix[-1] if open_suffix else chain.changesets[-1]
+        if open_suffix:
+            live_tip = live_heads.get(tip_record.position)
+            tip = live_tip[1] if live_tip is not None else None
+        else:
             tip = base_head
         source_tree = _resolve(repo, f"{stamped_source}^{{tree}}")
         tip_tree = _resolve(repo, f"{tip}^{{tree}}") if tip is not None else None

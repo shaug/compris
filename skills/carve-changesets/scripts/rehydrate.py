@@ -47,6 +47,7 @@ class ChangesetRecord:
     pr_state: str | None = None
     pr_metadata: ChangesetMetadata | None = None
     topology_position: int | None = None
+    merge_sha: str | None = None
 
     @property
     def position(self) -> int:
@@ -406,6 +407,7 @@ def adopt_legacy_chain(
                 pr_state=pr.state.upper() if pr else None,
                 pr_metadata=pr_metadata,
                 topology_position=index,
+                merge_sha=pr.merge_sha if pr else None,
             )
         )
         prior_prs_merged = (
@@ -532,6 +534,7 @@ def rehydrate_chain(
                 pr_state=pr.state.upper() if pr is not None else None,
                 pr_metadata=pr_metadata,
                 topology_position=topology_position,
+                merge_sha=pr.merge_sha if pr is not None else None,
             )
         )
         previous_branch = layer.branch

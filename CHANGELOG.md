@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Verified native source lineage
 
+- fix: verify merged prefix on trunk
+
 - test: configure portable git fixture
 
 - feat: establish verified native source lineage
