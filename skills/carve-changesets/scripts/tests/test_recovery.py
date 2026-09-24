@@ -18,7 +18,6 @@ from metadata import (
     SourceIdentity,
     embed_pr_metadata,
     parse_commit_message,
-    parse_pr_metadata,
     stamp_commit_message,
 )
 from recovery import recover_suffix_from_live
@@ -215,19 +214,49 @@ class SuffixRecoveryTests(unittest.TestCase):
             )
         return output.getvalue()
 
-    def _interrupt_after_v3_push(self) -> str:
-        failed = False
-
-        def fail_once(number: int, *, body=None, **kwargs) -> None:
-            nonlocal failed
-            if not failed:
-                failed = True
-                raise CommandError("injected PR metadata interruption")
+    def _interrupt_after_legacy_body_cleanup(self) -> str:
+        def edit_then_fail(number: int, *, body=None, **kwargs) -> None:
             self._edit(number, body=body, **kwargs)
+            raise CommandError("injected after PR metadata cleanup")
 
         with self.assertRaisesRegex(CommandError, "injected"):
-            self._run_recovery(edit_side_effect=fail_once)
+            self._run_recovery(edit_side_effect=edit_then_fail)
         return self._remote_head("feature/report-2")
+
+    def _push_v3_with_legacy_body(self, *, recovery_from_head: str) -> str:
+        metadata = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(
+                SourceIdentity("origin", "feature/report", self.source_sha),
+                SourceIdentity(
+                    "origin", "feature/report-corrected", self.successor_sha
+                ),
+            ),
+            recovery_from_head=recovery_from_head,
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message(
+                "fix: accept review feedback",
+                metadata,
+            ),
+        )
+        head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        return head
 
     def _restamp_open_suffix_as_native(self, *, identity_remote: str) -> str:
         metadata = ChangesetMetadata(
@@ -680,6 +709,9 @@ class SuffixRecoveryTests(unittest.TestCase):
                 "push_changeset_branch",
                 wraps=recovery_mod.push_changeset_branch,
             ),
+            mock.patch.object(
+                recovery_mod, "edit_pull_request", side_effect=self._edit
+            ),
             mock.patch.object(recovery_mod, "_verify_merged_on_base"),
         ):
             with self.assertRaisesRegex(CommandError, "moved from"):
@@ -695,35 +727,36 @@ class SuffixRecoveryTests(unittest.TestCase):
                 )
 
     def test_interrupted_metadata_update_resumes_from_live_state(self) -> None:
-        pushed_head = self._interrupt_after_v3_push()
-        self.assertNotEqual(self.fixed_head, pushed_head)
-        self.assertEqual(
-            3,
-            parse_commit_message(
-                helpers.run(self.repo, "git", "show", "-s", "--format=%B", pushed_head)
-            ).version,
-        )
-        self.assertEqual(
-            2,
-            len(
-                parse_commit_message(
-                    helpers.run(
-                        self.repo, "git", "show", "-s", "--format=%B", pushed_head
-                    )
-                ).source_lineage
-            ),
-        )
-        self.assertEqual(1, len(parse_pr_metadata(self.prs[102].body).source_lineage))
+        interrupted_head = self._interrupt_after_legacy_body_cleanup()
+        self.assertEqual(self.fixed_head, interrupted_head)
+        self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
 
         output = self._run_recovery()
 
-        self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
+        self.assertNotEqual(interrupted_head, self._remote_head("feature/report-2"))
         self.assertEqual("Position 2\n", self.prs[102].body)
         self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
         self.assertIn("Suffix recovery completed", output)
 
+    def test_interrupted_resume_rejects_unproven_same_metadata_predecessor(
+        self,
+    ) -> None:
+        older_same_metadata = helpers.run(
+            self.repo, "git", "rev-parse", f"{self.fixed_head}^"
+        )
+        forged_head = self._push_v3_with_legacy_body(
+            recovery_from_head=older_same_metadata
+        )
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(CommandError, "cannot prove|unsupported"):
+            self._run_recovery()
+
+        self.assertEqual(forged_head, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
     def test_interrupted_resume_rejects_conflicting_legacy_pr_evidence(self) -> None:
-        pushed_head = self._interrupt_after_v3_push()
+        pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
         conflicting = ChangesetMetadata(
             "foreign-part",
             2,
@@ -738,16 +771,14 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         body_before = self.prs[102].body
 
-        with self.assertRaisesRegex(
-            CommandError, "metadata disagrees|metadata conflicts"
-        ):
+        with self.assertRaisesRegex(CommandError, "unsupported|cannot prove"):
             self._run_recovery()
 
         self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
         self.assertEqual(body_before, self.prs[102].body)
 
     def test_interrupted_resume_rejects_malformed_legacy_pr_evidence(self) -> None:
-        pushed_head = self._interrupt_after_v3_push()
+        pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
         malformed = (
             "Tampered position 2\n\n"
             "<!-- carve-changesets:metadata:v1\n"
@@ -758,7 +789,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             **{**self.prs[102].__dict__, "body": malformed}
         )
 
-        with self.assertRaisesRegex(CommandError, "invalid JSON"):
+        with self.assertRaisesRegex(CommandError, "unsupported|cannot prove"):
             self._run_recovery()
 
         self.assertEqual(pushed_head, self._remote_head("feature/report-2"))

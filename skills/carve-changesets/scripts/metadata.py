@@ -76,6 +76,19 @@ class SourceIdentity:
             raise MetadataError("Source identity branch must not be empty.")
         if " @ " in self.branch:
             raise MetadataError("Source identity branch must not contain ' @ '.")
+        try:
+            branch_check = subprocess.run(
+                ["git", "check-ref-format", "--branch", self.branch],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise MetadataError("Git is required to validate source branches.") from exc
+        if branch_check.returncode != 0:
+            raise MetadataError(
+                "Source identity branch must be a valid literal Git branch name."
+            )
         if not _SHA_RE.fullmatch(self.sha):
             raise MetadataError(
                 "Source identity SHA must be a full lowercase 40-character SHA."

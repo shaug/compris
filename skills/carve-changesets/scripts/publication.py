@@ -9,23 +9,38 @@ from metadata import MetadataError, SourceIdentity, parse_commit_message
 
 
 def _remote_identity_head(identity: SourceIdentity) -> str:
+    expected_ref = f"refs/heads/{identity.branch}"
     result = git(
         "ls-remote",
         "--heads",
         identity.remote,
-        f"refs/heads/{identity.branch}",
+        expected_ref,
         check=False,
     )
     if result.returncode != 0:
         raise CommandError(
             f"Unable to resolve recorded source {identity.remote}/{identity.branch}."
         )
-    line = result.stdout.strip()
-    if not line:
+    lines = result.stdout.splitlines()
+    if not lines:
         raise CommandError(
             f"Recorded source {identity.remote}/{identity.branch} is unavailable."
         )
-    return line.split()[0]
+    matches: list[str] = []
+    for line in lines:
+        fields = line.split("\t")
+        if len(fields) != 2 or fields[1] != expected_ref:
+            raise CommandError(
+                f"Recorded source {identity.remote}/{identity.branch} did not "
+                "resolve to one exact branch ref."
+            )
+        matches.append(fields[0])
+    if len(matches) != 1:
+        raise CommandError(
+            f"Recorded source {identity.remote}/{identity.branch} did not "
+            "resolve to one exact branch ref."
+        )
+    return matches[0]
 
 
 def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None:

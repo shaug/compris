@@ -98,7 +98,7 @@ def _ensure_pr_heads_available(
                     f"PR #{pr.number} head {pr.head_sha} is unavailable in live git."
                 )
         try:
-            metadata = parse_commit_message(
+            parse_commit_message(
                 git("show", "-s", "--format=%B", pr.head_sha).stdout,
                 remote=remote,
             )
@@ -106,19 +106,6 @@ def _ensure_pr_heads_available(
             raise CommandError(
                 f"PR #{pr.number} head metadata is invalid: {exc}"
             ) from exc
-        predecessor = metadata.recovery_from_head
-        if (
-            metadata.version == 3
-            and predecessor is not None
-            and "carve-changesets:metadata" in pr.body
-            and _resolve(predecessor) is None
-        ):
-            fetched = git("fetch", remote, predecessor, check=False)
-            if fetched.returncode != 0 or _resolve(predecessor) is None:
-                raise CommandError(
-                    f"PR #{pr.number} exact recovery predecessor {predecessor} "
-                    "is unavailable in live git."
-                )
 
 
 def _metadata_for_recovery(
@@ -225,11 +212,7 @@ def _verify_open_suffix_pr(
             f"{expected_head} to {current_remote}."
         )
     metadata = record.metadata
-    if (
-        record.metadata.version in {1, 2}
-        or record.pr_metadata is not None
-        or "carve-changesets:metadata" in live.body
-    ):
+    if "carve-changesets:metadata" in live.body:
         try:
             metadata = parse_pr_metadata(live.body, remote=remote)
         except MetadataError as exc:
@@ -242,8 +225,6 @@ def _verify_open_suffix_pr(
             )
     current_lineage = target_lineage[:-1]
     expected_position = record.metadata.legacy_position
-    if record.metadata.version == 3 and metadata.version in {1, 2}:
-        expected_position = record.position
     if (
         metadata.slug != record.metadata.slug
         or metadata.legacy_position != expected_position
@@ -422,14 +403,6 @@ def recover_suffix_from_live(
                     target_lineage=target_lineage,
                     remote=remote,
                 )
-                if candidate != record.head:
-                    push_changeset_branch(
-                        record.branch,
-                        remote=remote,
-                        dry_run=dry_run,
-                        expected_remote_head=record.head,
-                        local_ref=temp_by_index[index],
-                    )
                 updated_body = embed_pr_metadata(live.body, metadata)
                 if updated_body != live.body:
                     edit_pull_request(
@@ -437,6 +410,14 @@ def recover_suffix_from_live(
                         remote=remote,
                         body=updated_body,
                         dry_run=dry_run,
+                    )
+                if candidate != record.head:
+                    push_changeset_branch(
+                        record.branch,
+                        remote=remote,
+                        dry_run=dry_run,
+                        expected_remote_head=record.head,
+                        local_ref=temp_by_index[index],
                     )
                 if not dry_run:
                     verified = pull_request_by_number(live.number, remote=remote)

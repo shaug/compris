@@ -187,6 +187,12 @@ class MetadataTests(unittest.TestCase):
         with self.assertRaisesRegex(MetadataError, "repeat"):
             ChangesetMetadata(slug="payments", source_lineage=(identity, identity))
 
+    def test_source_identity_requires_a_literal_git_branch_name(self) -> None:
+        for branch in ("feature/*", "feature//payments", "-feature/payments"):
+            with self.subTest(branch=branch):
+                with self.assertRaisesRegex(MetadataError, "valid literal"):
+                    SourceIdentity("origin", branch, "a" * 40)
+
     def test_v3_successor_requires_exact_recovery_provenance(self) -> None:
         lineage = (
             SourceIdentity("origin", "feature/payments", "a" * 40),

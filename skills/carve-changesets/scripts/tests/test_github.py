@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import github as github_mod  # noqa: E402
+import publication as publication_mod  # noqa: E402
 from chain import create_chain  # noqa: E402
 from common import CommandError  # noqa: E402
 from legacy_helpers import (  # noqa: E402
@@ -251,6 +252,135 @@ class GithubTests(unittest.TestCase):
                     mock.patch.object(github_mod, "gh_capture") as create_call,
                 ):
                     with self.assertRaisesRegex(CommandError, "records remote"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_pattern_lineage_branch_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                body = github_mod.pr_body_for(
+                    plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                )
+                for index in (1, 2):
+                    branch = f"feature/test-{index}"
+                    run(["git", "checkout", branch], cwd=repo_dir)
+                    message = run(
+                        ["git", "show", "-s", "--format=%B", "HEAD"],
+                        cwd=repo_dir,
+                    ).stdout.replace(
+                        "Changeset-Source: origin feature/test @ ",
+                        "Changeset-Source: origin feature/* @ ",
+                    )
+                    with tempfile.NamedTemporaryFile(
+                        mode="w", encoding="utf-8"
+                    ) as message_file:
+                        message_file.write(message)
+                        message_file.flush()
+                        run(
+                            [
+                                "git",
+                                "commit",
+                                "--amend",
+                                "-F",
+                                message_file.name,
+                            ],
+                            cwd=repo_dir,
+                        )
+                    run(
+                        ["git", "push", "--force", "origin", branch],
+                        cwd=repo_dir,
+                    )
+
+                expected_head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                created = {
+                    "number": 92,
+                    "url": "https://github.com/acme/widgets/pull/92",
+                    "headRefOid": expected_head,
+                    "baseRefName": "main",
+                    "body": body,
+                }
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(
+                        CommandError, "branch.*valid literal|invalid source identity"
+                    ):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_non_exact_remote_lineage_response_before_gh(
+        self,
+    ) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                for branch in ("feature/test", "feature/test-1", "feature/test-2"):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                actual_git = publication_mod.git
+
+                def duplicate_remote_ref(*args, **kwargs):
+                    if args[0] == "ls-remote":
+                        return subprocess.CompletedProcess(
+                            args,
+                            0,
+                            (
+                                f"{source_sha}\trefs/heads/feature/test\n"
+                                f"{source_sha}\trefs/heads/feature/test\n"
+                            ),
+                            "",
+                        )
+                    return actual_git(*args, **kwargs)
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        publication_mod, "git", side_effect=duplicate_remote_ref
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "one exact branch ref"):
                         github_mod.pr_create(
                             plan, indices=[1], dry_run=False, remote="origin"
                         )
