@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- docs: backfill merged lineage changelog
+
 - fix: reconcile merged lineage validation
 
 - fix: share exact PR publication lookup
@@ -27,14 +29,18 @@ summary: Chronological history of repository and skill changes.
 - fix: verify complete recovery evidence
 
 - fix: validate open suffix from live trunk
+  (e51780138e8dcd3484dad6a03365b318c971508d)
 
 - fix: bind publication validation to live remote
+  (082eec1362bd5a164e8e90d49ed6c660c1e9ade7)
 
-- fix: verify merged prefix on trunk
+- fix: verify merged prefix on trunk (d92c24f5f54c281f46c6115e0cc23a9fc6285656)
 
 - test: configure portable git fixture
+  (20c0d70b0a344be18f2c489cfeb05e1c1aaaa29c)
 
 - feat: establish verified native source lineage
+  (f55993442d00967547c7e14a65782be3d70a8bb2)
 
 ## 2026-09-23 — Completed remote-aware source lineage
 
