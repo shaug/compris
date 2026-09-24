@@ -9,7 +9,7 @@ from typing import Literal
 
 from common import CommandError
 from metadata import SourceIdentity
-from publication import remote_identity_head
+from publication import remote_branch_head, remote_identity_head
 from rehydrate import Chain, RehydrationError, discover_changeset_heads
 
 Severity = Literal["error", "warning"]
@@ -230,13 +230,28 @@ def validate_live_chain(
                 )
             )
 
-    base_head = _resolve_branch(repo, chain.base_branch, remote)
+    if verify_live_remote:
+        try:
+            base_head = remote_branch_head(remote, chain.base_branch, cwd=repo)
+        except CommandError as exc:
+            base_head = None
+            diagnostics.append(
+                ValidationDiagnostic(
+                    "base_ref_unavailable",
+                    "error",
+                    f"Current selected-remote base {remote}/{chain.base_branch} "
+                    f"could not be resolved exactly: {exc}",
+                )
+            )
+    else:
+        base_head = _resolve_branch(repo, chain.base_branch, remote)
     if base_head is None:
         diagnostics.append(
             ValidationDiagnostic(
                 "base_missing",
                 "error",
-                f"Base branch {chain.base_branch!r} is not available in live git.",
+                f"Base branch {chain.base_branch!r} is not available from "
+                f"{'selected remote ' + remote if verify_live_remote else 'local git'}.",
             )
         )
 
@@ -283,10 +298,40 @@ def validate_live_chain(
         else:
             merged_changeset_seen = True
 
+        if is_merged and base_head is not None:
+            merged_result = _resolve(
+                repo, f"{changeset.pr_merge_sha or changeset.head}^{{commit}}"
+            )
+            represented = (
+                _is_ancestor(repo, merged_result, base_head)
+                if merged_result is not None
+                else None
+            )
+            if represented is not True:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        "merged_prefix_missing_from_base",
+                        "error",
+                        f"Merged changeset branch {changeset.branch} is not "
+                        f"represented on current base {chain.base_branch} at "
+                        f"{base_head}.",
+                    )
+                )
+
         predecessor_name = changeset.base
-        predecessor = _resolve_branch(repo, predecessor_name, remote)
-        if predecessor is None:
-            predecessor = rehydrated_heads.get(predecessor_name)
+        if predecessor_name == chain.base_branch:
+            predecessor = base_head
+        else:
+            predecessor = next(
+                (
+                    live_head
+                    for live_branch, live_head in (live_heads or {}).values()
+                    if live_branch == predecessor_name
+                ),
+                None,
+            )
+            if predecessor is None:
+                predecessor = rehydrated_heads.get(predecessor_name)
         if not is_merged and predecessor is None:
             diagnostics.append(
                 ValidationDiagnostic(
@@ -332,10 +377,14 @@ def validate_live_chain(
                 )
 
     if stamped_source is not None and chain.changesets and live_heads is not None:
-        tip_record = chain.changesets[-1]
-        live_tip = live_heads.get(tip_record.position)
-        tip = live_tip[1] if live_tip is not None else None
-        if tip is None and tip_record.pr_state == "MERGED":
+        open_suffix = tuple(
+            item for item in chain.changesets if item.pr_state != "MERGED"
+        )
+        tip_record = open_suffix[-1] if open_suffix else chain.changesets[-1]
+        if open_suffix:
+            live_tip = live_heads.get(tip_record.position)
+            tip = live_tip[1] if live_tip is not None else None
+        else:
             tip = base_head
         source_tree = _resolve(repo, f"{stamped_source}^{{tree}}")
         tip_tree = _resolve(repo, f"{tip}^{{tree}}") if tip is not None else None

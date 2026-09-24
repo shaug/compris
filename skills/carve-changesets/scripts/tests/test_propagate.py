@@ -160,6 +160,47 @@ class PushChainTests(unittest.TestCase):
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 
+    def test_push_chain_rejects_legacy_metadata_before_any_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                source_sha = helpers.run(
+                    repo_dir, "git", "rev-parse", plan["source_branch"]
+                )
+                for index, changeset in enumerate(plan["changesets"], start=1):
+                    branch = f"{plan['source_branch']}-{index}"
+                    helpers.run(repo_dir, "git", "checkout", branch)
+                    legacy = ChangesetMetadata(
+                        changeset["slug"],
+                        index,
+                        plan["source_branch"],
+                        source_sha,
+                    )
+                    helpers.run(
+                        repo_dir,
+                        "git",
+                        "commit",
+                        "--amend",
+                        "-F",
+                        "-",
+                        input_text=stamp_commit_message(
+                            changeset["commit_message"], legacy
+                        ),
+                    )
+                helpers.run(repo_dir, "git", "checkout", plan["source_branch"])
+                run(["git", "push", "origin", plan["source_branch"]], cwd=repo_dir)
+                with mock.patch("propagate.push_changeset_branch") as push:
+                    with self.assertRaisesRegex(CommandError, "native v3"):
+                        push_chain(plan, remote="origin", dry_run=False)
+            push.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_propagation_push_rejects_remote_head_moved_since_rehydration(self) -> None:
         with (
             mock.patch("propagate.remote_branch_head", return_value="b" * 40),

@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: reconcile merged lineage validation
+
 - fix: share exact PR publication lookup
 
 - refactor: unify exact remote branch lookup
@@ -23,6 +25,16 @@ summary: Chronological history of repository and skill changes.
 - fix: reserve successor lineage for recovery
 
 - fix: verify complete recovery evidence
+
+- fix: validate open suffix from live trunk
+
+- fix: bind publication validation to live remote
+
+- fix: verify merged prefix on trunk
+
+- test: configure portable git fixture
+
+- feat: establish verified native source lineage
 
 ## 2026-09-23 — Completed remote-aware source lineage
 

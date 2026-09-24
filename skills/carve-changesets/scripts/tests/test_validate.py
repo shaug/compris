@@ -9,7 +9,7 @@ from unittest import mock
 import helpers
 from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
 from native_stack import NativeLayer, NativeStackSnapshot
-from rehydrate import adopt_legacy_chain, rehydrate_chain
+from rehydrate import Chain, ChangesetRecord, adopt_legacy_chain, rehydrate_chain
 from validate import validate_live_chain
 
 
@@ -58,6 +58,65 @@ class LiveValidationTests(unittest.TestCase):
         return adopt_legacy_chain(
             source_branch="feature/report", base_branch="main", cwd=self.repo
         )
+
+    def _materialize_native_single_layer(self) -> tuple[ChangesetMetadata, str]:
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
+        helpers.run(self.repo, "git", "checkout", "-b", "feature/report-1", "main")
+        for path in ("source.txt", "second.txt", "third.txt"):
+            content = helpers.run(self.repo, "git", "show", f"feature/report:{path}")
+            (self.repo / path).write_text(content + "\n")
+        helpers.run(self.repo, "git", "add", "source.txt", "second.txt", "third.txt")
+        metadata = ChangesetMetadata(
+            slug="report",
+            source_lineage=(
+                SourceIdentity("origin", "feature/report", self.source_sha),
+            ),
+        )
+        head = helpers.commit(self.repo, stamp_commit_message("feat: report", metadata))
+        helpers.run(self.repo, "git", "push", "-u", "origin", "feature/report-1")
+        return metadata, head
+
+    def _native_single_layer_chain(
+        self,
+        metadata: ChangesetMetadata,
+        head: str,
+        *,
+        merge_sha: str | None = None,
+        pr_state: str = "MERGED",
+    ) -> Chain:
+        return Chain(
+            base_branch="main",
+            source_branch="feature/report",
+            source_sha=self.source_sha,
+            root_source_sha=self.source_sha,
+            source_lineage=metadata.source_lineage,
+            changesets=(
+                ChangesetRecord(
+                    metadata=metadata,
+                    branch="feature/report-1",
+                    head=head,
+                    base="main",
+                    pr_number=101,
+                    pr_state=pr_state,
+                    topology_position=1,
+                    pr_merge_sha=merge_sha,
+                ),
+            ),
+            native_topology=True,
+        )
+
+    def _merge_single_layer_to_local_main(self) -> tuple[str, str]:
+        prior_main = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(
+            self.repo,
+            "git",
+            "merge",
+            "--no-ff",
+            "--no-edit",
+            "feature/report-1",
+        )
+        return prior_main, helpers.run(self.repo, "git", "rev-parse", "main")
 
     def test_issue_32_legitimate_propagation_has_no_stale_drift_warning(self) -> None:
         heads = self._materialize_equivalent_chain()
@@ -131,6 +190,78 @@ class LiveValidationTests(unittest.TestCase):
         self.assertIn(
             "source_equivalence_mismatch", {item.code for item in result.errors}
         )
+
+    def test_fully_merged_chain_requires_the_result_on_current_trunk(self) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        chain = self._native_single_layer_chain(metadata, head)
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "merged_prefix_missing_from_base", {item.code for item in result.errors}
+        )
+        self.assertIn(
+            "source_equivalence_mismatch", {item.code for item in result.errors}
+        )
+
+    def test_live_validation_rejects_ahead_local_trunk(self) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        _prior_main, merge_sha = self._merge_single_layer_to_local_main()
+        chain = self._native_single_layer_chain(metadata, head, merge_sha=merge_sha)
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "merged_prefix_missing_from_base", {item.code for item in result.errors}
+        )
+
+    def test_live_validation_accepts_current_remote_over_stale_local_trunk(
+        self,
+    ) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        prior_main, merge_sha = self._merge_single_layer_to_local_main()
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "feature/report-1")
+        helpers.run(self.repo, "git", "update-ref", "refs/heads/main", prior_main)
+        chain = self._native_single_layer_chain(metadata, head, merge_sha=merge_sha)
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertTrue(result.valid, result.diagnostics)
+
+    def test_open_chain_rejects_stale_local_trunk_over_current_remote(self) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        prior_main = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "remote-only.txt").write_text("remote base\n")
+        helpers.run(self.repo, "git", "add", "remote-only.txt")
+        helpers.commit(self.repo, "advance remote base")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "feature/report-1")
+        helpers.run(self.repo, "git", "update-ref", "refs/heads/main", prior_main)
+        chain = self._native_single_layer_chain(metadata, head, pr_state="OPEN")
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "predecessor_ancestry_broken", {item.code for item in result.errors}
+        )
+
+    def test_open_chain_accepts_remote_trunk_over_ahead_local_trunk(self) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "local-only.txt").write_text("local base\n")
+        helpers.run(self.repo, "git", "add", "local-only.txt")
+        helpers.commit(self.repo, "advance local base")
+        helpers.run(self.repo, "git", "checkout", "feature/report-1")
+        chain = self._native_single_layer_chain(metadata, head, pr_state="OPEN")
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertTrue(result.valid, result.diagnostics)
 
     def test_issue_32_source_advance_is_distinct_from_history_mismatch(self) -> None:
         self._materialize_equivalent_chain()
