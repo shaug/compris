@@ -30,6 +30,59 @@ from rehydrate import PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
+    def test_push_chain_rejects_unproven_successor_lineage_before_any_push(
+        self,
+    ) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                run(
+                    ["git", "branch", "feature/test-corrected", source_sha],
+                    cwd=repo_dir,
+                )
+                for branch in ("feature/test", "feature/test-corrected"):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+                lineage = (
+                    SourceIdentity("origin", "feature/test", source_sha),
+                    SourceIdentity("origin", "feature/test-corrected", source_sha),
+                )
+                for index in (1, 2):
+                    branch = f"feature/test-{index}"
+                    run(["git", "checkout", branch], cwd=repo_dir)
+                    message = stamp_commit_message(
+                        f"feat: changeset {index}",
+                        ChangesetMetadata(
+                            slug=f"part-{index}",
+                            source_lineage=lineage,
+                            recovery_from_head="f" * 40,
+                        ),
+                    )
+                    helpers.run(
+                        repo_dir,
+                        "git",
+                        "commit",
+                        "--amend",
+                        "-F",
+                        "-",
+                        input_text=message,
+                    )
+
+                with mock.patch("propagate.push_changeset_branch") as push:
+                    with self.assertRaisesRegex(CommandError, "recover-suffix"):
+                        push_chain(plan, remote="origin", dry_run=False)
+
+            push.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_push_chain_rejects_missing_recorded_source_before_any_push(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None

@@ -33,6 +33,81 @@ from metadata import (  # noqa: E402
 
 
 class GithubTests(unittest.TestCase):
+    def test_pr_create_rejects_unproven_successor_lineage_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                run(
+                    ["git", "branch", "feature/test-corrected", source_sha],
+                    cwd=repo_dir,
+                )
+                for branch in ("feature/test", "feature/test-corrected"):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+                lineage = (
+                    SourceIdentity("origin", "feature/test", source_sha),
+                    SourceIdentity("origin", "feature/test-corrected", source_sha),
+                )
+                for index in (1, 2):
+                    branch = f"feature/test-{index}"
+                    run(["git", "checkout", branch], cwd=repo_dir)
+                    message = stamp_commit_message(
+                        f"feat: changeset {index}",
+                        ChangesetMetadata(
+                            slug=f"part-{index}",
+                            source_lineage=lineage,
+                            recovery_from_head="f" * 40,
+                        ),
+                    )
+                    with tempfile.NamedTemporaryFile(
+                        mode="w", encoding="utf-8"
+                    ) as message_file:
+                        message_file.write(message)
+                        message_file.flush()
+                        run(
+                            ["git", "commit", "--amend", "-F", message_file.name],
+                            cwd=repo_dir,
+                        )
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+
+                selected_head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                created = {
+                    "number": 91,
+                    "url": "https://example.test/pr/91",
+                    "headRefOid": selected_head,
+                    "baseRefName": "main",
+                    "body": github_mod.pr_body_for(
+                        plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                    ),
+                }
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture"),
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(CommandError, "recover-suffix"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_force_push_history_paginates_exact_commit_edges(self) -> None:
         first = {
             "data": {
