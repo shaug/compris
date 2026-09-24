@@ -383,11 +383,15 @@ class GithubTests(unittest.TestCase):
                 body = github_mod.pr_body_for(
                     plan, 1, len(plan["changesets"]), plan["changesets"][0]
                 )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
                 created = {
                     "number": 91,
                     "url": "https://example.test/pr/91",
                     "headRefOid": head,
                     "baseRefName": "main",
+                    "title": title,
                     "body": body,
                 }
                 with (
@@ -416,7 +420,7 @@ class GithubTests(unittest.TestCase):
                     "-R",
                     "github.com/acme/widgets",
                     "--json",
-                    "number,url,headRefOid,baseRefName,body",
+                    "number,url,headRefOid,baseRefName,title,body",
                 ),
                 view.call_args.args[0],
             )
@@ -434,6 +438,24 @@ class GithubTests(unittest.TestCase):
                 mock.patch.object(github_mod, "gh_json", return_value=created),
             ):
                 with self.assertRaisesRegex(CommandError, "body"):
+                    github_mod.pr_create(
+                        plan, indices=[1], dry_run=False, remote="origin"
+                    )
+
+            created["body"] = body
+            created["title"] = "GitHub replaced the submitted title"
+            with (
+                chdir(repo_dir),
+                mock.patch.object(
+                    github_mod,
+                    "github_repo_for_remote",
+                    return_value="github.com/acme/widgets",
+                ),
+                mock.patch.object(github_mod, "ensure_gh_ready"),
+                mock.patch.object(github_mod, "gh_capture"),
+                mock.patch.object(github_mod, "gh_json", return_value=created),
+            ):
+                with self.assertRaisesRegex(CommandError, "title"):
                     github_mod.pr_create(
                         plan, indices=[1], dry_run=False, remote="origin"
                     )
@@ -698,6 +720,9 @@ class GithubTests(unittest.TestCase):
                 body = github_mod.pr_body_for(
                     plan, 1, len(plan["changesets"]), plan["changesets"][0]
                 )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
 
             stub = stub_dir / "gh"
             log_path = stub_dir / "calls.jsonl"
@@ -715,6 +740,7 @@ class GithubTests(unittest.TestCase):
                 "url": "https://github.com/acme/widgets/pull/95",
                 "headRefOid": head,
                 "baseRefName": "main",
+                "title": title,
                 "body": body,
             }
             environment = {
@@ -806,11 +832,15 @@ class GithubTests(unittest.TestCase):
                 body = github_mod.pr_body_for(
                     plan, 1, len(plan["changesets"]), plan["changesets"][0]
                 )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
                 created = {
                     "number": 92,
                     "url": "https://github.enterprise.test/acme/widgets/pull/92",
                     "headRefOid": head,
                     "baseRefName": "main",
+                    "title": title,
                     "body": body,
                 }
                 with (

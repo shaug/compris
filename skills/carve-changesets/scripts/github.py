@@ -212,6 +212,7 @@ def _verify_created_pr(
     expected_head: str,
     expected_base: str,
     expected_metadata: ChangesetMetadata,
+    expected_title: str,
     expected_body: str,
 ) -> Dict:
     if not isinstance(created, dict):
@@ -225,6 +226,10 @@ def _verify_created_pr(
         raise CommandError(
             f"Created PR for {head} has base {created.get('baseRefName')!r}; "
             f"expected {expected_base!r}."
+        )
+    if str(created.get("title") or "") != expected_title:
+        raise CommandError(
+            f"Created PR for {head} title does not match the submitted title."
         )
     if expected_metadata.version in {1, 2}:
         try:
@@ -315,13 +320,14 @@ def pr_create(
                     "-R",
                     repository,
                     "--json",
-                    "number,url,headRefOid,baseRefName,body",
+                    "number,url,headRefOid,baseRefName,title,body",
                 )
             ),
             head=head,
             expected_head=expected_head,
             expected_base=pr_base,
             expected_metadata=expected_metadata,
+            expected_title=title,
             expected_body=body,
         )
         print(f"[OK] PR #{created['number']} created: {created['url']}")
