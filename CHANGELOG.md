@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Verified native source lineage
 
+- fix: validate open suffix from live trunk
+
 - fix: bind publication validation to live remote
 
 - fix: verify merged prefix on trunk

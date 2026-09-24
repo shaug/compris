@@ -82,6 +82,7 @@ class LiveValidationTests(unittest.TestCase):
         head: str,
         *,
         merge_sha: str | None = None,
+        pr_state: str = "MERGED",
     ) -> Chain:
         return Chain(
             base_branch="main",
@@ -96,7 +97,7 @@ class LiveValidationTests(unittest.TestCase):
                     head=head,
                     base="main",
                     pr_number=101,
-                    pr_state="MERGED",
+                    pr_state=pr_state,
                     topology_position=1,
                     merge_sha=merge_sha,
                 ),
@@ -225,6 +226,38 @@ class LiveValidationTests(unittest.TestCase):
         helpers.run(self.repo, "git", "checkout", "feature/report-1")
         helpers.run(self.repo, "git", "update-ref", "refs/heads/main", prior_main)
         chain = self._native_single_layer_chain(metadata, head, merge_sha=merge_sha)
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertTrue(result.valid, result.diagnostics)
+
+    def test_open_chain_rejects_stale_local_trunk_over_current_remote(self) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        prior_main = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "remote-only.txt").write_text("remote base\n")
+        helpers.run(self.repo, "git", "add", "remote-only.txt")
+        helpers.commit(self.repo, "advance remote base")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "feature/report-1")
+        helpers.run(self.repo, "git", "update-ref", "refs/heads/main", prior_main)
+        chain = self._native_single_layer_chain(metadata, head, pr_state="OPEN")
+
+        result = validate_live_chain(chain, cwd=self.repo)
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "predecessor_ancestry_broken", {item.code for item in result.errors}
+        )
+
+    def test_open_chain_accepts_remote_trunk_over_ahead_local_trunk(self) -> None:
+        metadata, head = self._materialize_native_single_layer()
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "local-only.txt").write_text("local base\n")
+        helpers.run(self.repo, "git", "add", "local-only.txt")
+        helpers.commit(self.repo, "advance local base")
+        helpers.run(self.repo, "git", "checkout", "feature/report-1")
+        chain = self._native_single_layer_chain(metadata, head, pr_state="OPEN")
 
         result = validate_live_chain(chain, cwd=self.repo)
 

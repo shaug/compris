@@ -319,9 +319,19 @@ def validate_live_chain(
                 )
 
         predecessor_name = changeset.base
-        predecessor = _resolve_branch(repo, predecessor_name, remote)
-        if predecessor is None:
-            predecessor = rehydrated_heads.get(predecessor_name)
+        if predecessor_name == chain.base_branch:
+            predecessor = base_head
+        else:
+            predecessor = next(
+                (
+                    live_head
+                    for live_branch, live_head in (live_heads or {}).values()
+                    if live_branch == predecessor_name
+                ),
+                None,
+            )
+            if predecessor is None:
+                predecessor = rehydrated_heads.get(predecessor_name)
         if not is_merged and predecessor is None:
             diagnostics.append(
                 ValidationDiagnostic(
