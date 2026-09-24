@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-23 — Completed remote-aware source lineage
 
+- fix: reject checkout shorthand in source lineage
+
 - docs: specify immutable recovery-boundary attestation
 
 - fix: authenticate recovery boundaries from immutable GitHub head history

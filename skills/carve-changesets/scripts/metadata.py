@@ -89,7 +89,7 @@ class SourceIdentity:
             )
         except FileNotFoundError as exc:
             raise MetadataError("Git is required to validate source branches.") from exc
-        if branch_check.returncode != 0:
+        if branch_check.returncode != 0 or branch_check.stdout.strip() != self.branch:
             raise MetadataError(
                 "Source identity branch must be a valid literal Git branch name."
             )
