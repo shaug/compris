@@ -366,6 +366,18 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertEqual(2, len(metadata.source_lineage))
         self.assertIn("Suffix recovery completed", output)
 
+    def test_public_recovery_rejects_divergent_pr_body_readback(self) -> None:
+        def persist_divergent_body(number: int, **_kwargs) -> None:
+            self._edit(number, body="Server-altered recovery context.\n")
+
+        with self.assertRaisesRegex(CommandError, "could not be verified"):
+            self._run_recovery(edit_side_effect=persist_divergent_body)
+
+        self.assertEqual(
+            "Server-altered recovery context.\n",
+            self.prs[102].body,
+        )
+
     def test_public_recovery_rejects_lineage_from_another_remote(self) -> None:
         self._restamp_open_suffix_as_native(identity_remote="upstream")
 

@@ -119,6 +119,7 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
         self,
         *,
         forged_downstream_predecessor: bool = False,
+        prepend_unavailable_rewrite_event: bool = False,
         substitute_first_twin_predecessor: bool = False,
         substitute_twin_predecessor: bool = False,
     ) -> tuple[NativeStackSnapshot, list[PullRequestRecord]]:
@@ -266,7 +267,14 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
                 pull_requests[0],
                 head_sha=new_first,
                 body=embed_pr_metadata(pull_requests[0].body, first_metadata),
-                head_rewrite_edges=((old_first, new_first),),
+                head_rewrite_edges=(
+                    *(
+                        ((old_first, "f" * 40),)
+                        if prepend_unavailable_rewrite_event
+                        else ()
+                    ),
+                    (old_first, new_first),
+                ),
             ),
             replace(
                 pull_requests[1],
@@ -410,6 +418,22 @@ class NativeRehydrationTransitionTests(unittest.TestCase):
     def test_completed_successor_rejects_a_twin_first_predecessor(self) -> None:
         snapshot, pull_requests = self._completed_successor_stack(
             substitute_first_twin_predecessor=True
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                native_snapshot=snapshot,
+                pull_requests=pull_requests,
+                cwd=self.repo,
+            )
+
+    def test_completed_successor_rejects_an_unavailable_earlier_rewrite(
+        self,
+    ) -> None:
+        snapshot, pull_requests = self._completed_successor_stack(
+            prepend_unavailable_rewrite_event=True
         )
 
         with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):

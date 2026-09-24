@@ -273,7 +273,7 @@ def _validate_completed_recovery_provenance(
                     remote=remote,
                 )
             except (MetadataError, RehydrationError):
-                continue
+                return False
             if after_metadata.source_lineage != record.metadata.source_lineage:
                 continue
             if before != predecessor or after_metadata.slug != record.metadata.slug:

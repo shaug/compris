@@ -4,6 +4,10 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-24 — Closed recovery verification gaps
+
+- fix: verify complete recovery evidence
+
 ## 2026-09-23 — Completed remote-aware source lineage
 
 - fix: reject checkout shorthand in source lineage
