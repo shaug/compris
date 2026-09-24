@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import github as github_mod  # noqa: E402
+import publication as publication_mod  # noqa: E402
 from chain import create_chain  # noqa: E402
 from common import CommandError  # noqa: E402
 from legacy_helpers import (  # noqa: E402
@@ -389,6 +390,62 @@ class GithubTests(unittest.TestCase):
                     mock.patch.object(github_mod, "gh_capture") as create_call,
                 ):
                     with self.assertRaisesRegex(CommandError, "records remote"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_non_exact_remote_lineage_response_before_gh(
+        self,
+    ) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                for branch in ("feature/test", "feature/test-1", "feature/test-2"):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                actual_git = publication_mod.git
+
+                def duplicate_remote_ref(*args, **kwargs):
+                    if (
+                        args[0] == "ls-remote"
+                        and args[-1] == "refs/heads/feature/test-1"
+                    ):
+                        return subprocess.CompletedProcess(
+                            args,
+                            0,
+                            (
+                                f"{source_sha}\trefs/heads/feature/test-1\n"
+                                f"{source_sha}\trefs/heads/feature/test-1\n"
+                            ),
+                            "",
+                        )
+                    return actual_git(*args, **kwargs)
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        publication_mod, "git", side_effect=duplicate_remote_ref
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "one exact branch ref"):
                         github_mod.pr_create(
                             plan, indices=[1], dry_run=False, remote="origin"
                         )

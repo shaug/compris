@@ -28,7 +28,11 @@ from metadata import (
     parse_commit_message,
     parse_pr_metadata,
 )
-from publication import verify_lineage_for_publication, verify_remote_lineage
+from publication import (
+    remote_branch_head,
+    verify_lineage_for_publication,
+    verify_remote_lineage,
+)
 from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
@@ -46,38 +50,6 @@ def _ensure_chain_exists(source: str, total: int) -> List[str]:
 
 def remote_exists(remote: str) -> bool:
     return git("remote", "get-url", remote, check=False).returncode == 0
-
-
-def remote_branch_head(remote: str, branch: str) -> str | None:
-    result = git(
-        "ls-remote",
-        "--heads",
-        remote,
-        f"refs/heads/{branch}",
-        check=False,
-    )
-    if result.returncode != 0:
-        raise CommandError(f"Unable to resolve {remote}/{branch} before push.")
-    lines = [line for line in result.stdout.splitlines() if line.strip()]
-    if not lines:
-        return None
-    expected_ref = f"refs/heads/{branch}"
-    if len(lines) != 1:
-        raise CommandError(
-            f"Unable to resolve exact remote branch {remote}/{branch}: "
-            "multiple refs were returned."
-        )
-    fields = lines[0].split()
-    if (
-        len(fields) != 2
-        or fields[1] != expected_ref
-        or re.fullmatch(r"[0-9a-f]{40}", fields[0]) is None
-    ):
-        raise CommandError(
-            f"Unable to resolve exact remote branch {remote}/{branch}: "
-            "the response was malformed."
-        )
-    return fields[0]
 
 
 def push_changeset_branch(

@@ -23,7 +23,7 @@ from metadata import (
     embed_pr_metadata,
     parse_commit_message,
 )
-from publication import verify_lineage_for_publication
+from publication import remote_branch_head, verify_lineage_for_publication
 from rehydrate import PullRequestRecord
 
 _PR_JSON_FIELDS = (
@@ -159,20 +159,11 @@ def _local_remote_head(branch: str, remote: str) -> str:
     if local_result.returncode != 0:
         raise CommandError(f"Local changeset branch {branch!r} does not exist.")
     local_head = local_result.stdout.strip()
-    remote_result = git(
-        "ls-remote", "--heads", remote, f"refs/heads/{branch}", check=False
-    )
-    if remote_result.returncode != 0:
-        detail = (remote_result.stderr or remote_result.stdout or "").strip()
-        raise CommandError(
-            f"Could not resolve {remote} changeset branch {branch!r}: {detail}"
-        )
-    fields = remote_result.stdout.strip().split()
-    if len(fields) != 2 or fields[1] != f"refs/heads/{branch}":
+    remote_head = remote_branch_head(remote, branch)
+    if remote_head is None:
         raise CommandError(
             f"Remote changeset branch {remote}/{branch} does not exist; run push-chain first."
         )
-    remote_head = fields[0]
     if local_head != remote_head:
         raise CommandError(
             f"Changeset branch {branch} is not publication-ready: local head "
