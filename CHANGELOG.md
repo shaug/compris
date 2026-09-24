@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: require legacy recovery PR evidence
+
 - test: cover pagination through PR discovery
 
 - docs: backfill merged lineage changelog
@@ -47,14 +49,17 @@ summary: Chronological history of repository and skill changes.
 ## 2026-09-23 — Completed remote-aware source lineage
 
 - fix: reject checkout shorthand in source lineage
+  (f55993442d00967547c7e14a65782be3d70a8bb2)
 
 - docs: specify immutable recovery-boundary attestation
 
 - fix: authenticate recovery boundaries from immutable GitHub head history
 
 - feat: recover recorded source lineage
+  (04ef3efa878fe43395b21ab9e50003b19f3fd8a5)
 
 - feat: establish remote source lineage contract
+  (1f9cc3c1fd9bc9d47cb770a25680b3191172207f)
 
 ## 2026-09-22 — Established the native gh stack adapter baseline
 

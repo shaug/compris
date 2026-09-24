@@ -915,6 +915,19 @@ class SuffixRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(CommandError, "fork"):
             self._run_recovery()
 
+    def test_recovery_rejects_legacy_head_without_pr_metadata(self) -> None:
+        self.prs[102] = PullRequestRecord(
+            **{**self.prs[102].__dict__, "body": "Position 2\n"}
+        )
+        suffix_before = self._remote_head("feature/report-2")
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(CommandError, "lacks required legacy metadata"):
+            self._run_recovery()
+
+        self.assertEqual(suffix_before, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
     def test_recovery_enforces_exact_remote_lease_after_reauthorization(self) -> None:
         actual = recovery_mod.remote_branch_head
         calls = 0

@@ -604,11 +604,15 @@ def adopt_legacy_chain(
                         pr_metadata = parse_pr_metadata(pr.body, remote=remote)
                     except MetadataError as exc:
                         raise RehydrationError(f"PR #{pr.number}: {exc}") from exc
-                    if pr_metadata != metadata and recovery_successor is None:
+                    if pr_metadata != metadata:
+                        if recovery_successor is not None:
+                            raise RehydrationError(
+                                f"PR #{pr.number} has conflicting recovered provenance."
+                            )
                         raise RehydrationError(
                             f"PR #{pr.number} metadata disagrees with commit trailers for {branch}."
                         )
-                elif recovery_successor is None:
+                else:
                     raise RehydrationError(
                         f"PR #{pr.number} lacks required legacy metadata for {branch}."
                     )

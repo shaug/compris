@@ -217,7 +217,10 @@ def _verify_open_suffix_pr(
             f"{expected_head} to {current_remote}."
         )
     metadata = record.metadata
-    if has_legacy_pr_metadata_comment(live.body):
+    has_legacy_metadata = has_legacy_pr_metadata_comment(live.body)
+    if record.metadata.version in {1, 2} and not has_legacy_metadata:
+        raise CommandError(f"Suffix PR #{live.number} lacks required legacy metadata.")
+    if has_legacy_metadata:
         try:
             metadata = parse_pr_metadata(live.body, remote=remote)
         except MetadataError as exc:
