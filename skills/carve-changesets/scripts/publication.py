@@ -3,29 +3,68 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
 from common import CommandError, git
 from metadata import MetadataError, SourceIdentity, parse_commit_message
 
 
-def _remote_identity_head(identity: SourceIdentity) -> str:
+def remote_identity_head(
+    identity: SourceIdentity, *, cwd: Path | str | None = None
+) -> str:
+    expected_ref = f"refs/heads/{identity.branch}"
+    location = () if cwd is None else ("-C", str(cwd))
     result = git(
+        *location,
         "ls-remote",
         "--heads",
         identity.remote,
-        f"refs/heads/{identity.branch}",
+        expected_ref,
         check=False,
     )
     if result.returncode != 0:
         raise CommandError(
             f"Unable to resolve recorded source {identity.remote}/{identity.branch}."
         )
-    line = result.stdout.strip()
-    if not line:
+    lines = result.stdout.splitlines()
+    if not lines:
         raise CommandError(
             f"Recorded source {identity.remote}/{identity.branch} is unavailable."
         )
-    return line.split()[0]
+    matches: list[str] = []
+    for line in lines:
+        fields = line.split("\t")
+        if len(fields) != 2 or fields[1] != expected_ref:
+            raise CommandError(
+                f"Recorded source {identity.remote}/{identity.branch} did not "
+                "resolve to one exact branch ref."
+            )
+        matches.append(fields[0])
+    if len(matches) != 1:
+        raise CommandError(
+            f"Recorded source {identity.remote}/{identity.branch} did not "
+            "resolve to one exact branch ref."
+        )
+    return matches[0]
+
+
+def verify_remote_lineage(lineage: Sequence[SourceIdentity], *, remote: str) -> None:
+    """Prove an established lineage still resolves at every recorded head."""
+
+    if not lineage:
+        raise CommandError("No source lineage was selected for publication.")
+    for identity in lineage:
+        if identity.remote != remote:
+            raise CommandError(
+                f"Recorded source {identity.branch!r} records remote "
+                f"{identity.remote!r}, not selected remote {remote!r}."
+            )
+        published = remote_identity_head(identity)
+        if published != identity.sha:
+            raise CommandError(
+                f"Recorded source {remote}/{identity.branch} moved from "
+                f"{identity.sha} to {published}."
+            )
 
 
 def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None:
@@ -49,15 +88,4 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
 
     if expected_lineage is None:
         raise CommandError("No changeset branches were selected for publication.")
-    for identity in expected_lineage:
-        if identity.remote != remote:
-            raise CommandError(
-                f"Recorded source {identity.branch!r} records remote "
-                f"{identity.remote!r}, not selected remote {remote!r}."
-            )
-        published = _remote_identity_head(identity)
-        if published != identity.sha:
-            raise CommandError(
-                f"Recorded source {remote}/{identity.branch} moved from "
-                f"{identity.sha} to {published}."
-            )
+    verify_remote_lineage(expected_lineage, remote=remote)

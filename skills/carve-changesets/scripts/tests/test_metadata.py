@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -186,6 +189,34 @@ class MetadataTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(MetadataError, "repeat"):
             ChangesetMetadata(slug="payments", source_lineage=(identity, identity))
+
+    def test_source_identity_requires_a_literal_git_branch_name(self) -> None:
+        for branch in ("feature/*", "feature//payments", "-feature/payments"):
+            with self.subTest(branch=branch):
+                with self.assertRaisesRegex(MetadataError, "valid literal"):
+                    SourceIdentity("origin", branch, "a" * 40)
+
+    def test_source_identity_rejects_checkout_shorthand(self) -> None:
+        original_cwd = Path.cwd()
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+            subprocess.run(
+                ["git", "-C", str(repo), "commit", "--allow-empty", "-m", "base"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(repo), "switch", "-q", "-c", "previous"],
+                check=True,
+            )
+            subprocess.run(["git", "-C", str(repo), "switch", "-q", "main"], check=True)
+            try:
+                os.chdir(repo)
+                with self.assertRaisesRegex(MetadataError, "valid literal"):
+                    SourceIdentity("origin", "@{-1}", "a" * 40)
+            finally:
+                os.chdir(original_cwd)
 
     def test_v3_successor_requires_exact_recovery_provenance(self) -> None:
         lineage = (

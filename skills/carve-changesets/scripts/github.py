@@ -19,11 +19,9 @@ from common import (
     message_file,
 )
 from metadata import (
-    ChangesetMetadata,
     MetadataError,
     embed_pr_metadata,
     parse_commit_message,
-    parse_pr_metadata,
 )
 from publication import verify_lineage_for_publication
 from rehydrate import PullRequestRecord
@@ -189,7 +187,8 @@ def _verify_created_pr(
     head: str,
     expected_head: str,
     expected_base: str,
-    expected_metadata: ChangesetMetadata,
+    expected_title: str,
+    expected_body: str,
 ) -> Dict:
     if not isinstance(created, dict):
         raise CommandError(f"PR for {head} was created but could not be verified.")
@@ -203,17 +202,14 @@ def _verify_created_pr(
             f"Created PR for {head} has base {created.get('baseRefName')!r}; "
             f"expected {expected_base!r}."
         )
-    if expected_metadata.version in {1, 2}:
-        try:
-            actual_metadata = parse_pr_metadata(str(created.get("body") or ""))
-        except MetadataError as exc:
-            raise CommandError(
-                f"Created PR for {head} has invalid changeset metadata: {exc}"
-            ) from exc
-        if actual_metadata != expected_metadata:
-            raise CommandError(
-                f"Created PR for {head} metadata does not match its exact changeset commit."
-            )
+    if str(created.get("title") or "") != expected_title:
+        raise CommandError(
+            f"Created PR for {head} title does not match the submitted title."
+        )
+    if str(created.get("body") or "") != expected_body:
+        raise CommandError(
+            f"Created PR for {head} body does not match the submitted human-readable body."
+        )
     if not created.get("number") or not created.get("url"):
         raise CommandError(f"Created PR for {head} is missing its number or URL.")
     return created
@@ -230,9 +226,25 @@ def pr_create(
     source = plan["source_branch"]
     changesets = plan["changesets"]
     total = len(changesets)
+    chain = tuple(branch_name_for(source, index) for index in range(1, total + 1))
     for index in indices:
         if index < 1 or index > total:
             raise CommandError(f"--index must be between 1 and {total}.")
+    for index in indices:
+        head = branch_name_for(source, index)
+        try:
+            metadata = parse_commit_message(
+                git("show", "-s", "--format=%B", head).stdout
+            )
+        except MetadataError as exc:
+            raise CommandError(
+                f"Changeset branch {head} has invalid source identity: {exc}"
+            ) from exc
+        if metadata.version != 3:
+            raise CommandError(
+                f"New PR creation for {head} requires native v3 commit metadata; "
+                "legacy v1/v2 PR evidence is read-only and must be adopted in place."
+            )
     expected_heads = (
         {
             branch_name_for(source, index): _local_remote_head(
@@ -244,19 +256,13 @@ def pr_create(
         else {}
     )
     if not dry_run:
-        verify_lineage_for_publication(
-            tuple(branch_name_for(source, index) for index in range(1, total + 1)),
-            remote=remote,
-        )
+        verify_lineage_for_publication(chain, remote=remote)
         ensure_gh_ready(repository)
     for index in indices:
         head = branch_name_for(source, index)
         pr_base = base_for_changeset(base, source, index)
         title = pr_title_for(plan["feature_title"], index, total)
         body = pr_body_for(plan, index, total, changesets[index - 1])
-        expected_metadata = parse_commit_message(
-            git("show", "-s", "--format=%B", head).stdout
-        )
         with message_file(body) as body_path:
             args = (
                 "pr",
@@ -288,14 +294,16 @@ def pr_create(
                     "-R",
                     repository,
                     "--json",
-                    "number,url,headRefOid,baseRefName,body",
+                    "number,url,headRefOid,baseRefName,title,body",
                 )
             ),
             head=head,
             expected_head=expected_head,
             expected_base=pr_base,
-            expected_metadata=expected_metadata,
+            expected_title=title,
+            expected_body=body,
         )
+        verify_lineage_for_publication(chain, remote=remote)
         print(f"[OK] PR #{created['number']} created: {created['url']}")
 
     if dry_run:

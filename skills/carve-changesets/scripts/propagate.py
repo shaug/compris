@@ -28,7 +28,7 @@ from metadata import (
     parse_commit_message,
     parse_pr_metadata,
 )
-from publication import verify_lineage_for_publication
+from publication import verify_lineage_for_publication, verify_remote_lineage
 from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
@@ -58,8 +58,26 @@ def remote_branch_head(remote: str, branch: str) -> str | None:
     )
     if result.returncode != 0:
         raise CommandError(f"Unable to resolve {remote}/{branch} before push.")
-    line = result.stdout.strip()
-    return line.split()[0] if line else None
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
+    if not lines:
+        return None
+    expected_ref = f"refs/heads/{branch}"
+    if len(lines) != 1:
+        raise CommandError(
+            f"Unable to resolve exact remote branch {remote}/{branch}: "
+            "multiple refs were returned."
+        )
+    fields = lines[0].split()
+    if (
+        len(fields) != 2
+        or fields[1] != expected_ref
+        or re.fullmatch(r"[0-9a-f]{40}", fields[0]) is None
+    ):
+        raise CommandError(
+            f"Unable to resolve exact remote branch {remote}/{branch}: "
+            "the response was malformed."
+        )
+    return fields[0]
 
 
 def push_changeset_branch(
@@ -70,15 +88,16 @@ def push_changeset_branch(
     expected_remote_head: str | None = None,
     local_ref: str | None = None,
 ) -> None:
+    source_ref = local_ref or branch
     current = remote_branch_head(remote, branch)
     if expected_remote_head is not None and current != expected_remote_head:
         raise CommandError(
             f"Remote branch {remote}/{branch} moved from verified head "
             f"{expected_remote_head} to {current}; propagation was withheld."
         )
+    proposed = _resolve(source_ref)
     expected = expected_remote_head if expected_remote_head is not None else current
     lease = f"--force-with-lease=refs/heads/{branch}:{expected or ''}"
-    source_ref = local_ref or branch
     refspec = f"refs/heads/{source_ref}:refs/heads/{branch}"
     command = ("git", "push", remote, refspec, lease)
     print(f"[STEP] Pushing changeset branch {branch} to {remote} with an exact lease")
@@ -87,6 +106,12 @@ def push_changeset_branch(
         print(" ".join(command))
         return
     git("push", remote, refspec, lease)
+    observed = remote_branch_head(remote, branch)
+    if observed != proposed:
+        raise CommandError(
+            f"Remote branch {remote}/{branch} after push is {observed}; "
+            f"expected exact head {proposed}."
+        )
 
 
 def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
@@ -109,6 +134,8 @@ def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
     print(f"[INFO] Source branch {source} is immutable and will not be pushed.")
     for branch in chain:
         push_changeset_branch(branch, remote=remote, dry_run=dry_run)
+        if not dry_run:
+            verify_lineage_for_publication(chain, remote=remote)
 
     if dry_run:
         print("[OK] Dry-run push-chain complete. Re-run with --no-dry-run to execute.")
@@ -582,6 +609,8 @@ def _propagate_chain(
                 dry_run=dry_run,
                 expected_remote_head=current_head,
             )
+            if not dry_run:
+                verify_remote_lineage(chain.source_lineage, remote=remote)
         edit_pull_request(
             live.number,
             remote=remote,

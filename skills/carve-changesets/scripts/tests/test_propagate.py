@@ -364,6 +364,58 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("Report API (2 of 3)", self.prs[102].title)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
+    def test_propagation_rechecks_lineage_after_each_push(self) -> None:
+        self._merge(101)
+        actual_push = propagate_mod.push_changeset_branch
+        source_deleted = False
+
+        def push_then_delete_source(*args, **kwargs) -> None:
+            nonlocal source_deleted
+            actual_push(*args, **kwargs)
+            if not source_deleted:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "push",
+                    "origin",
+                    "--delete",
+                    "feature/report",
+                )
+                source_deleted = True
+
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "push_changeset_branch",
+                side_effect=push_then_delete_source,
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ) as edit,
+        ):
+            with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                propagate_from_live(
+                    source="feature/report",
+                    base="main",
+                    pr_number=101,
+                    index=None,
+                    strategy="rebase",
+                    remote="origin",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                )
+
+        edit.assert_not_called()
+
     def test_native_human_only_prs_propagate_through_public_workflow(self) -> None:
         self._merge(101)
         human_bodies: dict[int, str] = {}
@@ -721,6 +773,59 @@ class StatelessPropagationTests(unittest.TestCase):
                 ["git", "ls-remote", "origin", "refs/heads/main"], cwd=repo_dir
             ).stdout.strip()
             self.assertEqual("", base)
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_push_chain_rejects_missing_post_push_readback(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                with mock.patch.object(
+                    propagate_mod,
+                    "remote_branch_head",
+                    side_effect=[None, None],
+                ):
+                    with self.assertRaisesRegex(CommandError, "after push"):
+                        push_chain(plan, remote="origin", dry_run=False)
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_push_chain_rechecks_lineage_after_each_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                original_push = propagate_mod.push_changeset_branch
+                source_deleted = False
+
+                def push_then_delete_source(*args, **kwargs) -> None:
+                    nonlocal source_deleted
+                    original_push(*args, **kwargs)
+                    if not source_deleted:
+                        run(
+                            ["git", "push", "origin", "--delete", "feature/test"],
+                            cwd=repo_dir,
+                        )
+                        source_deleted = True
+
+                with mock.patch.object(
+                    propagate_mod,
+                    "push_changeset_branch",
+                    side_effect=push_then_delete_source,
+                ):
+                    with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                        push_chain(plan, remote="origin", dry_run=False)
         finally:
             shutil.rmtree(repo_dir)
             if remote_dir is not None:

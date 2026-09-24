@@ -4,7 +4,13 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-24 — Verified native source lineage
+
+- feat: establish verified native source lineage
+
 ## 2026-09-23 — Completed remote-aware source lineage
+
+- fix: reject checkout shorthand in source lineage
 
 - feat: recover recorded source lineage
 

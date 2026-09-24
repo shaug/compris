@@ -36,6 +36,7 @@ from propagate import (
     push_changeset_branch,
     remote_branch_head,
 )
+from publication import verify_remote_lineage
 from rehydrate import (
     ChangesetRecord,
     PullRequestRecord,
@@ -398,6 +399,8 @@ def recover_suffix_from_live(
                         expected_remote_head=record.head,
                         local_ref=temp_by_index[index],
                     )
+                    if not dry_run:
+                        verify_remote_lineage(target_lineage, remote=remote)
                 updated_body = embed_pr_metadata(live.body, metadata)
                 if updated_body != live.body:
                     edit_pull_request(
@@ -412,10 +415,14 @@ def recover_suffix_from_live(
                         git("show", "-s", "--format=%B", candidate).stdout,
                         remote=remote,
                     )
-                    if verified.head_sha != candidate or verified_metadata != metadata:
+                    if (
+                        verified.head_sha != candidate
+                        or verified.body != updated_body
+                        or verified_metadata != metadata
+                    ):
                         raise CommandError(
                             f"Recovered PR #{live.number} could not be verified at "
-                            f"exact head {candidate}."
+                            f"exact head {candidate} with its expected body."
                         )
                     _sync_local_branch(record, candidate=candidate, metadata=metadata)
         finally:
