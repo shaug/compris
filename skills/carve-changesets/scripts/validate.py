@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from common import CommandError
+from metadata import SourceIdentity
+from publication import remote_identity_head
 from rehydrate import Chain, RehydrationError, discover_changeset_heads
 
 Severity = Literal["error", "warning"]
@@ -86,6 +89,7 @@ def validate_live_chain(
     cwd: Path | str = Path.cwd(),
     remote: str = "origin",
     allow_partial_propagation: bool = False,
+    verify_live_remote: bool = True,
 ) -> ChainValidation:
     """Check ancestry, source identity, and equivalence using only live git."""
 
@@ -133,6 +137,7 @@ def validate_live_chain(
         changeset.metadata.version == 3 for changeset in chain.changesets
     )
     durable_remote_lineage = native_lineage or len(chain.source_lineage) > 1
+    live_remote_heads: dict[SourceIdentity, str | None] = {}
     if durable_remote_lineage:
         for identity in chain.source_lineage:
             if identity.remote != remote:
@@ -145,10 +150,17 @@ def validate_live_chain(
                     )
                 )
                 continue
-            current_identity = _resolve(
-                repo,
-                f"refs/remotes/{identity.remote}/{identity.branch}^{{commit}}",
-            )
+            if verify_live_remote:
+                try:
+                    current_identity = remote_identity_head(identity, cwd=repo)
+                except CommandError:
+                    current_identity = None
+            else:
+                current_identity = _resolve(
+                    repo,
+                    f"refs/remotes/{identity.remote}/{identity.branch}^{{commit}}",
+                )
+            live_remote_heads[identity] = current_identity
             if current_identity is None:
                 diagnostics.append(
                     ValidationDiagnostic(
@@ -347,10 +359,7 @@ def validate_live_chain(
             )
 
     current_source = (
-        _resolve(
-            repo,
-            f"refs/remotes/{chain.active_source.remote}/{chain.active_source.branch}^{{commit}}",
-        )
+        live_remote_heads.get(chain.active_source)
         if durable_remote_lineage
         else _resolve_branch(repo, chain.active_source.branch, remote)
     )

@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
 from common import CommandError, git
 from metadata import MetadataError, SourceIdentity, parse_commit_message
 
 
-def remote_identity_head(identity: SourceIdentity) -> str:
+def remote_identity_head(
+    identity: SourceIdentity, *, cwd: Path | str | None = None
+) -> str:
     expected_ref = f"refs/heads/{identity.branch}"
+    location = () if cwd is None else ("-C", str(cwd))
     result = git(
+        *location,
         "ls-remote",
         "--heads",
         identity.remote,
