@@ -22,6 +22,10 @@ _BLOCK_RE = re.compile(
     rf"{re.escape(METADATA_MARKER_V2)})\s*\n(?P<payload>.*?)\n\s*-->",
     re.DOTALL,
 )
+_BLOCK_START_RE = re.compile(
+    rf"<!--\s*(?:{re.escape(METADATA_MARKER_V1)}|"
+    rf"{re.escape(METADATA_MARKER_V2)})(?=\s|-->)"
+)
 
 
 class MetadataError(ValueError):
@@ -543,6 +547,12 @@ def render_pr_metadata(metadata: ChangesetMetadata) -> str:
     return f"<!-- {marker}\n{payload}\n-->"
 
 
+def has_legacy_pr_metadata_comment(body: str) -> bool:
+    """Return whether prose contains an actual v1/v2 metadata comment marker."""
+
+    return _BLOCK_START_RE.search(body) is not None
+
+
 def embed_pr_metadata(body: str, metadata: ChangesetMetadata) -> str:
     """Preserve human prose for v3; append or replace legacy metadata blocks."""
 
@@ -570,7 +580,7 @@ def normalize_legacy_pr_metadata(body: str, *, remote: str) -> LegacyMetadataEvi
 
     matches = list(_BLOCK_RE.finditer(body))
     if not matches:
-        if "carve-changesets:metadata" in body:
+        if has_legacy_pr_metadata_comment(body):
             raise MetadataError(
                 "Malformed carve-changesets PR metadata block; restore the v1/v2 delimiters."
             )

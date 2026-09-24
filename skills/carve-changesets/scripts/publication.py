@@ -95,6 +95,12 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
                 f"Changeset branch {head} uses legacy v{metadata.version} metadata; "
                 "new remote publication requires native v3 identity."
             )
+        if len(metadata.source_lineage) > 1:
+            raise CommandError(
+                "Successor source lineage must be published through recover-suffix "
+                "so its existing pull request and exact recovery provenance are "
+                "preserved."
+            )
         if expected_lineage is None:
             expected_lineage = metadata.source_lineage
         elif metadata.source_lineage != expected_lineage:

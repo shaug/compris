@@ -307,8 +307,9 @@ contains all accepted corrections and live evidence proves that the preceding
 prefix is already represented on current base.
 
 - May read: current base and source refs, exact commit trailers, same-repository
-  PR heads and bases, remote branch heads, and merged PR evidence. Historical
-  v1/v2 PR blocks may be normalized as read-only compatibility evidence.
+  PR heads and bases, immutable GitHub head-force-push before/after commit OIDs,
+  remote branch heads, and merged PR evidence. Historical v1/v2 PR blocks may be
+  normalized as read-only compatibility evidence.
 - Must write: new suffix commits carrying continuous lineage, exact-lease
   updates to exclusively owned suffix branches, human-readable PR bodies, and
   freshly rebuilt candidate-bound evidence.
@@ -318,12 +319,15 @@ prefix is already represented on current base.
 - Must not depend on: the plan file, a local cache, stale validation or review
   results, or a previously observed remote head.
 
-Native recovery is resumable from live refs, PR topology, and v3 commit
-trailers. A recovered commit identifies the exact prior head, and recovered
-heads must form a leading prefix of the open suffix. Because native PR bodies
-carry no machine metadata, a branch update has no second PR-metadata write to
-complete. For historical v1/v2 chains only, the immediately prior PR block may
-be normalized during the narrow branch-updated/body-not-yet-updated interval;
+Native recovery is resumable from live refs, PR topology, immutable GitHub head
+rewrite events, and v3 commit trailers. A recovered commit identifies the exact
+prior head. Completed rehydration must prove that identity against the first
+immutable before/after event entering its successor lineage, then prove an
+ordered rewrite path from that boundary to the live head. Recovered heads must
+form a leading prefix of the open suffix. Because native PR bodies carry no
+machine metadata, a branch update has no second PR-metadata write to complete.
+For historical v1/v2 chains only, the immediately prior PR block may be
+normalized during the narrow branch-updated/body-not-yet-updated interval;
 ordinary `status` may report that interval as inconsistent and must not silently
 accept it as a complete chain.
 

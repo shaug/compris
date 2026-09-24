@@ -99,7 +99,7 @@ class LiveValidationTests(unittest.TestCase):
                     pr_number=101,
                     pr_state=pr_state,
                     topology_position=1,
-                    merge_sha=merge_sha,
+                    pr_merge_sha=merge_sha,
                 ),
             ),
             native_topology=True,

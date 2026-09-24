@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -156,6 +157,7 @@ class RehydrationTests(unittest.TestCase):
                 **prs[0].__dict__,
                 "head_sha": recovered_head,
                 "body": embed_pr_metadata(prs[0].body, recovered),
+                "head_rewrite_edges": ((heads[1], recovered_head),),
             }
         )
         clone = self._fresh_clone()
@@ -354,6 +356,7 @@ class RehydrationTests(unittest.TestCase):
                 **prs[1].__dict__,
                 "head_sha": recovered_head,
                 "body": embed_pr_metadata(prs[1].body, recovered),
+                "head_rewrite_edges": ((heads[2], recovered_head),),
             }
         )
         clone = self._fresh_clone()
@@ -368,6 +371,125 @@ class RehydrationTests(unittest.TestCase):
             ("feature/report", "feature/report-corrected"),
             tuple(identity.branch for identity in chain.source_lineage),
         )
+
+    def test_completed_recovery_rejects_a_forged_exact_predecessor(self) -> None:
+        heads, prs = self._materialize()
+        root = SourceIdentity("feature/report", self.source_sha)
+        successor = SourceIdentity("feature/report-corrected", "c" * 40)
+        forged = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(root, successor),
+            recovery_from_head=heads[1],
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: changeset 2", forged),
+        )
+        forged_head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        prs[1] = PullRequestRecord(
+            **{
+                **prs[1].__dict__,
+                "head_sha": forged_head,
+                "body": embed_pr_metadata(prs[1].body, forged),
+            }
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "exact pre-recovery head"):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                pull_requests=prs,
+                cwd=self.repo,
+                prefer_remote=True,
+            )
+
+    def test_completed_recovery_fetches_its_exact_predecessor_in_a_fresh_clone(
+        self,
+    ) -> None:
+        heads, prs = self._materialize()
+        root = SourceIdentity("feature/report", self.source_sha)
+        successor = SourceIdentity("feature/report-corrected", "c" * 40)
+        recovered = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(root, successor),
+            recovery_from_head=heads[2],
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: changeset 2", recovered),
+        )
+        recovered_head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        prs[1] = PullRequestRecord(
+            **{
+                **prs[1].__dict__,
+                "head_sha": recovered_head,
+                "body": embed_pr_metadata(prs[1].body, recovered),
+                "head_rewrite_edges": ((heads[2], recovered_head),),
+            }
+        )
+        helpers.run(
+            self.temp_dir,
+            "git",
+            "--git-dir",
+            str(self.bare),
+            "config",
+            "uploadpack.allowAnySHA1InWant",
+            "true",
+        )
+        clone = self.temp_dir / "transport-clone"
+        helpers.run(
+            self.temp_dir,
+            "git",
+            "clone",
+            "--no-local",
+            str(self.bare),
+            str(clone),
+        )
+        missing = subprocess.run(
+            ["git", "cat-file", "-e", f"{heads[2]}^{{commit}}"],
+            cwd=clone,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertNotEqual(0, missing.returncode)
+
+        chain = adopt_legacy_chain(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+            prefer_remote=True,
+        )
+
+        self.assertEqual(recovered_head, chain.changesets[-1].head)
+        helpers.run(clone, "git", "cat-file", "-e", f"{heads[2]}^{{commit}}")
 
     def test_recovery_rejects_conflicting_v2_pr_provenance(self) -> None:
         heads, prs = self._materialize()
@@ -460,7 +582,12 @@ class RehydrationTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(RehydrationError, "leading prefix"):
-            _validate_recovery_transition(records, successor)
+            _validate_recovery_transition(
+                records,
+                successor,
+                repo=self.repo,
+                remote="origin",
+            )
 
     def test_rejects_discontinuous_successor_lineage(self) -> None:
         heads, prs = self._materialize()
