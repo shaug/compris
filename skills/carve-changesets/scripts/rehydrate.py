@@ -119,16 +119,25 @@ def _ensure_commit_available(repo: Path, sha: str, *, remote: str) -> None:
 def _interrupted_legacy_pr_evidence(
     *,
     pr: PullRequestRecord,
+    remote: str,
+    allow_interrupted_recovery: bool = False,
 ) -> ChangesetMetadata | None:
-    """Reject a stale legacy block beside a recovered v3 head."""
+    """Read the one permitted v3-head/legacy-body recovery interval."""
 
     if not has_legacy_pr_metadata_comment(pr.body):
         return None
-    raise RehydrationError(
-        f"PR #{pr.number} has an unsupported interrupted recovery state: a native "
-        "head remains beside legacy PR metadata, so the exact predecessor cannot "
-        "be proven."
-    )
+    if not allow_interrupted_recovery:
+        raise RehydrationError(
+            f"PR #{pr.number} has an incomplete recovery state: its native head "
+            "still has legacy PR metadata."
+        )
+    try:
+        return parse_pr_metadata(pr.body, remote=remote)
+    except MetadataError as exc:
+        raise RehydrationError(
+            f"PR #{pr.number} cannot prove interrupted recovery from legacy "
+            f"metadata: {exc}"
+        ) from exc
 
 
 def discover_changeset_heads(
@@ -310,6 +319,11 @@ def _validate_completed_recovery_provenance(
         if (
             predecessor_metadata.slug != record.metadata.slug
             or predecessor_metadata.source_lineage != lineage[:-1]
+            or (
+                record.pr_metadata is not None
+                and record.pr_metadata.source_lineage == lineage[:-1]
+                and record.pr_metadata != predecessor_metadata
+            )
             or not same_tree
             or current_parents != expected_parents
             or stamp_commit_message(predecessor_message, record.metadata).strip()
@@ -372,10 +386,13 @@ def _validate_recovery_transition(
                     f"PR #{record.pr_number} has lineage outside the current or "
                     "requested successor recovery."
                 )
-            if not record.metadata.same_changeset_as(pr_metadata):
+            if (
+                record.metadata.slug != pr_metadata.slug
+                or record.metadata.root_source != pr_metadata.root_source
+            ):
                 raise RehydrationError(
-                    f"PR #{record.pr_number} metadata changes the stable changeset "
-                    "position during recovery."
+                    f"PR #{record.pr_number} metadata cannot prove the stable "
+                    "changeset identity during recovery."
                 )
             if commit_lineage == base_lineage and pr_metadata != record.metadata:
                 raise RehydrationError(
@@ -539,6 +556,8 @@ def adopt_legacy_chain(
             else:
                 pr_metadata = _interrupted_legacy_pr_evidence(
                     pr=pr,
+                    remote=remote,
+                    allow_interrupted_recovery=recovery_successor is not None,
                 )
         records.append(
             ChangesetRecord(
@@ -675,6 +694,7 @@ def rehydrate_chain(
             else:
                 pr_metadata = _interrupted_legacy_pr_evidence(
                     pr=pr,
+                    remote=remote,
                 )
         materialized_base = (
             native_snapshot.trunk_branch

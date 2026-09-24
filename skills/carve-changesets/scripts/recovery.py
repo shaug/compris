@@ -232,7 +232,10 @@ def _verify_open_suffix_pr(
     expected_position = record.metadata.legacy_position
     if (
         metadata.slug != record.metadata.slug
-        or metadata.legacy_position != expected_position
+        or (
+            expected_position is not None
+            and metadata.legacy_position != expected_position
+        )
         or metadata.root_source != record.metadata.root_source
         or metadata.source_lineage not in (current_lineage, target_lineage)
     ):
@@ -408,14 +411,6 @@ def recover_suffix_from_live(
                     target_lineage=target_lineage,
                     remote=remote,
                 )
-                updated_body = embed_pr_metadata(live.body, metadata)
-                if updated_body != live.body:
-                    edit_pull_request(
-                        live.number,
-                        remote=remote,
-                        body=updated_body,
-                        dry_run=dry_run,
-                    )
                 if candidate != record.head:
                     push_changeset_branch(
                         record.branch,
@@ -423,6 +418,14 @@ def recover_suffix_from_live(
                         dry_run=dry_run,
                         expected_remote_head=record.head,
                         local_ref=temp_by_index[index],
+                    )
+                updated_body = embed_pr_metadata(live.body, metadata)
+                if updated_body != live.body:
+                    edit_pull_request(
+                        live.number,
+                        remote=remote,
+                        body=updated_body,
+                        dry_run=dry_run,
                     )
                 if not dry_run:
                     verified = pull_request_by_number(live.number, remote=remote)

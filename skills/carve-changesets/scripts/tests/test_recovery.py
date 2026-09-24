@@ -214,13 +214,12 @@ class SuffixRecoveryTests(unittest.TestCase):
             )
         return output.getvalue()
 
-    def _interrupt_after_legacy_body_cleanup(self) -> str:
-        def edit_then_fail(number: int, *, body=None, **kwargs) -> None:
-            self._edit(number, body=body, **kwargs)
-            raise CommandError("injected after PR metadata cleanup")
+    def _interrupt_after_v3_branch_update(self) -> str:
+        def fail_before_edit(*_args, **_kwargs) -> None:
+            raise CommandError("injected before PR metadata cleanup")
 
         with self.assertRaisesRegex(CommandError, "injected"):
-            self._run_recovery(edit_side_effect=edit_then_fail)
+            self._run_recovery(edit_side_effect=fail_before_edit)
         return self._remote_head("feature/report-2")
 
     def _push_v3_with_legacy_body(self, *, recovery_from_head: str) -> str:
@@ -755,14 +754,14 @@ class SuffixRecoveryTests(unittest.TestCase):
                     authority_acknowledged=True,
                 )
 
-    def test_interrupted_metadata_update_resumes_from_live_state(self) -> None:
-        interrupted_head = self._interrupt_after_legacy_body_cleanup()
-        self.assertEqual(self.fixed_head, interrupted_head)
-        self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
+    def test_interrupted_branch_update_resumes_from_live_state(self) -> None:
+        interrupted_head = self._interrupt_after_v3_branch_update()
+        self.assertNotEqual(self.fixed_head, interrupted_head)
+        self.assertIn("carve-changesets:metadata", self.prs[102].body)
 
         output = self._run_recovery()
 
-        self.assertNotEqual(interrupted_head, self._remote_head("feature/report-2"))
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
         self.assertEqual("Position 2\n", self.prs[102].body)
         self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
         self.assertIn("Suffix recovery completed", output)
@@ -819,6 +818,28 @@ class SuffixRecoveryTests(unittest.TestCase):
         body_before = self.prs[102].body
 
         with self.assertRaisesRegex(CommandError, "unsupported|cannot prove"):
+            self._run_recovery()
+
+        self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_interrupted_resume_requires_exact_predecessor_pr_evidence(self) -> None:
+        pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
+        wrong_position = ChangesetMetadata(
+            "part-2",
+            3,
+            "feature/report",
+            self.source_sha,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "body": embed_pr_metadata("Tampered position 2\n", wrong_position),
+            }
+        )
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(CommandError, "cannot prove"):
             self._run_recovery()
 
         self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
