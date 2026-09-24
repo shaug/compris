@@ -779,6 +779,26 @@ class StatelessPropagationTests(unittest.TestCase):
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 
+    def test_push_chain_rejects_missing_post_push_readback(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                with mock.patch.object(
+                    propagate_mod,
+                    "remote_branch_head",
+                    side_effect=[None, None],
+                ):
+                    with self.assertRaisesRegex(CommandError, "after push"):
+                        push_chain(plan, remote="origin", dry_run=False)
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
 
 if __name__ == "__main__":
     unittest.main()

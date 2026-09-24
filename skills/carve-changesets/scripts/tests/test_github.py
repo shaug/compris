@@ -348,6 +348,48 @@ class GithubTests(unittest.TestCase):
         finally:
             shutil.rmtree(repo_dir)
 
+    def test_pr_create_rejects_legacy_head_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            with chdir(repo_dir):
+                create_chain(plan)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                run(["git", "checkout", "feature/test-1"], cwd=repo_dir)
+                message = stamp_commit_message(
+                    "cs1",
+                    ChangesetMetadata("a-only", 1, "feature/test", source_sha),
+                )
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8"
+                ) as message_file:
+                    message_file.write(message)
+                    message_file.flush()
+                    run(
+                        ["git", "commit", "--amend", "-F", message_file.name],
+                        cwd=repo_dir,
+                    )
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "native v3"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=True, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+
     def test_gh_capture_wraps_missing_executable(self) -> None:
         with mock.patch("github.subprocess.run", side_effect=FileNotFoundError):
             with self.assertRaisesRegex(CommandError, "not found"):
