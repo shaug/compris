@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import github as github_mod  # noqa: E402
+import publication as publication_mod  # noqa: E402
 from chain import create_chain  # noqa: E402
 from common import CommandError  # noqa: E402
 from legacy_helpers import (  # noqa: E402
@@ -23,6 +24,11 @@ from legacy_helpers import (  # noqa: E402
     init_remote,
     init_repo,
     run,
+)
+from metadata import (  # noqa: E402
+    ChangesetMetadata,
+    SourceIdentity,
+    stamp_commit_message,
 )
 
 
@@ -150,6 +156,48 @@ class GithubTests(unittest.TestCase):
         finally:
             shutil.rmtree(repo_dir)
 
+    def test_pr_create_rejects_legacy_head_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            with chdir(repo_dir):
+                create_chain(plan)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                run(["git", "checkout", "feature/test-1"], cwd=repo_dir)
+                message = stamp_commit_message(
+                    "cs1",
+                    ChangesetMetadata("a-only", 1, "feature/test", source_sha),
+                )
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8"
+                ) as message_file:
+                    message_file.write(message)
+                    message_file.flush()
+                    run(
+                        ["git", "commit", "--amend", "-F", message_file.name],
+                        cwd=repo_dir,
+                    )
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "native v3"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=True, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+
     def test_gh_capture_wraps_missing_executable(self) -> None:
         with mock.patch("github.subprocess.run", side_effect=FileNotFoundError):
             with self.assertRaisesRegex(CommandError, "not found"):
@@ -177,6 +225,7 @@ class GithubTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             with chdir(repo_dir):
                 create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
                 run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
                 head = run(
                     ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
@@ -184,11 +233,15 @@ class GithubTests(unittest.TestCase):
                 body = github_mod.pr_body_for(
                     plan, 1, len(plan["changesets"]), plan["changesets"][0]
                 )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
                 created = {
                     "number": 91,
                     "url": "https://example.test/pr/91",
                     "headRefOid": head,
                     "baseRefName": "main",
+                    "title": title,
                     "body": body,
                 }
                 with (
@@ -217,10 +270,269 @@ class GithubTests(unittest.TestCase):
                     "-R",
                     "github.com/acme/widgets",
                     "--json",
-                    "number,url,headRefOid,baseRefName,body",
+                    "number,url,headRefOid,baseRefName,title,body",
                 ),
                 view.call_args.args[0],
             )
+
+            created["body"] = "GitHub replaced the submitted body.\n"
+            with (
+                chdir(repo_dir),
+                mock.patch.object(
+                    github_mod,
+                    "github_repo_for_remote",
+                    return_value="github.com/acme/widgets",
+                ),
+                mock.patch.object(github_mod, "ensure_gh_ready"),
+                mock.patch.object(github_mod, "gh_capture"),
+                mock.patch.object(github_mod, "gh_json", return_value=created),
+            ):
+                with self.assertRaisesRegex(CommandError, "body"):
+                    github_mod.pr_create(
+                        plan, indices=[1], dry_run=False, remote="origin"
+                    )
+
+            created["body"] = body
+            created["title"] = "GitHub replaced the submitted title"
+            with (
+                chdir(repo_dir),
+                mock.patch.object(
+                    github_mod,
+                    "github_repo_for_remote",
+                    return_value="github.com/acme/widgets",
+                ),
+                mock.patch.object(github_mod, "ensure_gh_ready"),
+                mock.patch.object(github_mod, "gh_capture"),
+                mock.patch.object(github_mod, "gh_json", return_value=created),
+            ):
+                with self.assertRaisesRegex(CommandError, "title"):
+                    github_mod.pr_create(
+                        plan, indices=[1], dry_run=False, remote="origin"
+                    )
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rechecks_lineage_after_creation(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
+                head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                body = github_mod.pr_body_for(
+                    plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
+                created = {
+                    "number": 96,
+                    "url": "https://example.test/pr/96",
+                    "headRefOid": head,
+                    "baseRefName": "main",
+                    "title": title,
+                    "body": body,
+                }
+
+                def create_then_delete_source(_args) -> tuple[str, str]:
+                    run(
+                        ["git", "push", "origin", "--delete", "feature/test"],
+                        cwd=repo_dir,
+                    )
+                    return "", ""
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready"),
+                    mock.patch.object(
+                        github_mod,
+                        "gh_capture",
+                        side_effect=create_then_delete_source,
+                    ),
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_a_different_stamped_remote_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan, remote="upstream")
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "records remote"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_non_exact_remote_lineage_response_before_gh(
+        self,
+    ) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                for branch in ("feature/test", "feature/test-1", "feature/test-2"):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+                source_sha = run(
+                    ["git", "rev-parse", "feature/test"], cwd=repo_dir
+                ).stdout.strip()
+                actual_git = publication_mod.git
+
+                def duplicate_remote_ref(*args, **kwargs):
+                    if (
+                        args[0] == "ls-remote"
+                        and args[-1] == "refs/heads/feature/test-1"
+                    ):
+                        return subprocess.CompletedProcess(
+                            args,
+                            0,
+                            (
+                                f"{source_sha}\trefs/heads/feature/test-1\n"
+                                f"{source_sha}\trefs/heads/feature/test-1\n"
+                            ),
+                            "",
+                        )
+                    return actual_git(*args, **kwargs)
+
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        publication_mod, "git", side_effect=duplicate_remote_ref
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                ):
+                    with self.assertRaisesRegex(CommandError, "one exact branch ref"):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_pr_create_rejects_divergent_unselected_layer_before_gh(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "branch", "feature/alternate", "main"], cwd=repo_dir)
+                for branch in (
+                    "feature/test",
+                    "feature/alternate",
+                    "feature/test-1",
+                    "feature/test-2",
+                ):
+                    run(["git", "push", "origin", branch], cwd=repo_dir)
+
+                alternate_sha = run(
+                    ["git", "rev-parse", "feature/alternate"], cwd=repo_dir
+                ).stdout.strip()
+                run(["git", "checkout", "feature/test-2"], cwd=repo_dir)
+                divergent_message = stamp_commit_message(
+                    "cs2",
+                    ChangesetMetadata(
+                        slug="rest",
+                        source_lineage=(
+                            SourceIdentity(
+                                "origin", "feature/alternate", alternate_sha
+                            ),
+                        ),
+                    ),
+                )
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8"
+                ) as message_file:
+                    message_file.write(divergent_message)
+                    message_file.flush()
+                    run(
+                        ["git", "commit", "--amend", "-F", message_file.name],
+                        cwd=repo_dir,
+                    )
+                run(
+                    ["git", "push", "--force", "origin", "feature/test-2"],
+                    cwd=repo_dir,
+                )
+
+                selected_head = run(
+                    ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
+                ).stdout.strip()
+                created = {
+                    "number": 91,
+                    "url": "https://example.test/pr/91",
+                    "headRefOid": selected_head,
+                    "baseRefName": "main",
+                    "body": github_mod.pr_body_for(
+                        plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                    ),
+                }
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(github_mod, "ensure_gh_ready") as auth,
+                    mock.patch.object(github_mod, "gh_capture") as create_call,
+                    mock.patch.object(github_mod, "gh_json", return_value=created),
+                ):
+                    with self.assertRaisesRegex(
+                        CommandError, "consistent source lineage"
+                    ):
+                        github_mod.pr_create(
+                            plan, indices=[1], dry_run=False, remote="origin"
+                        )
+
+            auth.assert_not_called()
+            create_call.assert_not_called()
         finally:
             shutil.rmtree(repo_dir)
             if remote_dir is not None:
@@ -234,12 +546,16 @@ class GithubTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             with chdir(repo_dir):
                 create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
                 run(["git", "push", "origin", "feature/test-1"], cwd=repo_dir)
                 head = run(
                     ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
                 ).stdout.strip()
                 body = github_mod.pr_body_for(
                     plan, 1, len(plan["changesets"]), plan["changesets"][0]
+                )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
                 )
 
             stub = stub_dir / "gh"
@@ -258,6 +574,7 @@ class GithubTests(unittest.TestCase):
                 "url": "https://github.com/acme/widgets/pull/95",
                 "headRefOid": head,
                 "baseRefName": "main",
+                "title": title,
                 "body": body,
             }
             environment = {
@@ -328,7 +645,6 @@ class GithubTests(unittest.TestCase):
         repo_dir, plan = init_repo()
         try:
             with chdir(repo_dir):
-                create_chain(plan)
                 run(
                     ["git", "remote", "add", "origin", "git@github.com:wrong/repo.git"],
                     cwd=repo_dir,
@@ -343,17 +659,22 @@ class GithubTests(unittest.TestCase):
                     ],
                     cwd=repo_dir,
                 )
+                create_chain(plan, remote="release")
                 head = run(
                     ["git", "rev-parse", "feature/test-1"], cwd=repo_dir
                 ).stdout.strip()
                 body = github_mod.pr_body_for(
                     plan, 1, len(plan["changesets"]), plan["changesets"][0]
                 )
+                title = github_mod.pr_title_for(
+                    plan["feature_title"], 1, len(plan["changesets"])
+                )
                 created = {
                     "number": 92,
                     "url": "https://github.enterprise.test/acme/widgets/pull/92",
                     "headRefOid": head,
                     "baseRefName": "main",
+                    "title": title,
                     "body": body,
                 }
                 with (
@@ -362,6 +683,9 @@ class GithubTests(unittest.TestCase):
                     mock.patch.object(
                         github_mod, "_local_remote_head", return_value=head
                     ),
+                    mock.patch.object(
+                        github_mod, "verify_lineage_for_publication"
+                    ) as provenance,
                     mock.patch.object(github_mod, "gh_capture") as create_call,
                     mock.patch.object(
                         github_mod, "gh_json", return_value=created
@@ -372,6 +696,17 @@ class GithubTests(unittest.TestCase):
                     )
 
                 repository = "github.enterprise.test/acme/widgets"
+                self.assertEqual(
+                    [
+                        mock.call(
+                            ("feature/test-1", "feature/test-2"), remote="release"
+                        ),
+                        mock.call(
+                            ("feature/test-1", "feature/test-2"), remote="release"
+                        ),
+                    ],
+                    provenance.call_args_list,
+                )
                 auth.assert_called_once_with(repository)
                 self.assertIn(
                     ("-R", repository),

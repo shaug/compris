@@ -7,15 +7,16 @@ from pathlib import Path
 from unittest import mock
 
 import helpers
-from metadata import ChangesetMetadata, stamp_commit_message
-from rehydrate import adopt_legacy_chain
+from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
+from native_stack import NativeLayer, NativeStackSnapshot
+from rehydrate import adopt_legacy_chain, rehydrate_chain
 from validate import validate_live_chain
 
 
 class LiveValidationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.repo, _, _ = helpers.init_repo(self.temp_dir)
+        self.repo, self.bare, _ = helpers.init_repo(self.temp_dir)
         helpers.run(self.repo, "git", "checkout", "feature/report")
         (self.repo / "second.txt").write_text("second source part\n")
         (self.repo / "third.txt").write_text("third source part\n")
@@ -184,6 +185,99 @@ class LiveValidationTests(unittest.TestCase):
         self.assertNotIn(
             "source_history_mismatch", {item.code for item in result.errors}
         )
+
+    def test_native_single_source_requires_the_stamped_remote_ref(self) -> None:
+        helpers.run(self.repo, "git", "checkout", "-b", "feature/report-1", "main")
+        for path in ("source.txt", "second.txt", "third.txt"):
+            content = helpers.run(self.repo, "git", "show", f"feature/report:{path}")
+            (self.repo / path).write_text(content + "\n")
+        helpers.run(self.repo, "git", "add", "source.txt", "second.txt", "third.txt")
+        metadata = ChangesetMetadata(
+            slug="report",
+            source_lineage=(
+                SourceIdentity("upstream", "feature/report", self.source_sha),
+            ),
+        )
+        head = helpers.commit(self.repo, stamp_commit_message("feat: report", metadata))
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="upstream",
+            native_snapshot=NativeStackSnapshot(
+                trunk_branch="main",
+                trunk_head=helpers.run(self.repo, "git", "rev-parse", "main"),
+                current_branch="feature/report-1",
+                layers=(
+                    NativeLayer(
+                        branch="feature/report-1",
+                        head=head,
+                        base=helpers.run(self.repo, "git", "rev-parse", "main"),
+                        merged=False,
+                        queued=False,
+                        needs_rebase=False,
+                        pull_request=None,
+                    ),
+                ),
+            ),
+            cwd=self.repo,
+            pull_requests=(),
+        )
+
+        result = validate_live_chain(chain, cwd=self.repo, remote="upstream")
+
+        self.assertFalse(result.valid)
+        self.assertIn(
+            "source_lineage_ref_missing", {item.code for item in result.errors}
+        )
+
+    def test_native_single_source_rejects_a_moved_stamped_remote_ref(self) -> None:
+        helpers.run(self.repo, "git", "remote", "add", "upstream", str(self.bare))
+        helpers.run(self.repo, "git", "fetch", "upstream")
+        helpers.run(self.repo, "git", "checkout", "feature/report")
+        (self.repo / "later.txt").write_text("later source work\n")
+        helpers.run(self.repo, "git", "add", "later.txt")
+        helpers.commit(self.repo, "feat: move source")
+        helpers.run(self.repo, "git", "push", "upstream", "feature/report")
+
+        helpers.run(self.repo, "git", "checkout", "-b", "feature/report-1", "main")
+        for path in ("source.txt", "second.txt", "third.txt"):
+            content = helpers.run(self.repo, "git", "show", f"{self.source_sha}:{path}")
+            (self.repo / path).write_text(content + "\n")
+        helpers.run(self.repo, "git", "add", "source.txt", "second.txt", "third.txt")
+        metadata = ChangesetMetadata(
+            slug="report",
+            source_lineage=(
+                SourceIdentity("upstream", "feature/report", self.source_sha),
+            ),
+        )
+        head = helpers.commit(self.repo, stamp_commit_message("feat: report", metadata))
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="upstream",
+            native_snapshot=NativeStackSnapshot(
+                trunk_branch="main",
+                trunk_head=helpers.run(self.repo, "git", "rev-parse", "main"),
+                current_branch="feature/report-1",
+                layers=(
+                    NativeLayer(
+                        branch="feature/report-1",
+                        head=head,
+                        base=helpers.run(self.repo, "git", "rev-parse", "main"),
+                        merged=False,
+                        queued=False,
+                        needs_rebase=False,
+                        pull_request=None,
+                    ),
+                ),
+            ),
+            cwd=self.repo,
+        )
+
+        result = validate_live_chain(chain, cwd=self.repo, remote="upstream")
+
+        self.assertFalse(result.valid)
+        self.assertIn("source_lineage_ref_moved", {item.code for item in result.errors})
+        self.assertNotIn("source_advanced", {item.code for item in result.warnings})
+        self.assertEqual("different", result.source_status)
 
 
 if __name__ == "__main__":

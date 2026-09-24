@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from common import CommandError
+from metadata import SourceIdentity
+from publication import remote_identity_head
 from rehydrate import Chain, RehydrationError, discover_changeset_heads
 
 Severity = Literal["error", "warning"]
@@ -86,6 +89,7 @@ def validate_live_chain(
     cwd: Path | str = Path.cwd(),
     remote: str = "origin",
     allow_partial_propagation: bool = False,
+    verify_live_remote: bool = True,
 ) -> ChainValidation:
     """Check ancestry, source identity, and equivalence using only live git."""
 
@@ -129,11 +133,34 @@ def validate_live_chain(
                 )
             )
 
-    if len(chain.source_lineage) > 1:
+    native_lineage = any(
+        changeset.metadata.version == 3 for changeset in chain.changesets
+    )
+    durable_remote_lineage = native_lineage or len(chain.source_lineage) > 1
+    live_remote_heads: dict[SourceIdentity, str | None] = {}
+    if durable_remote_lineage:
         for identity in chain.source_lineage:
-            current_identity = _resolve(
-                repo, f"refs/remotes/{remote}/{identity.branch}^{{commit}}"
-            )
+            if identity.remote != remote:
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        "source_lineage_remote_mismatch",
+                        "error",
+                        f"Immutable lineage source {identity.branch!r} records remote "
+                        f"{identity.remote!r}; selected remote is {remote!r}.",
+                    )
+                )
+                continue
+            if verify_live_remote:
+                try:
+                    current_identity = remote_identity_head(identity, cwd=repo)
+                except CommandError:
+                    current_identity = None
+            else:
+                current_identity = _resolve(
+                    repo,
+                    f"refs/remotes/{identity.remote}/{identity.branch}^{{commit}}",
+                )
+            live_remote_heads[identity] = current_identity
             if current_identity is None:
                 diagnostics.append(
                     ValidationDiagnostic(
@@ -154,7 +181,24 @@ def validate_live_chain(
 
     live_heads: dict[int, tuple[str, str]] | None
     try:
-        live_heads = discover_changeset_heads(repo, chain.source_branch, remote)
+        if chain.native_topology:
+            live_heads = {}
+            for changeset in chain.changesets:
+                local = _resolve(repo, f"refs/heads/{changeset.branch}^{{commit}}")
+                published = _resolve(
+                    repo,
+                    f"refs/remotes/{remote}/{changeset.branch}^{{commit}}",
+                )
+                if local is not None and published is not None and local != published:
+                    raise RehydrationError(
+                        f"Changeset branch {changeset.branch} is ambiguous: local "
+                        f"head {local} differs from {remote} head {published}."
+                    )
+                head = published or local
+                if head is not None:
+                    live_heads[changeset.position] = (changeset.branch, head)
+        else:
+            live_heads = discover_changeset_heads(repo, chain.source_branch, remote)
     except RehydrationError as exc:
         live_heads = None
         diagnostics.append(
@@ -165,14 +209,16 @@ def validate_live_chain(
             )
         )
 
-    expected_indices = {item.metadata.index for item in chain.changesets}
+    expected_indices = {item.position for item in chain.changesets}
     if live_heads is not None:
         missing_open = {
-            item.metadata.index
+            item.position
             for item in chain.changesets
-            if item.pr_state != "MERGED" and item.metadata.index not in live_heads
+            if item.pr_state != "MERGED" and item.position not in live_heads
         }
-        unexpected = set(live_heads) - expected_indices
+        unexpected = (
+            set(live_heads) - expected_indices if not chain.native_topology else set()
+        )
         if missing_open or unexpected:
             diagnostics.append(
                 ValidationDiagnostic(
@@ -198,9 +244,7 @@ def validate_live_chain(
     merged_changeset_seen = False
     rehydrated_heads = {item.branch: item.head for item in chain.changesets}
     for changeset in chain.changesets:
-        live = (
-            live_heads.get(changeset.metadata.index) if live_heads is not None else None
-        )
+        live = live_heads.get(changeset.position) if live_heads is not None else None
         is_merged = changeset.pr_state == "MERGED"
         if live is None and not is_merged:
             diagnostics.append(
@@ -289,7 +333,7 @@ def validate_live_chain(
 
     if stamped_source is not None and chain.changesets and live_heads is not None:
         tip_record = chain.changesets[-1]
-        live_tip = live_heads.get(tip_record.metadata.index)
+        live_tip = live_heads.get(tip_record.position)
         tip = live_tip[1] if live_tip is not None else None
         if tip is None and tip_record.pr_state == "MERGED":
             tip = base_head
@@ -315,11 +359,8 @@ def validate_live_chain(
             )
 
     current_source = (
-        _resolve(
-            repo,
-            f"refs/remotes/{remote}/{chain.active_source.branch}^{{commit}}",
-        )
-        if len(chain.source_lineage) > 1
+        live_remote_heads.get(chain.active_source)
+        if durable_remote_lineage
         else _resolve_branch(repo, chain.active_source.branch, remote)
     )
     if current_source is None:
@@ -334,7 +375,9 @@ def validate_live_chain(
         source_status = "unchanged"
     elif stamped_source is not None:
         advanced = _is_ancestor(repo, stamped_source, current_source)
-        if advanced is True:
+        if durable_remote_lineage:
+            source_status = "different"
+        elif advanced is True:
             source_status = "advanced"
             diagnostics.append(
                 ValidationDiagnostic(

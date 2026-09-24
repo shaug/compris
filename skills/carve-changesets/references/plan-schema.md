@@ -3,12 +3,14 @@
 The proposal phase stores one ephemeral JSON plan at
 `.carve-changesets/plan.json`. Keep `.carve-changesets/` ignored and out of git.
 The plan is authoritative only for changesets that have not been materialized;
-live commit trailers, PR metadata, and mainline replace it in later phases.
+live commit trailers, native PR topology, and mainline replace it in later
+phases.
 
 Successor sources and suffix recovery are deliberately absent from this schema.
 They can exist only after materialization and publication, so their authority is
-the exact live source refs, v2 commit trailers, PR metadata, remote heads, and
-current mainline. A plan edit cannot create lineage, restamp a suffix, replace a
+the exact live source refs, v3 commit trailers, native PR topology, remote
+heads, and current mainline. Historical v1/v2 PR blocks are read-only adoption
+evidence. A plan edit cannot create lineage, restamp a suffix, replace a
 published candidate, or override a merged prefix.
 
 ## Minimal example
@@ -69,8 +71,8 @@ published candidate, or override a merged prefix.
 
 ## Changeset fields
 
-- `slug` (required string): stable concise intent identifier carried into commit
-  and PR metadata.
+- `slug` (required string): stable concise intent identifier carried into the
+  native commit trailers and human-readable PR prose.
 - `description` (required string): independently reviewable goal and scope.
 - `mode` (optional string): `paths` by default, `patch`, or `hunks`.
 - `include_paths` (string array): glob patterns included by `paths`, or a coarse
@@ -84,7 +86,7 @@ published candidate, or override a merged prefix.
 - `hunk_selectors` (required non-empty object array for `hunks`): explicit
   textual hunk selectors described below.
 - `commit_message` (optional string): changeset commit subject/body before the
-  required metadata trailers are added.
+  required native metadata trailers are added.
 - `pr_notes` (optional string array): scaffolding, flags, intentional
   incompleteness, and later changeset ownership shown in the PR body.
 

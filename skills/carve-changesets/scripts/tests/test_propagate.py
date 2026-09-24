@@ -9,11 +9,18 @@ from unittest import mock
 
 import helpers
 import propagate as propagate_mod
+import publication as publication_mod
 from chain import create_chain
 from cli import cmd_merge_propagate
 from common import CommandError
 from legacy_helpers import chdir, init_remote, init_repo, run
-from metadata import ChangesetMetadata, embed_pr_metadata, stamp_commit_message
+from metadata import (
+    ChangesetMetadata,
+    SourceIdentity,
+    embed_pr_metadata,
+    parse_commit_message,
+    stamp_commit_message,
+)
 from propagate import (
     merge_propagate_from_live,
     propagate_from_live,
@@ -24,6 +31,82 @@ from rehydrate import PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
+    def test_remote_branch_lookups_share_one_exact_parser(self) -> None:
+        self.assertIs(
+            propagate_mod.remote_branch_head,
+            publication_mod.remote_branch_head,
+        )
+        valid = mock.Mock(
+            returncode=0,
+            stdout=f"{'a' * 40} refs/heads/feature/test\n",
+        )
+        with mock.patch.object(publication_mod, "git", return_value=valid):
+            self.assertEqual(
+                "a" * 40,
+                propagate_mod.remote_branch_head("origin", "feature/test"),
+            )
+            self.assertEqual(
+                "a" * 40,
+                publication_mod.remote_identity_head(
+                    SourceIdentity("origin", "feature/test", "a" * 40)
+                ),
+            )
+
+        malformed = mock.Mock(
+            returncode=0,
+            stdout="short refs/heads/feature/test\n",
+        )
+        with mock.patch.object(publication_mod, "git", return_value=malformed):
+            with self.assertRaisesRegex(CommandError, "one exact branch ref"):
+                propagate_mod.remote_branch_head("origin", "feature/test")
+
+        missing = mock.Mock(returncode=0, stdout="")
+        with mock.patch.object(publication_mod, "git", return_value=missing):
+            self.assertIsNone(
+                propagate_mod.remote_branch_head("origin", "feature/test")
+            )
+            with self.assertRaisesRegex(CommandError, "is unavailable"):
+                publication_mod.remote_identity_head(
+                    SourceIdentity("origin", "feature/test", "a" * 40)
+                )
+
+    def test_push_chain_rejects_missing_recorded_source_before_any_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                with mock.patch("propagate.push_changeset_branch") as push:
+                    with self.assertRaisesRegex(CommandError, "is unavailable"):
+                        push_chain(plan, remote="origin", dry_run=False)
+            push.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_push_chain_rejects_moved_recorded_source_before_any_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                (repo_dir / "after-carve.txt").write_text("advanced source\n")
+                run(["git", "add", "after-carve.txt"], cwd=repo_dir)
+                helpers.commit(repo_dir, "advance source")
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                with mock.patch("propagate.push_changeset_branch") as push:
+                    with self.assertRaisesRegex(CommandError, "moved from"):
+                        push_chain(plan, remote="origin", dry_run=False)
+            push.assert_not_called()
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_propagation_push_rejects_remote_head_moved_since_rehydration(self) -> None:
         with (
             mock.patch("propagate.remote_branch_head", return_value="b" * 40),
@@ -321,6 +404,142 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("Report API (2 of 3)", self.prs[102].title)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
+    def test_propagation_rechecks_lineage_after_each_push(self) -> None:
+        self._merge(101)
+        actual_push = propagate_mod.push_changeset_branch
+        source_deleted = False
+
+        def push_then_delete_source(*args, **kwargs) -> None:
+            nonlocal source_deleted
+            actual_push(*args, **kwargs)
+            if not source_deleted:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "push",
+                    "origin",
+                    "--delete",
+                    "feature/report",
+                )
+                source_deleted = True
+
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "push_changeset_branch",
+                side_effect=push_then_delete_source,
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ) as edit,
+        ):
+            with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                propagate_from_live(
+                    source="feature/report",
+                    base="main",
+                    pr_number=101,
+                    index=None,
+                    strategy="rebase",
+                    remote="origin",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                )
+
+        edit.assert_not_called()
+
+    def test_native_human_only_prs_propagate_through_public_workflow(self) -> None:
+        self._merge(101)
+        human_bodies: dict[int, str] = {}
+        lineage = (SourceIdentity("origin", "feature/report", self.source_sha),)
+
+        def restamp_native(index: int) -> str:
+            branch = f"feature/report-{index}"
+            helpers.run(self.repo, "git", "checkout", branch)
+            metadata = ChangesetMetadata(slug=f"part-{index}", source_lineage=lineage)
+            helpers.run(
+                self.repo,
+                "git",
+                "commit",
+                "--amend",
+                "-F",
+                "-",
+                input_text=stamp_commit_message(f"feat: changeset {index}", metadata),
+            )
+            head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+            helpers.run(
+                self.repo,
+                "git",
+                "push",
+                "--force-with-lease",
+                "origin",
+                branch,
+            )
+            human_bodies[100 + index] = f"Human context for layer {index}.\n"
+            self.prs[100 + index] = PullRequestRecord(
+                **{
+                    **self.prs[100 + index].__dict__,
+                    "head_sha": head,
+                    "body": human_bodies[100 + index],
+                }
+            )
+            return head
+
+        old_second = self.prs[102].head_sha
+        native_second = restamp_native(2)
+        helpers.run(self.repo, "git", "checkout", "feature/report-3")
+        helpers.run(
+            self.repo,
+            "git",
+            "rebase",
+            "--onto",
+            native_second,
+            old_second,
+            "feature/report-3",
+        )
+        restamp_native(3)
+
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ),
+        ):
+            propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=101,
+                index=None,
+                strategy="rebase",
+                remote="origin",
+                dry_run=False,
+                authority_acknowledged=True,
+            )
+
+        for number in (102, 103):
+            self.assertEqual(human_bodies[number], self.prs[number].body)
+            head = self._live_pr(number).head_sha
+            metadata = parse_commit_message(
+                helpers.run(self.repo, "git", "show", "-s", "--format=%B", head)
+            )
+            self.assertEqual(3, metadata.version)
+
     def test_execution_requires_authority_acknowledgement(self) -> None:
         with chdir(self.repo):
             with self.assertRaisesRegex(CommandError, "ack-merge-and-propagate"):
@@ -376,8 +595,9 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("main", self.prs[102].base_branch)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
-    def test_partial_propagation_resumes_only_missing_remote_work(self) -> None:
+    def test_non_origin_partial_propagation_resumes_public_workflow(self) -> None:
         self._merge(101)
+        helpers.run(self.repo, "git", "remote", "add", "upstream", str(self.bare))
         old_second = self._live_pr(102).head_sha
         old_third = self._live_pr(103).head_sha
 
@@ -407,7 +627,7 @@ class StatelessPropagationTests(unittest.TestCase):
                     pr_number=101,
                     index=None,
                     strategy="rebase",
-                    remote="origin",
+                    remote="upstream",
                     dry_run=False,
                     authority_acknowledged=True,
                 )
@@ -415,6 +635,7 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertNotEqual(old_second, self._live_pr(102).head_sha)
         self.assertEqual(old_third, self._live_pr(103).head_sha)
         clone = self._fresh_clone("partial-frontier")
+        helpers.run(clone, "git", "remote", "add", "upstream", str(self.bare))
         real_push = propagate_mod.push_changeset_branch
         with (
             chdir(clone),
@@ -439,7 +660,7 @@ class StatelessPropagationTests(unittest.TestCase):
                 pr_number=101,
                 index=None,
                 strategy="rebase",
-                remote="origin",
+                remote="upstream",
                 dry_run=False,
                 authority_acknowledged=True,
             )
@@ -449,6 +670,12 @@ class StatelessPropagationTests(unittest.TestCase):
         )
         self.assertEqual("main", self.prs[102].base_branch)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
+        third = self._live_pr(103).head_sha
+        metadata = parse_commit_message(
+            helpers.run(clone, "git", "show", "-s", "--format=%B", third),
+            remote="upstream",
+        )
+        self.assertEqual("upstream", metadata.root_source.remote)
 
     def test_pr_state_change_after_planning_withholds_force_push(self) -> None:
         self._merge(101)
@@ -573,6 +800,7 @@ class StatelessPropagationTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             with chdir(repo_dir):
                 create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
                 push_chain(plan, remote="origin", dry_run=False)
 
             for branch in ("feature/test-1", "feature/test-2"):
@@ -585,6 +813,59 @@ class StatelessPropagationTests(unittest.TestCase):
                 ["git", "ls-remote", "origin", "refs/heads/main"], cwd=repo_dir
             ).stdout.strip()
             self.assertEqual("", base)
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_push_chain_rejects_missing_post_push_readback(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                with mock.patch.object(
+                    propagate_mod,
+                    "remote_branch_head",
+                    side_effect=[None, None],
+                ):
+                    with self.assertRaisesRegex(CommandError, "after push"):
+                        push_chain(plan, remote="origin", dry_run=False)
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_push_chain_rechecks_lineage_after_each_push(self) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", "feature/test"], cwd=repo_dir)
+                original_push = propagate_mod.push_changeset_branch
+                source_deleted = False
+
+                def push_then_delete_source(*args, **kwargs) -> None:
+                    nonlocal source_deleted
+                    original_push(*args, **kwargs)
+                    if not source_deleted:
+                        run(
+                            ["git", "push", "origin", "--delete", "feature/test"],
+                            cwd=repo_dir,
+                        )
+                        source_deleted = True
+
+                with mock.patch.object(
+                    propagate_mod,
+                    "push_changeset_branch",
+                    side_effect=push_then_delete_source,
+                ):
+                    with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                        push_chain(plan, remote="origin", dry_run=False)
         finally:
             shutil.rmtree(repo_dir)
             if remote_dir is not None:

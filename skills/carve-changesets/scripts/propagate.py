@@ -22,7 +22,17 @@ from github import (
     pull_request_by_number,
     pull_requests_for_source,
 )
-from metadata import MetadataError, parse_commit_message, parse_pr_metadata
+from metadata import (
+    ChangesetMetadata,
+    MetadataError,
+    parse_commit_message,
+    parse_pr_metadata,
+)
+from publication import (
+    remote_branch_head,
+    verify_lineage_for_publication,
+    verify_remote_lineage,
+)
 from rehydrate import Chain, ChangesetRecord, PullRequestRecord, adopt_legacy_chain
 from validate import validate_live_chain
 
@@ -42,20 +52,6 @@ def remote_exists(remote: str) -> bool:
     return git("remote", "get-url", remote, check=False).returncode == 0
 
 
-def remote_branch_head(remote: str, branch: str) -> str | None:
-    result = git(
-        "ls-remote",
-        "--heads",
-        remote,
-        f"refs/heads/{branch}",
-        check=False,
-    )
-    if result.returncode != 0:
-        raise CommandError(f"Unable to resolve {remote}/{branch} before push.")
-    line = result.stdout.strip()
-    return line.split()[0] if line else None
-
-
 def push_changeset_branch(
     branch: str,
     *,
@@ -64,15 +60,16 @@ def push_changeset_branch(
     expected_remote_head: str | None = None,
     local_ref: str | None = None,
 ) -> None:
+    source_ref = local_ref or branch
     current = remote_branch_head(remote, branch)
     if expected_remote_head is not None and current != expected_remote_head:
         raise CommandError(
             f"Remote branch {remote}/{branch} moved from verified head "
             f"{expected_remote_head} to {current}; propagation was withheld."
         )
+    proposed = _resolve(source_ref)
     expected = expected_remote_head if expected_remote_head is not None else current
     lease = f"--force-with-lease=refs/heads/{branch}:{expected or ''}"
-    source_ref = local_ref or branch
     refspec = f"refs/heads/{source_ref}:refs/heads/{branch}"
     command = ("git", "push", remote, refspec, lease)
     print(f"[STEP] Pushing changeset branch {branch} to {remote} with an exact lease")
@@ -81,6 +78,12 @@ def push_changeset_branch(
         print(" ".join(command))
         return
     git("push", remote, refspec, lease)
+    observed = remote_branch_head(remote, branch)
+    if observed != proposed:
+        raise CommandError(
+            f"Remote branch {remote}/{branch} after push is {observed}; "
+            f"expected exact head {proposed}."
+        )
 
 
 def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
@@ -94,6 +97,8 @@ def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
     base = plan["base_branch"]
     source = plan["source_branch"]
     chain = _ensure_chain_exists(source, len(plan["changesets"]))
+    if not dry_run:
+        verify_lineage_for_publication(chain, remote=remote)
     print(
         f"[INFO] Base branch {base} is intentionally excluded. Push or update it "
         "separately with a verified fast-forward-only workflow."
@@ -101,6 +106,8 @@ def push_chain(plan: Dict, *, remote: str, dry_run: bool) -> None:
     print(f"[INFO] Source branch {source} is immutable and will not be pushed.")
     for branch in chain:
         push_changeset_branch(branch, remote=remote, dry_run=dry_run)
+        if not dry_run:
+            verify_lineage_for_publication(chain, remote=remote)
 
     if dry_run:
         print("[OK] Dry-run push-chain complete. Re-run with --no-dry-run to execute.")
@@ -204,7 +211,7 @@ def _target(
             )
     if record.pr_number is None or record.pr_number not in pull_requests:
         raise CommandError(
-            f"Changeset {record.metadata.index} has no verified GitHub pull request."
+            f"Changeset {record.position} has no verified GitHub pull request."
         )
     return record, pull_requests[record.pr_number]
 
@@ -214,13 +221,11 @@ def _require_sequential_target(chain: Chain, target_index: int) -> None:
         if item.pr_state != "MERGED":
             raise CommandError(
                 f"Changeset {target_index} cannot proceed before PR for changeset "
-                f"{item.metadata.index} is verified merged."
+                f"{item.position} is verified merged."
             )
     for item in chain.changesets[target_index:]:
         if item.pr_state == "MERGED":
-            raise CommandError(
-                f"Changeset {item.metadata.index} is merged out of sequence."
-            )
+            raise CommandError(f"Changeset {item.position} is merged out of sequence.")
         if item.pr_state != "OPEN":
             raise CommandError(
                 f"Downstream PR #{item.pr_number} must be OPEN, got {item.pr_state or 'missing'}."
@@ -337,7 +342,27 @@ def _updated_title(pr: PullRequestRecord, *, index: int, total: int) -> str:
     return f"{prefix} ({index} of {total})"
 
 
-def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> str:
+def _matches_historical_predecessor(
+    metadata: ChangesetMetadata, previous: ChangesetRecord
+) -> bool:
+    """Match legacy history to the live topology position during migration."""
+
+    if (
+        metadata.slug != previous.metadata.slug
+        or metadata.root_source != previous.metadata.root_source
+    ):
+        return False
+    if metadata.legacy_position is not None:
+        return metadata.legacy_position == previous.position
+    return metadata.same_changeset_as(previous.metadata)
+
+
+def _durable_predecessor(
+    record: ChangesetRecord,
+    previous: ChangesetRecord,
+    *,
+    missing_message: str | None = None,
+) -> str:
     """Find the prior changeset commit in an unpropagated branch's ancestry."""
 
     if _is_ancestor(previous.head, record.head):
@@ -345,18 +370,19 @@ def _durable_predecessor(record: ChangesetRecord, previous: ChangesetRecord) -> 
     for commit in git("rev-list", record.head).stdout.splitlines():
         message = git("show", "-s", "--format=%B", commit).stdout
         try:
-            metadata = parse_commit_message(message)
+            metadata = parse_commit_message(
+                message, remote=previous.metadata.root_source.remote
+            )
         except MetadataError:
             continue
-        if (
-            metadata.index == previous.metadata.index
-            and metadata.source_branch == record.metadata.source_branch
-            and metadata.source_sha == record.metadata.source_sha
-        ):
+        if _matches_historical_predecessor(metadata, previous):
             return commit
     raise CommandError(
-        f"Changeset branch {record.branch} does not contain durable predecessor "
-        f"metadata for changeset {previous.metadata.index}."
+        missing_message
+        or (
+            f"Changeset branch {record.branch} does not contain durable predecessor "
+            f"metadata for changeset {previous.position}."
+        )
     )
 
 
@@ -372,7 +398,7 @@ def _verify_live_downstream(
 
     if record.pr_number is None:
         raise CommandError(
-            f"Downstream changeset {record.metadata.index} has no verified PR."
+            f"Downstream changeset {record.position} has no verified PR."
         )
     live = pull_request_by_number(record.pr_number, remote=remote)
     if live.state.upper() != "OPEN":
@@ -407,17 +433,18 @@ def _verify_live_downstream(
             f"{', '.join(repr(item) for item in sorted(allowed_bases))}. "
             f"Remote mutation was withheld.{hint}"
         )
-    try:
-        live_metadata = parse_pr_metadata(live.body)
-    except MetadataError as exc:
-        raise CommandError(
-            f"{role} PR #{live.number} metadata is invalid: {exc}"
-        ) from exc
-    if live_metadata != record.metadata:
-        raise CommandError(
-            f"{role} PR #{live.number} no longer belongs to changeset "
-            f"{record.metadata.index}; remote mutation was withheld."
-        )
+    if record.metadata.version in {1, 2}:
+        try:
+            live_metadata = parse_pr_metadata(live.body, remote=remote)
+        except MetadataError as exc:
+            raise CommandError(
+                f"{role} PR #{live.number} metadata is invalid: {exc}"
+            ) from exc
+        if live_metadata != record.metadata:
+            raise CommandError(
+                f"{role} PR #{live.number} no longer belongs to changeset "
+                f"{record.position}; remote mutation was withheld."
+            )
     remote_head = remote_branch_head(remote, record.branch)
     if remote_head != expected_remote_head:
         raise CommandError(
@@ -492,13 +519,13 @@ def _propagate_chain(
         pr_number = record.pr_number
         if pr_number is None or pr_number not in pull_requests:
             raise CommandError(
-                f"Downstream changeset {record.metadata.index} has no verified PR."
+                f"Downstream changeset {record.position} has no verified PR."
             )
         pr = pull_requests[pr_number]
         expected_base = (
             chain.base_branch
-            if record.metadata.index == merged_index + 1
-            else chain.changesets[record.metadata.index - 2].branch
+            if record.position == merged_index + 1
+            else chain.changesets[record.position - 2].branch
         )
         planned.append((record, pr, expected_base))
 
@@ -524,7 +551,7 @@ def _propagate_chain(
             print(f"[INFO] {record.branch} is already propagated; push not needed.")
         else:
             rewrite_frontier_reached = True
-            previous = chain.changesets[record.metadata.index - 2]
+            previous = chain.changesets[record.position - 2]
             old_base = _durable_predecessor(record, previous)
             if strategy == "rebase":
                 new_head = _rewrite_rebase(
@@ -545,7 +572,7 @@ def _propagate_chain(
                 remote=remote,
             )
         expected_title = _updated_title(
-            live, index=record.metadata.index, total=len(chain.changesets)
+            live, index=record.position, total=len(chain.changesets)
         )
         if not already_propagated:
             push_changeset_branch(
@@ -554,6 +581,8 @@ def _propagate_chain(
                 dry_run=dry_run,
                 expected_remote_head=current_head,
             )
+            if not dry_run:
+                verify_remote_lineage(chain.source_lineage, remote=remote)
         edit_pull_request(
             live.number,
             remote=remote,
@@ -603,7 +632,7 @@ def propagate_from_live(
     _require_authority(dry_run=dry_run, authority_acknowledged=authority_acknowledged)
     chain, pull_requests = _rehydrate_live(source=source, base=base, remote=remote)
     record, pr = _target(chain, pull_requests, pr_number=pr_number, index=index)
-    target_index = record.metadata.index
+    target_index = record.position
     _require_sequential_target(chain, target_index)
     if pr.state.upper() != "MERGED":
         raise CommandError(
@@ -650,7 +679,7 @@ def merge_propagate_from_live(
     _require_authority(dry_run=dry_run, authority_acknowledged=authority_acknowledged)
     chain, pull_requests = _rehydrate_live(source=source, base=base, remote=remote)
     record, pr = _target(chain, pull_requests, pr_number=pr_number, index=index)
-    target_index = record.metadata.index
+    target_index = record.position
     _require_sequential_target(chain, target_index)
     state = pr.state.upper()
     if state == "CLOSED":
@@ -659,7 +688,7 @@ def merge_propagate_from_live(
         for prior in chain.changesets[: target_index - 1]:
             if prior.pr_number is None or prior.pr_number not in pull_requests:
                 raise CommandError(
-                    f"Preceding changeset {prior.metadata.index} has no verified PR."
+                    f"Preceding changeset {prior.position} has no verified PR."
                 )
             _verify_merged_on_base(
                 pull_requests[prior.pr_number],

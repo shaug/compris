@@ -98,6 +98,87 @@ class RehydrationTests(unittest.TestCase):
             ["main", "feature/report-1"], [item.base for item in chain.changesets]
         )
 
+    def test_rehydrates_v1_metadata_through_selected_non_origin_remote(self) -> None:
+        _, prs = self._materialize(indices=(1,))
+        clone = self._fresh_clone()
+        helpers.run(clone, "git", "remote", "add", "upstream", str(self.bare))
+        helpers.run(clone, "git", "fetch", "upstream")
+
+        chain = adopt_legacy_chain(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+            remote="upstream",
+            prefer_remote=True,
+        )
+
+        self.assertEqual("upstream", chain.source_lineage[0].remote)
+        self.assertEqual(
+            chain.changesets[0].metadata,
+            chain.changesets[0].pr_metadata,
+        )
+
+    def test_rehydrates_v2_metadata_through_selected_non_origin_remote(self) -> None:
+        heads, prs = self._materialize(indices=(1,))
+        successor = SourceIdentity("feature/report-corrected", "c" * 40)
+        recovered = ChangesetMetadata(
+            slug="part-1",
+            index=1,
+            source_branch=successor.branch,
+            source_sha=successor.sha,
+            source_lineage=(
+                SourceIdentity("feature/report", self.source_sha),
+                successor,
+            ),
+            recovery_from_head=heads[1],
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-1")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: changeset 1", recovered),
+        )
+        recovered_head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-1",
+        )
+        prs[0] = PullRequestRecord(
+            **{
+                **prs[0].__dict__,
+                "head_sha": recovered_head,
+                "body": embed_pr_metadata(prs[0].body, recovered),
+            }
+        )
+        clone = self._fresh_clone()
+        helpers.run(clone, "git", "remote", "add", "upstream", str(self.bare))
+        helpers.run(clone, "git", "fetch", "upstream")
+
+        chain = adopt_legacy_chain(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+            remote="upstream",
+            prefer_remote=True,
+        )
+
+        self.assertEqual(
+            ("upstream", "upstream"),
+            tuple(identity.remote for identity in chain.source_lineage),
+        )
+        self.assertEqual(
+            chain.changesets[0].metadata,
+            chain.changesets[0].pr_metadata,
+        )
+
     def test_edited_pr_prose_rehydrates_from_unchanged_metadata_block(self) -> None:
         _, prs = self._materialize()
         clone = self._fresh_clone()

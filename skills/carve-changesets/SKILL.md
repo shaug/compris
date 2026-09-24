@@ -118,8 +118,8 @@ override and confirmation are both present.
 Suffix recovery is a separate acknowledgement within merge-and-propagate
 authority. It permits `recover-suffix` to restamp and exact-lease update only an
 owned, unmerged suffix onto a verified successor source. It does not permit
-changing the root source, a merged position, a stable index, or another owner's
-branch.
+changing the root source, a merged position, the established live topology
+order, or another owner's branch.
 
 Pass authority to delegated skills without expansion. Reply and thread
 resolution authority remain separate from branch mutation and merge authority.
@@ -251,7 +251,8 @@ Recognize the excuse and answer it with the rule that already applies:
 - Keep remote mutation dry-run by default and use explicit refspecs and exact
   leases where the contract permits force-push.
 - Preserve the exact root and successor-source identities and reconstruct their
-  ordered lineage from commit trailers and PR metadata.
+  ordered lineage from native commit trailers. Normalize historical v1/v2 PR
+  blocks only as read-only adoption evidence.
 - Never use a plan edit, cached head, or ledger entry to override materialized,
   published, or merged truth; the ledger is a dedup guard, verified against live
   state, never a source of truth in its own right.
@@ -277,7 +278,7 @@ Return `blocked` without widening scope when:
 - safe progress would require rewriting the source, base, merged upstream, or an
   unowned branch;
 - recovery lineage is missing, conflicting, repeated, discontinuous, mutable, or
-  cannot be proved from live refs and PR metadata;
+  cannot be proved from live refs, PR topology, and commit trailers;
 - required authority, capability, infrastructure, or exclusive ownership is
   absent; or
 - a material product, data, architecture, migration, or rollout decision is
@@ -298,7 +299,7 @@ source, complete lineage, base, chain, and PR candidates:
   validation and clean review, whole-chain equivalence, no new publication, and
   `lifecycle_observations: []` because no PR was published.
 - `prs_open`: all `chain_ready` evidence plus exact remote heads, correctly
-  based open PRs, current metadata, applicable non-merge gates, and merge
+  based open PRs, native commit identity, applicable non-merge gates, and merge
   withheld. The required `lifecycle_observations` slot contains one
   `lifecycle_observation` per published PR, each bound to its exact current PR
   head and explicitly non-gating with `non_gating: true`.
