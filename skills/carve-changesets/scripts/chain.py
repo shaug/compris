@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import fnmatch
+import shlex
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from command_argv import display_argv, execute_argv, validate_argv
@@ -23,12 +26,20 @@ from common import (
     git,
     unique_temp_branch,
 )
+from gh_stack import GhStackClient, GhStackError, StackCapability, probe_profile
 from metadata import (
     ChangesetMetadata,
     MetadataError,
     SourceIdentity,
     parse_commit_message,
     stamp_commit_message,
+)
+from native_stack import (
+    NativeStackError,
+    NativeStackSnapshot,
+    TruthPhase,
+    parse_native_stack,
+    reconcile_native_stack,
 )
 from patch_apply import (
     apply_patch_file,
@@ -98,6 +109,124 @@ def select_entries(
 class ApplySummary:
     mode: str
     message: str
+
+
+@dataclass(frozen=True)
+class NativeMaterialization:
+    snapshot: NativeStackSnapshot
+    active_source: SourceIdentity
+    layer_heads: tuple[tuple[str, str], ...]
+    truth_phase: TruthPhase = TruthPhase.MATERIALIZED
+    chain_ready: bool = False
+
+
+def materialize_native_stack(
+    plan: Dict,
+    *,
+    remote: str,
+    allow_local_stack_state: bool,
+    client: GhStackClient | None = None,
+    trunk_head: str | None = None,
+    resume_argv: Sequence[str] | None = None,
+) -> NativeMaterialization:
+    """Create semantic layers, adopt them once, and reconcile native truth."""
+
+    if not allow_local_stack_state:
+        raise CommandError(
+            "Native materialization requires explicit authority for rerere, "
+            "local stack state, branch creation, and checkout restoration; "
+            "pass --ack-local-stack-state."
+        )
+
+    probe = probe_profile(cwd=Path.cwd())
+    required = frozenset({StackCapability.LOCAL_INIT, StackCapability.VIEW_JSON})
+    if probe.status != "supported" or probe.profile is None:
+        reason = probe.blocker.reason if probe.blocker is not None else probe.status
+        raise CommandError(
+            f"Compatible local gh stack capability is unavailable ({reason}); "
+            "no semantic branches were created."
+        )
+    missing = sorted(
+        capability.value for capability in required - probe.profile.capabilities
+    )
+    if missing:
+        raise CommandError(
+            "Compatible local gh stack capability is unavailable "
+            f"(missing {', '.join(missing)}); no semantic branches were created."
+        )
+
+    base = plan["base_branch"]
+    source = plan["source_branch"]
+    resolved_trunk = (
+        trunk_head or git("rev-parse", f"refs/remotes/{remote}/{base}").stdout.strip()
+    )
+    source_sha = git("rev-parse", source).stdout.strip()
+    branches = create_chain(plan, remote=remote)
+    native = client or GhStackClient(cwd=Path.cwd())
+    exact_resume = tuple(resume_argv or ()) or (
+        "python3",
+        "skills/carve-changesets/scripts/cli.py",
+        "create-chain",
+        "--plan",
+        ".carve-changesets/plan.json",
+        "--remote",
+        remote,
+        "--ack-local-stack-state",
+    )
+
+    try:
+        with checkout_restore():
+            git("checkout", branches[-1])
+            native.init(base=base, branches=branches)
+            snapshot = parse_native_stack(
+                native.view_json(allow_state_refresh=True),
+                expected_trunk_branch=base,
+                trunk_head=resolved_trunk,
+            )
+
+        expected_order = tuple(branches)
+        observed_order = tuple(layer.branch for layer in snapshot.layers)
+        if observed_order != expected_order:
+            raise CommandError(
+                "Native order mismatch: expected "
+                f"{list(expected_order)!r}; observed {list(observed_order)!r}."
+            )
+        local_heads = {
+            branch: git("rev-parse", f"refs/heads/{branch}").stdout.strip()
+            for branch in branches
+        }
+        reconcile_native_stack(
+            snapshot,
+            remote_heads={},
+            pull_requests={},
+            local_heads=local_heads,
+        )
+        for layer in snapshot.layers:
+            ancestry = git(
+                "merge-base", "--is-ancestor", layer.base, layer.head, check=False
+            )
+            if ancestry.returncode != 0:
+                raise CommandError(
+                    f"Native base mismatch for {layer.branch}: {layer.base} is not "
+                    f"an ancestor of {layer.head}."
+                )
+    except (
+        CommandError,
+        GhStackError,
+        NativeStackError,
+        OSError,
+        subprocess.CalledProcessError,
+    ) as exc:
+        raise CommandError(
+            f"Native materialization stopped after preserving semantic branches "
+            f"{branches!r}: {exc}\nResume exactly: {shlex.join(exact_resume)}"
+        ) from exc
+
+    return NativeMaterialization(
+        snapshot=snapshot,
+        active_source=SourceIdentity(remote, source, source_sha),
+        layer_heads=tuple((layer.branch, layer.head) for layer in snapshot.layers),
+    )
 
 
 def _commit_changeset(
