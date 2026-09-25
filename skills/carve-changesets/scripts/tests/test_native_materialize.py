@@ -312,6 +312,55 @@ class NativeMaterializationTests(unittest.TestCase):
         )
         self.assertEqual(1, len(resumed.init_calls))
 
+    def test_materialization_restores_exact_detached_checkout(self) -> None:
+        original_sha = run(["git", "rev-parse", "HEAD"], cwd=self.repo).stdout.strip()
+        run(["git", "checkout", "--detach", original_sha], cwd=self.repo)
+        client = RecordingNativeClient(self.repo)
+        with (
+            chdir(self.repo),
+            mock.patch("chain.probe_profile", return_value=self._supported_probe()),
+        ):
+            materialize_native_stack(
+                self.plan,
+                remote="origin",
+                allow_local_stack_state=True,
+                client=client,
+            )
+
+        self.assertEqual(
+            "",
+            run(["git", "branch", "--show-current"], cwd=self.repo).stdout.strip(),
+        )
+        self.assertEqual(
+            original_sha,
+            run(["git", "rev-parse", "HEAD"], cwd=self.repo).stdout.strip(),
+        )
+
+    def test_interruption_restores_exact_detached_checkout(self) -> None:
+        original_sha = run(["git", "rev-parse", "HEAD"], cwd=self.repo).stdout.strip()
+        run(["git", "checkout", "--detach", original_sha], cwd=self.repo)
+        client = RecordingNativeClient(self.repo, fail_init=True)
+        with (
+            chdir(self.repo),
+            mock.patch("chain.probe_profile", return_value=self._supported_probe()),
+        ):
+            with self.assertRaises(CommandError):
+                materialize_native_stack(
+                    self.plan,
+                    remote="origin",
+                    allow_local_stack_state=True,
+                    client=client,
+                )
+
+        self.assertEqual(
+            "",
+            run(["git", "branch", "--show-current"], cwd=self.repo).stdout.strip(),
+        )
+        self.assertEqual(
+            original_sha,
+            run(["git", "rev-parse", "HEAD"], cwd=self.repo).stdout.strip(),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

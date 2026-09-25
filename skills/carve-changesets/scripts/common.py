@@ -187,14 +187,24 @@ def squashed_branch_name(source_branch: str) -> str:
 
 @contextmanager
 def checkout_restore(target: Optional[str] = None):
-    """Checkout target branch (if provided) and always restore the original branch."""
-    original = current_branch()
+    """Checkout target (if provided) and restore the exact original checkout."""
+    original_branch = current_branch()
+    original_detached = original_branch == "HEAD"
+    original = (
+        git("rev-parse", "HEAD").stdout.strip()
+        if original_detached
+        else original_branch
+    )
     try:
         if target and target != original:
             git("checkout", target)
         yield original
     finally:
-        if current_branch() != original:
+        if original_detached:
+            current_sha = git("rev-parse", "HEAD").stdout.strip()
+            if current_branch() != "HEAD" or current_sha != original:
+                git("checkout", "--detach", original)
+        elif current_branch() != original:
             git("checkout", original)
 
 
