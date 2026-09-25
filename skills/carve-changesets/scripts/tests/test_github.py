@@ -81,6 +81,7 @@ class GithubTests(unittest.TestCase):
         self.assertTrue(record.draft)
         self.assertTrue(record.queued)
         self.assertTrue(record.auto_merge)
+        self.assertEqual("CLEAN", record.merge_state_status)
 
     def test_pr_discovery_rejects_incomplete_force_push_history(self) -> None:
         pull_request = {

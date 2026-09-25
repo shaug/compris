@@ -100,6 +100,7 @@ class ExpectedPullRequest:
     body: str
     current_title: str | None = None
     current_body: str | None = None
+    merge_state_status: str | None = None
 
     def validate(self) -> None:
         if not self.branch.strip():
@@ -113,6 +114,7 @@ class ExpectedPullRequest:
                     self.draft,
                     self.queued,
                     self.auto_merge,
+                    self.merge_state_status,
                 )
             ):
                 raise ManifestError(
@@ -159,6 +161,13 @@ class ExpectedPullRequest:
             ):
                 raise ManifestError(
                     f"pull request #{self.number} needs draft, queue, and auto-merge state"
+                )
+            if self.merge_state_status is not None and (
+                not isinstance(self.merge_state_status, str)
+                or not self.merge_state_status.strip()
+            ):
+                raise ManifestError(
+                    f"pull request #{self.number} merge gate state must be non-empty"
                 )
         if not isinstance(self.title, str) or not self.title.strip():
             raise ManifestError(
@@ -334,6 +343,7 @@ class AuthorityGrant:
     phases: frozenset[TransitionPhase]
     effect_kinds: frozenset[EffectKind]
     ready_for_review: tuple[str, ...] = ()
+    merge_method: str | None = None
 
     @classmethod
     def push(
@@ -399,6 +409,7 @@ class MutationManifest:
     expected_native_stack: ExpectedNativeStack
     enabled_phases: tuple[TransitionPhase, ...]
     merge_mode: MergeMode | None
+    merge_method: str | None
     effects: tuple[MutationEffect, ...]
     evidence: tuple[str, ...]
     authority: AuthorityGrant
@@ -573,8 +584,32 @@ class MutationManifest:
                 raise ManifestError(
                     "merge prefix must be an ordered bottom prefix of open pull requests"
                 )
+            selected_pull_requests = {
+                item.number: item for item in self.expected_pull_requests
+            }
+            missing_gate_state = tuple(
+                number
+                for number in self.merge_prefix
+                if not selected_pull_requests[number].merge_state_status
+            )
+            if missing_gate_state:
+                raise ManifestError(
+                    "merge manifests must bind exact merge gate state for PRs: "
+                    f"{missing_gate_state!r}"
+                )
+            if self.merge_mode is MergeMode.DIRECT:
+                if self.merge_method not in {"merge", "squash", "rebase"}:
+                    raise ManifestError(
+                        "direct merge manifests must bind merge, squash, or rebase"
+                    )
+            elif self.merge_method is not None:
+                raise ManifestError(
+                    "queue merge method must be explicitly not applicable"
+                )
         if self.operation is not StackOperation.MERGE and self.merge_mode is not None:
             raise ManifestError("only merge manifests may select a merge mode")
+        if self.operation is not StackOperation.MERGE and self.merge_method is not None:
+            raise ManifestError("only direct merge manifests may select a merge method")
         if self.operation is not StackOperation.MERGE and self.merge_prefix:
             raise ManifestError("only merge manifests may bind a PR prefix")
 
@@ -598,10 +633,11 @@ class MutationManifest:
             or grant.phases != manifest_phases
             or grant.effect_kinds != manifest_effects
             or set(grant.ready_for_review) != ready_effect_branches
+            or grant.merge_method != self.merge_method
         ):
             raise ManifestError(
                 "authority grant must exactly match manifest phases, effects, "
-                "identities, branches, and ready transitions"
+                "identities, branches, ready transitions, and merge method"
             )
 
 
@@ -692,6 +728,7 @@ def manifest_to_json(manifest: MutationManifest) -> str:
                 "body": item.body,
                 "current_title": item.current_title,
                 "current_body": item.current_body,
+                "merge_state_status": item.merge_state_status,
             }
             for item in manifest.expected_pull_requests
         ],
@@ -716,6 +753,7 @@ def manifest_to_json(manifest: MutationManifest) -> str:
         },
         "enabled_phases": [item.value for item in manifest.enabled_phases],
         "merge_mode": manifest.merge_mode.value if manifest.merge_mode else None,
+        "merge_method": manifest.merge_method,
         "merge_prefix": list(manifest.merge_prefix),
         "effects": [
             {
@@ -739,6 +777,7 @@ def manifest_to_json(manifest: MutationManifest) -> str:
                 item.value for item in manifest.authority.effect_kinds
             ),
             "ready_for_review": list(manifest.authority.ready_for_review),
+            "merge_method": manifest.authority.merge_method,
         },
     }
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -797,6 +836,7 @@ def manifest_from_json(raw: str) -> MutationManifest:
                 body=str(item["body"]),
                 current_title=item.get("current_title"),
                 current_body=item.get("current_body"),
+                merge_state_status=item.get("merge_state_status"),
             )
             for item in (
                 _object(value, "expected pull request")
@@ -862,6 +902,7 @@ def manifest_from_json(raw: str) -> MutationManifest:
             ready_for_review=_strings(
                 authority_data["ready_for_review"], "authority.ready_for_review"
             ),
+            merge_method=authority_data.get("merge_method"),
         )
         merge_mode_value = root["merge_mode"]
         manifest = MutationManifest(
@@ -879,6 +920,7 @@ def manifest_from_json(raw: str) -> MutationManifest:
             merge_mode=(
                 None if merge_mode_value is None else MergeMode(str(merge_mode_value))
             ),
+            merge_method=root.get("merge_method"),
             effects=effects,
             evidence=_strings(root["evidence"], "evidence"),
             authority=authority,
@@ -1028,6 +1070,7 @@ def preview_publish(
         expected_native_stack=native_stack,
         enabled_phases=(TransitionPhase.PUSH, TransitionPhase.SUBMIT),
         merge_mode=None,
+        merge_method=None,
         effects=tuple(effects),
         evidence=tuple(evidence),
         authority=authority,
@@ -1067,6 +1110,7 @@ def preview_push(
         expected_native_stack=native_stack,
         enabled_phases=(TransitionPhase.PUSH,),
         merge_mode=None,
+        merge_method=None,
         effects=effects,
         evidence=tuple(evidence),
         authority=authority,
@@ -1172,6 +1216,7 @@ def preview_repair(
             TransitionPhase.SYNC,
         ),
         merge_mode=None,
+        merge_method=None,
         effects=_repair_effects(expected_refs, expected_pull_requests, native_stack),
         evidence=tuple(evidence),
         authority=authority,
@@ -1189,6 +1234,7 @@ def preview_merge(
     native_stack: ExpectedNativeStack,
     prefix_numbers: Sequence[int],
     merge_mode: MergeMode,
+    merge_method: str | None,
     authority: AuthorityGrant,
     evidence: Sequence[str],
 ) -> MutationManifest:
@@ -1305,6 +1351,7 @@ def preview_merge(
         expected_native_stack=native_stack,
         enabled_phases=phases,
         merge_mode=merge_mode,
+        merge_method=merge_method,
         effects=tuple(effects),
         evidence=tuple(evidence),
         authority=authority,
@@ -1353,6 +1400,7 @@ def preview_recovery(
             TransitionPhase.SYNC,
         ),
         merge_mode=None,
+        merge_method=None,
         effects=effects,
         evidence=tuple(evidence),
         authority=authority,

@@ -43,6 +43,7 @@ class PullRequestRecord:
     draft: bool = False
     queued: bool = False
     auto_merge: bool = False
+    merge_state_status: str = ""
 
 
 @dataclass(frozen=True)

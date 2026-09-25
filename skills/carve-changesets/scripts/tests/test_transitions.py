@@ -489,6 +489,7 @@ class OperationManifestTests(unittest.TestCase):
                 draft=False,
                 queued=False,
                 auto_merge=False,
+                merge_state_status="CLEAN",
                 title="Layer 2",
                 body="Layer 2 body",
             ),
@@ -501,6 +502,7 @@ class OperationManifestTests(unittest.TestCase):
                 draft=False,
                 queued=False,
                 auto_merge=False,
+                merge_state_status="CLEAN",
                 title="Layer 3",
                 body="Layer 3 body",
             ),
@@ -539,6 +541,7 @@ class OperationManifestTests(unittest.TestCase):
         operation: StackOperation,
         phases: frozenset[TransitionPhase],
         effects: frozenset[EffectKind],
+        merge_method: str | None = None,
     ) -> AuthorityGrant:
         return AuthorityGrant(
             operation=operation,
@@ -548,6 +551,7 @@ class OperationManifestTests(unittest.TestCase):
             branches=("feature-2", "feature-3"),
             phases=phases,
             effect_kinds=effects,
+            merge_method=merge_method,
         )
 
     def test_repair_fences_rebase_push_pr_and_stack_sync_independently(self) -> None:
@@ -610,6 +614,7 @@ class OperationManifestTests(unittest.TestCase):
             native_stack=self.stack,
             prefix_numbers=(42,),
             merge_mode=MergeMode.DIRECT,
+            merge_method="merge",
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
@@ -621,6 +626,7 @@ class OperationManifestTests(unittest.TestCase):
                         EffectKind.SYNC_STACK,
                     }
                 ),
+                merge_method="merge",
             ),
             evidence=("merge snapshot",),
         )
@@ -635,6 +641,12 @@ class OperationManifestTests(unittest.TestCase):
             tuple(effect.kind for effect in manifest.effects),
         )
         self.assertEqual((42,), manifest.merge_prefix)
+        payload = __import__("json").loads(manifest_to_json(manifest))
+        self.assertEqual("merge", payload["merge_method"])
+        self.assertEqual("merge", payload["authority"]["merge_method"])
+        self.assertEqual(
+            manifest, manifest_from_json(__import__("json").dumps(payload))
+        )
 
     def test_queue_merge_admits_only_the_bottom_pr_and_fences_landing(self) -> None:
         phases = frozenset({TransitionPhase.QUEUE_MERGE})
@@ -646,6 +658,7 @@ class OperationManifestTests(unittest.TestCase):
             native_stack=self.stack,
             prefix_numbers=(42,),
             merge_mode=MergeMode.QUEUE,
+            merge_method=None,
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
@@ -674,6 +687,9 @@ class OperationManifestTests(unittest.TestCase):
         )
         self.assertEqual("pr:42", manifest.effects[0].target)
         self.assertEqual("pr:42", manifest.effects[1].target)
+        payload = __import__("json").loads(manifest_to_json(manifest))
+        self.assertIsNone(payload["merge_method"])
+        self.assertIsNone(payload["authority"]["merge_method"])
 
         admission = classify_readback(
             manifest,
@@ -730,10 +746,12 @@ class OperationManifestTests(unittest.TestCase):
             native_stack=self.stack,
             prefix_numbers=(42, 43),
             merge_mode=MergeMode.DIRECT,
+            merge_method="squash",
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
                 frozenset({EffectKind.MERGE_PR}),
+                merge_method="squash",
             ),
             evidence=("merge snapshot",),
         )
@@ -755,10 +773,12 @@ class OperationManifestTests(unittest.TestCase):
                 native_stack=self.stack,
                 prefix_numbers=(43,),
                 merge_mode=MergeMode.DIRECT,
+                merge_method="merge",
                 authority=self._authority(
                     StackOperation.MERGE,
                     phases,
                     frozenset({EffectKind.MERGE_PR, EffectKind.SYNC_STACK}),
+                    merge_method="merge",
                 ),
                 evidence=("merge snapshot",),
             )
@@ -895,6 +915,7 @@ class ReadbackClassificationTests(unittest.TestCase):
             ),
             enabled_phases=(TransitionPhase.PUSH,),
             merge_mode=None,
+            merge_method=None,
             effects=effects,
             evidence=("snapshot",),
             authority=AuthorityGrant(

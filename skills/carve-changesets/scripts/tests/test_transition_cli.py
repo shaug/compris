@@ -22,6 +22,7 @@ import helpers  # noqa: E402
 from cli import main  # noqa: E402
 from common import CommandError  # noqa: E402
 from gh_stack import GhStackProfile, StackCapability  # noqa: E402
+from github import github_repo_for_remote as repo_for_remote  # noqa: E402
 from native_stack import (  # noqa: E402
     NativeLayer,
     NativePullRequest,
@@ -82,6 +83,13 @@ class TransitionCliTests(unittest.TestCase):
         )
         self.native_reader_mock = self.native_reader.start()
         self.addCleanup(self.native_reader.stop)
+        self.repository_reader = mock.patch.object(
+            cli_mod,
+            "github_repo_for_remote",
+            return_value="github.com/acme/widgets",
+        )
+        self.repository_reader.start()
+        self.addCleanup(self.repository_reader.stop)
         self.plan = self.root / "plan.json"
         self.plan.write_text(
             json.dumps(
@@ -170,6 +178,83 @@ class TransitionCliTests(unittest.TestCase):
                 ),
             )
         return output.getvalue()
+
+    def test_push_preview_uses_credential_free_canonical_repository_identity(
+        self,
+    ) -> None:
+        for remote_url in (
+            "https://token-user:secret@example.com/acme/widgets.git",
+            "git@example.com:acme/widgets.git",
+        ):
+            with self.subTest(remote_url=remote_url):
+                helpers.run(self.repo, "git", "remote", "set-url", "origin", remote_url)
+                output = StringIO()
+                with (
+                    mock.patch.object(
+                        cli_mod,
+                        "github_repo_for_remote",
+                        side_effect=repo_for_remote,
+                    ),
+                    mock.patch.object(cli_mod, "remote_branch_head", return_value=None),
+                    chdir(self.repo),
+                    redirect_stdout(output),
+                ):
+                    status = main(
+                        (
+                            "push-chain",
+                            "--plan",
+                            str(self.plan),
+                            "--allow-stack-state-refresh",
+                        )
+                    )
+
+                self.assertEqual(0, status)
+                manifest = json.loads(output.getvalue())
+                self.assertEqual("example.com/acme/widgets", manifest["repository"])
+                self.assertEqual(
+                    "example.com/acme/widgets", manifest["authority"]["repository"]
+                )
+                self.assertNotIn("secret", output.getvalue())
+
+    def test_push_preview_rejects_duplicate_remote_urls(self) -> None:
+        helpers.run(
+            self.repo,
+            "git",
+            "remote",
+            "set-url",
+            "origin",
+            "https://example.com/acme/widgets.git",
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "config",
+            "--add",
+            "remote.origin.url",
+            "git@example.com:acme/widgets.git",
+        )
+        output = StringIO()
+        with (
+            mock.patch.object(
+                cli_mod,
+                "github_repo_for_remote",
+                side_effect=repo_for_remote,
+            ),
+            mock.patch.object(cli_mod, "remote_branch_head", return_value=None),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("exactly one fetch URL; found 2", output.getvalue())
 
     def test_legacy_no_dry_run_cannot_bypass_manifest_execution(self) -> None:
         output = StringIO()
@@ -543,6 +628,7 @@ class TransitionCliTests(unittest.TestCase):
                 draft=False,
                 queued=False,
                 auto_merge=False,
+                merge_state_status="CLEAN",
                 title="Layer one",
                 body="Layer one body",
             ),
@@ -555,11 +641,154 @@ class TransitionCliTests(unittest.TestCase):
                 draft=False,
                 queued=False,
                 auto_merge=False,
+                merge_state_status="CLEAN",
                 title="Layer two",
                 body="Layer two body",
             ),
         }
         return chain, prs
+
+    def _single_open_merge_evidence(self):
+        chain, prs = self._published_chain()
+        chain.changesets = chain.changesets[:1]
+        prs = {41: prs[41]}
+        prs[41].state = "OPEN"
+        snapshot = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=self.main_head,
+            current_branch="feature/report-1",
+            layers=(
+                NativeLayer(
+                    branch="feature/report-1",
+                    head=self.head_one,
+                    base=self.main_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(41, "https://example/pr/41", "OPEN"),
+                ),
+            ),
+        )
+        return chain, prs, snapshot
+
+    def test_merge_execution_rejects_direct_method_drift_before_executor(self) -> None:
+        chain, prs, snapshot = self._single_open_merge_evidence()
+        self.native_reader_mock.return_value = snapshot
+        approved_output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            chdir(self.repo),
+            redirect_stdout(approved_output),
+        ):
+            self.assertEqual(
+                0,
+                main(
+                    (
+                        "merge-propagate",
+                        "--source",
+                        "feature/report",
+                        "--index",
+                        "1",
+                        "--method",
+                        "merge",
+                        "--allow-stack-state-refresh",
+                    )
+                ),
+            )
+        approved = self.root / "approved-method.json"
+        approved.write_text(approved_output.getvalue())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executor = mock.Mock()
+        output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "merge_propagate_from_live", executor),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--method",
+                    "squash",
+                    "--allow-stack-state-refresh",
+                    "--manifest",
+                    str(approved),
+                    "--execute",
+                    "--ack-direct-merge",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("manifest changed during pre-execution reread", output.getvalue())
+        executor.assert_not_called()
+
+    def test_merge_execution_rejects_gate_drift_before_executor(self) -> None:
+        chain, prs, snapshot = self._single_open_merge_evidence()
+        self.native_reader_mock.return_value = snapshot
+        approved_output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            chdir(self.repo),
+            redirect_stdout(approved_output),
+        ):
+            self.assertEqual(
+                0,
+                main(
+                    (
+                        "merge-propagate",
+                        "--source",
+                        "feature/report",
+                        "--index",
+                        "1",
+                        "--allow-stack-state-refresh",
+                    )
+                ),
+            )
+        approved = self.root / "approved-gates.json"
+        approved.write_text(approved_output.getvalue())
+        prs[41].merge_state_status = "BLOCKED"
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executor = mock.Mock()
+        output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "merge_propagate_from_live", executor),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--allow-stack-state-refresh",
+                    "--manifest",
+                    str(approved),
+                    "--execute",
+                    "--ack-direct-merge",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("manifest changed during pre-execution reread", output.getvalue())
+        executor.assert_not_called()
 
     def _published_snapshot(self, *, needs_rebase: bool) -> NativeStackSnapshot:
         return NativeStackSnapshot(

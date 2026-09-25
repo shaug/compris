@@ -435,21 +435,6 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
     _finish_transition(result)
 
 
-def _repository_identity(remote: str) -> str:
-    urls = [
-        line.strip()
-        for line in git(
-            "config", "--get-all", f"remote.{remote}.url"
-        ).stdout.splitlines()
-        if line.strip()
-    ]
-    if len(urls) != 1:
-        raise CommandError(
-            f"Git remote {remote!r} must have exactly one fetch URL; found {len(urls)}."
-        )
-    return urls[0]
-
-
 def _native_snapshot_for_transition(
     *, source: str, base: str, remote: str
 ) -> NativeStackSnapshot:
@@ -606,7 +591,7 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         )
     evidence.append(f"{remote}/refs/heads/{base}={snapshot.trunk_head}")
     evidence.append(f"native stack order={','.join(native_order)}")
-    repository = _repository_identity(remote)
+    repository = github_repo_for_remote(remote)
     return preview_push(
         repository=repository,
         remote=remote,
@@ -668,6 +653,7 @@ def _publish_manifest(
                 body=pr_body_for(plan, index, total, changeset),
                 current_title=None if live is None else live.title,
                 current_body=None if live is None else live.body,
+                merge_state_status=(None if live is None else live.merge_state_status),
             )
         )
     return preview_publish(
@@ -769,6 +755,7 @@ def _live_manifest_inputs(
                 body=live.body,
                 current_title=live.title,
                 current_body=live.body,
+                merge_state_status=live.merge_state_status,
             )
         )
         evidence.append(
@@ -887,6 +874,7 @@ def _merge_manifest(args: argparse.Namespace):
             f"({bottom!r})."
         )
     mode = MergeMode(args.merge_mode)
+    merge_method = args.method if mode is MergeMode.DIRECT else None
     if mode is MergeMode.DIRECT and len(open_suffix) > 1:
         raise CommandError(
             "Direct merge preview is blocked because exact automatic suffix heads "
@@ -919,6 +907,7 @@ def _merge_manifest(args: argparse.Namespace):
         native_stack=stack,
         prefix_numbers=(selected_pr.number,),
         merge_mode=mode,
+        merge_method=merge_method,
         authority=AuthorityGrant(
             operation=StackOperation.MERGE,
             repository=github_repo_for_remote(args.remote),
@@ -927,6 +916,7 @@ def _merge_manifest(args: argparse.Namespace):
             branches=identities,
             phases=phases,
             effect_kinds=effects,
+            merge_method=merge_method,
         ),
         evidence=evidence,
     )

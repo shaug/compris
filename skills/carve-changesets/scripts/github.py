@@ -502,6 +502,7 @@ def _pull_request_record(
         draft=bool(item.get("isDraft", False)),
         queued=queued,
         auto_merge=item.get("autoMergeRequest") is not None,
+        merge_state_status=str(item.get("mergeStateStatus") or ""),
     )
 
 
