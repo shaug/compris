@@ -761,6 +761,181 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
         self.assertIn("Suffix recovery completed", output)
 
+    def test_public_repeated_recovery_rejects_missing_later_prior_boundary(
+        self,
+    ) -> None:
+        current_head, requested_branch = (
+            self._prepare_completed_multilayer_legacy_recovery()
+        )
+
+        def fail_on_later_metadata_update(number: int, **kwargs) -> None:
+            if number == 103:
+                raise CommandError("injected before later metadata update")
+            self._edit(number, **kwargs)
+
+        with self.assertRaisesRegex(CommandError, "injected before later"):
+            self._run_recovery(
+                edit_side_effect=fail_on_later_metadata_update,
+                successor_branch=requested_branch,
+                successor_sha=current_head,
+            )
+
+        interrupted_head = self._remote_head("feature/report-3")
+        original_body = self.prs[103].body
+        self.prs[103] = PullRequestRecord(
+            **{**self.prs[103].__dict__, "head_rewrite_edges": ()}
+        )
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=requested_branch,
+                successor_sha=current_head,
+            )
+
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-3"))
+        self.assertEqual(original_body, self.prs[103].body)
+
+    def test_public_repeated_recovery_fetches_later_rewrite_objects(self) -> None:
+        boundary_head, current_head, original_requested = (
+            self._prepare_completed_legacy_recovery(prove_boundary=True)
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            "--delete",
+            original_requested,
+        )
+        boundary_tree = helpers.run(
+            self.repo,
+            "git",
+            "rev-parse",
+            f"{boundary_head}^{{tree}}",
+        )
+        boundary_parent = helpers.run(
+            self.repo,
+            "git",
+            "show",
+            "-s",
+            "--format=%P",
+            boundary_head,
+        )
+        boundary_message = helpers.run(
+            self.repo,
+            "git",
+            "show",
+            "-s",
+            "--format=%B",
+            boundary_head,
+        )
+        rewritten_head = helpers.run(
+            self.repo,
+            "git",
+            "-c",
+            "user.name=Recovery Rewrite",
+            "-c",
+            "user.email=rewrite@example.test",
+            "commit-tree",
+            boundary_tree,
+            "-p",
+            boundary_parent,
+            input_text=boundary_message,
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            f"{rewritten_head}:refs/heads/feature/report-2",
+            f"--force-with-lease=refs/heads/feature/report-2:{current_head}",
+        )
+
+        helpers.run(
+            self.repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-later-tail",
+            rewritten_head,
+        )
+        (self.repo / "later-tail.txt").write_text("later accepted tail\n")
+        helpers.run(self.repo, "git", "add", "later-tail.txt")
+        metadata = parse_commit_message(boundary_message)
+        final_head = helpers.commit(
+            self.repo,
+            stamp_commit_message("fix: preserve later tail", metadata),
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            "HEAD:refs/heads/feature/report-2",
+        )
+        requested_branch = "feature/report-later-final"
+        helpers.run(self.repo, "git", "branch", requested_branch, final_head)
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "-u",
+            "origin",
+            requested_branch,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": final_head,
+                "head_rewrite_edges": (
+                    (self.fixed_head, boundary_head),
+                    (current_head, rewritten_head),
+                ),
+            }
+        )
+
+        fresh_clone = self.temp_dir / "fresh-later-rewrite"
+        helpers.run(
+            self.temp_dir,
+            "git",
+            "clone",
+            "--no-local",
+            str(self.bare),
+            str(fresh_clone),
+        )
+        output = io.StringIO()
+        with (
+            chdir(fresh_clone),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=self._all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=self._live_pr,
+            ),
+            mock.patch.object(recovery_mod, "edit_pull_request"),
+            mock.patch.object(recovery_mod, "_verify_merged_on_base"),
+            contextlib.redirect_stdout(output),
+        ):
+            recover_suffix_from_live(
+                source="feature/report",
+                base="main",
+                from_index=2,
+                successor_branch=requested_branch,
+                successor_sha=final_head,
+                remote="origin",
+                dry_run=True,
+                authority_acknowledged=True,
+            )
+
+        self.assertIn("Dry-run suffix recovery passed", output.getvalue())
+
     def test_public_recovery_extends_multilayer_legacy_successor_lineage(
         self,
     ) -> None:

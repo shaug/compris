@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -319,69 +319,17 @@ def _validate_completed_recovery_provenance(
 
         current = start
         for before, after in record.pr_head_rewrite_edges[boundary_index + 1 :]:
+            try:
+                _ensure_commit_available(repo, before, remote=remote)
+                _ensure_commit_available(repo, after, remote=remote)
+            except RehydrationError:
+                return None
             if proves_linear_tail(current, end):
                 return current
             if before != current and not proves_linear_tail(current, before):
                 return None
             current = after
         return current if proves_linear_tail(current, end) else None
-
-    def proves_prior_single_record_history(
-        record: ChangesetRecord,
-        head: str,
-        metadata: ChangesetMetadata,
-    ) -> bool:
-        """Authenticate earlier successor restamps retained by one open head."""
-
-        if len(metadata.source_lineage) == 1:
-            return True
-        predecessor = metadata.recovery_from_head
-        if predecessor is None:
-            return False
-        try:
-            _ensure_commit_available(repo, predecessor, remote=remote)
-            predecessor_message = _git(repo, "show", "-s", "--format=%B", predecessor)
-            predecessor_metadata = parse_commit_message(
-                predecessor_message,
-                remote=remote,
-            )
-            boundary_result = remote_rewrite_boundary(
-                record,
-                predecessor,
-                expected_metadata=metadata,
-            )
-            if boundary_result is None:
-                return False
-            boundary, _ = boundary_result
-            boundary_message = _git(repo, "show", "-s", "--format=%B", boundary)
-            boundary_metadata = parse_commit_message(
-                boundary_message,
-                remote=remote,
-            )
-            same_tree = _git(repo, "rev-parse", f"{boundary}^{{tree}}") == _git(
-                repo, "rev-parse", f"{predecessor}^{{tree}}"
-            )
-            same_parents = (
-                _git(repo, "show", "-s", "--format=%P", boundary).split()
-                == _git(repo, "show", "-s", "--format=%P", predecessor).split()
-            )
-        except (MetadataError, RehydrationError):
-            return False
-        return (
-            predecessor_metadata.slug == metadata.slug
-            and predecessor_metadata.source_lineage == metadata.source_lineage[:-1]
-            and boundary_metadata == metadata
-            and same_tree
-            and same_parents
-            and proves_linear_tail(boundary, head)
-            and stamp_commit_message(predecessor_message, metadata).strip()
-            == boundary_message.strip()
-            and proves_prior_single_record_history(
-                record,
-                predecessor,
-                predecessor_metadata,
-            )
-        )
 
     def proves_prior_rewrite_path(
         record: ChangesetRecord, start: str, end: str
@@ -464,6 +412,51 @@ def _validate_completed_recovery_provenance(
         lineage = record.metadata.source_lineage
         if len(lineage) == 1:
             continue
+        if len(lineage) > 2 and (
+            offset == 0 or records[offset - 1].metadata.source_lineage != lineage
+        ):
+            group = []
+            for candidate in records[offset:]:
+                if candidate.metadata.source_lineage != lineage:
+                    break
+                group.append(candidate)
+            prior_records = []
+            try:
+                for candidate in group:
+                    prior_head = candidate.metadata.recovery_from_head
+                    if prior_head is None:
+                        raise RehydrationError("prior recovery head is missing")
+                    _ensure_commit_available(repo, prior_head, remote=remote)
+                    prior_metadata = parse_commit_message(
+                        _git(repo, "show", "-s", "--format=%B", prior_head),
+                        remote=remote,
+                    )
+                    if prior_metadata.source_lineage != lineage[:-1]:
+                        raise RehydrationError("prior recovery lineage is invalid")
+                    prior_pr_metadata = (
+                        candidate.pr_metadata
+                        if candidate.pr_metadata is not None
+                        and candidate.pr_metadata.source_lineage == lineage[:-1]
+                        else None
+                    )
+                    prior_records.append(
+                        replace(
+                            candidate,
+                            metadata=prior_metadata,
+                            head=prior_head,
+                            pr_metadata=prior_pr_metadata,
+                        )
+                    )
+                _validate_completed_recovery_provenance(
+                    prior_records,
+                    repo=repo,
+                    remote=remote,
+                )
+            except (MetadataError, RehydrationError) as exc:
+                raise RehydrationError(
+                    f"Changeset branch {record.branch} cannot prove its exact "
+                    "pre-recovery head."
+                ) from exc
         predecessor = record.metadata.recovery_from_head
         if predecessor is None:
             raise RehydrationError(
@@ -512,15 +505,6 @@ def _validate_completed_recovery_provenance(
 
         parent_proven = current_parents == expected_parents
         later_history_proven = proves_linear_tail(proof_head, record.head)
-        prior_history_proven = True
-        if len(lineage) > 2 and (
-            offset == 0 or records[offset - 1].metadata.source_lineage != lineage
-        ):
-            prior_history_proven = proves_prior_single_record_history(
-                record,
-                predecessor,
-                predecessor_metadata,
-            )
         if offset > 0:
             previous = records[offset - 1]
             if previous.metadata.source_lineage == lineage:
@@ -588,7 +572,6 @@ def _validate_completed_recovery_provenance(
             or not same_tree
             or not parent_proven
             or not later_history_proven
-            or not prior_history_proven
             or stamp_commit_message(predecessor_message, record.metadata).strip()
             != proof_message.strip()
         ):
