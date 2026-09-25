@@ -70,6 +70,7 @@ from transitions import (
     ZERO_SHA,
     AuthorityGrant,
     EffectKind,
+    ExpectedNativeLayer,
     ExpectedNativeStack,
     ExpectedPullRequest,
     ExpectedRef,
@@ -382,6 +383,10 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
         pr_create(plan, indices=indices, dry_run=args.dry_run, remote=args.remote)
         return
     if args.execute:
+        if args.ready_for_review and not args.ack_ready_for_review:
+            raise CommandError(
+                "--execute with --ready-for-review requires --ack-ready-for-review"
+            )
         _require_supported_execution(
             acknowledged=args.ack_submit,
             acknowledgement="--ack-submit",
@@ -393,6 +398,7 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
         remote=args.remote,
         indices=indices,
         allow_stack_state_refresh=args.allow_stack_state_refresh,
+        ready_for_review=args.ready_for_review,
     )
     if not args.execute:
         print(manifest_to_json(current), end="")
@@ -406,6 +412,7 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
             remote=args.remote,
             indices=indices,
             allow_stack_state_refresh=args.allow_stack_state_refresh,
+            ready_for_review=args.ready_for_review,
         ),
         executor=lambda _manifest: pr_create(
             plan, indices=indices, dry_run=False, remote=args.remote
@@ -417,6 +424,7 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
                 remote=args.remote,
                 indices=indices,
                 allow_stack_state_refresh=args.allow_stack_state_refresh,
+                ready_for_review=args.ready_for_review,
             ),
         ),
     )
@@ -536,9 +544,26 @@ def _expected_native_stack(
 ) -> ExpectedNativeStack:
     return ExpectedNativeStack(
         identity=source,
+        registered=any(layer.pull_request is not None for layer in snapshot.layers),
         trunk=snapshot.trunk_branch,
         trunk_head=snapshot.trunk_head,
-        order=tuple(layer.branch for layer in snapshot.layers),
+        layers=tuple(
+            ExpectedNativeLayer(
+                branch=layer.branch,
+                head=layer.head,
+                base=layer.base,
+                merged=layer.merged,
+                queued=layer.queued,
+                needs_rebase=layer.needs_rebase,
+                pull_request=(
+                    None if layer.pull_request is None else layer.pull_request.number
+                ),
+                pull_request_state=(
+                    None if layer.pull_request is None else layer.pull_request.state
+                ),
+            )
+            for layer in snapshot.layers
+        ),
     )
 
 
@@ -598,6 +623,7 @@ def _publish_manifest(
     remote: str,
     indices: Sequence[int] | None = None,
     allow_stack_state_refresh: bool = False,
+    ready_for_review: bool = False,
 ):
     push = _push_manifest(
         plan,
@@ -655,6 +681,11 @@ def _publish_manifest(
             repository=github_repo_for_remote(remote),
             remote=remote,
             branches=tuple(item.branch for item in expected_pull_requests),
+            ready_for_review=(
+                tuple(item.branch for item in expected_pull_requests)
+                if ready_for_review
+                else ()
+            ),
         ),
         evidence=(
             *push.evidence,
@@ -1523,6 +1554,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_plan(item)
     item.add_argument("--index", type=int)
     item.add_argument("--remote", default="origin")
+    item.add_argument(
+        "--ready-for-review",
+        action="store_true",
+        help="Request ready pull requests instead of the default draft state",
+    )
+    item.add_argument(
+        "--ack-ready-for-review",
+        action="store_true",
+        help="Acknowledge the separate draft-to-ready authority grant",
+    )
     _add_remote_dry_run(item)
     _add_transition_options(item, ("--ack-submit", "ack_submit"))
     item.set_defaults(func=cmd_pr_create)

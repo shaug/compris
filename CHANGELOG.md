@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-25 — Fenced native transitions and materialized stacks
 
+- fix: preserve every native transition selector and automatic effect
+
 - feat: fence native stack transitions by capability
 
 - docs: complete native materialization change journal

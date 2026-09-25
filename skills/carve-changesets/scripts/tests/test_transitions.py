@@ -9,6 +9,7 @@ from transitions import (
     ZERO_SHA,
     AuthorityGrant,
     EffectKind,
+    ExpectedNativeLayer,
     ExpectedNativeStack,
     ExpectedPullRequest,
     ExpectedRef,
@@ -72,9 +73,31 @@ def publish_manifest() -> MutationManifest:
     )
     stack = ExpectedNativeStack(
         identity="stack-9",
+        registered=False,
         trunk="main",
         trunk_head=SHA_A,
-        order=("feature-1", "feature-2"),
+        layers=(
+            ExpectedNativeLayer(
+                branch="feature-1",
+                head=SHA_A,
+                base=SHA_A,
+                merged=False,
+                queued=False,
+                needs_rebase=False,
+                pull_request=41,
+                pull_request_state="OPEN",
+            ),
+            ExpectedNativeLayer(
+                branch="feature-2",
+                head=SHA_B,
+                base=SHA_A,
+                merged=False,
+                queued=False,
+                needs_rebase=False,
+                pull_request=None,
+                pull_request_state=None,
+            ),
+        ),
     )
     return preview_publish(
         repository="shaug/compris",
@@ -126,6 +149,41 @@ class PublishManifestTests(unittest.TestCase):
         self.assertEqual(
             ("feature-1", "feature-2"), manifest.expected_native_stack.order
         )
+        registration = next(
+            effect
+            for effect in manifest.effects
+            if effect.kind is EffectKind.REGISTER_STACK
+        )
+        self.assertIsNone(registration.before)
+        self.assertEqual("stack-9", registration.after)
+        created = next(
+            effect for effect in manifest.effects if effect.kind is EffectKind.CREATE_PR
+        )
+        self.assertTrue(created.after[5], "new pull requests default to draft")
+
+    def test_ready_for_review_requires_distinct_branch_authority(self) -> None:
+        manifest = publish_manifest()
+        grant = replace(
+            manifest.authority,
+            ready_for_review=("feature-2",),
+            effect_kinds=manifest.authority.effect_kinds
+            | frozenset({EffectKind.READY_PR}),
+        )
+
+        ready = preview_publish(
+            repository=manifest.repository,
+            remote=manifest.remote,
+            refs=manifest.expected_refs,
+            pull_requests=manifest.expected_pull_requests,
+            native_stack=manifest.expected_native_stack,
+            authority=grant,
+            evidence=manifest.evidence,
+        )
+
+        created = next(
+            effect for effect in ready.effects if effect.kind is EffectKind.CREATE_PR
+        )
+        self.assertFalse(created.after[5])
 
     def test_publish_binds_live_pr_text_separately_from_proposed_text(self) -> None:
         manifest = publish_manifest()
@@ -371,9 +429,31 @@ class OperationManifestTests(unittest.TestCase):
         )
         self.stack = ExpectedNativeStack(
             identity="stack-9",
+            registered=True,
             trunk="main",
             trunk_head=SHA_A,
-            order=("feature-2", "feature-3"),
+            layers=(
+                ExpectedNativeLayer(
+                    branch="feature-2",
+                    head=SHA_A,
+                    base=SHA_A,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=42,
+                    pull_request_state="OPEN",
+                ),
+                ExpectedNativeLayer(
+                    branch="feature-3",
+                    head=SHA_B,
+                    base=SHA_A,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=43,
+                    pull_request_state="OPEN",
+                ),
+            ),
         )
 
     def _authority(
@@ -455,13 +535,25 @@ class OperationManifestTests(unittest.TestCase):
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
-                frozenset({EffectKind.MERGE_PR, EffectKind.SYNC_STACK}),
+                frozenset(
+                    {
+                        EffectKind.MERGE_PR,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
             ),
             evidence=("merge snapshot",),
         )
 
         self.assertEqual(
-            (EffectKind.MERGE_PR, EffectKind.SYNC_STACK),
+            (
+                EffectKind.MERGE_PR,
+                EffectKind.PUSH_REF,
+                EffectKind.UPDATE_PR,
+                EffectKind.SYNC_STACK,
+            ),
             tuple(effect.kind for effect in manifest.effects),
         )
         self.assertEqual((42,), manifest.merge_prefix)
@@ -471,20 +563,35 @@ class OperationManifestTests(unittest.TestCase):
         manifest = preview_merge(
             repository="shaug/compris",
             remote="origin",
+            refs=self.refs,
             pull_requests=self.pull_requests,
             native_stack=self.stack,
-            prefix_numbers=(42, 43),
+            prefix_numbers=(42,),
             merge_mode=MergeMode.QUEUE,
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
-                frozenset({EffectKind.QUEUE_PR, EffectKind.MERGE_PR}),
+                frozenset(
+                    {
+                        EffectKind.QUEUE_PR,
+                        EffectKind.MERGE_PR,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
             ),
             evidence=("queue snapshot",),
         )
 
         self.assertEqual(
-            (EffectKind.QUEUE_PR, EffectKind.MERGE_PR),
+            (
+                EffectKind.QUEUE_PR,
+                EffectKind.MERGE_PR,
+                EffectKind.PUSH_REF,
+                EffectKind.UPDATE_PR,
+                EffectKind.SYNC_STACK,
+            ),
             tuple(effect.kind for effect in manifest.effects),
         )
         self.assertEqual("pr:42", manifest.effects[0].target)
@@ -609,7 +716,7 @@ class OperationManifestTests(unittest.TestCase):
             manifest,
             expected_native_stack=replace(
                 manifest.expected_native_stack,
-                order=("feature-2", "feature-1"),
+                layers=tuple(reversed(manifest.expected_native_stack.layers)),
             ),
         )
         profile = replace(
@@ -646,9 +753,21 @@ class ReadbackClassificationTests(unittest.TestCase):
             expected_pull_requests=(),
             expected_native_stack=ExpectedNativeStack(
                 identity="stack-9",
+                registered=True,
                 trunk="main",
                 trunk_head=SHA_A,
-                order=("feature-1",),
+                layers=(
+                    ExpectedNativeLayer(
+                        branch="feature-1",
+                        head=SHA_A,
+                        base=SHA_A,
+                        merged=False,
+                        queued=False,
+                        needs_rebase=False,
+                        pull_request=None,
+                        pull_request_state=None,
+                    ),
+                ),
             ),
             enabled_phases=(TransitionPhase.PUSH,),
             merge_mode=None,

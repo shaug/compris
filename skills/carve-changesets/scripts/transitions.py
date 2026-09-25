@@ -50,6 +50,7 @@ class EffectKind(str, Enum):
     REFRESH_TRUNK = "refresh_trunk"
     MERGE_PR = "merge_pr"
     QUEUE_PR = "queue_pr"
+    READY_PR = "ready_pr"
 
 
 class TargetDisposition(str, Enum):
@@ -191,15 +192,26 @@ class ExpectedPullRequest:
         )
 
     def proposed_record(
-        self, *, expected_head: str, expected_base: str
+        self,
+        *,
+        expected_head: str,
+        expected_base: str,
+        ready_for_review: bool = False,
     ) -> tuple[object, ...]:
+        proposed_draft = (
+            not ready_for_review
+            if self.state == "ABSENT"
+            else False
+            if ready_for_review
+            else self.draft
+        )
         return (
             self.number,
             self.branch,
             expected_head,
             expected_base,
             "OPEN",
-            False if self.draft is None else self.draft,
+            proposed_draft,
             False,
             False,
             self.title,
@@ -208,25 +220,92 @@ class ExpectedPullRequest:
 
 
 @dataclass(frozen=True)
+class ExpectedNativeLayer:
+    branch: str
+    head: str
+    base: str
+    merged: bool
+    queued: bool
+    needs_rebase: bool
+    pull_request: int | None
+    pull_request_state: str | None
+
+    def validate(self) -> None:
+        if not self.branch.strip():
+            raise ManifestError("expected native layer branch must be non-empty")
+        for label, sha in (("head", self.head), ("base", self.base)):
+            if len(sha) != 40 or any(
+                character not in "0123456789abcdef" for character in sha
+            ):
+                raise ManifestError(
+                    f"native layer {self.branch} {label} must be a full SHA"
+                )
+        for label, value in (
+            ("merged", self.merged),
+            ("queued", self.queued),
+            ("needs-rebase", self.needs_rebase),
+        ):
+            if not isinstance(value, bool):
+                raise ManifestError(
+                    f"native layer {self.branch} {label} must be boolean"
+                )
+        if self.pull_request is None:
+            if self.pull_request_state is not None:
+                raise ManifestError(
+                    f"native layer {self.branch} has PR state without identity"
+                )
+            if self.merged or self.queued:
+                raise ManifestError(
+                    f"native layer {self.branch} has merge/queue state without a PR"
+                )
+        else:
+            if (
+                not isinstance(self.pull_request, int)
+                or isinstance(self.pull_request, bool)
+                or self.pull_request < 1
+            ):
+                raise ManifestError(
+                    f"native layer {self.branch} PR must be a positive integer"
+                )
+            if self.pull_request_state not in {"OPEN", "CLOSED", "MERGED"}:
+                raise ManifestError(f"native layer {self.branch} has invalid PR state")
+            if self.merged != (self.pull_request_state == "MERGED"):
+                raise ManifestError(
+                    f"native layer {self.branch} merged flag disagrees with PR state"
+                )
+
+
+@dataclass(frozen=True)
 class ExpectedNativeStack:
     identity: str | None
+    registered: bool
     trunk: str
     trunk_head: str
-    order: tuple[str, ...]
+    layers: tuple[ExpectedNativeLayer, ...]
+
+    @property
+    def order(self) -> tuple[str, ...]:
+        return tuple(layer.branch for layer in self.layers)
 
     def validate(self) -> None:
         if self.identity is not None and (
             not isinstance(self.identity, str) or not self.identity.strip()
         ):
             raise ManifestError("expected native stack identity must be non-empty")
+        if not isinstance(self.registered, bool):
+            raise ManifestError("expected native stack registration must be boolean")
+        if self.registered and self.identity is None:
+            raise ManifestError("registered native stack needs an exact identity")
         if not self.trunk.strip():
             raise ManifestError("expected native stack trunk must be non-empty")
         if len(self.trunk_head) != 40 or any(
             character not in "0123456789abcdef" for character in self.trunk_head
         ):
             raise ManifestError("expected native stack trunk head must be a full SHA")
-        if not self.order or any(not branch.strip() for branch in self.order):
+        if not self.layers:
             raise ManifestError("expected native stack order must name every layer")
+        for layer in self.layers:
+            layer.validate()
         if len(set(self.order)) != len(self.order):
             raise ManifestError("expected native stack order contains duplicates")
 
@@ -253,6 +332,7 @@ class AuthorityGrant:
     branches: tuple[str, ...]
     phases: frozenset[TransitionPhase]
     effect_kinds: frozenset[EffectKind]
+    ready_for_review: tuple[str, ...] = ()
 
     @classmethod
     def publish(
@@ -261,8 +341,10 @@ class AuthorityGrant:
         repository: str,
         remote: str,
         branches: Sequence[str],
+        ready_for_review: Sequence[str] = (),
     ) -> AuthorityGrant:
         selected = tuple(branches)
+        ready = tuple(ready_for_review)
         return cls(
             operation=StackOperation.PUBLISH,
             repository=repository,
@@ -277,8 +359,10 @@ class AuthorityGrant:
                     EffectKind.UPDATE_PR,
                     EffectKind.DISABLE_AUTO_MERGE,
                     EffectKind.REGISTER_STACK,
+                    *({EffectKind.READY_PR} if ready else set()),
                 }
             ),
+            ready_for_review=ready,
         )
 
 
@@ -333,6 +417,14 @@ class MutationManifest:
         if len(set(pr_numbers)) != len(pr_numbers):
             raise ManifestError("manifest contains duplicate pull-request identities")
         self.expected_native_stack.validate()
+        if len(set(self.authority.ready_for_review)) != len(
+            self.authority.ready_for_review
+        ):
+            raise ManifestError("ready-for-review authority contains duplicates")
+        if set(self.authority.ready_for_review) - set(self.authority.branches):
+            raise ManifestError(
+                "ready-for-review authority is outside the granted branches"
+            )
         keys = tuple(effect.key for effect in self.effects)
         if len(set(keys)) != len(keys):
             raise ManifestError("manifest has duplicate target-field effects")
@@ -380,11 +472,21 @@ class MutationManifest:
                             "auto_merge",
                         )
                     )
+                if pull_request.branch in self.authority.ready_for_review and (
+                    pull_request.draft is not False
+                ):
+                    required_effects.add(
+                        (
+                            EffectKind.READY_PR,
+                            f"pr:{identity}",
+                            "draft",
+                        )
+                    )
             required_effects.add(
                 (
                     EffectKind.REGISTER_STACK,
                     f"stack:{self.expected_native_stack.identity or 'absent'}",
-                    "order",
+                    "identity",
                 )
             )
         if TransitionPhase.REBASE_NO_TRUNK in self.enabled_phases:
@@ -570,9 +672,22 @@ def manifest_to_json(manifest: MutationManifest) -> str:
         ],
         "expected_native_stack": {
             "identity": manifest.expected_native_stack.identity,
+            "registered": manifest.expected_native_stack.registered,
             "trunk": manifest.expected_native_stack.trunk,
             "trunk_head": manifest.expected_native_stack.trunk_head,
-            "order": list(manifest.expected_native_stack.order),
+            "layers": [
+                {
+                    "branch": item.branch,
+                    "head": item.head,
+                    "base": item.base,
+                    "merged": item.merged,
+                    "queued": item.queued,
+                    "needs_rebase": item.needs_rebase,
+                    "pull_request": item.pull_request,
+                    "pull_request_state": item.pull_request_state,
+                }
+                for item in manifest.expected_native_stack.layers
+            ],
         },
         "enabled_phases": [item.value for item in manifest.enabled_phases],
         "merge_mode": manifest.merge_mode.value if manifest.merge_mode else None,
@@ -598,6 +713,7 @@ def manifest_to_json(manifest: MutationManifest) -> str:
             "effect_kinds": sorted(
                 item.value for item in manifest.authority.effect_kinds
             ),
+            "ready_for_review": list(manifest.authority.ready_for_review),
         },
     }
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -667,9 +783,27 @@ def manifest_from_json(raw: str) -> MutationManifest:
         stack_data = _object(root["expected_native_stack"], "expected_native_stack")
         native_stack = ExpectedNativeStack(
             identity=stack_data["identity"],
+            registered=stack_data["registered"],
             trunk=str(stack_data["trunk"]),
             trunk_head=str(stack_data["trunk_head"]),
-            order=_strings(stack_data["order"], "expected_native_stack.order"),
+            layers=tuple(
+                ExpectedNativeLayer(
+                    branch=str(item["branch"]),
+                    head=str(item["head"]),
+                    base=str(item["base"]),
+                    merged=item["merged"],
+                    queued=item["queued"],
+                    needs_rebase=item["needs_rebase"],
+                    pull_request=item["pull_request"],
+                    pull_request_state=item["pull_request_state"],
+                )
+                for item in (
+                    _object(value, "expected native layer")
+                    for value in _array(
+                        stack_data["layers"], "expected_native_stack.layers"
+                    )
+                )
+            ),
         )
         effects = tuple(
             MutationEffect(
@@ -699,6 +833,9 @@ def manifest_from_json(raw: str) -> MutationManifest:
                 for item in _strings(
                     authority_data["effect_kinds"], "authority.effect_kinds"
                 )
+            ),
+            ready_for_review=_strings(
+                authority_data["ready_for_review"], "authority.ready_for_review"
             ),
         )
         merge_mode_value = root["merge_mode"]
@@ -810,6 +947,7 @@ def preview_publish(
             if branch_index == 0
             else native_stack.order[branch_index - 1]
         )
+        ready_for_review = pull_request.branch in authority.ready_for_review
         effects.append(
             MutationEffect(
                 EffectKind.CREATE_PR
@@ -819,10 +957,22 @@ def preview_publish(
                 "record",
                 None if pull_request.state == "ABSENT" else pull_request.record,
                 pull_request.proposed_record(
-                    expected_head=proposed_head, expected_base=predecessor
+                    expected_head=proposed_head,
+                    expected_base=predecessor,
+                    ready_for_review=ready_for_review,
                 ),
             )
         )
+        if ready_for_review and pull_request.draft is not False:
+            effects.append(
+                MutationEffect(
+                    EffectKind.READY_PR,
+                    f"pr:{pull_request.number if pull_request.number is not None else pull_request.branch}",
+                    "draft",
+                    pull_request.draft,
+                    False,
+                )
+            )
     for pull_request in expected_pull_requests:
         if pull_request.auto_merge is True:
             effects.append(
@@ -838,9 +988,9 @@ def preview_publish(
         MutationEffect(
             EffectKind.REGISTER_STACK,
             f"stack:{native_stack.identity or 'absent'}",
-            "order",
-            native_stack.order,
-            native_stack.order,
+            "identity",
+            native_stack.identity if native_stack.registered else None,
+            native_stack.identity,
         )
     )
     manifest = MutationManifest(
@@ -1033,6 +1183,23 @@ def preview_merge(
             "merge prefix must be an ordered bottom prefix of open pull requests"
         )
     effects: list[MutationEffect] = []
+    suffix = tuple(item for item in expected_pull_requests if item.number not in prefix)
+    ref_by_branch = {
+        item.name.removeprefix("refs/heads/"): item for item in expected_refs
+    }
+    if suffix:
+        unknown = tuple(
+            item.branch
+            for item in suffix
+            if item.branch not in ref_by_branch
+            or ref_by_branch[item.branch].old_sha
+            == ref_by_branch[item.branch].proposed_sha
+        )
+        if unknown:
+            raise ManifestError(
+                "merge preview cannot approve unknown automatic suffix heads: "
+                f"{unknown!r}"
+            )
     if merge_mode is MergeMode.DIRECT:
         for number in prefix:
             effects.append(
@@ -1042,30 +1209,6 @@ def preview_merge(
                     "state",
                     by_number[number].state,
                     "MERGED",
-                )
-            )
-        suffix = tuple(
-            item.branch for item in expected_pull_requests if item.number not in prefix
-        )
-        ref_by_branch = {
-            item.name.removeprefix("refs/heads/"): item for item in expected_refs
-        }
-        for branch in suffix:
-            expected_ref = ref_by_branch.get(branch)
-            if (
-                expected_ref is None
-                or expected_ref.old_sha == expected_ref.proposed_sha
-            ):
-                raise ManifestError(
-                    "direct merge preview cannot approve unknown automatic suffix heads"
-                )
-            effects.append(
-                MutationEffect(
-                    EffectKind.SYNC_STACK,
-                    f"stack:{native_stack.identity or 'absent'}:{branch}",
-                    "head",
-                    expected_ref.old_sha,
-                    expected_ref.proposed_sha,
                 )
             )
         phases = (TransitionPhase.DIRECT_MERGE,)
@@ -1094,6 +1237,39 @@ def preview_merge(
             )
         )
         phases = (TransitionPhase.QUEUE_MERGE,)
+    predecessor = native_stack.trunk
+    for pull_request in suffix:
+        expected_ref = ref_by_branch[pull_request.branch]
+        effects.extend(
+            (
+                MutationEffect(
+                    EffectKind.PUSH_REF,
+                    f"ref:{pull_request.branch}",
+                    "sha",
+                    expected_ref.old_sha,
+                    expected_ref.proposed_sha,
+                ),
+                MutationEffect(
+                    EffectKind.UPDATE_PR,
+                    f"pr:{pull_request.number}",
+                    "record",
+                    pull_request.record,
+                    _expected_pr_after(
+                        pull_request,
+                        expected_head=expected_ref.proposed_sha,
+                        expected_base=predecessor,
+                    ),
+                ),
+                MutationEffect(
+                    EffectKind.SYNC_STACK,
+                    f"stack:{native_stack.identity or 'absent'}:{pull_request.branch}",
+                    "head",
+                    expected_ref.old_sha,
+                    expected_ref.proposed_sha,
+                ),
+            )
+        )
+        predecessor = pull_request.branch
     manifest = MutationManifest(
         operation=StackOperation.MERGE,
         repository=repository,
@@ -1253,8 +1429,19 @@ def observation_from_manifest(
             observed = None if pr is None or pr.state == "ABSENT" else pr.record
         elif effect.kind is EffectKind.DISABLE_AUTO_MERGE:
             observed = prs_by_number[int(identity)].auto_merge
+        elif effect.kind is EffectKind.READY_PR:
+            pr = prs_by_branch.get(identity)
+            if pr is None and identity.isdigit():
+                pr = prs_by_number.get(int(identity))
+            observed = None if pr is None or pr.state == "ABSENT" else pr.draft
         elif effect.kind in {EffectKind.REGISTER_STACK, EffectKind.SYNC_STACK}:
-            if effect.field == "order":
+            if effect.field == "identity":
+                observed = (
+                    current.expected_native_stack.identity
+                    if current.expected_native_stack.registered
+                    else None
+                )
+            elif effect.field == "order":
                 observed = current.expected_native_stack.order
             elif effect.field == "head":
                 branch = identity.rpartition(":")[2]

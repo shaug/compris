@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import chdir, redirect_stdout
+from dataclasses import replace
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,6 +21,7 @@ import cli as cli_mod  # noqa: E402
 import helpers  # noqa: E402
 from cli import main  # noqa: E402
 from common import CommandError  # noqa: E402
+from gh_stack import GhStackProfile, StackCapability  # noqa: E402
 from native_stack import (  # noqa: E402
     NativeLayer,
     NativePullRequest,
@@ -227,6 +229,81 @@ class TransitionCliTests(unittest.TestCase):
                 "refs/heads/feature/report-*",
             ),
         )
+
+    def test_push_execution_rejects_each_native_target_selector_drift(self) -> None:
+        published = NativeStackSnapshot(
+            trunk_branch=self.native_snapshot.trunk_branch,
+            trunk_head=self.native_snapshot.trunk_head,
+            current_branch=self.native_snapshot.current_branch,
+            layers=(
+                replace(
+                    self.native_snapshot.layers[0],
+                    pull_request=NativePullRequest(41, "https://example/pr/41", "OPEN"),
+                ),
+                replace(
+                    self.native_snapshot.layers[1],
+                    pull_request=NativePullRequest(42, "https://example/pr/42", "OPEN"),
+                ),
+            ),
+        )
+        self.native_reader_mock.return_value = published
+        approved = self.root / "approved.json"
+        approved.write_text(self._preview_manifest())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        first = published.layers[0]
+        changes = {
+            "merged": replace(
+                first,
+                merged=True,
+                pull_request=replace(first.pull_request, state="MERGED"),
+            ),
+            "queued": replace(first, queued=True),
+            "needs_rebase": replace(first, needs_rebase=True),
+            "pull_request_identity": replace(
+                first,
+                pull_request=replace(first.pull_request, number=99),
+            ),
+            "pull_request_state": replace(
+                first,
+                pull_request=replace(first.pull_request, state="CLOSED"),
+            ),
+        }
+        for selector, changed in changes.items():
+            with self.subTest(selector=selector):
+                self.native_reader_mock.return_value = replace(
+                    published, layers=(changed, published.layers[1])
+                )
+                output = StringIO()
+                with (
+                    mock.patch.object(
+                        cli_mod, "_reviewed_profile", return_value=profile
+                    ),
+                    mock.patch.object(cli_mod, "push_chain") as executor,
+                    chdir(self.repo),
+                    redirect_stdout(output),
+                ):
+                    status = main(
+                        (
+                            "push-chain",
+                            "--plan",
+                            str(self.plan),
+                            "--manifest",
+                            str(approved),
+                            "--execute",
+                            "--ack-push",
+                            "--allow-stack-state-refresh",
+                        )
+                    )
+
+                self.assertEqual(1, status)
+                self.assertIn(
+                    "manifest changed during pre-execution reread", output.getvalue()
+                )
+                executor.assert_not_called()
 
     def test_execute_requires_operation_specific_authority_acknowledgment(self) -> None:
         approved = self.root / "approved.json"
