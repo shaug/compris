@@ -376,6 +376,7 @@ raise SystemExit(f"unexpected fake gh argv: {sys.argv[1:]!r}")
     def test_single_cli_exercises_ported_surface(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
+        fake_bin = Path(tempfile.mkdtemp(prefix="pcs-transition-gh-"))
         try:
             cli = str(SCRIPTS_DIR / "cli.py")
             plan_path = repo_dir / DEFAULT_PLAN_PATH
@@ -453,9 +454,35 @@ raise SystemExit(f"unexpected fake gh argv: {sys.argv[1:]!r}")
                 ],
                 cwd=repo_dir,
             )
-            run([cli, "pr-create"], cwd=repo_dir)
+            run(
+                [
+                    "git",
+                    "config",
+                    f"url.{remote_dir}.insteadOf",
+                    "git@github.com:example/carve-eval.git",
+                ],
+                cwd=repo_dir,
+            )
+            fake_gh = fake_bin / "gh"
+            fake_gh.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, sys\n"
+                "if sys.argv[1:3] == ['pr', 'list']:\n"
+                "    print(json.dumps([]))\n"
+                "    raise SystemExit(0)\n"
+                "raise SystemExit(f'unexpected fake gh argv: {sys.argv[1:]!r}')\n"
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+            original_path = os.environ.get("PATH", "")
+            with mock.patch.dict(os.environ, {"PATH": f"{fake_bin}:{original_path}"}):
+                preview = run([cli, "pr-create"], cwd=repo_dir, check=False)
+            self.assertEqual(0, preview.returncode, preview.stderr or preview.stdout)
+            manifest = json.loads(preview.stdout)
+            self.assertEqual("publish", manifest["operation"])
+            self.assertEqual(["push", "submit"], manifest["enabled_phases"])
         finally:
             shutil.rmtree(repo_dir)
+            shutil.rmtree(fake_bin)
             if remote_dir is not None:
                 shutil.rmtree(remote_dir.parent)
 

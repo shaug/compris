@@ -28,7 +28,7 @@ from rehydrate import PullRequestRecord
 
 _PR_JSON_FIELDS = (
     "number,headRefName,headRefOid,baseRefName,state,body,title,mergeCommit,"
-    "isCrossRepository"
+    "isCrossRepository,isDraft,mergeStateStatus,autoMergeRequest"
 )
 
 _HEAD_REWRITE_QUERY = """
@@ -489,6 +489,9 @@ def _pull_request_record(
         merge_sha=_merge_sha(item),
         is_cross_repository=bool(item.get("isCrossRepository", False)),
         head_rewrite_edges=head_rewrite_edges,
+        draft=bool(item.get("isDraft", False)),
+        queued=str(item.get("mergeStateStatus") or "").upper() == "QUEUED",
+        auto_merge=item.get("autoMergeRequest") is not None,
     )
 
 

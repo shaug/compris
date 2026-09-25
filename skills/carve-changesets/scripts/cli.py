@@ -14,25 +14,64 @@ from command_argv import parse_argv_json
 from common import (
     DEFAULT_PLAN_PATH,
     CommandError,
+    branch_name_for,
     discover_test_command,
     ensure_clean_tree,
+    git,
     init_plan,
     load_plan,
     validate_plan,
 )
 from db_compare import db_compare
-from gh_stack import GhStackError
-from github import pr_create, pull_request_by_number, pull_requests_for_source
+from gh_stack import REVIEWED_PROFILE_PATH, GhStackError, reviewed_preview_profile
+from github import (
+    github_repo_for_remote,
+    pr_body_for,
+    pr_create,
+    pr_title_for,
+    pull_request_by_number,
+    pull_requests_for_source,
+)
 from native_stack import NativeStackError
 from patch_apply import build_diff
 from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
-from propagate import merge_propagate_from_live, propagate_from_live, push_chain
+from propagate import (
+    _rehydrate_live,
+    _target,
+    merge_propagate_from_live,
+    propagate_from_live,
+    push_chain,
+)
+from publication import remote_branch_head
 from recovery import recover_suffix_from_live
 from rehydrate import RehydrationError, adopt_legacy_chain, discover_changeset_heads
 from squash_check import squash_check
 from squash_ref import _resolve_base_source, create_squashed_ref
 from status import status_from_live
+from transitions import (
+    ZERO_SHA,
+    AuthorityGrant,
+    EffectKind,
+    ExpectedNativeStack,
+    ExpectedPullRequest,
+    ExpectedRef,
+    ManifestError,
+    MergeMode,
+    StackOperation,
+    TransitionObservation,
+    TransitionPhase,
+    TransitionResult,
+    TransitionState,
+    execute_transition,
+    manifest_from_json,
+    manifest_to_json,
+    preview_merge,
+    preview_publish,
+    preview_push,
+    preview_recovery,
+    preview_repair,
+)
 from validate import ChainValidation, validate_live_chain
 
 READ_ONLY = "read-only"
@@ -320,55 +359,588 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
     indices: List[int] = (
         list(range(1, total + 1)) if args.index is None else [args.index]
     )
-    pr_create(plan, indices=indices, dry_run=args.dry_run, remote=args.remote)
+    if not hasattr(args, "execute"):
+        pr_create(plan, indices=indices, dry_run=args.dry_run, remote=args.remote)
+        return
+    current = _publish_manifest(plan, remote=args.remote, indices=indices)
+    if not args.execute:
+        print(manifest_to_json(current), end="")
+        return
+    if not args.ack_submit:
+        raise CommandError("--execute pr-create requires --ack-submit")
+    approved = _read_manifest(args.manifest)
+    result = execute_transition(
+        approved,
+        profile=_reviewed_profile(),
+        reread=lambda: _publish_manifest(plan, remote=args.remote, indices=indices),
+        executor=lambda _manifest: pr_create(
+            plan, indices=indices, dry_run=False, remote=args.remote
+        ),
+        readback=lambda: TransitionObservation.from_manifest_before(approved),
+    )
+    _print_transition_result(result)
+    if result.state is TransitionState.BLOCKED:
+        raise CommandError(result.blocker)
+
+
+def _repository_identity(remote: str) -> str:
+    urls = [
+        line.strip()
+        for line in git(
+            "config", "--get-all", f"remote.{remote}.url"
+        ).stdout.splitlines()
+        if line.strip()
+    ]
+    if len(urls) != 1:
+        raise CommandError(
+            f"Git remote {remote!r} must have exactly one fetch URL; found {len(urls)}."
+        )
+    return urls[0]
+
+
+def _push_manifest(plan: Dict, *, remote: str):
+    source = plan["source_branch"]
+    branches = tuple(
+        branch_name_for(source, index)
+        for index in range(1, len(plan["changesets"]) + 1)
+    )
+    refs: list[ExpectedRef] = []
+    evidence: list[str] = []
+    for branch in branches:
+        local = git(
+            "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}", check=False
+        )
+        if local.returncode != 0:
+            raise CommandError(f"Local changeset branch {branch!r} does not exist.")
+        proposed = local.stdout.strip()
+        old = remote_branch_head(remote, branch)
+        refs.append(
+            ExpectedRef(
+                name=f"refs/heads/{branch}",
+                old_sha=old or ZERO_SHA,
+                proposed_sha=proposed,
+            )
+        )
+        evidence.append(f"{remote}/refs/heads/{branch}={old or 'absent'}")
+    base = plan["base_branch"]
+    trunk_head = remote_branch_head(remote, base)
+    if trunk_head is None:
+        raise CommandError(f"Selected native trunk {remote}/{base} is absent.")
+    evidence.append(f"{remote}/refs/heads/{base}={trunk_head}")
+    repository = _repository_identity(remote)
+    return preview_push(
+        repository=repository,
+        remote=remote,
+        refs=refs,
+        native_stack=ExpectedNativeStack(
+            identity=source,
+            trunk=base,
+            trunk_head=trunk_head,
+            order=branches,
+        ),
+        authority=AuthorityGrant.publish(
+            repository=repository,
+            remote=remote,
+            branches=branches,
+        ),
+        evidence=evidence,
+    )
+
+
+def _publish_manifest(plan: Dict, *, remote: str, indices: Sequence[int] | None = None):
+    push = _push_manifest(plan, remote=remote)
+    live_by_branch = {
+        item.head_branch: item
+        for item in pull_requests_for_source(plan["source_branch"], remote=remote)
+    }
+    total = len(plan["changesets"])
+    selected_indices = (
+        tuple(indices) if indices is not None else tuple(range(1, total + 1))
+    )
+    if any(index < 1 or index > total for index in selected_indices):
+        raise CommandError(f"--index must be between 1 and {total}.")
+    selected = set(selected_indices)
+    expected_pull_requests: list[ExpectedPullRequest] = []
+    for index, changeset in enumerate(plan["changesets"], start=1):
+        if index not in selected:
+            continue
+        branch = branch_name_for(plan["source_branch"], index)
+        live = live_by_branch.get(branch)
+        expected_pull_requests.append(
+            ExpectedPullRequest(
+                number=None if live is None else live.number,
+                branch=branch,
+                head=None if live is None else live.head_sha,
+                base=None if live is None else live.base_branch,
+                state="ABSENT" if live is None else live.state.upper(),
+                draft=None if live is None else live.draft,
+                queued=None if live is None else live.queued,
+                auto_merge=None if live is None else live.auto_merge,
+                title=pr_title_for(plan["feature_title"], index, total),
+                body=pr_body_for(plan, index, total, changeset),
+                current_title=None if live is None else live.title,
+                current_body=None if live is None else live.body,
+            )
+        )
+    return preview_publish(
+        repository=github_repo_for_remote(remote),
+        remote=remote,
+        refs=tuple(
+            expected_ref
+            for expected_ref in push.expected_refs
+            if expected_ref.name.removeprefix("refs/heads/")
+            in {item.branch for item in expected_pull_requests}
+        ),
+        pull_requests=expected_pull_requests,
+        native_stack=push.expected_native_stack,
+        authority=AuthorityGrant.publish(
+            repository=github_repo_for_remote(remote),
+            remote=remote,
+            branches=tuple(item.branch for item in expected_pull_requests),
+        ),
+        evidence=(
+            *push.evidence,
+            *(
+                f"GitHub PR {item.branch}={item.state}"
+                for item in expected_pull_requests
+            ),
+        ),
+    )
+
+
+def _live_manifest_inputs(
+    *,
+    source: str,
+    base: str | None,
+    remote: str,
+    records,
+    pull_requests,
+):
+    selected_base = base or "main"
+    trunk_head = remote_branch_head(remote, selected_base)
+    if trunk_head is None:
+        raise CommandError(f"Selected native trunk {remote}/{selected_base} is absent.")
+    refs: list[ExpectedRef] = []
+    expected_pull_requests: list[ExpectedPullRequest] = []
+    evidence: list[str] = [f"{remote}/refs/heads/{selected_base}={trunk_head}"]
+    for record in records:
+        old = remote_branch_head(remote, record.branch)
+        refs.append(
+            ExpectedRef(
+                name=f"refs/heads/{record.branch}",
+                old_sha=old or ZERO_SHA,
+                proposed_sha=record.head,
+            )
+        )
+        evidence.append(f"{remote}/refs/heads/{record.branch}={old or 'absent'}")
+        if record.pr_number is None or record.pr_number not in pull_requests:
+            raise CommandError(
+                f"Changeset {record.position} has no exact live pull-request state."
+            )
+        live = pull_requests[record.pr_number]
+        expected_pull_requests.append(
+            ExpectedPullRequest(
+                number=live.number,
+                branch=live.head_branch,
+                head=live.head_sha,
+                base=live.base_branch,
+                state=live.state.upper(),
+                draft=live.draft,
+                queued=live.queued,
+                auto_merge=live.auto_merge,
+                title=live.title,
+                body=live.body,
+                current_title=live.title,
+                current_body=live.body,
+            )
+        )
+        evidence.append(
+            f"GitHub PR #{live.number}={live.state.upper()}@{live.head_sha}"
+        )
+    return (
+        tuple(refs),
+        tuple(expected_pull_requests),
+        ExpectedNativeStack(
+            identity=source,
+            trunk=selected_base,
+            trunk_head=trunk_head,
+            order=tuple(record.branch for record in records),
+        ),
+        tuple(evidence),
+    )
+
+
+def _repair_manifest(args: argparse.Namespace):
+    chain, pull_requests = _rehydrate_live(
+        source=args.source, base=args.base, remote=args.remote
+    )
+    target, _pull_request = _target(
+        chain, pull_requests, pr_number=args.pr, index=args.index
+    )
+    suffix = chain.changesets[target.position :]
+    if not suffix:
+        raise CommandError("The selected merged layer has no suffix to repair.")
+    refs, prs, stack, evidence = _live_manifest_inputs(
+        source=args.source,
+        base=args.base or chain.base_branch,
+        remote=args.remote,
+        records=suffix,
+        pull_requests=pull_requests,
+    )
+    phases = frozenset(
+        {
+            TransitionPhase.REBASE_NO_TRUNK,
+            TransitionPhase.PUSH,
+            TransitionPhase.SYNC,
+        }
+    )
+    effects = frozenset(
+        {
+            EffectKind.REBASE_BRANCH,
+            EffectKind.PUSH_REF,
+            EffectKind.UPDATE_PR,
+            EffectKind.SYNC_STACK,
+        }
+    )
+    identities = tuple(item.branch for item in prs)
+    return preview_repair(
+        repository=github_repo_for_remote(args.remote),
+        remote=args.remote,
+        refs=refs,
+        pull_requests=prs,
+        native_stack=stack,
+        authority=AuthorityGrant(
+            operation=StackOperation.REPAIR,
+            repository=github_repo_for_remote(args.remote),
+            remote=args.remote,
+            identities=identities,
+            branches=identities,
+            phases=phases,
+            effect_kinds=effects,
+        ),
+        evidence=evidence,
+    )
+
+
+def _merge_manifest(args: argparse.Namespace):
+    chain, pull_requests = _rehydrate_live(
+        source=args.source, base=args.base, remote=args.remote
+    )
+    target, selected_pr = _target(
+        chain, pull_requests, pr_number=args.pr, index=args.index
+    )
+    open_suffix = chain.changesets[target.position - 1 :]
+    refs, prs, stack, evidence = _live_manifest_inputs(
+        source=args.source,
+        base=args.base or chain.base_branch,
+        remote=args.remote,
+        records=open_suffix,
+        pull_requests=pull_requests,
+    )
+    mode = MergeMode(args.merge_mode)
+    phases = (
+        frozenset({TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC})
+        if mode is MergeMode.DIRECT
+        else frozenset({TransitionPhase.QUEUE_MERGE})
+    )
+    effects = (
+        frozenset({EffectKind.MERGE_PR, EffectKind.SYNC_STACK})
+        if mode is MergeMode.DIRECT
+        else frozenset({EffectKind.QUEUE_PR, EffectKind.MERGE_PR})
+    )
+    identities = tuple(item.branch for item in prs)
+    return preview_merge(
+        repository=github_repo_for_remote(args.remote),
+        remote=args.remote,
+        refs=refs,
+        pull_requests=prs,
+        native_stack=stack,
+        prefix_numbers=(selected_pr.number,),
+        merge_mode=mode,
+        authority=AuthorityGrant(
+            operation=StackOperation.MERGE,
+            repository=github_repo_for_remote(args.remote),
+            remote=args.remote,
+            identities=identities,
+            branches=identities,
+            phases=phases,
+            effect_kinds=effects,
+        ),
+        evidence=evidence,
+    )
+
+
+def _recovery_manifest(args: argparse.Namespace):
+    chain, pull_requests = _rehydrate_live(
+        source=args.source, base=args.base, remote=args.remote
+    )
+    if args.from_index < 1 or args.from_index > len(chain.changesets):
+        raise CommandError(
+            f"--from-index must be between 1 and {len(chain.changesets)}."
+        )
+    suffix = chain.changesets[args.from_index - 1 :]
+    refs, prs, stack, evidence = _live_manifest_inputs(
+        source=args.source,
+        base=args.base,
+        remote=args.remote,
+        records=suffix,
+        pull_requests=pull_requests,
+    )
+    identities = (*tuple(item.branch for item in prs), args.successor_source)
+    phases = frozenset(
+        {
+            TransitionPhase.TRUNK_REFRESH,
+            TransitionPhase.REBASE_NO_TRUNK,
+            TransitionPhase.PUSH,
+            TransitionPhase.SYNC,
+        }
+    )
+    effects = frozenset(
+        {
+            EffectKind.REFRESH_TRUNK,
+            EffectKind.REBASE_BRANCH,
+            EffectKind.PUSH_REF,
+            EffectKind.UPDATE_PR,
+            EffectKind.SYNC_STACK,
+        }
+    )
+    repository = github_repo_for_remote(args.remote)
+    return preview_recovery(
+        repository=repository,
+        remote=args.remote,
+        refs=refs,
+        pull_requests=prs,
+        native_stack=stack,
+        authority=AuthorityGrant(
+            operation=StackOperation.RECOVER,
+            repository=repository,
+            remote=args.remote,
+            identities=identities,
+            branches=tuple(item.branch for item in prs),
+            phases=phases,
+            effect_kinds=effects,
+        ),
+        evidence=(
+            *evidence,
+            f"successor={args.remote}/{args.successor_source}@{args.successor_sha}",
+        ),
+        identities=identities,
+    )
+
+
+def _reviewed_profile():
+    try:
+        payload = json.loads(REVIEWED_PROFILE_PATH.read_text())
+        source_revision = payload["source_revision"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise GhStackError("reviewed gh stack profile has no source revision") from exc
+    if not isinstance(source_revision, str):
+        raise GhStackError("reviewed gh stack profile source revision is invalid")
+    return reviewed_preview_profile(source_revision, reviewed_profile=payload)
+
+
+def _read_manifest(path: str | None):
+    if path is None:
+        raise CommandError("--execute requires --manifest with the approved preview")
+    try:
+        return manifest_from_json(Path(path).read_text())
+    except OSError as exc:
+        raise CommandError(f"Approved manifest is unreadable: {path}") from exc
+
+
+def _push_observation(manifest) -> TransitionObservation:
+    values: list[tuple[str, object]] = []
+    for effect in manifest.effects:
+        if effect.target.startswith("ref:") and effect.field == "sha":
+            branch = effect.target.removeprefix("ref:")
+            values.append(
+                (effect.key, remote_branch_head(manifest.remote, branch) or ZERO_SHA)
+            )
+    return TransitionObservation(values=tuple(values))
+
+
+def _print_transition_result(result: TransitionResult) -> None:
+    print(
+        json.dumps(
+            {
+                "state": result.state.value,
+                "operation": result.operation.value,
+                "identities": list(result.identities),
+                "blocker": result.blocker,
+                "next_action": result.next_action,
+                "fresh_manifest_required": result.fresh_manifest_required,
+                "targets": [
+                    {
+                        "target": item.effect.target,
+                        "field": item.effect.field,
+                        "disposition": item.disposition.value,
+                    }
+                    for item in result.targets
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+def _finish_transition(result: TransitionResult) -> None:
+    _print_transition_result(result)
+    if result.state is TransitionState.BLOCKED:
+        raise CommandError(result.blocker)
 
 
 def cmd_push_chain(args: argparse.Namespace) -> None:
-    push_chain(
-        load_and_validate(Path(args.plan)),
-        remote=args.remote,
-        dry_run=args.dry_run,
+    plan = load_and_validate(Path(args.plan))
+    if not hasattr(args, "execute"):
+        push_chain(plan, remote=args.remote, dry_run=args.dry_run)
+        return
+    current = _push_manifest(plan, remote=args.remote)
+    if not args.execute:
+        print(manifest_to_json(current), end="")
+        return
+    if not args.ack_push:
+        raise CommandError("--execute push-chain requires --ack-push")
+    approved = _read_manifest(args.manifest)
+    result = execute_transition(
+        approved,
+        profile=_reviewed_profile(),
+        reread=lambda: _push_manifest(plan, remote=args.remote),
+        executor=lambda _manifest: push_chain(plan, remote=args.remote, dry_run=False),
+        readback=lambda: _push_observation(approved),
     )
+    _print_transition_result(result)
+    if result.state is TransitionState.BLOCKED:
+        raise CommandError(result.blocker)
 
 
 def cmd_propagate(args: argparse.Namespace) -> None:
-    propagate_from_live(
-        source=args.source,
-        base=args.base,
-        pr_number=args.pr,
-        index=args.index,
-        strategy=args.strategy,
-        remote=args.remote,
-        dry_run=args.dry_run,
-        authority_acknowledged=args.ack_merge_and_propagate,
+    if not hasattr(args, "execute"):
+        propagate_from_live(
+            source=args.source,
+            base=args.base,
+            pr_number=args.pr,
+            index=args.index,
+            strategy=args.strategy,
+            remote=args.remote,
+            dry_run=args.dry_run,
+            authority_acknowledged=args.ack_merge_and_propagate,
+        )
+        return
+    current = _repair_manifest(args)
+    if not args.execute:
+        print(manifest_to_json(current), end="")
+        return
+    if not args.ack_repair:
+        raise CommandError("--execute propagate requires --ack-repair")
+    approved = _read_manifest(args.manifest)
+    result = execute_transition(
+        approved,
+        profile=_reviewed_profile(),
+        reread=lambda: _repair_manifest(args),
+        executor=lambda _manifest: propagate_from_live(
+            source=args.source,
+            base=args.base,
+            pr_number=args.pr,
+            index=args.index,
+            strategy=args.strategy,
+            remote=args.remote,
+            dry_run=False,
+            authority_acknowledged=True,
+        ),
+        readback=lambda: TransitionObservation.from_manifest_before(approved),
     )
+    _finish_transition(result)
 
 
 def cmd_merge_propagate(args: argparse.Namespace) -> None:
-    merge_propagate_from_live(
-        source=args.source,
-        base=args.base,
-        pr_number=args.pr,
-        index=args.index,
-        strategy=args.strategy,
-        method=args.method,
-        remote=args.remote,
-        dry_run=args.dry_run,
-        authority_acknowledged=args.ack_merge_and_propagate,
+    if not hasattr(args, "execute"):
+        merge_propagate_from_live(
+            source=args.source,
+            base=args.base,
+            pr_number=args.pr,
+            index=args.index,
+            strategy=args.strategy,
+            method=args.method,
+            remote=args.remote,
+            dry_run=args.dry_run,
+            authority_acknowledged=args.ack_merge_and_propagate,
+        )
+        return
+    current = _merge_manifest(args)
+    if not args.execute:
+        print(manifest_to_json(current), end="")
+        return
+    acknowledgement = (
+        args.ack_queue_merge
+        if args.merge_mode == MergeMode.QUEUE.value
+        else args.ack_direct_merge
     )
+    if not acknowledgement:
+        required = (
+            "--ack-queue-merge"
+            if args.merge_mode == MergeMode.QUEUE.value
+            else "--ack-direct-merge"
+        )
+        raise CommandError(f"--execute merge-propagate requires {required}")
+    approved = _read_manifest(args.manifest)
+    result = execute_transition(
+        approved,
+        profile=_reviewed_profile(),
+        reread=lambda: _merge_manifest(args),
+        executor=lambda _manifest: merge_propagate_from_live(
+            source=args.source,
+            base=args.base,
+            pr_number=args.pr,
+            index=args.index,
+            strategy=args.strategy,
+            method=args.method,
+            remote=args.remote,
+            dry_run=False,
+            authority_acknowledged=True,
+        ),
+        readback=lambda: TransitionObservation.from_manifest_before(approved),
+    )
+    _finish_transition(result)
 
 
 def cmd_recover_suffix(args: argparse.Namespace) -> None:
-    recover_suffix_from_live(
-        source=args.source,
-        base=args.base,
-        from_index=args.from_index,
-        successor_branch=args.successor_source,
-        successor_sha=args.successor_sha,
-        remote=args.remote,
-        dry_run=args.dry_run,
-        authority_acknowledged=args.ack_suffix_recovery,
+    if not hasattr(args, "execute"):
+        recover_suffix_from_live(
+            source=args.source,
+            base=args.base,
+            from_index=args.from_index,
+            successor_branch=args.successor_source,
+            successor_sha=args.successor_sha,
+            remote=args.remote,
+            dry_run=args.dry_run,
+            authority_acknowledged=args.ack_suffix_recovery,
+        )
+        return
+    current = _recovery_manifest(args)
+    if not args.execute:
+        print(manifest_to_json(current), end="")
+        return
+    if not args.ack_suffix_recovery:
+        raise CommandError("--execute recover-suffix requires --ack-suffix-recovery")
+    approved = _read_manifest(args.manifest)
+    result = execute_transition(
+        approved,
+        profile=_reviewed_profile(),
+        reread=lambda: _recovery_manifest(args),
+        executor=lambda _manifest: recover_suffix_from_live(
+            source=args.source,
+            base=args.base,
+            from_index=args.from_index,
+            successor_branch=args.successor_source,
+            successor_sha=args.successor_sha,
+            remote=args.remote,
+            dry_run=False,
+            authority_acknowledged=True,
+        ),
+        readback=lambda: TransitionObservation.from_manifest_before(approved),
     )
+    _finish_transition(result)
 
 
 def cmd_db_compare(args: argparse.Namespace) -> None:
@@ -514,6 +1086,29 @@ def _add_remote_dry_run(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(dry_run=True)
 
 
+def _add_transition_options(
+    parser: argparse.ArgumentParser,
+    *authority_flags: tuple[str, str],
+) -> None:
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Execute only an approved, freshly re-read operation manifest",
+    )
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help="Path to the exact approved manifest required with --execute",
+    )
+    for flag, destination in authority_flags:
+        parser.add_argument(
+            flag,
+            dest=destination,
+            action="store_true",
+            help=f"Acknowledge the operation-scoped {flag.removeprefix('--')} grant",
+        )
+
+
 def _add_propagation_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--source", required=True, help="Source branch")
     parser.add_argument("--base", default=None, help="Base branch")
@@ -619,12 +1214,14 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--index", type=int)
     item.add_argument("--remote", default="origin")
     _add_remote_dry_run(item)
+    _add_transition_options(item, ("--ack-submit", "ack_submit"))
     item.set_defaults(func=cmd_pr_create)
 
     item = _command(sub, "push-chain", "Push changeset branches with exact leases.")
     _add_plan(item)
     item.add_argument("--remote", default="origin")
     _add_remote_dry_run(item)
+    _add_transition_options(item, ("--ack-push", "ack_push"))
     item.set_defaults(func=cmd_push_chain)
 
     item = _command(
@@ -633,6 +1230,7 @@ def build_parser() -> argparse.ArgumentParser:
         "Verify a merged changeset and propagate its downstream suffix.",
     )
     _add_propagation_options(item)
+    _add_transition_options(item, ("--ack-repair", "ack_repair"))
     item.set_defaults(func=cmd_propagate)
 
     item = _command(
@@ -643,6 +1241,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_propagation_options(item)
     item.add_argument(
         "--method", choices=("merge", "squash", "rebase"), default="merge"
+    )
+    item.add_argument("--merge-mode", choices=("direct", "queue"), default="direct")
+    _add_transition_options(
+        item,
+        ("--ack-direct-merge", "ack_direct_merge"),
+        ("--ack-queue-merge", "ack_queue_merge"),
     )
     item.set_defaults(func=cmd_merge_propagate)
 
@@ -669,6 +1273,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Acknowledge explicit suffix-recovery authority",
     )
     _add_remote_dry_run(item)
+    _add_transition_options(item)
     item.set_defaults(func=cmd_recover_suffix)
 
     item = _command(sub, "db-compare", "Compare source and chain database schemas.")
@@ -756,7 +1361,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.mutation_class != READ_ONLY:
             ensure_clean_tree()
         return 0
-    except (CommandError, GhStackError, NativeStackError, RehydrationError) as exc:
+    except (
+        CommandError,
+        GhStackError,
+        ManifestError,
+        NativeStackError,
+        RehydrationError,
+    ) as exc:
         print(f"[ERROR] {exc}")
         return 1
 

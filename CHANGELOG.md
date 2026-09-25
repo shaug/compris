@@ -4,27 +4,37 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-25 — Materialized native stacks and preserved recovery truth
+## 2026-09-25 — Fenced native transitions and materialized stacks
+
+- feat: fence native stack transitions by capability
 
 - docs: complete native materialization change journal
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - test: prove authority refusal has no public effects
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - fix: gate native materialization authority before preflight
+  (8fdffcf52c15049a7c260c97e87ce2b2b8df764c)
 
 - fix: resume unpublished native materialization
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
-- test: record native authority eval
+- test: record native authority eval (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - docs: require native materialization authority
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
-- test: record pre-change carve eval
+- test: record pre-change carve eval (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - fix: bind native adoption to semantic heads
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - fix: restore detached checkout exactly
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - feat: materialize changesets as a native stack
+  (54c72885bb9483472993109b4691ab81d6f94894)
 
 - fix: resume multi-successor recovery
   (43f81a2d6f46b2700aa66b3e4301e03704de7af7)
