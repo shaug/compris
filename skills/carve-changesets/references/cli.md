@@ -164,8 +164,10 @@ potentially sensitive operational data.
 Preview both remote operations first:
 
 ```bash
-python3 scripts/cli.py push-chain --allow-stack-state-refresh
-python3 scripts/cli.py pr-create --allow-stack-state-refresh
+python3 scripts/cli.py push-chain \
+  --allow-stack-state-refresh > approved-push.json
+python3 scripts/cli.py pr-create \
+  --allow-stack-state-refresh > approved-submit.json
 ```
 
 After publish authority and exact identities are reverified, execute them:
@@ -183,8 +185,11 @@ python3 scripts/cli.py pr-create \
   --ack-submit
 ```
 
-Use `pr-create --index N` to publish one position. After publication, grant the
-bounded local refresh and reconstruct authoritative status without the plan:
+New pull requests default to draft. A manifest may request ready pull requests
+with `--ready-for-review`; execution then additionally requires the distinct
+`--ack-ready-for-review` grant. Use `pr-create --index N` to publish one
+position. After publication, grant the bounded local refresh and reconstruct
+authoritative status without the plan:
 
 ```bash
 python3 scripts/cli.py status \
@@ -205,7 +210,8 @@ propagation from live state:
 python3 scripts/cli.py propagate \
   --source feature/large-change \
   --base main \
-  --pr 123
+  --pr 123 \
+  --allow-stack-state-refresh > approved-propagate.json
 ```
 
 After merge-and-propagate authority and every downstream identity are freshly
@@ -217,8 +223,10 @@ python3 scripts/cli.py propagate \
   --base main \
   --pr 123 \
   --strategy rebase \
-  --no-dry-run \
-  --ack-merge-and-propagate
+  --allow-stack-state-refresh \
+  --manifest approved-propagate.json \
+  --execute \
+  --ack-repair
 ```
 
 Use `merge-propagate` instead only when the resolved workflow assigns direct
@@ -231,8 +239,17 @@ python3 scripts/cli.py merge-propagate \
   --pr 123 \
   --method merge \
   --strategy rebase \
-  --no-dry-run \
-  --ack-merge-and-propagate
+  --allow-stack-state-refresh > approved-merge.json
+python3 scripts/cli.py merge-propagate \
+  --source feature/large-change \
+  --base main \
+  --pr 123 \
+  --method merge \
+  --strategy rebase \
+  --allow-stack-state-refresh \
+  --manifest approved-merge.json \
+  --execute \
+  --ack-direct-merge
 ```
 
 ## Successor-source suffix recovery
@@ -248,7 +265,8 @@ python3 scripts/cli.py recover-suffix \
   --base main \
   --from-index 2 \
   --successor-source feature/large-change-corrected \
-  --successor-sha 0123456789abcdef0123456789abcdef01234567
+  --successor-sha 0123456789abcdef0123456789abcdef01234567 \
+  --allow-stack-state-refresh > approved-recovery.json
 ```
 
 The preview rehydrates live branches and PRs, requires every lineage source at
@@ -264,7 +282,9 @@ python3 scripts/cli.py recover-suffix \
   --from-index 2 \
   --successor-source feature/large-change-corrected \
   --successor-sha 0123456789abcdef0123456789abcdef01234567 \
-  --no-dry-run \
+  --allow-stack-state-refresh \
+  --manifest approved-recovery.json \
+  --execute \
   --ack-suffix-recovery
 ```
 
