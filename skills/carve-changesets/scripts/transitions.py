@@ -921,6 +921,11 @@ def _repair_effects(
     }
     effects: list[MutationEffect] = []
     for expected_ref in refs:
+        if expected_ref.old_sha == expected_ref.proposed_sha:
+            raise ManifestError(
+                "repair preview cannot approve an unknown post-rebase head; "
+                "materialize exact proposed heads before approval"
+            )
         branch = expected_ref.name.removeprefix("refs/heads/")
         effects.append(
             MutationEffect(
@@ -1023,6 +1028,15 @@ def preview_merge(
     by_number = {item.number: item for item in expected_pull_requests}
     if any(number not in by_number for number in prefix):
         raise ManifestError("merge prefix contains a PR outside the selected stack")
+    ordered_open = tuple(
+        item.number
+        for item in expected_pull_requests
+        if item.state == "OPEN" and item.number is not None
+    )
+    if prefix != ordered_open[: len(prefix)]:
+        raise ManifestError(
+            "merge prefix must be an ordered bottom prefix of open pull requests"
+        )
     effects: list[MutationEffect] = []
     if merge_mode is MergeMode.DIRECT:
         for number in prefix:
@@ -1043,13 +1057,20 @@ def preview_merge(
         }
         for branch in suffix:
             expected_ref = ref_by_branch.get(branch)
+            if (
+                expected_ref is None
+                or expected_ref.old_sha == expected_ref.proposed_sha
+            ):
+                raise ManifestError(
+                    "direct merge preview cannot approve unknown automatic suffix heads"
+                )
             effects.append(
                 MutationEffect(
                     EffectKind.SYNC_STACK,
                     f"stack:{native_stack.identity or 'absent'}:{branch}",
                     "head",
-                    None if expected_ref is None else expected_ref.old_sha,
-                    None if expected_ref is None else expected_ref.proposed_sha,
+                    expected_ref.old_sha,
+                    expected_ref.proposed_sha,
                 )
             )
         phases = (TransitionPhase.DIRECT_MERGE,)
@@ -1166,14 +1187,25 @@ def classify_readback(
         )
 
     dispositions = {target.disposition for target in targets}
+    incomplete_mutations = any(
+        target.disposition is TargetDisposition.UNCHANGED
+        and target.effect.before != target.effect.after
+        for target in targets
+    )
+    changed = any(
+        target.disposition is TargetDisposition.CHANGED_AS_EXPECTED
+        for target in targets
+    )
     if TargetDisposition.CHANGED_UNEXPECTEDLY in dispositions:
         state = TransitionState.DIVERGED
-    elif dispositions == {TargetDisposition.CHANGED_AS_EXPECTED}:
-        state = TransitionState.COMPLETED
-    elif dispositions == {TargetDisposition.UNCHANGED}:
-        state = TransitionState.UNCHANGED
-    else:
+    elif incomplete_mutations and changed:
         state = TransitionState.PARTIAL
+    elif incomplete_mutations:
+        state = TransitionState.UNCHANGED
+    elif changed:
+        state = TransitionState.COMPLETED
+    else:
+        state = TransitionState.UNCHANGED
     fresh_manifest_required = state in {
         TransitionState.PARTIAL,
         TransitionState.DIVERGED,
@@ -1196,6 +1228,55 @@ def classify_readback(
         ),
         fresh_manifest_required=fresh_manifest_required,
     )
+
+
+def observation_from_manifest(
+    approved: MutationManifest, current: MutationManifest
+) -> TransitionObservation:
+    """Project a fresh live manifest onto every declared effect target."""
+
+    refs = {
+        item.name.removeprefix("refs/heads/"): item for item in current.expected_refs
+    }
+    prs_by_branch = {item.branch: item for item in current.expected_pull_requests}
+    prs_by_number = {
+        item.number: item
+        for item in current.expected_pull_requests
+        if item.number is not None
+    }
+    values: list[tuple[str, object]] = []
+    for effect in approved.effects:
+        identity = effect.target.partition(":")[2]
+        if effect.kind is EffectKind.PUSH_REF:
+            observed: object = refs[identity].old_sha
+        elif effect.kind is EffectKind.REBASE_BRANCH:
+            observed = refs[identity].proposed_sha
+        elif effect.kind in {EffectKind.CREATE_PR, EffectKind.UPDATE_PR}:
+            pr = prs_by_branch.get(identity)
+            if pr is None and identity.isdigit():
+                pr = prs_by_number.get(int(identity))
+            observed = None if pr is None or pr.state == "ABSENT" else pr.record
+        elif effect.kind is EffectKind.DISABLE_AUTO_MERGE:
+            observed = prs_by_number[int(identity)].auto_merge
+        elif effect.kind in {EffectKind.REGISTER_STACK, EffectKind.SYNC_STACK}:
+            if effect.field == "order":
+                observed = current.expected_native_stack.order
+            elif effect.field == "head":
+                branch = identity.rpartition(":")[2]
+                observed = refs[branch].old_sha
+            else:
+                raise ManifestError(
+                    f"unsupported native-stack readback field: {effect.field}"
+                )
+        elif effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
+            pr = prs_by_number[int(identity)]
+            observed = pr.state if effect.field == "state" else pr.queued
+        elif effect.kind is EffectKind.REFRESH_TRUNK:
+            observed = current.expected_native_stack.trunk_head
+        else:  # pragma: no cover
+            raise ManifestError(f"unsupported readback effect: {effect.kind.value}")
+        values.append((effect.key, observed))
+    return TransitionObservation(values=tuple(values))
 
 
 def execute_transition(
@@ -1275,6 +1356,14 @@ def execute_transition(
             fresh_manifest_required=True,
         )
     if execution_error is None:
+        if result.state in {TransitionState.PARTIAL, TransitionState.DIVERGED}:
+            return replace(
+                result,
+                state=TransitionState.BLOCKED,
+                blocker="post-command readback was partial or divergent",
+                next_action="reread every declared target and approve a fresh manifest",
+                fresh_manifest_required=True,
+            )
         return result
     if result.state is TransitionState.UNCHANGED:
         return replace(

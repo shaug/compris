@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from contextlib import chdir, redirect_stdout
@@ -9,8 +10,10 @@ from pathlib import Path
 from unittest import mock
 
 TESTS_DIR = Path(__file__).resolve().parent
-if str(TESTS_DIR) not in __import__("sys").path:
-    __import__("sys").path.insert(0, str(TESTS_DIR))
+SCRIPTS_DIR = TESTS_DIR.parent
+for path in (TESTS_DIR, SCRIPTS_DIR):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 import cli as cli_mod  # noqa: E402
 import helpers  # noqa: E402
@@ -140,8 +143,8 @@ class TransitionCliTests(unittest.TestCase):
             )
 
         self.assertEqual(1, status)
-        self.assertIn('"state": "blocked"', output.getvalue())
         self.assertIn("fenced_push", output.getvalue())
+        self.assertIn("no state was refreshed", output.getvalue())
         self.assertEqual(
             "",
             helpers.run(
@@ -203,6 +206,44 @@ class TransitionCliTests(unittest.TestCase):
             effect for effect in manifest.effects if effect.kind.value == "create_pr"
         )
         self.assertEqual("feature/report-1", create.after[3])
+
+    def test_execute_refuses_unsupported_profile_before_manifest_refresh(self) -> None:
+        args = cli_mod.build_parser().parse_args(
+            (
+                "propagate",
+                "--source",
+                "feature/report",
+                "--index",
+                "1",
+                "--execute",
+                "--ack-repair",
+            )
+        )
+        output = StringIO()
+
+        with (
+            mock.patch.object(
+                cli_mod,
+                "_repair_manifest",
+                side_effect=AssertionError("must not refresh"),
+            ),
+            redirect_stdout(output),
+        ):
+            status = cli_mod.main(
+                (
+                    "propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--execute",
+                    "--ack-repair",
+                )
+            )
+
+        self.assertTrue(args.execute)
+        self.assertEqual(1, status)
+        self.assertIn("no state was refreshed", output.getvalue())
 
 
 if __name__ == "__main__":

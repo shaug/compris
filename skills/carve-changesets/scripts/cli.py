@@ -66,11 +66,13 @@ from transitions import (
     execute_transition,
     manifest_from_json,
     manifest_to_json,
+    observation_from_manifest,
     preview_merge,
     preview_publish,
     preview_push,
     preview_recovery,
     preview_repair,
+    required_capabilities,
 )
 from validate import ChainValidation, validate_live_chain
 
@@ -362,12 +364,17 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
     if not hasattr(args, "execute"):
         pr_create(plan, indices=indices, dry_run=args.dry_run, remote=args.remote)
         return
+    if args.execute:
+        _require_supported_execution(
+            acknowledged=args.ack_submit,
+            acknowledgement="--ack-submit",
+            operation=StackOperation.PUBLISH,
+            phases=(TransitionPhase.PUSH, TransitionPhase.SUBMIT),
+        )
     current = _publish_manifest(plan, remote=args.remote, indices=indices)
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
-    if not args.ack_submit:
-        raise CommandError("--execute pr-create requires --ack-submit")
     approved = _read_manifest(args.manifest)
     result = execute_transition(
         approved,
@@ -376,7 +383,10 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
         executor=lambda _manifest: pr_create(
             plan, indices=indices, dry_run=False, remote=args.remote
         ),
-        readback=lambda: TransitionObservation.from_manifest_before(approved),
+        readback=lambda: _live_observation(
+            approved,
+            lambda: _publish_manifest(plan, remote=args.remote, indices=indices),
+        ),
     )
     _print_transition_result(result)
     if result.state is TransitionState.BLOCKED:
@@ -449,10 +459,13 @@ def _push_manifest(plan: Dict, *, remote: str):
 
 def _publish_manifest(plan: Dict, *, remote: str, indices: Sequence[int] | None = None):
     push = _push_manifest(plan, remote=remote)
-    live_by_branch = {
-        item.head_branch: item
-        for item in pull_requests_for_source(plan["source_branch"], remote=remote)
-    }
+    live_by_branch = {}
+    for item in pull_requests_for_source(plan["source_branch"], remote=remote):
+        if item.head_branch in live_by_branch:
+            raise CommandError(
+                f"Multiple pull requests claim changeset branch {item.head_branch!r}."
+            )
+        live_by_branch[item.head_branch] = item
     total = len(plan["changesets"])
     selected_indices = (
         tuple(indices) if indices is not None else tuple(range(1, total + 1))
@@ -748,6 +761,27 @@ def _read_manifest(path: str | None):
         raise CommandError(f"Approved manifest is unreadable: {path}") from exc
 
 
+def _require_supported_execution(
+    *, acknowledged: bool, acknowledgement: str, operation, phases, merge_mode=None
+) -> None:
+    if not acknowledged:
+        raise CommandError(f"--execute requires {acknowledgement}")
+    profile = _reviewed_profile()
+    missing = (
+        required_capabilities(operation, phases=phases, merge_mode=merge_mode)
+        - profile.capabilities
+    )
+    if missing:
+        names = ", ".join(sorted(item.value for item in missing))
+        raise CommandError(
+            f"gh stack profile {profile.version} lacks: {names}; no state was refreshed"
+        )
+
+
+def _live_observation(approved, builder) -> TransitionObservation:
+    return observation_from_manifest(approved, builder())
+
+
 def _push_observation(manifest) -> TransitionObservation:
     values: list[tuple[str, object]] = []
     for effect in manifest.effects:
@@ -795,12 +829,17 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
     if not hasattr(args, "execute"):
         push_chain(plan, remote=args.remote, dry_run=args.dry_run)
         return
+    if args.execute:
+        _require_supported_execution(
+            acknowledged=args.ack_push,
+            acknowledgement="--ack-push",
+            operation=StackOperation.PUBLISH,
+            phases=(TransitionPhase.PUSH,),
+        )
     current = _push_manifest(plan, remote=args.remote)
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
-    if not args.ack_push:
-        raise CommandError("--execute push-chain requires --ack-push")
     approved = _read_manifest(args.manifest)
     result = execute_transition(
         approved,
@@ -827,12 +866,21 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             authority_acknowledged=args.ack_merge_and_propagate,
         )
         return
+    if args.execute:
+        _require_supported_execution(
+            acknowledged=args.ack_repair,
+            acknowledgement="--ack-repair",
+            operation=StackOperation.REPAIR,
+            phases=(
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            ),
+        )
     current = _repair_manifest(args)
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
-    if not args.ack_repair:
-        raise CommandError("--execute propagate requires --ack-repair")
     approved = _read_manifest(args.manifest)
     result = execute_transition(
         approved,
@@ -848,7 +896,7 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
         ),
-        readback=lambda: TransitionObservation.from_manifest_before(approved),
+        readback=lambda: _live_observation(approved, lambda: _repair_manifest(args)),
     )
     _finish_transition(result)
 
@@ -867,22 +915,29 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
             authority_acknowledged=args.ack_merge_and_propagate,
         )
         return
+    mode = MergeMode(args.merge_mode)
+    phases = (
+        (TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC)
+        if mode is MergeMode.DIRECT
+        else (TransitionPhase.QUEUE_MERGE,)
+    )
+    acknowledgement = (
+        args.ack_queue_merge if mode is MergeMode.QUEUE else args.ack_direct_merge
+    )
+    if args.execute:
+        _require_supported_execution(
+            acknowledged=acknowledgement,
+            acknowledgement=(
+                "--ack-queue-merge" if mode is MergeMode.QUEUE else "--ack-direct-merge"
+            ),
+            operation=StackOperation.MERGE,
+            phases=phases,
+            merge_mode=mode,
+        )
     current = _merge_manifest(args)
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
-    acknowledgement = (
-        args.ack_queue_merge
-        if args.merge_mode == MergeMode.QUEUE.value
-        else args.ack_direct_merge
-    )
-    if not acknowledgement:
-        required = (
-            "--ack-queue-merge"
-            if args.merge_mode == MergeMode.QUEUE.value
-            else "--ack-direct-merge"
-        )
-        raise CommandError(f"--execute merge-propagate requires {required}")
     approved = _read_manifest(args.manifest)
     result = execute_transition(
         approved,
@@ -899,7 +954,7 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
         ),
-        readback=lambda: TransitionObservation.from_manifest_before(approved),
+        readback=lambda: _live_observation(approved, lambda: _merge_manifest(args)),
     )
     _finish_transition(result)
 
@@ -917,12 +972,22 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             authority_acknowledged=args.ack_suffix_recovery,
         )
         return
+    if args.execute:
+        _require_supported_execution(
+            acknowledged=args.ack_suffix_recovery,
+            acknowledgement="--ack-suffix-recovery",
+            operation=StackOperation.RECOVER,
+            phases=(
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            ),
+        )
     current = _recovery_manifest(args)
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
-    if not args.ack_suffix_recovery:
-        raise CommandError("--execute recover-suffix requires --ack-suffix-recovery")
     approved = _read_manifest(args.manifest)
     result = execute_transition(
         approved,
@@ -938,7 +1003,7 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
         ),
-        readback=lambda: TransitionObservation.from_manifest_before(approved),
+        readback=lambda: _live_observation(approved, lambda: _recovery_manifest(args)),
     )
     _finish_transition(result)
 

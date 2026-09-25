@@ -25,6 +25,7 @@ from transitions import (
     execute_transition,
     manifest_from_json,
     manifest_to_json,
+    observation_from_manifest,
     preview_merge,
     preview_publish,
     preview_recovery,
@@ -282,6 +283,35 @@ class CapabilityFenceTests(unittest.TestCase):
         self.assertIn("second lease rejected", result.blocker)
         self.assertTrue(result.fresh_manifest_required)
 
+    def test_successful_executor_with_partial_readback_returns_blocked(self) -> None:
+        manifest = publish_manifest()
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+        first, *remaining = manifest.effects
+        observation = TransitionObservation(
+            values=(
+                (first.key, first.after),
+                *((effect.key, effect.before) for effect in remaining),
+            )
+        )
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=lambda: manifest,
+            executor=lambda _approved: None,
+            readback=lambda: observation,
+        )
+
+        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertTrue(result.fresh_manifest_required)
+
     def test_reviewed_profile_blocks_before_executor_invocation(self) -> None:
         manifest = publish_manifest()
         calls: list[MutationManifest] = []
@@ -417,6 +447,7 @@ class OperationManifestTests(unittest.TestCase):
         manifest = preview_merge(
             repository="shaug/compris",
             remote="origin",
+            refs=self.refs,
             pull_requests=self.pull_requests,
             native_stack=self.stack,
             prefix_numbers=(42,),
@@ -656,6 +687,25 @@ class ReadbackClassificationTests(unittest.TestCase):
             tuple(item.disposition for item in result.targets),
         )
         self.assertTrue(result.fresh_manifest_required)
+
+    def test_live_observation_projects_synced_branch_head_from_fresh_ref(self) -> None:
+        approved = self._manifest(
+            MutationEffect(
+                EffectKind.SYNC_STACK,
+                "stack:stack-9:feature-1",
+                "head",
+                SHA_A,
+                SHA_C,
+            )
+        )
+        current = replace(
+            approved,
+            expected_refs=(ExpectedRef("refs/heads/feature-1", SHA_C, SHA_C),),
+        )
+
+        observation = observation_from_manifest(approved, current)
+
+        self.assertEqual((("stack:stack-9:feature-1:head", SHA_C),), observation.values)
 
     def test_complete_and_no_op_results_remain_distinct(self) -> None:
         manifest = self._manifest(
