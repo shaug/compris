@@ -1316,6 +1316,7 @@ class RehydrationTests(unittest.TestCase):
                 repo=self.repo,
                 remote="origin",
                 base_branch="main",
+                base_authoritative=True,
             )
 
     def test_rejects_discontinuous_successor_lineage(self) -> None:

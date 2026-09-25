@@ -266,6 +266,7 @@ def _validate_completed_recovery_provenance(
     repo: Path,
     remote: str,
     base_branch: str,
+    base_authoritative: bool,
     evidence_join_successor: SourceIdentity | None = None,
 ) -> None:
     """Prove each completed successor head from its exact prior candidate."""
@@ -422,6 +423,7 @@ def _validate_completed_recovery_provenance(
         successor = evidence_join_successor
         if (
             successor is None
+            or not base_authoritative
             or successor.remote != remote
             or successor in record.metadata.source_lineage
             or proof_head != record.head
@@ -495,6 +497,7 @@ def _validate_completed_recovery_provenance(
                     repo=repo,
                     remote=remote,
                     base_branch=base_branch,
+                    base_authoritative=base_authoritative,
                     evidence_join_successor=lineage[-1],
                 )
             except (MetadataError, RehydrationError) as exc:
@@ -642,6 +645,7 @@ def _validate_authenticated_lineage_sequence(
     repo: Path,
     remote: str,
     base_branch: str,
+    base_authoritative: bool,
 ) -> tuple[SourceIdentity, ...]:
     """Accept a multi-successor jump only after its provenance is proven."""
 
@@ -658,6 +662,7 @@ def _validate_authenticated_lineage_sequence(
                 repo=repo,
                 remote=remote,
                 base_branch=base_branch,
+                base_authoritative=base_authoritative,
             )
         except RehydrationError:
             raise sequence_error
@@ -667,6 +672,7 @@ def _validate_authenticated_lineage_sequence(
         repo=repo,
         remote=remote,
         base_branch=base_branch,
+        base_authoritative=base_authoritative,
     )
     return lineage
 
@@ -678,6 +684,7 @@ def _validate_recovery_transition(
     repo: Path,
     remote: str,
     base_branch: str,
+    base_authoritative: bool,
 ) -> tuple[SourceIdentity, ...]:
     first_open = next(
         (
@@ -726,6 +733,7 @@ def _validate_recovery_transition(
             repo=repo,
             remote=remote,
             base_branch=base_branch,
+            base_authoritative=base_authoritative,
             evidence_join_successor=successor,
         )
 
@@ -799,6 +807,7 @@ def _validate_recovery_transition(
         repo=repo,
         remote=remote,
         base_branch=base_branch,
+        base_authoritative=base_authoritative,
     )
     return target
 
@@ -818,6 +827,7 @@ def adopt_legacy_chain(
     if not source_branch.strip():
         raise RehydrationError("Source branch must not be empty.")
     repo = Path(cwd)
+    base_authoritative = base_branch is not None
     heads = discover_changeset_heads(
         repo, source_branch, remote, prefer_remote=prefer_remote
     )
@@ -963,6 +973,7 @@ def adopt_legacy_chain(
             repo=repo,
             remote=remote,
             base_branch=base_branch,
+            base_authoritative=base_authoritative,
         )
         if recovery_successor is not None
         else _validate_authenticated_lineage_sequence(
@@ -970,6 +981,7 @@ def adopt_legacy_chain(
             repo=repo,
             remote=remote,
             base_branch=base_branch,
+            base_authoritative=base_authoritative,
         )
     )
     active_source = source_lineage[-1]
@@ -1104,6 +1116,7 @@ def rehydrate_chain(
         repo=repo,
         remote=remote,
         base_branch=native_snapshot.trunk_branch,
+        base_authoritative=True,
     )
     active_source = source_lineage[-1]
     return Chain(

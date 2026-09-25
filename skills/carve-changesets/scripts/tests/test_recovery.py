@@ -1110,6 +1110,45 @@ class SuffixRecoveryTests(unittest.TestCase):
                 prefer_remote=True,
             )
 
+    def test_public_completed_lineage_requires_explicit_evidence_join_base(
+        self,
+    ) -> None:
+        helpers.run(self.repo, "git", "branch", "release-old", "main")
+        helpers.run(self.repo, "git", "push", "-u", "origin", "release-old")
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "new-main.txt").write_text("new live main\n")
+        helpers.run(self.repo, "git", "add", "new-main.txt")
+        helpers.commit(self.repo, "advance live main")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        self.prs[101] = PullRequestRecord(
+            **{
+                **self.prs[101].__dict__,
+                "base_branch": "release-old",
+            }
+        )
+        joined_head, successor_branch, successor_sha = (
+            self._prepare_evidence_preserving_join(
+                join_base_branch="release-old",
+            )
+        )
+        self._complete_evidence_preserving_join(
+            joined_head,
+            successor_branch,
+            successor_sha,
+        )
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "missing, conflicting, or discontinuous successor-source lineage",
+        ):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                pull_requests=self._all_live_prs(),
+                cwd=self.repo,
+                remote="origin",
+                prefer_remote=True,
+            )
+
     def test_public_repeated_recovery_resumes_after_metadata_interruption(
         self,
     ) -> None:
