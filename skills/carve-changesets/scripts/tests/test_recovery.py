@@ -349,7 +349,10 @@ class SuffixRecoveryTests(unittest.TestCase):
         return boundary_head, current_head, requested_branch
 
     def _prepare_evidence_preserving_join(
-        self, *, arbitrary_second_parent: bool = False
+        self,
+        *,
+        arbitrary_second_parent: bool = False,
+        join_base_branch: str = "main",
     ) -> tuple[str, str, str]:
         _, current_head, _ = self._prepare_completed_legacy_recovery(
             prove_boundary=True
@@ -364,7 +367,12 @@ class SuffixRecoveryTests(unittest.TestCase):
                 current_head,
             )
         )
-        main_head = helpers.run(self.repo, "git", "rev-parse", "main")
+        join_base_head = helpers.run(
+            self.repo,
+            "git",
+            "rev-parse",
+            join_base_branch,
+        )
         helpers.run(
             self.repo,
             "git",
@@ -412,7 +420,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             "commit-tree",
             successor_tree,
             "-p",
-            main_head,
+            join_base_head,
             "-p",
             second_parent,
             input_text=stamp_commit_message(
@@ -440,12 +448,97 @@ class SuffixRecoveryTests(unittest.TestCase):
             **{
                 **self.prs[102].__dict__,
                 "head_sha": joined_head,
+                "base_branch": join_base_branch,
                 "body": embed_pr_metadata("Position 2\n", prior_metadata),
                 "head_rewrite_edges": self.prs[102].head_rewrite_edges
                 + ((current_head, joined_head),),
             }
         )
         return joined_head, successor_branch, successor_sha
+
+    def _complete_evidence_preserving_join(
+        self,
+        joined_head: str,
+        successor_branch: str,
+        successor_sha: str,
+    ) -> str:
+        prior_metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                joined_head,
+            )
+        )
+        recovered_metadata = ChangesetMetadata(
+            slug=prior_metadata.slug,
+            source_lineage=(
+                *prior_metadata.source_lineage,
+                SourceIdentity("origin", successor_branch, successor_sha),
+            ),
+            recovery_from_head=joined_head,
+        )
+        successor_tree = helpers.run(
+            self.repo,
+            "git",
+            "rev-parse",
+            f"{successor_sha}^{{tree}}",
+        )
+        parents = helpers.run(
+            self.repo,
+            "git",
+            "show",
+            "-s",
+            "--format=%P",
+            joined_head,
+        ).split()
+        parent_args = [item for parent in parents for item in ("-p", parent)]
+        recovered_head = helpers.run(
+            self.repo,
+            "git",
+            "commit-tree",
+            successor_tree,
+            *parent_args,
+            input_text=stamp_commit_message(
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "show",
+                    "-s",
+                    "--format=%B",
+                    joined_head,
+                ),
+                recovered_metadata,
+            ),
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            f"{recovered_head}:refs/heads/feature/report-2",
+            f"--force-with-lease=refs/heads/feature/report-2:{joined_head}",
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "branch",
+            "-f",
+            "feature/report-2",
+            recovered_head,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": recovered_head,
+                "body": embed_pr_metadata("Position 2\n", recovered_metadata),
+                "head_rewrite_edges": self.prs[102].head_rewrite_edges
+                + ((joined_head, recovered_head),),
+            }
+        )
+        return recovered_head
 
     def _prepare_completed_multilayer_legacy_recovery(
         self, *, merge_tail: bool = False
@@ -976,6 +1069,33 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         main_head = helpers.run(self.repo, "git", "rev-parse", "main")
         self._move_remote_ref_without_refresh(successor_branch, main_head)
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "missing, conflicting, or discontinuous successor-source lineage",
+        ):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=self._all_live_prs(),
+                cwd=self.repo,
+                remote="origin",
+                prefer_remote=True,
+            )
+
+    def test_public_completed_lineage_rejects_predecessor_based_evidence_join(
+        self,
+    ) -> None:
+        joined_head, successor_branch, successor_sha = (
+            self._prepare_evidence_preserving_join(
+                join_base_branch="feature/report-1",
+            )
+        )
+        self._complete_evidence_preserving_join(
+            joined_head,
+            successor_branch,
+            successor_sha,
+        )
 
         with self.assertRaisesRegex(
             RehydrationError,
