@@ -46,6 +46,10 @@ are intentional, make that boundary explicit with an argv such as
   native topology against live remote and GitHub evidence. Without the flag,
   `status` is passive and reports native local topology unavailable. The refresh
   flag cannot be combined with `--local-only`.
+- `create-chain` and `run --create-chain` require `--ack-local-stack-state`.
+  This explicitly authorizes rerere configuration, native local stack-state
+  initialization, branch creation, and checkout effects; without it,
+  materialization fails before probing or mutation.
 - `push-chain`, `pr-create`, `propagate`, `merge-propagate`, and
   `recover-suffix` require `--no-dry-run` for execution. Omitting it prints the
   intended remote actions.
@@ -116,7 +120,7 @@ materialize it:
 
 ```bash
 python3 scripts/cli.py validate --strict
-python3 scripts/cli.py create-chain
+python3 scripts/cli.py create-chain --ack-local-stack-state
 python3 scripts/cli.py validate-chain --test-argv '["just", "test"]' --local-only
 python3 scripts/cli.py compare
 ```

@@ -4,69 +4,117 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-25 — Kept passive topology evidence unambiguous
+## 2026-09-25 — Materialized native stacks and preserved recovery truth
+
+- docs: complete native materialization change journal
+
+- test: prove authority refusal has no public effects
+
+- fix: gate native materialization authority before preflight
+
+- fix: resume unpublished native materialization
+
+- test: record native authority eval
+
+- docs: require native materialization authority
+
+- test: record pre-change carve eval
+
+- fix: bind native adoption to semantic heads
+
+- fix: restore detached checkout exactly
+
+- feat: materialize changesets as a native stack
 
 - fix: resume multi-successor recovery
+  (43f81a2d6f46b2700aa66b3e4301e03704de7af7)
 
 - fix: extend authenticated successor recovery
+  (40f3d971671b5ee6379bbfce35522425902537ba)
 
 - test: configure cloned recovery identity
+  (492da47670b82046af1de434b27d115a1e0a59b0)
 
 - fix: require explicit evidence-join base
+  (c6de30c4eddd94bc95dbae44d556d753a0f2232c)
 
 - fix: bind evidence joins to selected base
+  (c00ed789e65e583cc9a1875b4aee0bfe7c5b53be)
 
-- fix: verify live evidence-join refs
+- fix: verify live evidence-join refs (401d8b4ea74b0219eb79f0e5f5bd0e8292c005f7)
 
 - fix: authenticate evidence-preserving recovery joins
+  (aeeb1eb62a42a3a296cd2226008c47e2975b3b45)
 
 - docs: align status refresh authority contract
+  (74fbdf48d7d60b8555904cc1cdc53079dccf7263)
 
 - fix: reject ambiguous passive PR evidence
+  (612bb2e235e3664788cb008c9e0d586d457508a0)
 
 ## 2026-09-24 — Closed recovery verification gaps
 
 - fix: verify recursive recovery provenance
+  (56a19639560a8dc0101476b42ebe5a1d664e1b6d)
 
 - fix: resume interrupted repeated recovery
+  (69017ad6f39dbeb3704fdef2cc0954d9cd847017)
 
 - fix: preserve multi-layer recovery tails
+  (8895a8d789c4e10f7dfd5ce1e621f1e2d2398cc9)
 
-- fix: prove linear recovery tails
+- fix: prove linear recovery tails (960aba761ae905a2b4c953f6c774e55686391697)
 
 - fix: authenticate repeated legacy recovery lineage
+  (fb44e6cfede7c649d8c3bf054464ed471303cbb2)
 
 - fix: require linear recovery boundaries
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: verify multi-commit recovery layers
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: verify downstream recovery rebases
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: require legacy recovery PR evidence
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - test: cover pagination through PR discovery
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - docs: backfill merged lineage changelog
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: reconcile merged lineage validation
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: share exact PR publication lookup
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - refactor: unify exact remote branch lookup
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: revalidate lineage across mutations
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: recheck lineage after publication
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: verify remote publication readback
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: verify published pull request titles
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: reject incomplete rewrite evidence
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: reserve successor lineage for recovery
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: verify complete recovery evidence
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: validate open suffix from live trunk
   (e51780138e8dcd3484dad6a03365b318c971508d)
@@ -88,8 +136,10 @@ summary: Chronological history of repository and skill changes.
   (f55993442d00967547c7e14a65782be3d70a8bb2)
 
 - docs: specify immutable recovery-boundary attestation
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - fix: authenticate recovery boundaries from immutable GitHub head history
+  (3de39cd3301435f0f654f5ca3fd2874b2725c8ab)
 
 - feat: recover recorded source lineage
   (04ef3efa878fe43395b21ab9e50003b19f3fd8a5)
@@ -100,18 +150,25 @@ summary: Chronological history of repository and skill changes.
 ## 2026-09-22 — Made native gh stack topology authoritative
 
 - fix: bound native status failures at the CLI
+  (db987e154af67c15c086a24cd1156a279fb8010f)
 
 - fix: classify refresh-capable status as local-mutating
+  (8c16c7eff592271a8e9862447c9cd86ec95a71d8)
 
 - fix: reject local-only native status refresh
+  (df28b19bea0bcf130e871c76dfaed2810bbc90a8)
 
 - fix: read live remote heads in passive status
+  (15019bf4b21c72d6c481eef9eddc03031a0d9aaf)
 
 - fix: gate native status refresh and preserve sequential merge truth
+  (430dcb898e929151794b106bd9c09f16fe117bae)
 
 - fix: reconcile native status against exact live repository evidence
+  (7d083187ed341e0785124bdc187d104a83cbca3f)
 
 - feat: make native stack topology authoritative
+  (9be344f02ba9aedd6c8115c66e97bdc98ce437d1)
 
 ## 2026-09-22 — Established the native gh stack adapter baseline
 
