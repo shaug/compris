@@ -51,8 +51,16 @@ are intentional, make that boundary explicit with an argv such as
   initialization, branch creation, and checkout effects; without it,
   materialization fails before probing or mutation.
 - `push-chain`, `pr-create`, `propagate`, `merge-propagate`, and
-  `recover-suffix` require `--no-dry-run` for execution. Omitting it prints the
-  intended remote actions.
+  `recover-suffix` require `--allow-stack-state-refresh` before they can print
+  an approvable transition manifest. The flag authorizes only the bounded
+  `gh stack view --json` refresh used to reconcile the full native identity,
+  trunk, order, heads, pull requests, and queue membership. Missing authority, a
+  topology disagreement, a non-bottom merge target, or an automatic rewrite
+  whose exact proposed head is not yet materialized blocks the preview.
+- The compatibility `--no-dry-run` spelling cannot bypass a transition manifest.
+  Remote execution requires `--execute`, the exact approved manifest, and the
+  operation-specific acknowledgement; unsupported reviewed-profile capabilities
+  block before refresh or mutation.
 - `propagate` and `merge-propagate` additionally require
   `--ack-merge-and-propagate` and exactly one of `--pr` or `--index`.
 - `recover-suffix` additionally requires `--ack-suffix-recovery`, the stable
@@ -156,15 +164,23 @@ potentially sensitive operational data.
 Preview both remote operations first:
 
 ```bash
-python3 scripts/cli.py push-chain
-python3 scripts/cli.py pr-create
+python3 scripts/cli.py push-chain --allow-stack-state-refresh
+python3 scripts/cli.py pr-create --allow-stack-state-refresh
 ```
 
 After publish authority and exact identities are reverified, execute them:
 
 ```bash
-python3 scripts/cli.py push-chain --no-dry-run
-python3 scripts/cli.py pr-create --no-dry-run
+python3 scripts/cli.py push-chain \
+  --allow-stack-state-refresh \
+  --manifest approved-push.json \
+  --execute \
+  --ack-push
+python3 scripts/cli.py pr-create \
+  --allow-stack-state-refresh \
+  --manifest approved-submit.json \
+  --execute \
+  --ack-submit
 ```
 
 Use `pr-create --index N` to publish one position. After publication, grant the
