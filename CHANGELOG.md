@@ -4,7 +4,37 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-25 — Kept passive topology evidence unambiguous
+
+- fix: resume multi-successor recovery
+
+- fix: extend authenticated successor recovery
+
+- test: configure cloned recovery identity
+
+- fix: require explicit evidence-join base
+
+- fix: bind evidence joins to selected base
+
+- fix: verify live evidence-join refs
+
+- fix: authenticate evidence-preserving recovery joins
+
+- docs: align status refresh authority contract
+
+- fix: reject ambiguous passive PR evidence
+
 ## 2026-09-24 — Closed recovery verification gaps
+
+- fix: verify recursive recovery provenance
+
+- fix: resume interrupted repeated recovery
+
+- fix: preserve multi-layer recovery tails
+
+- fix: prove linear recovery tails
+
+- fix: authenticate repeated legacy recovery lineage
 
 - fix: require linear recovery boundaries
 
@@ -66,6 +96,22 @@ summary: Chronological history of repository and skill changes.
 
 - feat: establish remote source lineage contract
   (1f9cc3c1fd9bc9d47cb770a25680b3191172207f)
+
+## 2026-09-22 — Made native gh stack topology authoritative
+
+- fix: bound native status failures at the CLI
+
+- fix: classify refresh-capable status as local-mutating
+
+- fix: reject local-only native status refresh
+
+- fix: read live remote heads in passive status
+
+- fix: gate native status refresh and preserve sequential merge truth
+
+- fix: reconcile native status against exact live repository evidence
+
+- feat: make native stack topology authoritative
 
 ## 2026-09-22 — Established the native gh stack adapter baseline
 
