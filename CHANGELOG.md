@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-25 — Kept passive topology evidence unambiguous
 
+- fix: verify live evidence-join refs
+
 - fix: authenticate evidence-preserving recovery joins
 
 - docs: align status refresh authority contract

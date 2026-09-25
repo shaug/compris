@@ -164,6 +164,17 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         return output.split()[0]
 
+    def _move_remote_ref_without_refresh(self, branch: str, head: str) -> None:
+        helpers.run(
+            self.temp_dir,
+            "git",
+            "--git-dir",
+            str(self.bare),
+            "update-ref",
+            f"refs/heads/{branch}",
+            head,
+        )
+
     def _live_pr(self, number: int, **_kwargs) -> PullRequestRecord:
         pr = self.prs[number]
         head = self._remote_head(pr.head_branch)
@@ -192,8 +203,10 @@ class SuffixRecoveryTests(unittest.TestCase):
         self,
         *,
         edit_side_effect=None,
+        pull_requests_side_effect=None,
         successor_branch: str = "feature/report-corrected",
         successor_sha: str | None = None,
+        dry_run: bool = False,
     ) -> str:
         output = io.StringIO()
         with (
@@ -201,7 +214,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             mock.patch.object(
                 recovery_mod,
                 "pull_requests_for_source",
-                side_effect=self._all_live_prs,
+                side_effect=pull_requests_side_effect or self._all_live_prs,
             ),
             mock.patch.object(
                 recovery_mod, "pull_request_by_number", side_effect=self._live_pr
@@ -221,7 +234,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 successor_branch=successor_branch,
                 successor_sha=successor_sha or self.successor_sha,
                 remote="origin",
-                dry_run=False,
+                dry_run=dry_run,
                 authority_acknowledged=True,
             )
         return output.getvalue()
@@ -878,6 +891,104 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         self.assertEqual(joined_head, self._remote_head("feature/report-2"))
         self.assertEqual(original_body, self.prs[102].body)
+
+    def test_public_recovery_rejects_evidence_join_on_stale_live_base(self) -> None:
+        joined_head, successor_branch, successor_sha = (
+            self._prepare_evidence_preserving_join()
+        )
+        original_body = self.prs[102].body
+
+        def move_base_after_fetch(*_args, **_kwargs):
+            self._move_remote_ref_without_refresh("main", successor_sha)
+            return self._all_live_prs()
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=successor_branch,
+                successor_sha=successor_sha,
+                pull_requests_side_effect=move_base_after_fetch,
+                dry_run=True,
+            )
+
+        self.assertEqual(joined_head, self._remote_head("feature/report-2"))
+        self.assertEqual(original_body, self.prs[102].body)
+
+    def test_public_recovery_rejects_evidence_join_on_stale_successor_ref(
+        self,
+    ) -> None:
+        joined_head, successor_branch, successor_sha = (
+            self._prepare_evidence_preserving_join()
+        )
+        original_body = self.prs[102].body
+        main_head = helpers.run(self.repo, "git", "rev-parse", "main")
+
+        def move_successor_after_fetch(*_args, **_kwargs):
+            self._move_remote_ref_without_refresh(successor_branch, main_head)
+            return self._all_live_prs()
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=successor_branch,
+                successor_sha=successor_sha,
+                pull_requests_side_effect=move_successor_after_fetch,
+                dry_run=True,
+            )
+
+        self.assertEqual(joined_head, self._remote_head("feature/report-2"))
+        self.assertEqual(original_body, self.prs[102].body)
+
+    def test_public_completed_lineage_rejects_stale_evidence_join_base(
+        self,
+    ) -> None:
+        _, successor_branch, successor_sha = self._prepare_evidence_preserving_join()
+        self._run_recovery(
+            successor_branch=successor_branch,
+            successor_sha=successor_sha,
+        )
+        self._move_remote_ref_without_refresh("main", successor_sha)
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "missing, conflicting, or discontinuous successor-source lineage",
+        ):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=self._all_live_prs(),
+                cwd=self.repo,
+                remote="origin",
+                prefer_remote=True,
+            )
+
+    def test_public_completed_lineage_rejects_stale_evidence_join_successor(
+        self,
+    ) -> None:
+        _, successor_branch, successor_sha = self._prepare_evidence_preserving_join()
+        self._run_recovery(
+            successor_branch=successor_branch,
+            successor_sha=successor_sha,
+        )
+        main_head = helpers.run(self.repo, "git", "rev-parse", "main")
+        self._move_remote_ref_without_refresh(successor_branch, main_head)
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "missing, conflicting, or discontinuous successor-source lineage",
+        ):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=self._all_live_prs(),
+                cwd=self.repo,
+                remote="origin",
+                prefer_remote=True,
+            )
 
     def test_public_repeated_recovery_resumes_after_metadata_interruption(
         self,

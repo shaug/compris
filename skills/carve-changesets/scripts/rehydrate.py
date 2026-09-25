@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from common import CommandError
 from metadata import (
     ChangesetMetadata,
     MetadataError,
@@ -18,6 +19,7 @@ from metadata import (
     stamp_commit_message,
 )
 from native_stack import NativeStackSnapshot
+from publication import remote_branch_head
 
 
 class RehydrationError(RuntimeError):
@@ -427,20 +429,20 @@ def _validate_completed_recovery_provenance(
             return False
         try:
             _ensure_commit_available(repo, successor.sha, remote=remote)
-            published_successor = _git(
-                repo,
-                "rev-parse",
-                f"refs/remotes/{remote}/{successor.branch}^{{commit}}",
-            ).strip()
-            live_base = _git(
-                repo,
-                "rev-parse",
-                f"refs/remotes/{remote}/{record.base}^{{commit}}",
-            ).strip()
+            published_successor = remote_branch_head(
+                remote,
+                successor.branch,
+                cwd=repo,
+            )
+            live_base = remote_branch_head(
+                remote,
+                record.base,
+                cwd=repo,
+            )
             parents = _git(repo, "show", "-s", "--format=%P", proof_head).split()
             proof_tree = _git(repo, "rev-parse", f"{proof_head}^{{tree}}")
             successor_tree = _git(repo, "rev-parse", f"{successor.sha}^{{tree}}")
-        except RehydrationError:
+        except (CommandError, RehydrationError):
             return False
         return (
             published_successor == successor.sha
