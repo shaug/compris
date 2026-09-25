@@ -705,7 +705,7 @@ def _validate_recovery_transition(
     repeated_legacy_recovery = (
         first_open_lineage != base_lineage
         and first_open_lineage != requested_lineage
-        and len(first_open_lineage) == len(base_lineage) + 1
+        and len(first_open_lineage) > len(base_lineage)
         and first_open_lineage[: len(base_lineage)] == base_lineage
     )
     interrupted_repeated_recovery = (

@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-25 — Kept passive topology evidence unambiguous
 
+- fix: extend authenticated successor recovery
+
 - test: configure cloned recovery identity
 
 - fix: require explicit evidence-join base
