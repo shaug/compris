@@ -393,15 +393,19 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
             operation=StackOperation.PUBLISH,
             phases=(TransitionPhase.PUSH, TransitionPhase.SUBMIT),
         )
-    current = _publish_manifest(
-        plan,
-        remote=args.remote,
-        indices=indices,
-        allow_stack_state_refresh=args.allow_stack_state_refresh,
-        ready_for_review=args.ready_for_review,
-    )
     if not args.execute:
-        print(manifest_to_json(current), end="")
+        print(
+            manifest_to_json(
+                _publish_manifest(
+                    plan,
+                    remote=args.remote,
+                    indices=indices,
+                    allow_stack_state_refresh=args.allow_stack_state_refresh,
+                    ready_for_review=args.ready_for_review,
+                )
+            ),
+            end="",
+        )
         return
     approved = _read_manifest(args.manifest)
     result = execute_transition(
@@ -608,7 +612,7 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         remote=remote,
         refs=refs,
         native_stack=_expected_native_stack(source, snapshot),
-        authority=AuthorityGrant.publish(
+        authority=AuthorityGrant.push(
             repository=repository,
             remote=remote,
             branches=branches,
@@ -681,8 +685,13 @@ def _publish_manifest(
             repository=github_repo_for_remote(remote),
             remote=remote,
             branches=tuple(item.branch for item in expected_pull_requests),
+            pull_requests=expected_pull_requests,
             ready_for_review=(
-                tuple(item.branch for item in expected_pull_requests)
+                tuple(
+                    item.branch
+                    for item in expected_pull_requests
+                    if item.draft is not False
+                )
                 if ready_for_review
                 else ()
             ),
@@ -892,12 +901,12 @@ def _merge_manifest(args: argparse.Namespace):
         native_snapshot=native_snapshot,
     )
     phases = (
-        frozenset({TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC})
+        frozenset({TransitionPhase.DIRECT_MERGE})
         if mode is MergeMode.DIRECT
         else frozenset({TransitionPhase.QUEUE_MERGE})
     )
     effects = (
-        frozenset({EffectKind.MERGE_PR, EffectKind.SYNC_STACK})
+        frozenset({EffectKind.MERGE_PR})
         if mode is MergeMode.DIRECT
         else frozenset({EffectKind.QUEUE_PR, EffectKind.MERGE_PR})
     )
@@ -1066,6 +1075,7 @@ def _print_transition_result(result: TransitionResult) -> None:
                 "blocker": result.blocker,
                 "next_action": result.next_action,
                 "fresh_manifest_required": result.fresh_manifest_required,
+                "approved_manifest_retained": result.retained_manifest is not None,
                 "targets": [
                     {
                         "target": item.effect.target,
@@ -1111,13 +1121,17 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
             operation=StackOperation.PUBLISH,
             phases=(TransitionPhase.PUSH,),
         )
-    current = _push_manifest(
-        plan,
-        remote=args.remote,
-        allow_stack_state_refresh=args.allow_stack_state_refresh,
-    )
     if not args.execute:
-        print(manifest_to_json(current), end="")
+        print(
+            manifest_to_json(
+                _push_manifest(
+                    plan,
+                    remote=args.remote,
+                    allow_stack_state_refresh=args.allow_stack_state_refresh,
+                )
+            ),
+            end="",
+        )
         return
     approved = _read_manifest(args.manifest)
     result = execute_transition(
@@ -1158,9 +1172,8 @@ def cmd_propagate(args: argparse.Namespace) -> None:
                 TransitionPhase.SYNC,
             ),
         )
-    current = _repair_manifest(args)
     if not args.execute:
-        print(manifest_to_json(current), end="")
+        print(manifest_to_json(_repair_manifest(args)), end="")
         return
     approved = _read_manifest(args.manifest)
     result = execute_transition(
@@ -1198,7 +1211,7 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
         return
     mode = MergeMode(args.merge_mode)
     phases = (
-        (TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC)
+        (TransitionPhase.DIRECT_MERGE,)
         if mode is MergeMode.DIRECT
         else (TransitionPhase.QUEUE_MERGE,)
     )
@@ -1215,9 +1228,8 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
             phases=phases,
             merge_mode=mode,
         )
-    current = _merge_manifest(args)
     if not args.execute:
-        print(manifest_to_json(current), end="")
+        print(manifest_to_json(_merge_manifest(args)), end="")
         return
     approved = _read_manifest(args.manifest)
     result = execute_transition(
@@ -1265,9 +1277,8 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
                 TransitionPhase.SYNC,
             ),
         )
-    current = _recovery_manifest(args)
     if not args.execute:
-        print(manifest_to_json(current), end="")
+        print(manifest_to_json(_recovery_manifest(args)), end="")
         return
     approved = _read_manifest(args.manifest)
     result = execute_transition(

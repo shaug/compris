@@ -109,6 +109,7 @@ def publish_manifest() -> MutationManifest:
             repository="shaug/compris",
             remote="origin",
             branches=("feature-1", "feature-2"),
+            pull_requests=pull_requests,
         ),
         evidence=("native stack snapshot 9", "GitHub PR snapshot 12"),
     )
@@ -185,6 +186,52 @@ class PublishManifestTests(unittest.TestCase):
         )
         self.assertFalse(created.after[5])
 
+    def test_created_pr_readback_accepts_only_the_assigned_identity(self) -> None:
+        approved = publish_manifest()
+        current_pull_requests = (
+            approved.expected_pull_requests[0],
+            ExpectedPullRequest(
+                number=52,
+                branch="feature-2",
+                head=SHA_D,
+                base="feature-1",
+                state="OPEN",
+                draft=True,
+                queued=False,
+                auto_merge=False,
+                title="Integrate transition model",
+                body="Layer two body",
+                current_title="Integrate transition model",
+                current_body="Layer two body",
+            ),
+        )
+        current = preview_publish(
+            repository=approved.repository,
+            remote=approved.remote,
+            refs=approved.expected_refs,
+            pull_requests=current_pull_requests,
+            native_stack=replace(approved.expected_native_stack, registered=True),
+            authority=AuthorityGrant.publish(
+                repository=approved.repository,
+                remote=approved.remote,
+                branches=("feature-1", "feature-2"),
+                pull_requests=current_pull_requests,
+            ),
+            evidence=approved.evidence,
+        )
+
+        result = classify_readback(
+            approved, observation_from_manifest(approved, current)
+        )
+        created = next(
+            target
+            for target in result.targets
+            if target.effect.kind is EffectKind.CREATE_PR
+        )
+
+        self.assertEqual(TargetDisposition.CHANGED_AS_EXPECTED, created.disposition)
+        self.assertEqual(52, created.observed[0])
+
     def test_publish_binds_live_pr_text_separately_from_proposed_text(self) -> None:
         manifest = publish_manifest()
         current = replace(
@@ -228,8 +275,19 @@ class PublishManifestTests(unittest.TestCase):
             phases=frozenset({TransitionPhase.PUSH}),
         )
 
-        with self.assertRaisesRegex(ManifestError, "authority grant does not cover"):
+        with self.assertRaisesRegex(ManifestError, "exactly match"):
             replace(manifest, authority=incomplete).validate_complete()
+
+    def test_authority_must_not_grant_effects_beyond_the_manifest(self) -> None:
+        manifest = publish_manifest()
+        overbroad = replace(
+            manifest.authority,
+            effect_kinds=manifest.authority.effect_kinds
+            | frozenset({EffectKind.READY_PR}),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "exactly match"):
+            replace(manifest, authority=overbroad).validate_complete()
 
     def test_authority_must_cover_every_mutated_branch(self) -> None:
         manifest = publish_manifest()
@@ -238,7 +296,7 @@ class PublishManifestTests(unittest.TestCase):
             branches=("feature-1",),
         )
 
-        with self.assertRaisesRegex(ManifestError, "authority grant does not cover"):
+        with self.assertRaisesRegex(ManifestError, "exactly match"):
             replace(manifest, authority=incomplete).validate_complete()
 
     def test_manifest_rejects_an_omitted_declared_resource_effect(self) -> None:
@@ -279,7 +337,7 @@ class CapabilityFenceTests(unittest.TestCase):
         )
 
         self.assertEqual(TransitionState.BLOCKED, result.state)
-        self.assertIn("authority grant does not cover", result.blocker)
+        self.assertIn("authority grant must exactly match", result.blocker)
         self.assertEqual([], calls)
 
     def test_invalid_pre_execution_reread_returns_blocked(self) -> None:
@@ -369,6 +427,26 @@ class CapabilityFenceTests(unittest.TestCase):
 
         self.assertEqual(TransitionState.BLOCKED, result.state)
         self.assertTrue(result.fresh_manifest_required)
+
+    def test_successful_executor_with_every_pending_write_unchanged_is_blocked(
+        self,
+    ) -> None:
+        manifest = publish_manifest()
+
+        result = execute_transition(
+            manifest,
+            profile=__import__("gh_stack").GhStackProfile(
+                version="test-complete",
+                source_revision="test",
+                capabilities=frozenset(StackCapability),
+            ),
+            reread=lambda: manifest,
+            executor=lambda _approved: None,
+            readback=lambda: TransitionObservation.from_manifest_before(manifest),
+        )
+
+        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertIn("pending", result.blocker)
 
     def test_reviewed_profile_blocks_before_executor_invocation(self) -> None:
         manifest = publish_manifest()
@@ -596,6 +674,52 @@ class OperationManifestTests(unittest.TestCase):
         )
         self.assertEqual("pr:42", manifest.effects[0].target)
         self.assertEqual("pr:42", manifest.effects[1].target)
+
+        admission = classify_readback(
+            manifest,
+            TransitionObservation(
+                values=tuple(
+                    (
+                        effect.key,
+                        True if effect.kind is EffectKind.QUEUE_PR else effect.before,
+                    )
+                    for effect in manifest.effects
+                )
+            ),
+        )
+        self.assertEqual(TransitionState.ADMITTED, admission.state)
+        self.assertIs(manifest, admission.retained_manifest)
+        self.assertIn("do not admit", admission.next_action)
+
+        landing = classify_readback(
+            manifest,
+            TransitionObservation(
+                values=tuple(
+                    (
+                        effect.key,
+                        effect.before
+                        if effect.kind is EffectKind.QUEUE_PR
+                        else effect.after,
+                    )
+                    for effect in manifest.effects
+                )
+            ),
+        )
+        self.assertEqual(TransitionState.COMPLETED, landing.state)
+
+        cancelled = classify_readback(
+            manifest,
+            TransitionObservation.from_manifest_before(manifest),
+        )
+        self.assertEqual(TransitionState.PARTIAL, cancelled.state)
+
+        drift_values = list(TransitionObservation.from_manifest_before(manifest).values)
+        drift_values[-1] = (drift_values[-1][0], "e" * 40)
+        drift = classify_readback(
+            manifest,
+            TransitionObservation(values=tuple(drift_values)),
+        )
+        self.assertEqual(TransitionState.DIVERGED, drift.state)
 
     def test_direct_full_prefix_does_not_claim_a_suffix_sync(self) -> None:
         phases = frozenset({TransitionPhase.DIRECT_MERGE})
@@ -827,16 +951,19 @@ class ReadbackClassificationTests(unittest.TestCase):
         self.assertEqual((("stack:stack-9:feature-1:head", SHA_C),), observation.values)
 
     def test_complete_and_no_op_results_remain_distinct(self) -> None:
-        manifest = self._manifest(
+        changing = self._manifest(
             MutationEffect(EffectKind.PUSH_REF, "ref:feature-1", "sha", SHA_A, SHA_C)
+        )
+        no_op = self._manifest(
+            MutationEffect(EffectKind.PUSH_REF, "ref:feature-1", "sha", SHA_A, SHA_A)
         )
 
         completed = classify_readback(
-            manifest,
+            changing,
             TransitionObservation(values=(("ref:feature-1:sha", SHA_C),)),
         )
         unchanged = classify_readback(
-            manifest,
+            no_op,
             TransitionObservation(values=(("ref:feature-1:sha", SHA_A),)),
         )
 

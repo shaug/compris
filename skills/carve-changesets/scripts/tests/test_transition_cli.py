@@ -141,6 +141,8 @@ class TransitionCliTests(unittest.TestCase):
             ["push_ref", "push_ref"],
             [item["kind"] for item in manifest["effects"]],
         )
+        self.assertEqual(["push"], manifest["authority"]["phases"])
+        self.assertEqual(["push_ref"], manifest["authority"]["effect_kinds"])
         self.assertEqual(
             "",
             helpers.run(
@@ -335,6 +337,53 @@ class TransitionCliTests(unittest.TestCase):
                 "refs/heads/feature/report-*",
             ),
         )
+
+    def test_push_execution_builds_one_fresh_manifest(self) -> None:
+        with chdir(self.repo):
+            approved = cli_mod._push_manifest(
+                json.loads(self.plan.read_text()),
+                remote="origin",
+                allow_stack_state_refresh=True,
+            )
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        reread = mock.Mock(return_value=approved)
+
+        with (
+            mock.patch.object(cli_mod, "_push_manifest", reread),
+            mock.patch.object(cli_mod, "_read_manifest", return_value=approved),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "push_chain"),
+            mock.patch.object(
+                cli_mod,
+                "_push_observation",
+                return_value=cli_mod.TransitionObservation(
+                    values=tuple(
+                        (effect.key, effect.after) for effect in approved.effects
+                    )
+                ),
+            ),
+            chdir(self.repo),
+            redirect_stdout(StringIO()),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(self.root / "ignored.json"),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status)
+        self.assertEqual(1, reread.call_count)
 
     def test_single_layer_submit_binds_its_actual_predecessor(self) -> None:
         plan = json.loads(self.plan.read_text())

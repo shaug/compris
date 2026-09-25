@@ -61,6 +61,7 @@ class TargetDisposition(str, Enum):
 
 class TransitionState(str, Enum):
     COMPLETED = "completed"
+    ADMITTED = "admitted"
     UNCHANGED = "unchanged"
     PARTIAL = "partial"
     DIVERGED = "diverged"
@@ -335,16 +336,46 @@ class AuthorityGrant:
     ready_for_review: tuple[str, ...] = ()
 
     @classmethod
+    def push(
+        cls,
+        *,
+        repository: str,
+        remote: str,
+        branches: Sequence[str],
+    ) -> AuthorityGrant:
+        selected = tuple(branches)
+        return cls(
+            operation=StackOperation.PUBLISH,
+            repository=repository,
+            remote=remote,
+            identities=selected,
+            branches=selected,
+            phases=frozenset({TransitionPhase.PUSH}),
+            effect_kinds=frozenset({EffectKind.PUSH_REF}),
+        )
+
+    @classmethod
     def publish(
         cls,
         *,
         repository: str,
         remote: str,
         branches: Sequence[str],
+        pull_requests: Sequence[ExpectedPullRequest],
         ready_for_review: Sequence[str] = (),
     ) -> AuthorityGrant:
         selected = tuple(branches)
+        expected_pull_requests = tuple(pull_requests)
         ready = tuple(ready_for_review)
+        effect_kinds = {EffectKind.PUSH_REF, EffectKind.REGISTER_STACK}
+        if any(item.state == "ABSENT" for item in expected_pull_requests):
+            effect_kinds.add(EffectKind.CREATE_PR)
+        if any(item.state != "ABSENT" for item in expected_pull_requests):
+            effect_kinds.add(EffectKind.UPDATE_PR)
+        if any(item.auto_merge is True for item in expected_pull_requests):
+            effect_kinds.add(EffectKind.DISABLE_AUTO_MERGE)
+        if ready:
+            effect_kinds.add(EffectKind.READY_PR)
         return cls(
             operation=StackOperation.PUBLISH,
             repository=repository,
@@ -352,16 +383,7 @@ class AuthorityGrant:
             identities=selected,
             branches=selected,
             phases=frozenset({TransitionPhase.PUSH, TransitionPhase.SUBMIT}),
-            effect_kinds=frozenset(
-                {
-                    EffectKind.PUSH_REF,
-                    EffectKind.CREATE_PR,
-                    EffectKind.UPDATE_PR,
-                    EffectKind.DISABLE_AUTO_MERGE,
-                    EffectKind.REGISTER_STACK,
-                    *({EffectKind.READY_PR} if ready else set()),
-                }
-            ),
+            effect_kinds=frozenset(effect_kinds),
             ready_for_review=ready,
         )
 
@@ -557,28 +579,30 @@ class MutationManifest:
             raise ManifestError("only merge manifests may bind a PR prefix")
 
         grant = self.authority
-        missing_phases = set(self.enabled_phases) - grant.phases
-        missing_effects = {effect.kind for effect in self.effects} - grant.effect_kinds
+        manifest_phases = frozenset(self.enabled_phases)
+        manifest_effects = frozenset(effect.kind for effect in self.effects)
         mutated_branches = {
             item.name.removeprefix("refs/heads/") for item in self.expected_refs
         } | {item.branch for item in self.expected_pull_requests}
-        missing_branches = mutated_branches - set(grant.branches)
+        ready_effect_branches = {
+            item.branch
+            for item in self.expected_pull_requests
+            if item.branch in grant.ready_for_review and item.draft is not False
+        }
         if (
             grant.operation is not self.operation
             or grant.repository != self.repository
             or grant.remote != self.remote
-            or set(self.identities) - set(grant.identities)
-            or missing_phases
-            or missing_effects
-            or missing_branches
+            or grant.identities != self.identities
+            or set(grant.branches) != mutated_branches
+            or grant.phases != manifest_phases
+            or grant.effect_kinds != manifest_effects
+            or set(grant.ready_for_review) != ready_effect_branches
         ):
-            missing = sorted(
-                [phase.value for phase in missing_phases]
-                + [effect.value for effect in missing_effects]
-                + sorted(missing_branches)
+            raise ManifestError(
+                "authority grant must exactly match manifest phases, effects, "
+                "identities, branches, and ready transitions"
             )
-            detail = ", ".join(missing) if missing else "bound identities"
-            raise ManifestError(f"authority grant does not cover manifest: {detail}")
 
 
 @dataclass(frozen=True)
@@ -615,6 +639,7 @@ class TransitionResult:
     blocker: str = ""
     next_action: str = ""
     fresh_manifest_required: bool = False
+    retained_manifest: MutationManifest | None = None
 
 
 def _json_value(value: object) -> object:
@@ -1336,6 +1361,25 @@ def preview_recovery(
     return manifest
 
 
+def _matches_after(effect: MutationEffect, value: object) -> bool:
+    if effect.kind is not EffectKind.CREATE_PR or effect.field != "record":
+        return value == effect.after
+    expected = effect.after
+    if not isinstance(expected, tuple) or not isinstance(value, tuple):
+        return False
+    if len(expected) != len(value):
+        return False
+    if expected[0] is not None:
+        return value == expected
+    assigned = value[0]
+    return (
+        isinstance(assigned, int)
+        and not isinstance(assigned, bool)
+        and assigned > 0
+        and value[1:] == expected[1:]
+    )
+
+
 def classify_readback(
     manifest: MutationManifest,
     observation: TransitionObservation,
@@ -1345,9 +1389,9 @@ def classify_readback(
     targets: list[TargetReadback] = []
     for effect in manifest.effects:
         value = observed.get(effect.key, missing)
-        if effect.before == effect.after and value == effect.after:
+        if effect.before == effect.after and _matches_after(effect, value):
             disposition = TargetDisposition.UNCHANGED
-        elif value == effect.after:
+        elif _matches_after(effect, value):
             disposition = TargetDisposition.CHANGED_AS_EXPECTED
         elif value == effect.before:
             disposition = TargetDisposition.UNCHANGED
@@ -1358,6 +1402,59 @@ def classify_readback(
         )
 
     dispositions = {target.disposition for target in targets}
+    if (
+        manifest.operation is StackOperation.MERGE
+        and manifest.merge_mode is MergeMode.QUEUE
+        and TargetDisposition.CHANGED_UNEXPECTEDLY not in dispositions
+    ):
+        queue_effect = next(
+            effect for effect in manifest.effects if effect.kind is EffectKind.QUEUE_PR
+        )
+        merge_effect = next(
+            effect for effect in manifest.effects if effect.kind is EffectKind.MERGE_PR
+        )
+        automatic = tuple(
+            effect
+            for effect in manifest.effects
+            if effect not in {queue_effect, merge_effect}
+        )
+        queue_value = observed.get(queue_effect.key, missing)
+        merge_value = observed.get(merge_effect.key, missing)
+        if (
+            merge_value == merge_effect.after
+            and queue_value in {queue_effect.before, queue_effect.after}
+            and all(
+                _matches_after(effect, observed.get(effect.key, missing))
+                for effect in automatic
+            )
+        ):
+            return TransitionResult(
+                state=TransitionState.COMPLETED,
+                operation=manifest.operation,
+                identities=manifest.identities,
+                evidence=manifest.evidence,
+                targets=tuple(targets),
+            )
+        if (
+            queue_value == queue_effect.after
+            and merge_value == merge_effect.before
+            and all(
+                observed.get(effect.key, missing) == effect.before
+                for effect in automatic
+            )
+        ):
+            return TransitionResult(
+                state=TransitionState.ADMITTED,
+                operation=manifest.operation,
+                identities=manifest.identities,
+                evidence=manifest.evidence,
+                targets=tuple(targets),
+                next_action=(
+                    "retain this approved fence through landing or cancellation; "
+                    "do not admit the next pull request before fresh suffix gates"
+                ),
+                retained_manifest=manifest,
+            )
     incomplete_mutations = any(
         target.disposition is TargetDisposition.UNCHANGED
         and target.effect.before != target.effect.after
@@ -1369,10 +1466,8 @@ def classify_readback(
     )
     if TargetDisposition.CHANGED_UNEXPECTEDLY in dispositions:
         state = TransitionState.DIVERGED
-    elif incomplete_mutations and changed:
-        state = TransitionState.PARTIAL
     elif incomplete_mutations:
-        state = TransitionState.UNCHANGED
+        state = TransitionState.PARTIAL
     elif changed:
         state = TransitionState.COMPLETED
     else:
@@ -1388,7 +1483,8 @@ def classify_readback(
         evidence=manifest.evidence,
         targets=tuple(targets),
         blocker=(
-            "readback was partial or divergent; generate a fresh manifest before retry"
+            "readback left pending mutations unchanged or diverged; generate a "
+            "fresh manifest before retry"
             if fresh_manifest_required
             else ""
         ),
@@ -1542,7 +1638,8 @@ def execute_transition(
             return replace(
                 result,
                 state=TransitionState.BLOCKED,
-                blocker="post-command readback was partial or divergent",
+                blocker=result.blocker
+                or "post-command readback was partial or divergent",
                 next_action="reread every declared target and approve a fresh manifest",
                 fresh_manifest_required=True,
             )
