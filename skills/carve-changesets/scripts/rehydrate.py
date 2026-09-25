@@ -272,16 +272,12 @@ def _validate_completed_recovery_provenance(
         record: ChangesetRecord,
         predecessor: str,
         *,
-        expected_head: str | None = None,
         expected_metadata: ChangesetMetadata | None = None,
     ) -> str | None:
         """Return the authenticated first head for this successor lineage."""
 
-        target_head = expected_head or record.head
         target_metadata = expected_metadata or record.metadata
-        boundary: int | None = None
-        current: str | None = None
-        for index, (before, after) in enumerate(record.pr_head_rewrite_edges):
+        for before, after in record.pr_head_rewrite_edges:
             try:
                 _ensure_commit_available(repo, after, remote=remote)
                 after_metadata = parse_commit_message(
@@ -294,21 +290,44 @@ def _validate_completed_recovery_provenance(
                 continue
             if before != predecessor or after_metadata.slug != target_metadata.slug:
                 return None
-            boundary = index
-            current = after
-            break
-        if boundary is None or current is None:
-            return None
-        first_recovered_head = current
-        for before, after in record.pr_head_rewrite_edges[boundary + 1 :]:
-            if current == target_head:
-                return first_recovered_head
+            return after
+        return None
+
+    def proves_remote_rewrite_path(
+        record: ChangesetRecord, start: str, end: str
+    ) -> bool:
+        """Prove a contiguous force-push path between two published heads."""
+
+        if start == end:
+            return True
+        current = start
+        started = False
+        for before, after in record.pr_head_rewrite_edges:
             if before != current:
-                return None
+                if started:
+                    return False
+                continue
+            started = True
             current = after
-        if current != target_head:
-            return None
-        return first_recovered_head
+            if current == end:
+                return True
+        return False
+
+    def proves_linear_tail(start: str, end: str) -> bool:
+        """Prove ordinary accepted commits after a recovery restamp."""
+
+        if start == end:
+            return True
+        try:
+            _git(repo, "merge-base", "--is-ancestor", start, end)
+            return not _git(
+                repo,
+                "rev-list",
+                "--merges",
+                f"{start}..{end}",
+            ).strip()
+        except RehydrationError:
+            return False
 
     def proves_prior_single_record_history(
         record: ChangesetRecord,
@@ -332,7 +351,6 @@ def _validate_completed_recovery_provenance(
             boundary = remote_rewrite_boundary(
                 record,
                 predecessor,
-                expected_head=head,
                 expected_metadata=metadata,
             )
             if boundary is None:
@@ -357,6 +375,7 @@ def _validate_completed_recovery_provenance(
             and boundary_metadata == metadata
             and same_tree
             and same_parents
+            and proves_linear_tail(boundary, head)
             and stamp_commit_message(predecessor_message, metadata).strip()
             == boundary_message.strip()
             and proves_prior_single_record_history(
@@ -489,18 +508,11 @@ def _validate_completed_recovery_provenance(
             ) from exc
 
         parent_proven = current_parents == expected_parents
-        later_history_proven = True
-        if proof_head == boundary_head and boundary_head != record.head:
-            try:
-                _git(repo, "merge-base", "--is-ancestor", boundary_head, record.head)
-                later_history_proven = not _git(
-                    repo,
-                    "rev-list",
-                    "--merges",
-                    f"{boundary_head}..{record.head}",
-                ).strip()
-            except RehydrationError:
-                later_history_proven = False
+        later_history_proven = (
+            proves_remote_rewrite_path(record, boundary_head, record.head)
+            if same_lineage_as_previous
+            else proves_linear_tail(boundary_head, record.head)
+        )
         prior_history_proven = True
         if len(lineage) > 2 and (
             offset == 0 or records[offset - 1].metadata.source_lineage != lineage

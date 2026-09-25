@@ -227,7 +227,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         return output.getvalue()
 
     def _prepare_completed_legacy_recovery(
-        self, *, prove_boundary: bool
+        self, *, prove_boundary: bool, merge_tail: bool = False
     ) -> tuple[str, str, str]:
         root = SourceIdentity("origin", "feature/report", self.source_sha)
         prior = SourceIdentity("origin", "feature/report-reviewed", self.fixed_head)
@@ -277,12 +277,41 @@ class SuffixRecoveryTests(unittest.TestCase):
             "feature/report-2",
         )
 
+        if merge_tail:
+            helpers.run(
+                self.repo,
+                "git",
+                "checkout",
+                "-b",
+                "feature/report-side",
+                boundary_head,
+            )
+            (self.repo / "legacy-side.txt").write_text("side history\n")
+            helpers.run(self.repo, "git", "add", "legacy-side.txt")
+            helpers.commit(
+                self.repo,
+                stamp_commit_message("fix: side history", prior_metadata),
+            )
+            helpers.run(self.repo, "git", "checkout", "feature/report-2")
         (self.repo / "legacy-follow-up.txt").write_text("later accepted fix\n")
         helpers.run(self.repo, "git", "add", "legacy-follow-up.txt")
         current_head = helpers.commit(
             self.repo,
             stamp_commit_message("fix: preserve later review fix", prior_metadata),
         )
+        if merge_tail:
+            helpers.run(
+                self.repo,
+                "git",
+                "merge",
+                "--no-ff",
+                "--no-commit",
+                "feature/report-side",
+            )
+            current_head = helpers.commit(
+                self.repo,
+                stamp_commit_message("fix: merge later history", prior_metadata),
+            )
         helpers.run(self.repo, "git", "push", "origin", "feature/report-2")
 
         requested_branch = "feature/report-final"
@@ -295,9 +324,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             "origin",
             requested_branch,
         )
-        rewrite_edges = ((boundary_head, current_head),)
-        if prove_boundary:
-            rewrite_edges = ((self.fixed_head, boundary_head), *rewrite_edges)
+        rewrite_edges = ((self.fixed_head, boundary_head),) if prove_boundary else ()
         self.prs[102] = PullRequestRecord(
             **{
                 **self.prs[102].__dict__,
@@ -498,6 +525,25 @@ class SuffixRecoveryTests(unittest.TestCase):
     def test_public_recovery_rejects_unproven_legacy_successor_lineage(self) -> None:
         _, current_head, requested_branch = self._prepare_completed_legacy_recovery(
             prove_boundary=False
+        )
+        original_body = self.prs[102].body
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=requested_branch,
+                successor_sha=current_head,
+            )
+
+        self.assertEqual(current_head, self._remote_head("feature/report-2"))
+        self.assertEqual(original_body, self.prs[102].body)
+
+    def test_public_recovery_rejects_merge_in_legacy_successor_tail(self) -> None:
+        _, current_head, requested_branch = self._prepare_completed_legacy_recovery(
+            prove_boundary=True,
+            merge_tail=True,
         )
         original_body = self.prs[102].body
 
