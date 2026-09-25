@@ -64,6 +64,23 @@ class GhStackClientTest(unittest.TestCase):
         ):
             client.view_json(allow_state_refresh=True)
 
+    def test_init_reports_command_failure_with_stderr(self) -> None:
+        failure = subprocess.CalledProcessError(
+            2,
+            ["gh", "stack", "init", "--base", "main", "feature-1"],
+            stderr='branch "feature-1" is already part of a stack',
+        )
+        client = GhStackClient(runner=mock.Mock(side_effect=failure))
+
+        try:
+            with self.assertRaisesRegex(
+                GhStackError,
+                'gh stack init failed: exit 2: branch "feature-1" is already part',
+            ):
+                client.init(base="main", branches=("feature-1",))
+        except subprocess.CalledProcessError as exc:
+            self.fail(f"native init leaked its subprocess failure: {exc}")
+
     def test_default_runner_executes_in_the_bound_repository(self) -> None:
         repo = Path("/tmp/native-stack-target")
         completed = subprocess.CompletedProcess(

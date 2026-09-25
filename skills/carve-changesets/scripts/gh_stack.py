@@ -196,7 +196,10 @@ class GhStackClient:
         return payload
 
     def init(self, *, base: str, branches: Sequence[str]) -> None:
-        self._capture(("init", "--base", base, *branches))
+        try:
+            self._capture(("init", "--base", base, *branches))
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise GhStackError(f"gh stack init failed: {_probe_error(exc)}") from exc
 
     def rebase_no_trunk_upstack(self, branch: str) -> None:
         self._capture(("rebase", "--no-trunk", "--upstack", branch))
