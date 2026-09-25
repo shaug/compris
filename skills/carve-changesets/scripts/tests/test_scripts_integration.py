@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import io
+import json
+import os
 import shutil
 import stat
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -14,8 +17,10 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-from cli import cmd_validate_chain  # noqa: E402
+from chain import create_chain  # noqa: E402
+from cli import cmd_validate_chain, main  # noqa: E402
 from common import DEFAULT_PLAN_PATH, CommandError  # noqa: E402
+from gh_stack import ProfileProbeResult, reviewed_preview_profile  # noqa: E402
 from legacy_helpers import (  # noqa: E402
     SCRIPTS_DIR,
     chdir,
@@ -31,39 +36,342 @@ from validate import validate_live_chain as validate_live  # noqa: E402
 
 
 class ScriptIntegrationTests(unittest.TestCase):
-    def test_materialization_commands_stamp_the_selected_remote(self) -> None:
-        for command in ("create-chain", "run"):
-            with self.subTest(command=command):
-                repo_dir, plan = init_repo()
-                try:
-                    cli = str(SCRIPTS_DIR / "cli.py")
-                    write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
-                    argv = [cli, command]
-                    if command == "run":
-                        argv.extend(
+    def test_run_create_chain_requires_authority_before_preflight(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            sentinel = repo_dir / "authority-preflight-ran"
+            plan_path = repo_dir / DEFAULT_PLAN_PATH
+            git_dir = Path(
+                run(
+                    ["git", "rev-parse", "--absolute-git-dir"], cwd=repo_dir
+                ).stdout.strip()
+            )
+            branches_before = run(
+                [
+                    "git",
+                    "for-each-ref",
+                    "--format=%(refname) %(objectname)",
+                    "refs/heads/",
+                ],
+                cwd=repo_dir,
+            ).stdout
+            checkout_before = run(
+                ["git", "branch", "--show-current"], cwd=repo_dir
+            ).stdout
+            reflog_before = run(["git", "reflog", "--format=%H"], cwd=repo_dir).stdout
+            rerere_before = run(
+                ["git", "config", "--get", "rerere.enabled"],
+                cwd=repo_dir,
+                check=False,
+            ).stdout
+            stdout = io.StringIO()
+            with chdir(repo_dir), redirect_stdout(stdout):
+                result = main(
+                    [
+                        "run",
+                        "--base",
+                        plan["base_branch"],
+                        "--source",
+                        plan["source_branch"],
+                        "--title",
+                        plan["feature_title"],
+                        "--plan",
+                        str(DEFAULT_PLAN_PATH),
+                        "--test-argv",
+                        json.dumps(
                             [
-                                "--base",
-                                plan["base_branch"],
-                                "--source",
-                                plan["source_branch"],
-                                "--title",
-                                plan["feature_title"],
-                                "--skip-tests",
-                                "--create-chain",
+                                "python3",
+                                "-c",
+                                (
+                                    "from pathlib import Path; "
+                                    "Path('authority-preflight-ran').write_text('ran\\n')"
+                                ),
                             ]
-                        )
-                    argv.extend(["--remote", "upstream"])
+                        ),
+                        "--create-chain",
+                    ]
+                )
 
-                    run(argv, cwd=repo_dir)
+            self.assertEqual(1, result, stdout.getvalue())
+            self.assertIn("--ack-local-stack-state", stdout.getvalue())
+            self.assertFalse(sentinel.exists())
+            self.assertFalse(plan_path.exists())
+            self.assertFalse((git_dir / "gh-stack").exists())
+            self.assertEqual(
+                branches_before,
+                run(
+                    [
+                        "git",
+                        "for-each-ref",
+                        "--format=%(refname) %(objectname)",
+                        "refs/heads/",
+                    ],
+                    cwd=repo_dir,
+                ).stdout,
+            )
+            self.assertEqual(
+                checkout_before,
+                run(["git", "branch", "--show-current"], cwd=repo_dir).stdout,
+            )
+            self.assertEqual(
+                reflog_before,
+                run(["git", "reflog", "--format=%H"], cwd=repo_dir).stdout,
+            )
+            self.assertEqual(
+                rerere_before,
+                run(
+                    ["git", "config", "--get", "rerere.enabled"],
+                    cwd=repo_dir,
+                    check=False,
+                ).stdout,
+            )
+        finally:
+            shutil.rmtree(repo_dir)
 
-                    message = run(
-                        ["git", "show", "-s", "--format=%B", "feature/test-1"],
+    def test_create_chain_adopts_exact_native_order_and_restores_checkout(self) -> None:
+        repo_dir, plan = init_repo()
+        fake_bin = Path(tempfile.mkdtemp(prefix="pcs-fake-gh-"))
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            run(["git", "checkout", "main"], cwd=repo_dir)
+            run(["git", "push", "-u", "origin", "main"], cwd=repo_dir)
+            run(["git", "checkout", plan["source_branch"]], cwd=repo_dir)
+            run(
+                ["git", "push", "-u", "origin", plan["source_branch"]],
+                cwd=repo_dir,
+            )
+            plan["test_argv"] = ["python3", "-c", "print('materialized')"]
+            write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
+            fake_gh = fake_bin / "gh"
+            fake_gh.write_text(
+                """#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+
+def git(*args: str) -> str:
+    return subprocess.check_output(["git", *args], text=True).strip()
+
+
+git_dir = Path(git("rev-parse", "--absolute-git-dir"))
+args = sys.argv[1:]
+if args[:2] == ["stack", "init"]:
+    base_index = args.index("--base")
+    base = args[base_index + 1]
+    branches = args[base_index + 2 :]
+    if git("branch", "--show-current") != branches[-1]:
+        raise SystemExit("native init did not run from the top layer")
+    (git_dir / "gh-stack").write_text(
+        json.dumps({"base": base, "branches": branches}) + "\\n"
+    )
+    subprocess.check_call(["git", "config", "rerere.enabled", "true"])
+elif args == ["stack", "view", "--json"]:
+    state = json.loads((git_dir / "gh-stack").read_text())
+    predecessor = git("rev-parse", state["base"])
+    layers = []
+    current = git("branch", "--show-current")
+    for branch in state["branches"]:
+        head = git("rev-parse", branch)
+        layers.append(
+            {
+                "name": branch,
+                "head": head,
+                "base": predecessor,
+                "isCurrent": branch == current,
+                "isMerged": False,
+                "isQueued": False,
+                "needsRebase": False,
+                "pr": None,
+            }
+        )
+        predecessor = head
+    print(
+        json.dumps(
+            {
+                "trunk": state["base"],
+                "currentBranch": current,
+                "branches": layers,
+            }
+        )
+    )
+else:
+    raise SystemExit(f"unexpected fake gh argv: {args!r}")
+"""
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+            profile = reviewed_preview_profile(
+                "14fc42ed9b6c376a53b2f999f138d3bd26dac546"
+            )
+            probe = ProfileProbeResult(
+                status="supported",
+                observed_version=profile.version,
+                observed_surfaces=(),
+                profile=profile,
+                blocker=None,
+            )
+
+            original_path = os.environ.get("PATH", "")
+            stdout = io.StringIO()
+            with (
+                chdir(repo_dir),
+                mock.patch.dict(os.environ, {"PATH": f"{fake_bin}:{original_path}"}),
+                mock.patch("chain.probe_profile", return_value=probe, create=True),
+                redirect_stdout(stdout),
+            ):
+                try:
+                    result = main(
+                        [
+                            "create-chain",
+                            "--plan",
+                            str(DEFAULT_PLAN_PATH),
+                            "--remote",
+                            "origin",
+                            "--ack-local-stack-state",
+                        ]
+                    )
+                except SystemExit as exc:
+                    result = int(exc.code)
+
+            self.assertEqual(0, result, stdout.getvalue())
+            self.assertEqual(
+                plan["source_branch"],
+                run(["git", "branch", "--show-current"], cwd=repo_dir).stdout.strip(),
+            )
+            native_state = json.loads(
+                (
+                    Path(
+                        run(
+                            ["git", "rev-parse", "--absolute-git-dir"], cwd=repo_dir
+                        ).stdout.strip()
+                    )
+                    / "gh-stack"
+                ).read_text()
+            )
+            self.assertEqual(
+                ["feature/test-1", "feature/test-2"], native_state["branches"]
+            )
+            self.assertIn("TRUTH PHASE  materialized", stdout.getvalue())
+            self.assertIn("CHAIN READY  false", stdout.getvalue())
+            self.assertIn("NEXT VALIDATE  python3 ", stdout.getvalue())
+            self.assertIn(
+                "validate-chain --plan .carve-changesets/plan.json --remote origin "
+                "--test-argv",
+                stdout.getvalue(),
+            )
+            self.assertIn("NEXT REVIEW  layer=feature/test-1", stdout.getvalue())
+            self.assertIn("NEXT REVIEW  layer=feature/test-2", stdout.getvalue())
+            self.assertIn("NEXT EQUIVALENCE  python3 ", stdout.getvalue())
+        finally:
+            shutil.rmtree(repo_dir)
+            shutil.rmtree(fake_bin)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_create_chain_interruption_preserves_layers_and_exact_resume(self) -> None:
+        repo_dir, plan = init_repo()
+        fake_bin = Path(tempfile.mkdtemp(prefix="pcs-failing-gh-"))
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            run(["git", "checkout", "main"], cwd=repo_dir)
+            run(["git", "push", "-u", "origin", "main"], cwd=repo_dir)
+            run(["git", "checkout", plan["source_branch"]], cwd=repo_dir)
+            run(
+                ["git", "push", "-u", "origin", plan["source_branch"]],
+                cwd=repo_dir,
+            )
+            write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
+            fake_gh = fake_bin / "gh"
+            fake_gh.write_text(
+                """#!/usr/bin/env python3
+import sys
+
+if sys.argv[1:3] == ["stack", "init"]:
+    raise SystemExit("simulated native init interruption")
+raise SystemExit(f"unexpected fake gh argv: {sys.argv[1:]!r}")
+"""
+            )
+            fake_gh.chmod(fake_gh.stat().st_mode | stat.S_IXUSR)
+            profile = reviewed_preview_profile(
+                "14fc42ed9b6c376a53b2f999f138d3bd26dac546"
+            )
+            probe = ProfileProbeResult(
+                status="supported",
+                observed_version=profile.version,
+                observed_surfaces=(),
+                profile=profile,
+                blocker=None,
+            )
+
+            original_path = os.environ.get("PATH", "")
+            stdout = io.StringIO()
+            with (
+                chdir(repo_dir),
+                mock.patch.dict(os.environ, {"PATH": f"{fake_bin}:{original_path}"}),
+                mock.patch("chain.probe_profile", return_value=probe, create=True),
+                redirect_stdout(stdout),
+            ):
+                result = main(
+                    [
+                        "create-chain",
+                        "--plan",
+                        str(DEFAULT_PLAN_PATH),
+                        "--remote",
+                        "origin",
+                        "--ack-local-stack-state",
+                    ]
+                )
+
+            output = stdout.getvalue()
+            self.assertEqual(1, result, output)
+            self.assertEqual(1, output.count("Resume exactly:"), output)
+            self.assertIn(
+                "create-chain --plan .carve-changesets/plan.json --remote origin "
+                "--ack-local-stack-state",
+                output,
+            )
+            self.assertEqual(
+                plan["source_branch"],
+                run(["git", "branch", "--show-current"], cwd=repo_dir).stdout.strip(),
+            )
+            for branch in ("feature/test-1", "feature/test-2"):
+                self.assertEqual(
+                    0,
+                    run(
+                        ["git", "rev-parse", "--verify", branch],
                         cwd=repo_dir,
-                    ).stdout
-                    metadata = parse_commit_message(message)
-                    self.assertEqual("upstream", metadata.active_source.remote)
-                finally:
-                    shutil.rmtree(repo_dir)
+                        check=False,
+                    ).returncode,
+                )
+            git_dir = Path(
+                run(
+                    ["git", "rev-parse", "--absolute-git-dir"], cwd=repo_dir
+                ).stdout.strip()
+            )
+            self.assertFalse((git_dir / "gh-stack").exists())
+        finally:
+            shutil.rmtree(repo_dir)
+            shutil.rmtree(fake_bin)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_semantic_materialization_stamps_the_selected_remote(self) -> None:
+        repo_dir, plan = init_repo()
+        try:
+            with chdir(repo_dir):
+                create_chain(plan, remote="upstream")
+
+            message = run(
+                ["git", "show", "-s", "--format=%B", "feature/test-1"],
+                cwd=repo_dir,
+            ).stdout
+            metadata = parse_commit_message(message)
+            self.assertEqual("upstream", metadata.active_source.remote)
+        finally:
+            shutil.rmtree(repo_dir)
 
     def test_single_cli_exercises_ported_surface(self) -> None:
         repo_dir, plan = init_repo()
@@ -108,7 +416,8 @@ class ScriptIntegrationTests(unittest.TestCase):
             )
             run([cli, "validate"], cwd=repo_dir)
             run([cli, "squash-ref"], cwd=repo_dir)
-            run([cli, "create-chain"], cwd=repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
             run(
                 [
                     cli,
@@ -287,7 +596,8 @@ class ScriptIntegrationTests(unittest.TestCase):
             cli = str(SCRIPTS_DIR / "cli.py")
             plan_path = repo_dir / DEFAULT_PLAN_PATH
             write_plan(plan_path, plan)
-            run([cli, "create-chain"], cwd=repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
 
             default_result = run(
                 [
@@ -366,7 +676,8 @@ class ScriptIntegrationTests(unittest.TestCase):
             cli = str(SCRIPTS_DIR / "cli.py")
             plan_path = repo_dir / DEFAULT_PLAN_PATH
             write_plan(plan_path, plan)
-            run([cli, "create-chain"], cwd=repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
             shutil.rmtree(plan_path.parent)
 
             result = run(
@@ -393,7 +704,8 @@ class ScriptIntegrationTests(unittest.TestCase):
             cli = str(SCRIPTS_DIR / "cli.py")
             plan_path = repo_dir / DEFAULT_PLAN_PATH
             write_plan(plan_path, plan)
-            run([cli, "create-chain"], cwd=repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
             message = run(
                 ["git", "show", "-s", "--format=%B", "feature/test-2"],
                 cwd=repo_dir,
@@ -431,7 +743,8 @@ class ScriptIntegrationTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             run(["git", "push", "origin", "main", "feature/test"], cwd=repo_dir)
             write_plan(plan_path, plan)
-            run([cli, "create-chain"], cwd=repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
             run(["git", "checkout", "-b", "alternate-source", "main"], cwd=repo_dir)
             run(
                 ["git", "checkout", "feature/test", "--", "a.txt", "b.txt", "c.txt"],
@@ -468,7 +781,8 @@ class ScriptIntegrationTests(unittest.TestCase):
             remote_dir = init_remote(repo_dir)
             run(["git", "push", "origin", "main", "feature/test"], cwd=repo_dir)
             write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
-            run([str(SCRIPTS_DIR / "cli.py"), "create-chain"], cwd=repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
             cached_source = run(
                 ["git", "rev-parse", "refs/remotes/origin/feature/test"],
                 cwd=repo_dir,
