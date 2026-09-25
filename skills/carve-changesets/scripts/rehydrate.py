@@ -660,9 +660,20 @@ def _validate_recovery_transition(
         and len(first_open_lineage) == len(base_lineage) + 1
         and first_open_lineage[: len(base_lineage)] == base_lineage
     )
-    if repeated_legacy_recovery:
+    interrupted_repeated_recovery = (
+        len(first_open_lineage) == len(base_lineage) + 2
+        and first_open_lineage[: len(base_lineage)] == base_lineage
+        and first_open_lineage[-1] == successor
+    )
+    if repeated_legacy_recovery or interrupted_repeated_recovery:
+        current_lineage = (
+            first_open_lineage[:-1]
+            if interrupted_repeated_recovery
+            else first_open_lineage
+        )
+        target_lineage = (*current_lineage, successor)
         if any(
-            record.metadata.source_lineage != first_open_lineage
+            record.metadata.source_lineage not in (current_lineage, target_lineage)
             for record in records[first_open:]
         ):
             raise RehydrationError(
@@ -674,7 +685,6 @@ def _validate_recovery_transition(
             repo=repo,
             remote=remote,
         )
-        current_lineage = first_open_lineage
 
     if successor in current_lineage or any(
         identity.branch == successor.branch for identity in current_lineage

@@ -731,6 +731,36 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertEqual(current_head, self._remote_head("feature/report-2"))
         self.assertEqual(original_body, self.prs[102].body)
 
+    def test_public_repeated_recovery_resumes_after_metadata_interruption(
+        self,
+    ) -> None:
+        _, current_head, requested_branch = self._prepare_completed_legacy_recovery(
+            prove_boundary=True
+        )
+        original_body = self.prs[102].body
+
+        def fail_before_metadata_update(*_args, **_kwargs) -> None:
+            raise CommandError("injected before repeated-recovery metadata update")
+
+        with self.assertRaisesRegex(CommandError, "injected before repeated"):
+            self._run_recovery(
+                edit_side_effect=fail_before_metadata_update,
+                successor_branch=requested_branch,
+                successor_sha=current_head,
+            )
+
+        interrupted_head = self._remote_head("feature/report-2")
+        self.assertNotEqual(current_head, interrupted_head)
+        self.assertEqual(original_body, self.prs[102].body)
+
+        output = self._run_recovery(
+            successor_branch=requested_branch,
+            successor_sha=current_head,
+        )
+
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
+        self.assertIn("Suffix recovery completed", output)
+
     def test_public_recovery_extends_multilayer_legacy_successor_lineage(
         self,
     ) -> None:
