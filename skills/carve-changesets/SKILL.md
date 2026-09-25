@@ -150,7 +150,8 @@ boundary.
 Use `create-chain` to create append-only `<source>-N` branches and stamped
 commits. Run `validate-chain` with approved validation, `compare` for the
 reconstructed tree, and the applicable `squash-check` or `db-compare` evidence.
-Use `status --local-only` to inspect live local truth without GitHub.
+Use `status --local-only` to inspect passive local evidence without GitHub. It
+does not reconstruct authoritative native topology.
 
 Before constructing changeset *i*'s invocation, check
 [the compaction ledger's recovery rule](references/ledger.md#recovery-rule) for
@@ -187,7 +188,11 @@ Require publish authority before any remote mutation. `push-chain` and
 `pr-create` are dry-run by default; use their execution flag only after
 reverifying the exact remote, branches, heads, predecessor bases, metadata, and
 exclusive ownership. Use `status` to reconstruct published truth from live git
-and GitHub rather than a local cache.
+and GitHub rather than a local cache. Authoritative native reconciliation
+requires explicit bounded local-refresh authority and
+`status --allow-stack-state-refresh`; plain `status` is side-effect-free passive
+evidence with native topology unavailable, and `--local-only` cannot be combined
+with the refresh flag.
 
 Delegate each exact PR to `babysit-pr` using the policy and evidence in the
 suite handoff reference. While delegated, do not run a competing CI, feedback,

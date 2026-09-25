@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-25 — Kept passive topology evidence unambiguous
 
+- docs: align status refresh authority contract
+
 - fix: reject ambiguous passive PR evidence
 
 ## 2026-09-24 — Closed recovery verification gaps
