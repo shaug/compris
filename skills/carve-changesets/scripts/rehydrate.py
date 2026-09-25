@@ -263,6 +263,7 @@ def _validate_completed_recovery_provenance(
     *,
     repo: Path,
     remote: str,
+    evidence_join_successor: SourceIdentity | None = None,
 ) -> None:
     """Prove each completed successor head from its exact prior candidate."""
 
@@ -408,6 +409,45 @@ def _validate_completed_recovery_provenance(
             return False
         return True
 
+    def proves_evidence_preserving_join(
+        record: ChangesetRecord,
+        proof_head: str,
+        proof_metadata: ChangesetMetadata,
+    ) -> bool:
+        """Authenticate the one exact current-base/reviewed-source join."""
+
+        successor = evidence_join_successor
+        if (
+            successor is None
+            or successor.remote != remote
+            or successor in record.metadata.source_lineage
+            or proof_head != record.head
+            or proof_metadata != record.metadata
+        ):
+            return False
+        try:
+            _ensure_commit_available(repo, successor.sha, remote=remote)
+            published_successor = _git(
+                repo,
+                "rev-parse",
+                f"refs/remotes/{remote}/{successor.branch}^{{commit}}",
+            ).strip()
+            live_base = _git(
+                repo,
+                "rev-parse",
+                f"refs/remotes/{remote}/{record.base}^{{commit}}",
+            ).strip()
+            parents = _git(repo, "show", "-s", "--format=%P", proof_head).split()
+            proof_tree = _git(repo, "rev-parse", f"{proof_head}^{{tree}}")
+            successor_tree = _git(repo, "rev-parse", f"{successor.sha}^{{tree}}")
+        except RehydrationError:
+            return False
+        return (
+            published_successor == successor.sha
+            and parents == [live_base, successor.sha]
+            and proof_tree == successor_tree
+        )
+
     for offset, record in enumerate(records):
         lineage = record.metadata.source_lineage
         if len(lineage) == 1:
@@ -451,6 +491,7 @@ def _validate_completed_recovery_provenance(
                     prior_records,
                     repo=repo,
                     remote=remote,
+                    evidence_join_successor=lineage[-1],
                 )
             except (MetadataError, RehydrationError) as exc:
                 raise RehydrationError(
@@ -488,6 +529,7 @@ def _validate_completed_recovery_provenance(
             if proof_head is None:
                 raise RehydrationError("remote rewrite tail is not proven")
             proof_message = _git(repo, "show", "-s", "--format=%B", proof_head)
+            proof_metadata = parse_commit_message(proof_message, remote=remote)
             same_tree = _git(repo, "rev-parse", f"{proof_head}^{{tree}}") == _git(
                 repo, "rev-parse", f"{predecessor}^{{tree}}"
             )
@@ -560,6 +602,17 @@ def _validate_completed_recovery_provenance(
                 )
                 parent_proven = True
 
+        exact_restamp_proven = (
+            same_tree
+            and parent_proven
+            and stamp_commit_message(predecessor_message, record.metadata).strip()
+            == proof_message.strip()
+        )
+        evidence_join_proven = proves_evidence_preserving_join(
+            record,
+            proof_head,
+            proof_metadata,
+        )
         if (
             predecessor_metadata.slug != record.metadata.slug
             or predecessor_metadata.source_lineage != lineage[:-1]
@@ -569,11 +622,8 @@ def _validate_completed_recovery_provenance(
                 and record.pr_metadata.source_lineage == lineage[:-1]
                 and record.pr_metadata != predecessor_metadata
             )
-            or not same_tree
-            or not parent_proven
             or not later_history_proven
-            or stamp_commit_message(predecessor_message, record.metadata).strip()
-            != proof_message.strip()
+            or not (exact_restamp_proven or evidence_join_proven)
         ):
             raise RehydrationError(
                 f"Changeset branch {record.branch} cannot prove its exact "
@@ -667,6 +717,7 @@ def _validate_recovery_transition(
             records[first_open:],
             repo=repo,
             remote=remote,
+            evidence_join_successor=successor,
         )
 
     if successor in current_lineage or any(

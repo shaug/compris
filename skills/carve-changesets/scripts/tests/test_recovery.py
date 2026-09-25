@@ -335,6 +335,105 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         return boundary_head, current_head, requested_branch
 
+    def _prepare_evidence_preserving_join(
+        self, *, arbitrary_second_parent: bool = False
+    ) -> tuple[str, str, str]:
+        _, current_head, _ = self._prepare_completed_legacy_recovery(
+            prove_boundary=True
+        )
+        prior_metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                current_head,
+            )
+        )
+        main_head = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(
+            self.repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-evidence-source",
+            "main",
+        )
+        (self.repo / "evidence-source.txt").write_text("reviewed successor\n")
+        helpers.run(self.repo, "git", "add", "evidence-source.txt")
+        successor_sha = helpers.commit(self.repo, "fix: reviewed successor source")
+        successor_branch = "feature/report-evidence-source"
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "-u",
+            "origin",
+            successor_branch,
+        )
+
+        second_parent = successor_sha
+        if arbitrary_second_parent:
+            helpers.run(
+                self.repo,
+                "git",
+                "checkout",
+                "-b",
+                "feature/report-arbitrary-parent",
+                "main",
+            )
+            (self.repo / "arbitrary.txt").write_text("unreviewed merge parent\n")
+            helpers.run(self.repo, "git", "add", "arbitrary.txt")
+            second_parent = helpers.commit(self.repo, "fix: arbitrary merge parent")
+
+        successor_tree = helpers.run(
+            self.repo,
+            "git",
+            "rev-parse",
+            f"{successor_sha}^{{tree}}",
+        )
+        joined_head = helpers.run(
+            self.repo,
+            "git",
+            "commit-tree",
+            successor_tree,
+            "-p",
+            main_head,
+            "-p",
+            second_parent,
+            input_text=stamp_commit_message(
+                "fix: preserve reviewed successor evidence",
+                prior_metadata,
+            ),
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            f"{joined_head}:refs/heads/feature/report-2",
+            f"--force-with-lease=refs/heads/feature/report-2:{current_head}",
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "branch",
+            "-f",
+            "feature/report-2",
+            joined_head,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": joined_head,
+                "body": embed_pr_metadata("Position 2\n", prior_metadata),
+                "head_rewrite_edges": self.prs[102].head_rewrite_edges
+                + ((current_head, joined_head),),
+            }
+        )
+        return joined_head, successor_branch, successor_sha
+
     def _prepare_completed_multilayer_legacy_recovery(
         self, *, merge_tail: bool = False
     ) -> tuple[str, str]:
@@ -729,6 +828,55 @@ class SuffixRecoveryTests(unittest.TestCase):
             )
 
         self.assertEqual(current_head, self._remote_head("feature/report-2"))
+        self.assertEqual(original_body, self.prs[102].body)
+
+    def test_public_recovery_authenticates_exact_evidence_preserving_join(
+        self,
+    ) -> None:
+        joined_head, successor_branch, successor_sha = (
+            self._prepare_evidence_preserving_join()
+        )
+
+        output = self._run_recovery(
+            successor_branch=successor_branch,
+            successor_sha=successor_sha,
+        )
+
+        recovered_head = self._remote_head("feature/report-2")
+        self.assertNotEqual(joined_head, recovered_head)
+        recovered_metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_head,
+            )
+        )
+        self.assertEqual(successor_sha, recovered_metadata.active_source.sha)
+        self.assertEqual(
+            helpers.run(self.repo, "git", "rev-parse", f"{successor_sha}^{{tree}}"),
+            helpers.run(self.repo, "git", "rev-parse", f"{recovered_head}^{{tree}}"),
+        )
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_public_recovery_rejects_arbitrary_evidence_join_parent(self) -> None:
+        joined_head, successor_branch, successor_sha = (
+            self._prepare_evidence_preserving_join(arbitrary_second_parent=True)
+        )
+        original_body = self.prs[102].body
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=successor_branch,
+                successor_sha=successor_sha,
+            )
+
+        self.assertEqual(joined_head, self._remote_head("feature/report-2"))
         self.assertEqual(original_body, self.prs[102].body)
 
     def test_public_repeated_recovery_resumes_after_metadata_interruption(
