@@ -34,6 +34,8 @@ class RecordingNativeClient:
         wrong_head: bool = False,
         move_top_on_init: bool = False,
         move_source_on_init: bool = False,
+        unpublished_shape: bool = False,
+        stack_exists_after_failed_init: bool = False,
     ) -> None:
         self.repo = repo
         self.observed_order = observed_order
@@ -41,6 +43,8 @@ class RecordingNativeClient:
         self.wrong_head = wrong_head
         self.move_top_on_init = move_top_on_init
         self.move_source_on_init = move_source_on_init
+        self.unpublished_shape = unpublished_shape
+        self.stack_exists_after_failed_init = stack_exists_after_failed_init
         self.init_calls: list[tuple[str, tuple[str, ...]]] = []
 
     def init(self, *, base: str, branches: list[str]) -> None:
@@ -61,6 +65,8 @@ class RecordingNativeClient:
     def view_json(self, *, allow_state_refresh: bool) -> dict[str, object]:
         if not allow_state_refresh:
             raise AssertionError("materialization did not authorize native readback")
+        if self.fail_init and not self.stack_exists_after_failed_init:
+            raise GhStackError("simulated native stack is unavailable")
         base, initialized = self.init_calls[-1]
         order = self.observed_order or initialized
         predecessor = run(["git", "rev-parse", base], cwd=self.repo).stdout.strip()
@@ -72,15 +78,16 @@ class RecordingNativeClient:
             layers.append(
                 {
                     "name": branch,
-                    "head": head,
                     "base": predecessor,
                     "isCurrent": index == len(order) - 1,
                     "isMerged": False,
                     "isQueued": False,
                     "needsRebase": False,
-                    "pr": None,
                 }
             )
+            if not self.unpublished_shape:
+                layers[-1]["head"] = head
+                layers[-1]["pr"] = None
             predecessor = head
         return {
             "trunk": base,
@@ -151,6 +158,66 @@ class NativeMaterializationTests(unittest.TestCase):
         )
         self.assertFalse(result.chain_ready)
         self.assertEqual("materialized", result.truth_phase.value)
+
+    def test_materialization_accepts_reviewed_native_unpublished_shape(self) -> None:
+        client = RecordingNativeClient(self.repo, unpublished_shape=True)
+        with (
+            chdir(self.repo),
+            mock.patch("chain.probe_profile", return_value=self._supported_probe()),
+        ):
+            try:
+                result = materialize_native_stack(
+                    self.plan,
+                    remote="origin",
+                    allow_local_stack_state=True,
+                    client=client,
+                )
+            except CommandError as exc:
+                self.fail(f"reviewed native unpublished readback was rejected: {exc}")
+
+        expected_branches = ("feature/test-1", "feature/test-2")
+        self.assertEqual(
+            expected_branches, tuple(layer.branch for layer in result.snapshot.layers)
+        )
+        self.assertEqual(
+            tuple(
+                run(["git", "rev-parse", branch], cwd=self.repo).stdout.strip()
+                for branch in expected_branches
+            ),
+            tuple(layer.head for layer in result.snapshot.layers),
+        )
+        self.assertTrue(
+            all(layer.pull_request is None for layer in result.snapshot.layers)
+        )
+
+    def test_resume_accepts_an_exact_stack_after_native_init_refuses_reentry(
+        self,
+    ) -> None:
+        client = RecordingNativeClient(
+            self.repo,
+            fail_init=True,
+            unpublished_shape=True,
+            stack_exists_after_failed_init=True,
+        )
+        with (
+            chdir(self.repo),
+            mock.patch("chain.probe_profile", return_value=self._supported_probe()),
+        ):
+            try:
+                result = materialize_native_stack(
+                    self.plan,
+                    remote="origin",
+                    allow_local_stack_state=True,
+                    client=client,
+                )
+            except CommandError as exc:
+                self.fail(f"exact existing native stack was not resumed: {exc}")
+
+        self.assertEqual(
+            ("feature/test-1", "feature/test-2"),
+            tuple(layer.branch for layer in result.snapshot.layers),
+        )
+        self.assertFalse(result.chain_ready)
 
     def test_materialization_requires_authority_before_capability_or_branches(
         self,

@@ -120,6 +120,28 @@ class NativeMaterialization:
     chain_ready: bool = False
 
 
+def _complete_unpublished_native_layers(
+    payload: dict[str, object], semantic_heads: dict[str, str]
+) -> dict[str, object]:
+    """Restore reviewed fields omitted for local branches without PRs."""
+
+    branches = payload.get("branches")
+    if not isinstance(branches, list):
+        return payload
+    completed: list[object] = []
+    for item in branches:
+        if not isinstance(item, dict):
+            completed.append(item)
+            continue
+        layer = dict(item)
+        branch = layer.get("name")
+        if isinstance(branch, str) and branch in semantic_heads:
+            layer.setdefault("head", semantic_heads[branch])
+            layer.setdefault("pr", None)
+        completed.append(layer)
+    return {**payload, "branches": completed}
+
+
 def materialize_native_stack(
     plan: Dict,
     *,
@@ -187,9 +209,19 @@ def materialize_native_stack(
     try:
         with checkout_restore():
             git("checkout", branches[-1])
-            native.init(base=base, branches=branches)
+            init_error: GhStackError | None = None
+            try:
+                native.init(base=base, branches=branches)
+            except GhStackError as exc:
+                init_error = exc
+            try:
+                payload = native.view_json(allow_state_refresh=True)
+            except GhStackError:
+                if init_error is not None:
+                    raise init_error
+                raise
             snapshot = parse_native_stack(
-                native.view_json(allow_state_refresh=True),
+                _complete_unpublished_native_layers(payload, semantic_heads),
                 expected_trunk_branch=base,
                 trunk_head=resolved_trunk,
             )
