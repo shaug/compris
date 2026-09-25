@@ -37,32 +37,96 @@ from validate import validate_live_chain as validate_live  # noqa: E402
 
 class ScriptIntegrationTests(unittest.TestCase):
     def test_run_create_chain_requires_authority_before_preflight(self) -> None:
-        stdout = io.StringIO()
-        with (
-            mock.patch("cli.cmd_preflight") as preflight,
-            mock.patch("cli.cmd_init_plan") as init_plan,
-            mock.patch("cli.cmd_create_chain") as create_native_chain,
-            mock.patch("cli.ensure_clean_tree"),
-            redirect_stdout(stdout),
-        ):
-            result = main(
-                [
-                    "run",
-                    "--base",
-                    "main",
-                    "--source",
-                    "feature/test",
-                    "--title",
-                    "Test stack",
-                    "--create-chain",
-                ]
+        repo_dir, plan = init_repo()
+        try:
+            sentinel = repo_dir / "authority-preflight-ran"
+            plan_path = repo_dir / DEFAULT_PLAN_PATH
+            git_dir = Path(
+                run(
+                    ["git", "rev-parse", "--absolute-git-dir"], cwd=repo_dir
+                ).stdout.strip()
             )
+            branches_before = run(
+                [
+                    "git",
+                    "for-each-ref",
+                    "--format=%(refname) %(objectname)",
+                    "refs/heads/",
+                ],
+                cwd=repo_dir,
+            ).stdout
+            checkout_before = run(
+                ["git", "branch", "--show-current"], cwd=repo_dir
+            ).stdout
+            reflog_before = run(["git", "reflog", "--format=%H"], cwd=repo_dir).stdout
+            rerere_before = run(
+                ["git", "config", "--get", "rerere.enabled"],
+                cwd=repo_dir,
+                check=False,
+            ).stdout
+            stdout = io.StringIO()
+            with chdir(repo_dir), redirect_stdout(stdout):
+                result = main(
+                    [
+                        "run",
+                        "--base",
+                        plan["base_branch"],
+                        "--source",
+                        plan["source_branch"],
+                        "--title",
+                        plan["feature_title"],
+                        "--plan",
+                        str(DEFAULT_PLAN_PATH),
+                        "--test-argv",
+                        json.dumps(
+                            [
+                                "python3",
+                                "-c",
+                                (
+                                    "from pathlib import Path; "
+                                    "Path('authority-preflight-ran').write_text('ran\\n')"
+                                ),
+                            ]
+                        ),
+                        "--create-chain",
+                    ]
+                )
 
-        self.assertEqual(1, result, stdout.getvalue())
-        self.assertIn("--ack-local-stack-state", stdout.getvalue())
-        preflight.assert_not_called()
-        init_plan.assert_not_called()
-        create_native_chain.assert_not_called()
+            self.assertEqual(1, result, stdout.getvalue())
+            self.assertIn("--ack-local-stack-state", stdout.getvalue())
+            self.assertFalse(sentinel.exists())
+            self.assertFalse(plan_path.exists())
+            self.assertFalse((git_dir / "gh-stack").exists())
+            self.assertEqual(
+                branches_before,
+                run(
+                    [
+                        "git",
+                        "for-each-ref",
+                        "--format=%(refname) %(objectname)",
+                        "refs/heads/",
+                    ],
+                    cwd=repo_dir,
+                ).stdout,
+            )
+            self.assertEqual(
+                checkout_before,
+                run(["git", "branch", "--show-current"], cwd=repo_dir).stdout,
+            )
+            self.assertEqual(
+                reflog_before,
+                run(["git", "reflog", "--format=%H"], cwd=repo_dir).stdout,
+            )
+            self.assertEqual(
+                rerere_before,
+                run(
+                    ["git", "config", "--get", "rerere.enabled"],
+                    cwd=repo_dir,
+                    check=False,
+                ).stdout,
+            )
+        finally:
+            shutil.rmtree(repo_dir)
 
     def test_create_chain_adopts_exact_native_order_and_restores_checkout(self) -> None:
         repo_dir, plan = init_repo()
