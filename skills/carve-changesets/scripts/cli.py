@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import json
+import shlex
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from chain import compare_chain, create_chain, validate_chain
+from chain import compare_chain, materialize_native_stack, validate_chain
 from command_argv import parse_argv_json
 from common import (
     DEFAULT_PLAN_PATH,
@@ -215,7 +217,57 @@ def _print_live_diagnostics(result: ChainValidation) -> None:
 
 
 def cmd_create_chain(args: argparse.Namespace) -> None:
-    create_chain(load_and_validate(Path(args.plan)), remote=args.remote)
+    plan = load_and_validate(Path(args.plan))
+    result = materialize_native_stack(
+        plan,
+        remote=args.remote,
+        allow_local_stack_state=args.ack_local_stack_state,
+        resume_argv=(
+            "python3",
+            str(Path(__file__).resolve()),
+            "create-chain",
+            "--plan",
+            args.plan,
+            "--remote",
+            args.remote,
+            "--ack-local-stack-state",
+        ),
+    )
+    print(f"TRUTH PHASE  {result.truth_phase.value}")
+    print(f"ACTIVE SOURCE  {result.active_source.trailer}")
+    for layer in result.snapshot.layers:
+        print(f"LAYER  {layer.branch} head={layer.head} base={layer.base}")
+    print(f"CHAIN READY  {str(result.chain_ready).lower()}")
+    approved_tests = list(plan.get("test_argv", []))
+    if approved_tests:
+        validate_argv = (
+            "python3",
+            str(Path(__file__).resolve()),
+            "validate-chain",
+            "--plan",
+            args.plan,
+            "--remote",
+            args.remote,
+            "--test-argv",
+            json.dumps(approved_tests),
+        )
+        print(f"NEXT VALIDATE  {shlex.join(validate_argv)}")
+    else:
+        print("NEXT VALIDATE  blocked: plan.test_argv has no approved command")
+    for layer in result.snapshot.layers:
+        print(
+            "NEXT REVIEW  "
+            f"layer={layer.branch} comparison_base={layer.base} head={layer.head} "
+            "skill=review-code-change"
+        )
+    compare_argv = (
+        "python3",
+        str(Path(__file__).resolve()),
+        "compare",
+        "--plan",
+        args.plan,
+    )
+    print(f"NEXT EQUIVALENCE  {shlex.join(compare_argv)}")
 
 
 def cmd_compare(args: argparse.Namespace) -> None:
@@ -407,7 +459,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         args.force = args.force or args.force_init
         cmd_init_plan(args)
     if args.create_chain:
-        create_chain(load_and_validate(plan_path), remote=args.remote)
+        cmd_create_chain(args)
     else:
         print("[NEXT] Review the plan, then run create-chain.")
 
@@ -526,6 +578,14 @@ def build_parser() -> argparse.ArgumentParser:
     item = _command(sub, "create-chain", "Materialize append-only changeset branches.")
     _add_plan(item)
     item.add_argument("--remote", default="origin")
+    item.add_argument(
+        "--ack-local-stack-state",
+        action="store_true",
+        help=(
+            "Authorize rerere, local stack-state, branch, and checkout effects "
+            "for native materialization"
+        ),
+    )
     item.set_defaults(func=cmd_create_chain)
 
     item = _command(sub, "compare", "Compare reconstructed chain output with source.")
@@ -670,6 +730,14 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--force-init", action="store_true")
     item.add_argument("--create-chain", action="store_true")
     item.add_argument("--remote", default="origin")
+    item.add_argument(
+        "--ack-local-stack-state",
+        action="store_true",
+        help=(
+            "Authorize rerere, local stack-state, branch, and checkout effects "
+            "for native materialization"
+        ),
+    )
     item.set_defaults(func=cmd_run)
     return parser
 
