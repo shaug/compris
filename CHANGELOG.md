@@ -6,7 +6,23 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-25 — Materialized native stacks and preserved recovery truth
 
+- docs: complete native materialization change journal
+
+- test: prove authority refusal has no public effects
+
 - fix: gate native materialization authority before preflight
+
+- fix: resume unpublished native materialization
+
+- test: record native authority eval
+
+- docs: require native materialization authority
+
+- test: record pre-change carve eval
+
+- fix: bind native adoption to semantic heads
+
+- fix: restore detached checkout exactly
 
 - feat: materialize changesets as a native stack
 
