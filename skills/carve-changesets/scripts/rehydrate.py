@@ -709,7 +709,7 @@ def _validate_recovery_transition(
         and first_open_lineage[: len(base_lineage)] == base_lineage
     )
     interrupted_repeated_recovery = (
-        len(first_open_lineage) == len(base_lineage) + 2
+        len(first_open_lineage) > len(base_lineage) + 1
         and first_open_lineage[: len(base_lineage)] == base_lineage
         and first_open_lineage[-1] == successor
     )

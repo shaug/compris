@@ -203,6 +203,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         self,
         *,
         edit_side_effect=None,
+        pull_request_by_number_side_effect=None,
         pull_requests_side_effect=None,
         successor_branch: str = "feature/report-corrected",
         successor_sha: str | None = None,
@@ -217,7 +218,9 @@ class SuffixRecoveryTests(unittest.TestCase):
                 side_effect=pull_requests_side_effect or self._all_live_prs,
             ),
             mock.patch.object(
-                recovery_mod, "pull_request_by_number", side_effect=self._live_pr
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=pull_request_by_number_side_effect or self._live_pr,
             ),
             mock.patch.object(
                 recovery_mod,
@@ -539,6 +542,100 @@ class SuffixRecoveryTests(unittest.TestCase):
             }
         )
         return recovered_head
+
+    def _prepare_second_evidence_preserving_join(
+        self,
+    ) -> tuple[str, str, str]:
+        joined_head, first_successor_branch, first_successor_sha = (
+            self._prepare_evidence_preserving_join()
+        )
+        first_recovered_head = self._complete_evidence_preserving_join(
+            joined_head,
+            first_successor_branch,
+            first_successor_sha,
+        )
+        current_metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                first_recovered_head,
+            )
+        )
+
+        next_successor_branch = "feature/report-evidence-source-next"
+        helpers.run(
+            self.repo,
+            "git",
+            "checkout",
+            "-b",
+            next_successor_branch,
+            "main",
+        )
+        (self.repo / "next-evidence-source.txt").write_text("next reviewed successor\n")
+        helpers.run(self.repo, "git", "add", "next-evidence-source.txt")
+        next_successor_sha = helpers.commit(
+            self.repo,
+            "fix: next reviewed successor source",
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "-u",
+            "origin",
+            next_successor_branch,
+        )
+
+        next_successor_tree = helpers.run(
+            self.repo,
+            "git",
+            "rev-parse",
+            f"{next_successor_sha}^{{tree}}",
+        )
+        main_head = helpers.run(self.repo, "git", "rev-parse", "main")
+        next_joined_head = helpers.run(
+            self.repo,
+            "git",
+            "commit-tree",
+            next_successor_tree,
+            "-p",
+            main_head,
+            "-p",
+            next_successor_sha,
+            input_text=stamp_commit_message(
+                "fix: preserve next reviewed successor evidence",
+                current_metadata,
+            ),
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            f"{next_joined_head}:refs/heads/feature/report-2",
+            f"--force-with-lease=refs/heads/feature/report-2:{first_recovered_head}",
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "branch",
+            "-f",
+            "feature/report-2",
+            next_joined_head,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": next_joined_head,
+                "body": embed_pr_metadata("Position 2\n", current_metadata),
+                "head_rewrite_edges": self.prs[102].head_rewrite_edges
+                + ((first_recovered_head, next_joined_head),),
+            }
+        )
+        return next_joined_head, next_successor_branch, next_successor_sha
 
     def _prepare_completed_multilayer_legacy_recovery(
         self, *, merge_tail: bool = False
@@ -970,94 +1067,8 @@ class SuffixRecoveryTests(unittest.TestCase):
     def test_public_recovery_extends_two_authenticated_successor_lineages(
         self,
     ) -> None:
-        joined_head, first_successor_branch, first_successor_sha = (
-            self._prepare_evidence_preserving_join()
-        )
-        first_recovered_head = self._complete_evidence_preserving_join(
-            joined_head,
-            first_successor_branch,
-            first_successor_sha,
-        )
-        current_metadata = parse_commit_message(
-            helpers.run(
-                self.repo,
-                "git",
-                "show",
-                "-s",
-                "--format=%B",
-                first_recovered_head,
-            )
-        )
-
-        next_successor_branch = "feature/report-evidence-source-next"
-        helpers.run(
-            self.repo,
-            "git",
-            "checkout",
-            "-b",
-            next_successor_branch,
-            "main",
-        )
-        (self.repo / "next-evidence-source.txt").write_text("next reviewed successor\n")
-        helpers.run(self.repo, "git", "add", "next-evidence-source.txt")
-        next_successor_sha = helpers.commit(
-            self.repo,
-            "fix: next reviewed successor source",
-        )
-        helpers.run(
-            self.repo,
-            "git",
-            "push",
-            "-u",
-            "origin",
-            next_successor_branch,
-        )
-
-        next_successor_tree = helpers.run(
-            self.repo,
-            "git",
-            "rev-parse",
-            f"{next_successor_sha}^{{tree}}",
-        )
-        main_head = helpers.run(self.repo, "git", "rev-parse", "main")
-        next_joined_head = helpers.run(
-            self.repo,
-            "git",
-            "commit-tree",
-            next_successor_tree,
-            "-p",
-            main_head,
-            "-p",
-            next_successor_sha,
-            input_text=stamp_commit_message(
-                "fix: preserve next reviewed successor evidence",
-                current_metadata,
-            ),
-        )
-        helpers.run(
-            self.repo,
-            "git",
-            "push",
-            "origin",
-            f"{next_joined_head}:refs/heads/feature/report-2",
-            f"--force-with-lease=refs/heads/feature/report-2:{first_recovered_head}",
-        )
-        helpers.run(
-            self.repo,
-            "git",
-            "branch",
-            "-f",
-            "feature/report-2",
-            next_joined_head,
-        )
-        self.prs[102] = PullRequestRecord(
-            **{
-                **self.prs[102].__dict__,
-                "head_sha": next_joined_head,
-                "body": embed_pr_metadata("Position 2\n", current_metadata),
-                "head_rewrite_edges": self.prs[102].head_rewrite_edges
-                + ((first_recovered_head, next_joined_head),),
-            }
+        next_joined_head, next_successor_branch, next_successor_sha = (
+            self._prepare_second_evidence_preserving_join()
         )
 
         output = self._run_recovery(
@@ -1080,12 +1091,45 @@ class SuffixRecoveryTests(unittest.TestCase):
             (
                 "feature/report",
                 "feature/report-reviewed",
-                first_successor_branch,
+                "feature/report-evidence-source",
                 next_successor_branch,
             ),
             tuple(identity.branch for identity in recovered_metadata.source_lineage),
         )
         self.assertEqual(next_joined_head, recovered_metadata.recovery_from_head)
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_public_multi_successor_recovery_resumes_after_push_interruption(
+        self,
+    ) -> None:
+        next_joined_head, next_successor_branch, next_successor_sha = (
+            self._prepare_second_evidence_preserving_join()
+        )
+        original_body = self.prs[102].body
+
+        def fail_after_branch_push(number: int, **kwargs) -> PullRequestRecord:
+            live = self._live_pr(number, **kwargs)
+            if live.head_sha != next_joined_head:
+                raise CommandError("injected after multi-successor branch push")
+            return live
+
+        with self.assertRaisesRegex(CommandError, "injected after multi-successor"):
+            self._run_recovery(
+                pull_request_by_number_side_effect=fail_after_branch_push,
+                successor_branch=next_successor_branch,
+                successor_sha=next_successor_sha,
+            )
+
+        interrupted_head = self._remote_head("feature/report-2")
+        self.assertNotEqual(next_joined_head, interrupted_head)
+        self.assertEqual(original_body, self.prs[102].body)
+
+        output = self._run_recovery(
+            successor_branch=next_successor_branch,
+            successor_sha=next_successor_sha,
+        )
+
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
         self.assertIn("Suffix recovery completed", output)
 
     def test_public_recovery_rejects_arbitrary_evidence_join_parent(self) -> None:
