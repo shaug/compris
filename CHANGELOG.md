@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-24 — Closed recovery verification gaps
 
+- fix: authenticate repeated legacy recovery lineage
+
 - fix: require linear recovery boundaries
 
 - fix: verify multi-commit recovery layers

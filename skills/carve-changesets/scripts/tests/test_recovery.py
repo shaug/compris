@@ -188,7 +188,13 @@ class SuffixRecoveryTests(unittest.TestCase):
             **{**pr.__dict__, "body": body if body is not None else pr.body}
         )
 
-    def _run_recovery(self, *, edit_side_effect=None) -> str:
+    def _run_recovery(
+        self,
+        *,
+        edit_side_effect=None,
+        successor_branch: str = "feature/report-corrected",
+        successor_sha: str | None = None,
+    ) -> str:
         output = io.StringIO()
         with (
             chdir(self.repo),
@@ -212,13 +218,95 @@ class SuffixRecoveryTests(unittest.TestCase):
                 source="feature/report",
                 base="main",
                 from_index=2,
-                successor_branch="feature/report-corrected",
-                successor_sha=self.successor_sha,
+                successor_branch=successor_branch,
+                successor_sha=successor_sha or self.successor_sha,
                 remote="origin",
                 dry_run=False,
                 authority_acknowledged=True,
             )
         return output.getvalue()
+
+    def _prepare_completed_legacy_recovery(
+        self, *, prove_boundary: bool
+    ) -> tuple[str, str, str]:
+        root = SourceIdentity("origin", "feature/report", self.source_sha)
+        prior = SourceIdentity("origin", "feature/report-reviewed", self.fixed_head)
+        helpers.run(
+            self.repo,
+            "git",
+            "branch",
+            prior.branch,
+            prior.sha,
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "-u",
+            "origin",
+            prior.branch,
+        )
+        prior_metadata = ChangesetMetadata(
+            slug="part-2",
+            index=2,
+            source_branch=prior.branch,
+            source_sha=prior.sha,
+            source_lineage=(root, prior),
+            recovery_from_head=self.fixed_head,
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message(
+                "fix: accept review feedback",
+                prior_metadata,
+            ),
+        )
+        boundary_head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+
+        (self.repo / "legacy-follow-up.txt").write_text("later accepted fix\n")
+        helpers.run(self.repo, "git", "add", "legacy-follow-up.txt")
+        current_head = helpers.commit(
+            self.repo,
+            stamp_commit_message("fix: preserve later review fix", prior_metadata),
+        )
+        helpers.run(self.repo, "git", "push", "origin", "feature/report-2")
+
+        requested_branch = "feature/report-final"
+        helpers.run(self.repo, "git", "branch", requested_branch, current_head)
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "-u",
+            "origin",
+            requested_branch,
+        )
+        rewrite_edges = ((boundary_head, current_head),)
+        if prove_boundary:
+            rewrite_edges = ((self.fixed_head, boundary_head), *rewrite_edges)
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": current_head,
+                "body": embed_pr_metadata("Position 2\n", prior_metadata),
+                "head_rewrite_edges": rewrite_edges,
+            }
+        )
+        return boundary_head, current_head, requested_branch
 
     def _interrupt_after_v3_branch_update(self) -> str:
         def fail_before_edit(*_args, **_kwargs) -> None:
@@ -365,6 +453,65 @@ class SuffixRecoveryTests(unittest.TestCase):
         self.assertEqual(3, metadata.version)
         self.assertEqual(2, len(metadata.source_lineage))
         self.assertIn("Suffix recovery completed", output)
+
+    def test_public_recovery_extends_authenticated_legacy_successor_lineage(
+        self,
+    ) -> None:
+        prior_source_head = self.fixed_head
+        _, current_head, requested_branch = self._prepare_completed_legacy_recovery(
+            prove_boundary=True
+        )
+
+        output = self._run_recovery(
+            successor_branch=requested_branch,
+            successor_sha=current_head,
+        )
+
+        recovered_head = self._remote_head("feature/report-2")
+        metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_head,
+            )
+        )
+        self.assertEqual(
+            (
+                "feature/report",
+                "feature/report-reviewed",
+                requested_branch,
+            ),
+            tuple(identity.branch for identity in metadata.source_lineage),
+        )
+        self.assertEqual(current_head, metadata.recovery_from_head)
+        self.assertEqual(
+            prior_source_head,
+            self._remote_head("feature/report-reviewed"),
+        )
+        self.assertEqual(current_head, self._remote_head(requested_branch))
+        self.assertEqual(self.first_head, self._remote_head("feature/report-1"))
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_public_recovery_rejects_unproven_legacy_successor_lineage(self) -> None:
+        _, current_head, requested_branch = self._prepare_completed_legacy_recovery(
+            prove_boundary=False
+        )
+        original_body = self.prs[102].body
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=requested_branch,
+                successor_sha=current_head,
+            )
+
+        self.assertEqual(current_head, self._remote_head("feature/report-2"))
+        self.assertEqual(original_body, self.prs[102].body)
 
     def test_public_recovery_rejects_divergent_pr_body_readback(self) -> None:
         def persist_divergent_body(number: int, **_kwargs) -> None:
