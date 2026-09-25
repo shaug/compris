@@ -275,7 +275,22 @@ def _render_passive_evidence(
         if branch.startswith(prefix):
             refs.setdefault(branch, {})[kind] = head
 
-    prs = {pr.head_branch: pr for pr in pull_requests}
+    grouped_prs: dict[str, list[PullRequestRecord]] = {}
+    for pr in pull_requests:
+        if pr.head_branch.startswith(prefix):
+            grouped_prs.setdefault(pr.head_branch, []).append(pr)
+    duplicate_prs = {
+        branch: records for branch, records in grouped_prs.items() if len(records) > 1
+    }
+    if duplicate_prs:
+        detail = ", ".join(
+            f"{branch} -> PRs {', '.join(f'#{pr.number}' for pr in records)}"
+            for branch, records in sorted(duplicate_prs.items())
+        )
+        raise RehydrationError(
+            f"Multiple PRs claim the same changeset branch: {detail}."
+        )
+    prs = {branch: records[0] for branch, records in grouped_prs.items()}
     branches = sorted(set(refs) | set(prs))
     live_remote_heads = (
         _live_remote_heads(cwd, remote, tuple(branches)) if read_remote else {}

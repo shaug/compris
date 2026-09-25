@@ -4,6 +4,10 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-25 — Kept passive topology evidence unambiguous
+
+- fix: reject ambiguous passive PR evidence
+
 ## 2026-09-24 — Closed recovery verification gaps
 
 - fix: verify recursive recovery provenance

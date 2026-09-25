@@ -475,6 +475,25 @@ class RehydrationTests(unittest.TestCase):
         self.assertIn("OPEN", output)
         client.view_json.assert_not_called()
 
+    def test_passive_status_rejects_multiple_prs_for_one_branch(self) -> None:
+        _, prs = self._materialize()
+        duplicate = replace(
+            prs[1],
+            number=999,
+            state="CLOSED",
+        )
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            r"Multiple PRs claim.*feature/report-2.*#102.*#999",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=(*prs, duplicate),
+                cwd=self._fresh_clone(),
+            )
+
     def test_status_with_refresh_authority_reconciles_native_topology(self) -> None:
         snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
