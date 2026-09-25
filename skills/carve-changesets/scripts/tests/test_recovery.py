@@ -1324,6 +1324,14 @@ class SuffixRecoveryTests(unittest.TestCase):
             str(self.bare),
             str(fresh_clone),
         )
+        helpers.run(fresh_clone, "git", "config", "user.name", "Carve Tests")
+        helpers.run(
+            fresh_clone,
+            "git",
+            "config",
+            "user.email",
+            "carve@example.test",
+        )
         output = io.StringIO()
         with (
             chdir(fresh_clone),
