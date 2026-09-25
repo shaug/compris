@@ -32,11 +32,15 @@ class RecordingNativeClient:
         observed_order: tuple[str, ...] | None = None,
         fail_init: bool = False,
         wrong_head: bool = False,
+        move_top_on_init: bool = False,
+        move_source_on_init: bool = False,
     ) -> None:
         self.repo = repo
         self.observed_order = observed_order
         self.fail_init = fail_init
         self.wrong_head = wrong_head
+        self.move_top_on_init = move_top_on_init
+        self.move_source_on_init = move_source_on_init
         self.init_calls: list[tuple[str, tuple[str, ...]]] = []
 
     def init(self, *, base: str, branches: list[str]) -> None:
@@ -46,6 +50,13 @@ class RecordingNativeClient:
         self.init_calls.append((base, expected))
         if self.fail_init:
             raise GhStackError("simulated native init interruption")
+        if self.move_top_on_init:
+            run(
+                ["git", "commit", "--allow-empty", "-m", "native moved layer"],
+                cwd=self.repo,
+            )
+        if self.move_source_on_init:
+            run(["git", "branch", "-f", "feature/test", base], cwd=self.repo)
 
     def view_json(self, *, allow_state_refresh: bool) -> dict[str, object]:
         if not allow_state_refresh:
@@ -253,6 +264,40 @@ class NativeMaterializationTests(unittest.TestCase):
             self.plan["source_branch"],
             run(["git", "branch", "--show-current"], cwd=self.repo).stdout.strip(),
         )
+
+    def test_native_init_cannot_move_a_semantic_layer(self) -> None:
+        client = RecordingNativeClient(self.repo, move_top_on_init=True)
+        with (
+            chdir(self.repo),
+            mock.patch("chain.probe_profile", return_value=self._supported_probe()),
+        ):
+            with self.assertRaisesRegex(
+                CommandError,
+                "semantic layer feature/test-2 moved during native adoption",
+            ):
+                materialize_native_stack(
+                    self.plan,
+                    remote="origin",
+                    allow_local_stack_state=True,
+                    client=client,
+                )
+
+    def test_native_init_cannot_move_the_immutable_source(self) -> None:
+        client = RecordingNativeClient(self.repo, move_source_on_init=True)
+        with (
+            chdir(self.repo),
+            mock.patch("chain.probe_profile", return_value=self._supported_probe()),
+        ):
+            with self.assertRaisesRegex(
+                CommandError,
+                "source branch feature/test moved during native adoption",
+            ):
+                materialize_native_stack(
+                    self.plan,
+                    remote="origin",
+                    allow_local_stack_state=True,
+                    client=client,
+                )
 
     def test_native_init_interruption_preserves_layers_and_one_resume_action(
         self,

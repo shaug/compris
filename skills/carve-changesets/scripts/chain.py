@@ -162,6 +162,16 @@ def materialize_native_stack(
     )
     source_sha = git("rev-parse", source).stdout.strip()
     branches = create_chain(plan, remote=remote)
+    materialized_source_sha = git("rev-parse", source).stdout.strip()
+    if materialized_source_sha != source_sha:
+        raise CommandError(
+            f"source branch {source} moved during semantic materialization: "
+            f"expected {source_sha}; observed {materialized_source_sha}."
+        )
+    semantic_heads = {
+        branch: git("rev-parse", f"refs/heads/{branch}").stdout.strip()
+        for branch in branches
+    }
     native = client or GhStackClient(cwd=Path.cwd())
     exact_resume = tuple(resume_argv or ()) or (
         "python3",
@@ -191,10 +201,24 @@ def materialize_native_stack(
                 "Native order mismatch: expected "
                 f"{list(expected_order)!r}; observed {list(observed_order)!r}."
             )
+        observed_source_sha = git("rev-parse", source).stdout.strip()
+        if observed_source_sha != source_sha:
+            raise CommandError(
+                f"source branch {source} moved during native adoption: "
+                f"expected {source_sha}; observed {observed_source_sha}."
+            )
         local_heads = {
             branch: git("rev-parse", f"refs/heads/{branch}").stdout.strip()
             for branch in branches
         }
+        for branch in branches:
+            expected_head = semantic_heads[branch]
+            observed_head = local_heads[branch]
+            if observed_head != expected_head:
+                raise CommandError(
+                    f"semantic layer {branch} moved during native adoption: "
+                    f"expected {expected_head}; observed {observed_head}."
+                )
         reconcile_native_stack(
             snapshot,
             remote_heads={},
@@ -202,6 +226,12 @@ def materialize_native_stack(
             local_heads=local_heads,
         )
         for layer in snapshot.layers:
+            expected_head = semantic_heads[layer.branch]
+            if layer.head != expected_head:
+                raise CommandError(
+                    f"native head mismatch for {layer.branch}: expected semantic "
+                    f"head {expected_head}; observed {layer.head}."
+                )
             ancestry = git(
                 "merge-base", "--is-ancestor", layer.base, layer.head, check=False
             )
