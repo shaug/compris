@@ -335,6 +335,178 @@ class SuffixRecoveryTests(unittest.TestCase):
         )
         return boundary_head, current_head, requested_branch
 
+    def _prepare_completed_multilayer_legacy_recovery(
+        self, *, merge_tail: bool = False
+    ) -> tuple[str, str]:
+        root = SourceIdentity("origin", "feature/report", self.source_sha)
+        prior = SourceIdentity("origin", "feature/report-reviewed", self.fixed_head)
+        helpers.run(self.repo, "git", "branch", prior.branch, prior.sha)
+        helpers.run(self.repo, "git", "push", "-u", "origin", prior.branch)
+
+        helpers.run(
+            self.repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-3",
+            self.fixed_head,
+        )
+        (self.repo / "third.txt").write_text("third source part\n")
+        helpers.run(self.repo, "git", "add", "third.txt")
+        original_third_metadata = ChangesetMetadata("part-3", 3, root.branch, root.sha)
+        original_third = helpers.commit(
+            self.repo,
+            stamp_commit_message("feat: changeset 3", original_third_metadata),
+        )
+        helpers.run(self.repo, "git", "push", "-u", "origin", "feature/report-3")
+
+        second_metadata = ChangesetMetadata(
+            slug="part-2",
+            index=2,
+            source_branch=prior.branch,
+            source_sha=prior.sha,
+            source_lineage=(root, prior),
+            recovery_from_head=self.fixed_head,
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message(
+                "fix: accept review feedback",
+                second_metadata,
+            ),
+        )
+        second_boundary = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        (self.repo / "legacy-follow-up.txt").write_text("later accepted fix\n")
+        helpers.run(self.repo, "git", "add", "legacy-follow-up.txt")
+        current_second = helpers.commit(
+            self.repo,
+            stamp_commit_message("fix: preserve later review fix", second_metadata),
+        )
+        helpers.run(self.repo, "git", "push", "origin", "feature/report-2")
+
+        helpers.run(self.repo, "git", "checkout", "feature/report-3")
+        helpers.run(
+            self.repo,
+            "git",
+            "rebase",
+            "--onto",
+            current_second,
+            self.fixed_head,
+            "feature/report-3",
+        )
+        third_metadata = ChangesetMetadata(
+            slug="part-3",
+            index=3,
+            source_branch=prior.branch,
+            source_sha=prior.sha,
+            source_lineage=(root, prior),
+            recovery_from_head=original_third,
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("feat: changeset 3", third_metadata),
+        )
+        third_boundary = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-3",
+        )
+        if merge_tail:
+            helpers.run(
+                self.repo,
+                "git",
+                "checkout",
+                "-b",
+                "feature/report-3-side",
+                third_boundary,
+            )
+            (self.repo / "third-side.txt").write_text("side history\n")
+            helpers.run(self.repo, "git", "add", "third-side.txt")
+            helpers.commit(
+                self.repo,
+                stamp_commit_message("fix: side history", third_metadata),
+            )
+            helpers.run(self.repo, "git", "checkout", "feature/report-3")
+        (self.repo / "third-follow-up.txt").write_text("later third-layer fix\n")
+        helpers.run(self.repo, "git", "add", "third-follow-up.txt")
+        current_third = helpers.commit(
+            self.repo,
+            stamp_commit_message("fix: preserve third-layer fix", third_metadata),
+        )
+        if merge_tail:
+            helpers.run(
+                self.repo,
+                "git",
+                "merge",
+                "--no-ff",
+                "--no-commit",
+                "feature/report-3-side",
+            )
+            current_third = helpers.commit(
+                self.repo,
+                stamp_commit_message("fix: merge third-layer history", third_metadata),
+            )
+        helpers.run(self.repo, "git", "push", "origin", "feature/report-3")
+
+        requested_branch = (
+            "feature/report-merged-final" if merge_tail else "feature/report-final"
+        )
+        helpers.run(self.repo, "git", "branch", requested_branch, current_third)
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "-u",
+            "origin",
+            requested_branch,
+        )
+        self.prs[101] = PullRequestRecord(
+            **{**self.prs[101].__dict__, "title": "Report (1 of 3)"}
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": current_second,
+                "body": embed_pr_metadata("Position 2\n", second_metadata),
+                "title": "Report (2 of 3)",
+                "head_rewrite_edges": ((self.fixed_head, second_boundary),),
+            }
+        )
+        self.prs[103] = PullRequestRecord(
+            number=103,
+            head_branch="feature/report-3",
+            head_sha=current_third,
+            base_branch="feature/report-2",
+            state="OPEN",
+            body=embed_pr_metadata("Position 3\n", third_metadata),
+            title="Report (3 of 3)",
+            head_rewrite_edges=((original_third, third_boundary),),
+        )
+        return current_third, requested_branch
+
     def _interrupt_after_v3_branch_update(self) -> str:
         def fail_before_edit(*_args, **_kwargs) -> None:
             raise CommandError("injected before PR metadata cleanup")
@@ -558,6 +730,57 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         self.assertEqual(current_head, self._remote_head("feature/report-2"))
         self.assertEqual(original_body, self.prs[102].body)
+
+    def test_public_recovery_extends_multilayer_legacy_successor_lineage(
+        self,
+    ) -> None:
+        current_head, requested_branch = (
+            self._prepare_completed_multilayer_legacy_recovery()
+        )
+
+        output = self._run_recovery(
+            successor_branch=requested_branch,
+            successor_sha=current_head,
+        )
+
+        recovered_head = self._remote_head("feature/report-3")
+        metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_head,
+            )
+        )
+        self.assertEqual(
+            (
+                "feature/report",
+                "feature/report-reviewed",
+                requested_branch,
+            ),
+            tuple(identity.branch for identity in metadata.source_lineage),
+        )
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_public_recovery_rejects_merge_in_multilayer_legacy_tail(self) -> None:
+        current_head, requested_branch = (
+            self._prepare_completed_multilayer_legacy_recovery(merge_tail=True)
+        )
+        original_body = self.prs[103].body
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*cannot prove",
+        ):
+            self._run_recovery(
+                successor_branch=requested_branch,
+                successor_sha=current_head,
+            )
+
+        self.assertEqual(current_head, self._remote_head("feature/report-3"))
+        self.assertEqual(original_body, self.prs[103].body)
 
     def test_public_recovery_rejects_divergent_pr_body_readback(self) -> None:
         def persist_divergent_body(number: int, **_kwargs) -> None:

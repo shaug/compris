@@ -273,11 +273,11 @@ def _validate_completed_recovery_provenance(
         predecessor: str,
         *,
         expected_metadata: ChangesetMetadata | None = None,
-    ) -> str | None:
+    ) -> tuple[str, int] | None:
         """Return the authenticated first head for this successor lineage."""
 
         target_metadata = expected_metadata or record.metadata
-        for before, after in record.pr_head_rewrite_edges:
+        for index, (before, after) in enumerate(record.pr_head_rewrite_edges):
             try:
                 _ensure_commit_available(repo, after, remote=remote)
                 after_metadata = parse_commit_message(
@@ -290,28 +290,8 @@ def _validate_completed_recovery_provenance(
                 continue
             if before != predecessor or after_metadata.slug != target_metadata.slug:
                 return None
-            return after
+            return after, index
         return None
-
-    def proves_remote_rewrite_path(
-        record: ChangesetRecord, start: str, end: str
-    ) -> bool:
-        """Prove a contiguous force-push path between two published heads."""
-
-        if start == end:
-            return True
-        current = start
-        started = False
-        for before, after in record.pr_head_rewrite_edges:
-            if before != current:
-                if started:
-                    return False
-                continue
-            started = True
-            current = after
-            if current == end:
-                return True
-        return False
 
     def proves_linear_tail(start: str, end: str) -> bool:
         """Prove ordinary accepted commits after a recovery restamp."""
@@ -328,6 +308,23 @@ def _validate_completed_recovery_provenance(
             ).strip()
         except RehydrationError:
             return False
+
+    def remote_rewrite_tip(
+        record: ChangesetRecord,
+        start: str,
+        boundary_index: int,
+        end: str,
+    ) -> str | None:
+        """Return the last authenticated rewrite before a linear tail."""
+
+        current = start
+        for before, after in record.pr_head_rewrite_edges[boundary_index + 1 :]:
+            if proves_linear_tail(current, end):
+                return current
+            if before != current and not proves_linear_tail(current, before):
+                return None
+            current = after
+        return current if proves_linear_tail(current, end) else None
 
     def proves_prior_single_record_history(
         record: ChangesetRecord,
@@ -348,13 +345,14 @@ def _validate_completed_recovery_provenance(
                 predecessor_message,
                 remote=remote,
             )
-            boundary = remote_rewrite_boundary(
+            boundary_result = remote_rewrite_boundary(
                 record,
                 predecessor,
                 expected_metadata=metadata,
             )
-            if boundary is None:
+            if boundary_result is None:
                 return False
+            boundary, _ = boundary_result
             boundary_message = _git(repo, "show", "-s", "--format=%B", boundary)
             boundary_metadata = parse_commit_message(
                 boundary_message,
@@ -479,18 +477,23 @@ def _validate_completed_recovery_provenance(
                 predecessor_message,
                 remote=remote,
             )
-            boundary_head = remote_rewrite_boundary(record, predecessor)
-            if boundary_head is None:
+            boundary_result = remote_rewrite_boundary(record, predecessor)
+            if boundary_result is None:
                 raise RehydrationError("remote rewrite boundary is not proven")
+            boundary_head, boundary_index = boundary_result
             boundary_message = _git(repo, "show", "-s", "--format=%B", boundary_head)
             boundary_metadata = parse_commit_message(
                 boundary_message,
                 remote=remote,
             )
-            same_lineage_as_previous = (
-                offset > 0 and records[offset - 1].metadata.source_lineage == lineage
+            proof_head = remote_rewrite_tip(
+                record,
+                boundary_head,
+                boundary_index,
+                record.head,
             )
-            proof_head = record.head if same_lineage_as_previous else boundary_head
+            if proof_head is None:
+                raise RehydrationError("remote rewrite tail is not proven")
             proof_message = _git(repo, "show", "-s", "--format=%B", proof_head)
             same_tree = _git(repo, "rev-parse", f"{proof_head}^{{tree}}") == _git(
                 repo, "rev-parse", f"{predecessor}^{{tree}}"
@@ -508,11 +511,7 @@ def _validate_completed_recovery_provenance(
             ) from exc
 
         parent_proven = current_parents == expected_parents
-        later_history_proven = (
-            proves_remote_rewrite_path(record, boundary_head, record.head)
-            if same_lineage_as_previous
-            else proves_linear_tail(boundary_head, record.head)
-        )
+        later_history_proven = proves_linear_tail(proof_head, record.head)
         prior_history_proven = True
         if len(lineage) > 2 and (
             offset == 0 or records[offset - 1].metadata.source_lineage != lineage
