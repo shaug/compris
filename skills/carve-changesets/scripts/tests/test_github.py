@@ -47,20 +47,21 @@ class GithubTests(unittest.TestCase):
             "mergeCommit": None,
             "isCrossRepository": False,
             "isDraft": True,
-            "mergeStateStatus": "QUEUED",
+            "mergeStateStatus": "CLEAN",
             "autoMergeRequest": {"enabledAt": "2026-09-25T00:00:00Z"},
         }
         timeline = {
             "data": {
                 "repository": {
                     "pullRequest": {
+                        "mergeQueueEntry": {"id": "MQE_queued"},
                         "timelineItems": {
                             "nodes": [],
                             "pageInfo": {
                                 "hasNextPage": False,
                                 "endCursor": None,
                             },
-                        }
+                        },
                     }
                 }
             }

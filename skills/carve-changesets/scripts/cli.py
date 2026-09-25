@@ -9,7 +9,12 @@ import shlex
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from chain import compare_chain, materialize_native_stack, validate_chain
+from chain import (
+    _complete_unpublished_native_layers,
+    compare_chain,
+    materialize_native_stack,
+    validate_chain,
+)
 from command_argv import parse_argv_json
 from common import (
     DEFAULT_PLAN_PATH,
@@ -23,7 +28,14 @@ from common import (
     validate_plan,
 )
 from db_compare import db_compare
-from gh_stack import REVIEWED_PROFILE_PATH, GhStackError, reviewed_preview_profile
+from gh_stack import (
+    REVIEWED_PROFILE_PATH,
+    GhStackClient,
+    GhStackError,
+    StackCapability,
+    probe_profile,
+    reviewed_preview_profile,
+)
 from github import (
     github_repo_for_remote,
     pr_body_for,
@@ -32,7 +44,12 @@ from github import (
     pull_request_by_number,
     pull_requests_for_source,
 )
-from native_stack import NativeStackError
+from native_stack import (
+    NativeStackError,
+    NativeStackSnapshot,
+    parse_native_stack,
+    reconcile_native_stack,
+)
 from patch_apply import build_diff
 from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
@@ -371,7 +388,12 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
             operation=StackOperation.PUBLISH,
             phases=(TransitionPhase.PUSH, TransitionPhase.SUBMIT),
         )
-    current = _publish_manifest(plan, remote=args.remote, indices=indices)
+    current = _publish_manifest(
+        plan,
+        remote=args.remote,
+        indices=indices,
+        allow_stack_state_refresh=args.allow_stack_state_refresh,
+    )
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
@@ -379,18 +401,26 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
     result = execute_transition(
         approved,
         profile=_reviewed_profile(),
-        reread=lambda: _publish_manifest(plan, remote=args.remote, indices=indices),
+        reread=lambda: _publish_manifest(
+            plan,
+            remote=args.remote,
+            indices=indices,
+            allow_stack_state_refresh=args.allow_stack_state_refresh,
+        ),
         executor=lambda _manifest: pr_create(
             plan, indices=indices, dry_run=False, remote=args.remote
         ),
         readback=lambda: _live_observation(
             approved,
-            lambda: _publish_manifest(plan, remote=args.remote, indices=indices),
+            lambda: _publish_manifest(
+                plan,
+                remote=args.remote,
+                indices=indices,
+                allow_stack_state_refresh=args.allow_stack_state_refresh,
+            ),
         ),
     )
-    _print_transition_result(result)
-    if result.state is TransitionState.BLOCKED:
-        raise CommandError(result.blocker)
+    _finish_transition(result)
 
 
 def _repository_identity(remote: str) -> str:
@@ -408,7 +438,112 @@ def _repository_identity(remote: str) -> str:
     return urls[0]
 
 
-def _push_manifest(plan: Dict, *, remote: str):
+def _native_snapshot_for_transition(
+    *, source: str, base: str, remote: str
+) -> NativeStackSnapshot:
+    """Refresh and reconcile the authoritative native topology."""
+
+    probe = probe_profile(cwd=Path.cwd())
+    if (
+        probe.status != "supported"
+        or probe.profile is None
+        or StackCapability.VIEW_JSON not in probe.profile.capabilities
+    ):
+        reason = probe.blocker.reason if probe.blocker is not None else probe.status
+        raise CommandError(f"Native stack profile blocks transition preview: {reason}.")
+    before = (
+        git("symbolic-ref", "-q", "HEAD", check=False).stdout.strip(),
+        git("rev-parse", "HEAD").stdout.strip(),
+    )
+    try:
+        payload = GhStackClient(cwd=Path.cwd()).view_json(allow_state_refresh=True)
+    finally:
+        after = (
+            git("symbolic-ref", "-q", "HEAD", check=False).stdout.strip(),
+            git("rev-parse", "HEAD").stdout.strip(),
+        )
+        if after != before:
+            raise CommandError(
+                "gh stack view --json moved the checkout during transition preview"
+            )
+    trunk_head = remote_branch_head(remote, base)
+    if trunk_head is None:
+        raise CommandError(f"Selected native trunk {remote}/{base} is absent.")
+    semantic_heads: dict[str, str] = {}
+    raw_layers = payload.get("branches")
+    if isinstance(raw_layers, list):
+        for item in raw_layers:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                continue
+            branch = item["name"]
+            resolved = git(
+                "rev-parse",
+                "--verify",
+                f"refs/heads/{branch}^{{commit}}",
+                check=False,
+            )
+            if resolved.returncode == 0:
+                semantic_heads[branch] = resolved.stdout.strip()
+    snapshot = parse_native_stack(
+        _complete_unpublished_native_layers(payload, semantic_heads),
+        expected_trunk_branch=base,
+        trunk_head=trunk_head,
+    )
+    live_pull_requests = {
+        layer.pull_request.number: pull_request_by_number(
+            layer.pull_request.number, remote=remote
+        )
+        for layer in snapshot.layers
+        if layer.pull_request is not None
+    }
+    remote_heads = {
+        layer.branch: head
+        for layer in snapshot.layers
+        if (head := remote_branch_head(remote, layer.branch)) is not None
+    }
+    local_heads: dict[str, str] = {}
+    for layer in snapshot.layers:
+        resolved = git(
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{layer.branch}^{{commit}}",
+            check=False,
+        )
+        if resolved.returncode == 0:
+            local_heads[layer.branch] = resolved.stdout.strip()
+    reconciled = reconcile_native_stack(
+        snapshot,
+        remote_heads=remote_heads,
+        pull_requests=live_pull_requests,
+        local_heads=local_heads,
+    )
+    observed = tuple(layer.branch for layer in reconciled.layers)
+    if not observed:
+        raise CommandError(f"Native stack for {source!r} has no layers.")
+    return reconciled
+
+
+def _require_stack_refresh_authority(allowed: bool) -> None:
+    if not allowed:
+        raise CommandError(
+            "Transition preview requires --allow-stack-state-refresh before "
+            "reading authoritative native topology."
+        )
+
+
+def _expected_native_stack(
+    source: str, snapshot: NativeStackSnapshot
+) -> ExpectedNativeStack:
+    return ExpectedNativeStack(
+        identity=source,
+        trunk=snapshot.trunk_branch,
+        trunk_head=snapshot.trunk_head,
+        order=tuple(layer.branch for layer in snapshot.layers),
+    )
+
+
+def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool = False):
+    _require_stack_refresh_authority(allow_stack_state_refresh)
     source = plan["source_branch"]
     branches = tuple(
         branch_name_for(source, index)
@@ -433,21 +568,21 @@ def _push_manifest(plan: Dict, *, remote: str):
         )
         evidence.append(f"{remote}/refs/heads/{branch}={old or 'absent'}")
     base = plan["base_branch"]
-    trunk_head = remote_branch_head(remote, base)
-    if trunk_head is None:
-        raise CommandError(f"Selected native trunk {remote}/{base} is absent.")
-    evidence.append(f"{remote}/refs/heads/{base}={trunk_head}")
+    snapshot = _native_snapshot_for_transition(source=source, base=base, remote=remote)
+    native_order = tuple(layer.branch for layer in snapshot.layers)
+    if native_order != branches:
+        raise CommandError(
+            "Selected chain disagrees with authoritative native stack order: "
+            f"selected {list(branches)!r}; native {list(native_order)!r}."
+        )
+    evidence.append(f"{remote}/refs/heads/{base}={snapshot.trunk_head}")
+    evidence.append(f"native stack order={','.join(native_order)}")
     repository = _repository_identity(remote)
     return preview_push(
         repository=repository,
         remote=remote,
         refs=refs,
-        native_stack=ExpectedNativeStack(
-            identity=source,
-            trunk=base,
-            trunk_head=trunk_head,
-            order=branches,
-        ),
+        native_stack=_expected_native_stack(source, snapshot),
         authority=AuthorityGrant.publish(
             repository=repository,
             remote=remote,
@@ -457,8 +592,18 @@ def _push_manifest(plan: Dict, *, remote: str):
     )
 
 
-def _publish_manifest(plan: Dict, *, remote: str, indices: Sequence[int] | None = None):
-    push = _push_manifest(plan, remote=remote)
+def _publish_manifest(
+    plan: Dict,
+    *,
+    remote: str,
+    indices: Sequence[int] | None = None,
+    allow_stack_state_refresh: bool = False,
+):
+    push = _push_manifest(
+        plan,
+        remote=remote,
+        allow_stack_state_refresh=allow_stack_state_refresh,
+    )
     live_by_branch = {}
     for item in pull_requests_for_source(plan["source_branch"], remote=remote):
         if item.head_branch in live_by_branch:
@@ -528,21 +673,40 @@ def _live_manifest_inputs(
     remote: str,
     records,
     pull_requests,
+    native_snapshot: NativeStackSnapshot,
 ):
     selected_base = base or "main"
-    trunk_head = remote_branch_head(remote, selected_base)
-    if trunk_head is None:
-        raise CommandError(f"Selected native trunk {remote}/{selected_base} is absent.")
+    if native_snapshot.trunk_branch != selected_base:
+        raise CommandError(
+            f"Native trunk {native_snapshot.trunk_branch!r} disagrees with selected "
+            f"base {selected_base!r}."
+        )
+    native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
+    selected_branches = tuple(record.branch for record in records)
+    missing = tuple(
+        branch for branch in selected_branches if branch not in native_by_branch
+    )
+    if missing:
+        raise CommandError(
+            f"Selected layers are absent from authoritative native topology: {missing!r}."
+        )
+    trunk_head = native_snapshot.trunk_head
     refs: list[ExpectedRef] = []
     expected_pull_requests: list[ExpectedPullRequest] = []
     evidence: list[str] = [f"{remote}/refs/heads/{selected_base}={trunk_head}"]
     for record in records:
         old = remote_branch_head(remote, record.branch)
+        native_head = native_by_branch[record.branch].head
+        if record.head != native_head:
+            raise CommandError(
+                f"Live chain head for {record.branch} is {record.head}; native head is "
+                f"{native_head}."
+            )
         refs.append(
             ExpectedRef(
                 name=f"refs/heads/{record.branch}",
                 old_sha=old or ZERO_SHA,
-                proposed_sha=record.head,
+                proposed_sha=native_head,
             )
         )
         evidence.append(f"{remote}/refs/heads/{record.branch}={old or 'absent'}")
@@ -573,17 +737,13 @@ def _live_manifest_inputs(
     return (
         tuple(refs),
         tuple(expected_pull_requests),
-        ExpectedNativeStack(
-            identity=source,
-            trunk=selected_base,
-            trunk_head=trunk_head,
-            order=tuple(record.branch for record in records),
-        ),
+        _expected_native_stack(source, native_snapshot),
         tuple(evidence),
     )
 
 
 def _repair_manifest(args: argparse.Namespace):
+    _require_stack_refresh_authority(args.allow_stack_state_refresh)
     chain, pull_requests = _rehydrate_live(
         source=args.source, base=args.base, remote=args.remote
     )
@@ -593,12 +753,30 @@ def _repair_manifest(args: argparse.Namespace):
     suffix = chain.changesets[target.position :]
     if not suffix:
         raise CommandError("The selected merged layer has no suffix to repair.")
+    native_snapshot = _native_snapshot_for_transition(
+        source=args.source,
+        base=args.base or chain.base_branch,
+        remote=args.remote,
+    )
+    native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
+    needs_rebase = tuple(
+        record.branch
+        for record in suffix
+        if record.branch not in native_by_branch
+        or native_by_branch[record.branch].needs_rebase
+    )
+    if needs_rebase:
+        raise CommandError(
+            "Repair preview is blocked because exact rewritten heads cannot be "
+            f"derived without materialization: {needs_rebase!r}."
+        )
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base or chain.base_branch,
         remote=args.remote,
         records=suffix,
         pull_requests=pull_requests,
+        native_snapshot=native_snapshot,
     )
     phases = frozenset(
         {
@@ -636,6 +814,7 @@ def _repair_manifest(args: argparse.Namespace):
 
 
 def _merge_manifest(args: argparse.Namespace):
+    _require_stack_refresh_authority(args.allow_stack_state_refresh)
     chain, pull_requests = _rehydrate_live(
         source=args.source, base=args.base, remote=args.remote
     )
@@ -643,14 +822,32 @@ def _merge_manifest(args: argparse.Namespace):
         chain, pull_requests, pr_number=args.pr, index=args.index
     )
     open_suffix = chain.changesets[target.position - 1 :]
+    native_snapshot = _native_snapshot_for_transition(
+        source=args.source,
+        base=args.base or chain.base_branch,
+        remote=args.remote,
+    )
+    native_open = native_snapshot.open_suffix
+    if not native_open or native_open[0].branch != target.branch:
+        bottom = native_open[0].branch if native_open else "none"
+        raise CommandError(
+            f"Merge target {target.branch!r} is not the bottom open native layer "
+            f"({bottom!r})."
+        )
+    mode = MergeMode(args.merge_mode)
+    if mode is MergeMode.DIRECT and len(open_suffix) > 1:
+        raise CommandError(
+            "Direct merge preview is blocked because exact automatic suffix heads "
+            "cannot be derived before the bottom PR lands."
+        )
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base or chain.base_branch,
         remote=args.remote,
         records=open_suffix,
         pull_requests=pull_requests,
+        native_snapshot=native_snapshot,
     )
-    mode = MergeMode(args.merge_mode)
     phases = (
         frozenset({TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC})
         if mode is MergeMode.DIRECT
@@ -684,6 +881,7 @@ def _merge_manifest(args: argparse.Namespace):
 
 
 def _recovery_manifest(args: argparse.Namespace):
+    _require_stack_refresh_authority(args.allow_stack_state_refresh)
     chain, pull_requests = _rehydrate_live(
         source=args.source, base=args.base, remote=args.remote
     )
@@ -692,12 +890,33 @@ def _recovery_manifest(args: argparse.Namespace):
             f"--from-index must be between 1 and {len(chain.changesets)}."
         )
     suffix = chain.changesets[args.from_index - 1 :]
+    unrecovered = tuple(
+        record.branch
+        for record in suffix
+        if (
+            record.metadata.active_source.remote,
+            record.metadata.active_source.branch,
+            record.metadata.active_source.sha,
+        )
+        != (args.remote, args.successor_source, args.successor_sha)
+    )
+    if unrecovered:
+        raise CommandError(
+            "Recovery preview is blocked because exact restamped successor heads "
+            f"cannot be derived without materialization: {unrecovered!r}."
+        )
+    native_snapshot = _native_snapshot_for_transition(
+        source=args.source,
+        base=args.base,
+        remote=args.remote,
+    )
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base,
         remote=args.remote,
         records=suffix,
         pull_requests=pull_requests,
+        native_snapshot=native_snapshot,
     )
     identities = (*tuple(item.branch for item in prs), args.successor_source)
     phases = frozenset(
@@ -820,8 +1039,20 @@ def _print_transition_result(result: TransitionResult) -> None:
 
 def _finish_transition(result: TransitionResult) -> None:
     _print_transition_result(result)
-    if result.state is TransitionState.BLOCKED:
-        raise CommandError(result.blocker)
+    if (
+        result.blocker
+        or result.state
+        in {
+            TransitionState.BLOCKED,
+            TransitionState.PARTIAL,
+            TransitionState.DIVERGED,
+        }
+        or result.fresh_manifest_required
+    ):
+        raise CommandError(
+            result.blocker
+            or "transition readback requires a fresh manifest before continuing"
+        )
 
 
 def cmd_push_chain(args: argparse.Namespace) -> None:
@@ -836,7 +1067,11 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
             operation=StackOperation.PUBLISH,
             phases=(TransitionPhase.PUSH,),
         )
-    current = _push_manifest(plan, remote=args.remote)
+    current = _push_manifest(
+        plan,
+        remote=args.remote,
+        allow_stack_state_refresh=args.allow_stack_state_refresh,
+    )
     if not args.execute:
         print(manifest_to_json(current), end="")
         return
@@ -844,13 +1079,15 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
     result = execute_transition(
         approved,
         profile=_reviewed_profile(),
-        reread=lambda: _push_manifest(plan, remote=args.remote),
+        reread=lambda: _push_manifest(
+            plan,
+            remote=args.remote,
+            allow_stack_state_refresh=args.allow_stack_state_refresh,
+        ),
         executor=lambda _manifest: push_chain(plan, remote=args.remote, dry_run=False),
         readback=lambda: _push_observation(approved),
     )
-    _print_transition_result(result)
-    if result.state is TransitionState.BLOCKED:
-        raise CommandError(result.blocker)
+    _finish_transition(result)
 
 
 def cmd_propagate(args: argparse.Namespace) -> None:
@@ -1164,6 +1401,14 @@ def _add_transition_options(
         "--manifest",
         default=None,
         help="Path to the exact approved manifest required with --execute",
+    )
+    parser.add_argument(
+        "--allow-stack-state-refresh",
+        action="store_true",
+        help=(
+            "Authorize the bounded local-state refresh required to observe and "
+            "reconcile native topology for a transition manifest"
+        ),
     )
     for flag, destination in authority_flags:
         parser.add_argument(

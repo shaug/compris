@@ -921,11 +921,6 @@ def _repair_effects(
     }
     effects: list[MutationEffect] = []
     for expected_ref in refs:
-        if expected_ref.old_sha == expected_ref.proposed_sha:
-            raise ManifestError(
-                "repair preview cannot approve an unknown post-rebase head; "
-                "materialize exact proposed heads before approval"
-            )
         branch = expected_ref.name.removeprefix("refs/heads/")
         effects.append(
             MutationEffect(
