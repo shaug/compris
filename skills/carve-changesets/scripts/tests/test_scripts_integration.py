@@ -1,14 +1,70 @@
 from __future__ import annotations
 
+import io
 import shutil
 import stat
+import sys
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
-from common import DEFAULT_PLAN_PATH
-from legacy_helpers import SCRIPTS_DIR, commit, init_remote, init_repo, run, write_plan
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
+from cli import cmd_validate_chain  # noqa: E402
+from common import DEFAULT_PLAN_PATH, CommandError  # noqa: E402
+from legacy_helpers import (  # noqa: E402
+    SCRIPTS_DIR,
+    chdir,
+    commit,
+    init_remote,
+    init_repo,
+    run,
+    write_plan,
+)
+from metadata import parse_commit_message  # noqa: E402
+from rehydrate import adopt_legacy_chain as rehydrate_from_live  # noqa: E402
+from validate import validate_live_chain as validate_live  # noqa: E402
 
 
 class ScriptIntegrationTests(unittest.TestCase):
+    def test_materialization_commands_stamp_the_selected_remote(self) -> None:
+        for command in ("create-chain", "run"):
+            with self.subTest(command=command):
+                repo_dir, plan = init_repo()
+                try:
+                    cli = str(SCRIPTS_DIR / "cli.py")
+                    write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
+                    argv = [cli, command]
+                    if command == "run":
+                        argv.extend(
+                            [
+                                "--base",
+                                plan["base_branch"],
+                                "--source",
+                                plan["source_branch"],
+                                "--title",
+                                plan["feature_title"],
+                                "--skip-tests",
+                                "--create-chain",
+                            ]
+                        )
+                    argv.extend(["--remote", "upstream"])
+
+                    run(argv, cwd=repo_dir)
+
+                    message = run(
+                        ["git", "show", "-s", "--format=%B", "feature/test-1"],
+                        cwd=repo_dir,
+                    ).stdout
+                    metadata = parse_commit_message(message)
+                    self.assertEqual("upstream", metadata.active_source.remote)
+                finally:
+                    shutil.rmtree(repo_dir)
+
     def test_single_cli_exercises_ported_surface(self) -> None:
         repo_dir, plan = init_repo()
         remote_dir = None
@@ -366,11 +422,14 @@ class ScriptIntegrationTests(unittest.TestCase):
         finally:
             shutil.rmtree(repo_dir)
 
-    def test_strict_validate_rejects_different_source_history(self) -> None:
+    def test_strict_validate_rejects_moved_native_source_ref(self) -> None:
         repo_dir, plan = init_repo()
+        remote_dir = None
         try:
             cli = str(SCRIPTS_DIR / "cli.py")
             plan_path = repo_dir / DEFAULT_PLAN_PATH
+            remote_dir = init_remote(repo_dir)
+            run(["git", "push", "origin", "main", "feature/test"], cwd=repo_dir)
             write_plan(plan_path, plan)
             run([cli, "create-chain"], cwd=repo_dir)
             run(["git", "checkout", "-b", "alternate-source", "main"], cwd=repo_dir)
@@ -382,7 +441,7 @@ class ScriptIntegrationTests(unittest.TestCase):
             commit(repo_dir, "alternate source history")
             alternate = run(["git", "rev-parse", "HEAD"], cwd=repo_dir).stdout.strip()
             run(
-                ["git", "update-ref", "refs/heads/feature/test", alternate],
+                ["git", "push", "--force", "origin", f"{alternate}:feature/test"],
                 cwd=repo_dir,
             )
 
@@ -393,9 +452,95 @@ class ScriptIntegrationTests(unittest.TestCase):
             )
 
             self.assertEqual(1, result.returncode)
-            self.assertIn("source_history_mismatch", result.stdout)
+            self.assertIn("source_lineage_ref_moved", result.stdout)
+            self.assertNotIn("source_history_mismatch", result.stdout)
         finally:
             shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
+    def test_validate_chain_rejects_an_externally_moved_native_source_ref(
+        self,
+    ) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            run(["git", "push", "origin", "main", "feature/test"], cwd=repo_dir)
+            write_plan(repo_dir / DEFAULT_PLAN_PATH, plan)
+            run([str(SCRIPTS_DIR / "cli.py"), "create-chain"], cwd=repo_dir)
+            cached_source = run(
+                ["git", "rev-parse", "refs/remotes/origin/feature/test"],
+                cwd=repo_dir,
+            ).stdout.strip()
+            run(
+                ["git", "checkout", "-b", "external-source", "feature/test"],
+                cwd=repo_dir,
+            )
+            (repo_dir / "external.txt").write_text("external source move\n")
+            run(["git", "add", "external.txt"], cwd=repo_dir)
+            commit(repo_dir, "external source move")
+            moved_source = run(
+                ["git", "rev-parse", "HEAD"], cwd=repo_dir
+            ).stdout.strip()
+            run(
+                ["git", "push", "origin", "external-source:external-source"],
+                cwd=repo_dir,
+            )
+            run(
+                [
+                    "git",
+                    "--git-dir",
+                    str(remote_dir),
+                    "update-ref",
+                    "refs/heads/feature/test",
+                    moved_source,
+                ],
+                cwd=repo_dir,
+            )
+            self.assertEqual(
+                cached_source,
+                run(
+                    ["git", "rev-parse", "refs/remotes/origin/feature/test"],
+                    cwd=repo_dir,
+                ).stdout.strip(),
+            )
+            run(["git", "checkout", "feature/test-2"], cwd=repo_dir)
+
+            output = io.StringIO()
+            with (
+                chdir(repo_dir),
+                mock.patch("cli.pull_requests_for_source", return_value=[]),
+                mock.patch(
+                    "cli.adopt_legacy_chain",
+                    side_effect=lambda **kwargs: rehydrate_from_live(
+                        cwd=repo_dir, **kwargs
+                    ),
+                ),
+                mock.patch(
+                    "cli.validate_live_chain",
+                    side_effect=lambda chain, **kwargs: validate_live(
+                        chain, cwd=repo_dir, **kwargs
+                    ),
+                ),
+                redirect_stdout(output),
+                self.assertRaisesRegex(CommandError, "Live chain validation failed"),
+            ):
+                cmd_validate_chain(
+                    SimpleNamespace(
+                        plan=str(repo_dir / DEFAULT_PLAN_PATH),
+                        legacy_test_cmd=None,
+                        test_argv='["python3", "-c", "print(\\"ok\\")"]',
+                        local_only=False,
+                        remote="origin",
+                    )
+                )
+
+            self.assertIn("source_lineage_ref_moved", output.getvalue())
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
 
 
 if __name__ == "__main__":

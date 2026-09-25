@@ -243,15 +243,15 @@ python3 scripts/cli.py recover-suffix \
 ```
 
 Execution updates only the exact owned open suffix with explicit refspecs and
-exact leases, replaces its PR metadata through the GitHub chokepoint, verifies
-the live result, and reports that validation, review, CI, and feedback evidence
-is invalidated. Obtain fresh exact-head validation and repository review before
-handing the corrected PR back to `babysit-pr`.
+exact leases, preserves human-readable PR prose, verifies the live result, and
+reports that validation, review, CI, and feedback evidence is invalidated.
+Obtain fresh exact-head validation and repository review before handing the
+corrected PR back to `babysit-pr`.
 
-If execution is interrupted after a branch push but before its PR metadata edit,
-rerun the same command with the same source identities. Recovery reconstructs
-that exact transition from live commit and PR metadata and resumes; it never
-uses the plan or a cache.
+If execution is interrupted after a branch push, rerun the same command with the
+same source identities. Recovery reconstructs that exact transition from live
+commit trailers, remote refs, and PR topology and resumes; it never uses the
+plan or a cache.
 
 After every operation, rerun `status` and the required live validation. Resume
 an interrupted sequence by selecting the exact PR or stable changeset index from

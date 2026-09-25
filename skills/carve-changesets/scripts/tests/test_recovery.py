@@ -18,11 +18,10 @@ from metadata import (
     SourceIdentity,
     embed_pr_metadata,
     parse_commit_message,
-    parse_pr_metadata,
     stamp_commit_message,
 )
 from recovery import recover_suffix_from_live
-from rehydrate import PullRequestRecord, adopt_legacy_chain
+from rehydrate import PullRequestRecord, RehydrationError, adopt_legacy_chain
 from validate import validate_live_chain
 
 
@@ -167,12 +166,18 @@ class SuffixRecoveryTests(unittest.TestCase):
 
     def _live_pr(self, number: int, **_kwargs) -> PullRequestRecord:
         pr = self.prs[number]
-        return PullRequestRecord(
-            **{
-                **pr.__dict__,
-                "head_sha": self._remote_head(pr.head_branch),
-            }
-        )
+        head = self._remote_head(pr.head_branch)
+        if head != pr.head_sha:
+            pr = PullRequestRecord(
+                **{
+                    **pr.__dict__,
+                    "head_sha": head,
+                    "head_rewrite_edges": pr.head_rewrite_edges
+                    + ((pr.head_sha, head),),
+                }
+            )
+            self.prs[number] = pr
+        return pr
 
     def _all_live_prs(self, *_args, **_kwargs) -> list[PullRequestRecord]:
         return [self._live_pr(number) for number in sorted(self.prs)]
@@ -215,6 +220,88 @@ class SuffixRecoveryTests(unittest.TestCase):
             )
         return output.getvalue()
 
+    def _interrupt_after_v3_branch_update(self) -> str:
+        def fail_before_edit(*_args, **_kwargs) -> None:
+            raise CommandError("injected before PR metadata cleanup")
+
+        with self.assertRaisesRegex(CommandError, "injected"):
+            self._run_recovery(edit_side_effect=fail_before_edit)
+        return self._remote_head("feature/report-2")
+
+    def _push_v3_with_legacy_body(self, *, recovery_from_head: str) -> str:
+        metadata = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(
+                SourceIdentity("origin", "feature/report", self.source_sha),
+                SourceIdentity(
+                    "origin", "feature/report-corrected", self.successor_sha
+                ),
+            ),
+            recovery_from_head=recovery_from_head,
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message(
+                "fix: accept review feedback",
+                metadata,
+            ),
+        )
+        head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        return head
+
+    def _restamp_open_suffix_as_native(self, *, identity_remote: str) -> str:
+        metadata = ChangesetMetadata(
+            slug="part-2",
+            source_lineage=(
+                SourceIdentity(
+                    identity_remote,
+                    "feature/report",
+                    self.source_sha,
+                ),
+            ),
+        )
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message("fix: accept review feedback", metadata),
+        )
+        head = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-2",
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "head_sha": head,
+                "body": "Human-readable recovery context only.\n",
+            }
+        )
+        return head
+
     def test_recovers_two_position_chain_and_preserves_merged_prefix(self) -> None:
         output = self._run_recovery()
 
@@ -235,8 +322,11 @@ class SuffixRecoveryTests(unittest.TestCase):
             ("feature/report", "feature/report-corrected"),
             tuple(identity.branch for identity in metadata.source_lineage),
         )
+        self.assertEqual(3, metadata.version)
+        self.assertIsNone(metadata.legacy_position)
         self.assertEqual(self.fixed_head, metadata.recovery_from_head)
-        self.assertEqual(metadata, parse_pr_metadata(self.prs[102].body))
+        self.assertEqual("Position 2\n", self.prs[102].body)
+        self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
         self.assertIn("EVIDENCE-INVALIDATED", output)
 
         clone = self.temp_dir / "fresh"
@@ -250,6 +340,572 @@ class SuffixRecoveryTests(unittest.TestCase):
         validation = validate_live_chain(chain, cwd=clone)
         self.assertTrue(validation.valid, validation.errors)
         self.assertEqual(self.successor_sha, chain.source_sha)
+
+    def test_native_human_only_pr_recovers_through_public_workflow(self) -> None:
+        native_head = self._restamp_open_suffix_as_native(identity_remote="origin")
+
+        output = self._run_recovery()
+
+        recovered_head = self._remote_head("feature/report-2")
+        self.assertNotEqual(native_head, recovered_head)
+        self.assertEqual(
+            "Human-readable recovery context only.\n",
+            self.prs[102].body,
+        )
+        metadata = parse_commit_message(
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_head,
+            )
+        )
+        self.assertEqual(3, metadata.version)
+        self.assertEqual(2, len(metadata.source_lineage))
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_public_recovery_rejects_divergent_pr_body_readback(self) -> None:
+        def persist_divergent_body(number: int, **_kwargs) -> None:
+            self._edit(number, body="Server-altered recovery context.\n")
+
+        with self.assertRaisesRegex(CommandError, "could not be verified"):
+            self._run_recovery(edit_side_effect=persist_divergent_body)
+
+        self.assertEqual(
+            "Server-altered recovery context.\n",
+            self.prs[102].body,
+        )
+
+    def test_public_recovery_rejects_lineage_from_another_remote(self) -> None:
+        self._restamp_open_suffix_as_native(identity_remote="upstream")
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "Live suffix recovery state is invalid.*root source",
+        ):
+            self._run_recovery()
+
+    def test_recovery_rechecks_lineage_after_each_push(self) -> None:
+        actual_push = recovery_mod.push_changeset_branch
+        successor_deleted = False
+
+        def push_then_delete_successor(*args, **kwargs) -> None:
+            nonlocal successor_deleted
+            actual_push(*args, **kwargs)
+            if not successor_deleted:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "push",
+                    "origin",
+                    "--delete",
+                    "feature/report-corrected",
+                )
+                successor_deleted = True
+
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=self._all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "push_changeset_branch",
+                side_effect=push_then_delete_successor,
+            ),
+            mock.patch.object(
+                recovery_mod, "edit_pull_request", side_effect=self._edit
+            ) as edit,
+            mock.patch.object(recovery_mod, "_verify_merged_on_base"),
+        ):
+            with self.assertRaisesRegex(CommandError, "source.*unavailable"):
+                recover_suffix_from_live(
+                    source="feature/report",
+                    base="main",
+                    from_index=2,
+                    successor_branch="feature/report-corrected",
+                    successor_sha=self.successor_sha,
+                    remote="origin",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                )
+
+        edit.assert_not_called()
+
+    def test_multi_layer_recovery_propagates_fix_and_survives_merge(self) -> None:
+        case_dir = self.temp_dir / "non-origin"
+        case_dir.mkdir()
+        repo, bare, source_sha = helpers.init_repo(case_dir)
+        helpers.run(repo, "git", "remote", "add", "upstream", str(bare))
+        helpers.run(repo, "git", "fetch", "upstream")
+        root = SourceIdentity("feature/report", source_sha)
+
+        helpers.run(repo, "git", "checkout", "-b", "feature/report-1", "main")
+        source_text = helpers.run(repo, "git", "show", "feature/report:source.txt")
+        (repo / "source.txt").write_text(source_text + "\n")
+        helpers.run(repo, "git", "add", "source.txt")
+        first_metadata = ChangesetMetadata("part-1", 1, root.branch, root.sha)
+        first_head = helpers.commit(
+            repo,
+            stamp_commit_message("feat: changeset 1", first_metadata),
+        )
+        helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-1")
+        helpers.run(repo, "git", "checkout", "main")
+        helpers.run(
+            repo,
+            "git",
+            "merge",
+            "--no-ff",
+            "--no-edit",
+            "feature/report-1",
+        )
+        merge_sha = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(repo, "git", "push", "upstream", "main")
+
+        helpers.run(
+            repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-2",
+            "main",
+        )
+        (repo / "second.txt").write_text("second source part\n")
+        helpers.run(repo, "git", "add", "second.txt")
+        second_metadata = ChangesetMetadata("part-2", 2, root.branch, root.sha)
+        second_head = helpers.commit(
+            repo,
+            stamp_commit_message("feat: changeset 2", second_metadata),
+        )
+        helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-2")
+        helpers.run(
+            repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-3",
+            "feature/report-2",
+        )
+        (repo / "third.txt").write_text("third source part\n")
+        helpers.run(repo, "git", "add", "third.txt")
+        third_metadata = ChangesetMetadata("part-3", 3, root.branch, root.sha)
+        third_head = helpers.commit(
+            repo,
+            stamp_commit_message("feat: changeset 3", third_metadata),
+        )
+        (repo / "third-review.txt").write_text("accepted third-layer review fix\n")
+        helpers.run(repo, "git", "add", "third-review.txt")
+        third_head = helpers.commit(
+            repo,
+            stamp_commit_message("fix: changeset 3 review", third_metadata),
+        )
+        helpers.run(repo, "git", "push", "-u", "upstream", "feature/report-3")
+        successor_sha = third_head
+        original_successor_sha = successor_sha
+        helpers.run(repo, "git", "branch", "feature/report-corrected", third_head)
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "-u",
+            "upstream",
+            "feature/report-corrected",
+        )
+
+        helpers.run(repo, "git", "checkout", "main")
+        helpers.run(repo, "git", "cherry-pick", second_head)
+        (repo / "accepted-fix.txt").write_text("accepted second-layer fix\n")
+        helpers.run(repo, "git", "add", "accepted-fix.txt")
+        helpers.run(
+            repo,
+            "git",
+            "commit",
+            "--amend",
+            "-F",
+            "-",
+            input_text=stamp_commit_message(
+                "feat: changeset 2 rewritten", second_metadata
+            ),
+        )
+        rewritten_second = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            "HEAD:refs/heads/feature/report-2",
+            f"--force-with-lease=refs/heads/feature/report-2:{second_head}",
+        )
+        helpers.run(repo, "git", "branch", "-f", "feature/report-2", rewritten_second)
+        helpers.run(repo, "git", "checkout", "-b", "feature/report-successor-build")
+        helpers.run(
+            repo,
+            "git",
+            "cherry-pick",
+            f"{second_head}..{third_head}",
+        )
+        successor_sha = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            "HEAD:refs/heads/feature/report-corrected",
+            f"--force-with-lease=refs/heads/feature/report-corrected:{original_successor_sha}",
+        )
+        helpers.run(
+            repo,
+            "git",
+            "branch",
+            "-f",
+            "feature/report-corrected",
+            successor_sha,
+        )
+        helpers.run(repo, "git", "branch", "-f", "main", merge_sha)
+
+        prs = {
+            101: PullRequestRecord(
+                number=101,
+                head_branch="feature/report-1",
+                head_sha=first_head,
+                base_branch="main",
+                state="MERGED",
+                body=embed_pr_metadata("Position 1\n", first_metadata),
+                title="Report API (1 of 3)",
+                merge_sha=merge_sha,
+            ),
+            102: PullRequestRecord(
+                number=102,
+                head_branch="feature/report-2",
+                head_sha=rewritten_second,
+                base_branch="main",
+                state="OPEN",
+                body=embed_pr_metadata("Position 2\n", second_metadata),
+                title="Report API (2 of 3)",
+                head_rewrite_edges=((second_head, rewritten_second),),
+            ),
+            103: PullRequestRecord(
+                number=103,
+                head_branch="feature/report-3",
+                head_sha=third_head,
+                base_branch="feature/report-2",
+                state="OPEN",
+                body=embed_pr_metadata("Position 3\n", third_metadata),
+                title="Report API (3 of 3)",
+            ),
+        }
+
+        def remote_head(branch: str) -> str:
+            output = helpers.run(
+                repo,
+                "git",
+                "ls-remote",
+                "upstream",
+                f"refs/heads/{branch}",
+            )
+            return output.split()[0]
+
+        def live_pr(number: int, **_kwargs) -> PullRequestRecord:
+            pr = prs[number]
+            head = remote_head(pr.head_branch)
+            if head != pr.head_sha:
+                pr = PullRequestRecord(
+                    **{
+                        **pr.__dict__,
+                        "head_sha": head,
+                        "head_rewrite_edges": pr.head_rewrite_edges
+                        + ((pr.head_sha, head),),
+                    }
+                )
+                prs[number] = pr
+            return pr
+
+        def all_live_prs(*_args, **_kwargs) -> list[PullRequestRecord]:
+            return [live_pr(number) for number in sorted(prs)]
+
+        def edit_pr(
+            number: int, *, body=None, base=None, title=None, **_kwargs
+        ) -> None:
+            prs[number] = PullRequestRecord(
+                **{
+                    **prs[number].__dict__,
+                    "body": body if body is not None else prs[number].body,
+                    "base_branch": base or prs[number].base_branch,
+                    "title": title or prs[number].title,
+                }
+            )
+
+        actual_push = recovery_mod.push_changeset_branch
+
+        def interrupt_on_third_push(branch: str, **kwargs) -> None:
+            if branch == "feature/report-3":
+                raise CommandError("injected after first suffix push")
+            actual_push(branch, **kwargs)
+
+        with (
+            chdir(repo),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "edit_pull_request",
+                side_effect=edit_pr,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "push_changeset_branch",
+                side_effect=interrupt_on_third_push,
+            ),
+        ):
+            with self.assertRaisesRegex(CommandError, "injected after first"):
+                recover_suffix_from_live(
+                    source="feature/report",
+                    base="main",
+                    from_index=2,
+                    successor_branch="feature/report-corrected",
+                    successor_sha=successor_sha,
+                    remote="upstream",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                )
+
+        partial_second = remote_head("feature/report-2")
+        self.assertNotEqual(rewritten_second, partial_second)
+        self.assertEqual(third_head, remote_head("feature/report-3"))
+        self.assertEqual(
+            3,
+            parse_commit_message(
+                helpers.run(repo, "git", "show", "-s", "--format=%B", partial_second),
+                remote="upstream",
+            ).version,
+        )
+
+        with (
+            chdir(repo),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "edit_pull_request",
+                side_effect=edit_pr,
+            ),
+        ):
+            recover_suffix_from_live(
+                source="feature/report",
+                base="main",
+                from_index=2,
+                successor_branch="feature/report-corrected",
+                successor_sha=successor_sha,
+                remote="upstream",
+                dry_run=False,
+                authority_acknowledged=True,
+            )
+
+        recovered_first = remote_head("feature/report-1")
+        recovered_second = remote_head("feature/report-2")
+        recovered_third = remote_head("feature/report-3")
+        self.assertEqual(first_head, recovered_first)
+        self.assertNotEqual(rewritten_second, recovered_second)
+        self.assertNotEqual(third_head, recovered_third)
+        metadata = parse_commit_message(
+            helpers.run(
+                repo,
+                "git",
+                "show",
+                "-s",
+                "--format=%B",
+                recovered_third,
+            ),
+            remote="upstream",
+        )
+        self.assertEqual(
+            ("upstream", "upstream"),
+            tuple(identity.remote for identity in metadata.source_lineage),
+        )
+        self.assertEqual(3, metadata.version)
+        self.assertIsNone(metadata.legacy_position)
+        self.assertEqual("Position 2\n", prs[102].body)
+        self.assertEqual("Position 3\n", prs[103].body)
+        self.assertNotIn("carve-changesets:metadata", prs[102].body)
+        self.assertNotIn("carve-changesets:metadata", prs[103].body)
+
+        recovered_third_tree = helpers.run(
+            repo, "git", "rev-parse", f"{recovered_third}^{{tree}}"
+        )
+        recovered_third_message = helpers.run(
+            repo, "git", "show", "-s", "--format=%B", recovered_third
+        )
+        second_parent_forgery = helpers.run(
+            repo,
+            "git",
+            "commit-tree",
+            recovered_third_tree,
+            "-p",
+            source_sha,
+            "-p",
+            recovered_second,
+            input_text=recovered_third_message,
+        )
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            f"{second_parent_forgery}:refs/heads/feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{recovered_third}",
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "cannot prove"):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=all_live_prs(),
+                cwd=repo,
+                remote="upstream",
+                prefer_remote=True,
+            )
+
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            f"{recovered_third}:refs/heads/feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{second_parent_forgery}",
+        )
+
+        original = helpers.run(repo, "git", "branch", "--show-current")
+        helpers.run(repo, "git", "checkout", "main")
+        helpers.run(repo, "git", "merge", "--no-ff", "--no-edit", recovered_second)
+        second_merge = helpers.run(repo, "git", "rev-parse", "HEAD")
+        helpers.run(repo, "git", "push", "upstream", "main")
+        helpers.run(repo, "git", "checkout", original)
+        prs[102] = PullRequestRecord(
+            **{
+                **prs[102].__dict__,
+                "state": "MERGED",
+                "merge_sha": second_merge,
+            }
+        )
+
+        with (
+            chdir(repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=all_live_prs,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "pull_request_by_number",
+                side_effect=live_pr,
+            ),
+            mock.patch.object(
+                propagate_mod,
+                "edit_pull_request",
+                side_effect=edit_pr,
+            ),
+        ):
+            propagate_mod.propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=102,
+                index=None,
+                strategy="rebase",
+                remote="upstream",
+                dry_run=False,
+                authority_acknowledged=True,
+            )
+
+        clone = self.temp_dir / "post-recovery-merge"
+        helpers.run(self.temp_dir, "git", "clone", str(bare), str(clone))
+        helpers.run(clone, "git", "remote", "add", "upstream", str(bare))
+        helpers.run(clone, "git", "fetch", "upstream")
+        chain = adopt_legacy_chain(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_requests=all_live_prs(),
+            cwd=clone,
+            remote="upstream",
+            prefer_remote=True,
+        )
+        validation = validate_live_chain(chain, cwd=clone, remote="upstream")
+        self.assertTrue(validation.valid, validation.errors)
+        self.assertEqual("main", prs[103].base_branch)
+
+        propagated_third = remote_head("feature/report-3")
+        third_tree = helpers.run(
+            repo, "git", "rev-parse", f"{propagated_third}^{{tree}}"
+        )
+        third_message = helpers.run(
+            repo,
+            "git",
+            "show",
+            "-s",
+            "--format=%B",
+            propagated_third,
+        )
+        forged_third = helpers.run(
+            repo,
+            "git",
+            "commit-tree",
+            third_tree,
+            "-p",
+            source_sha,
+            input_text=third_message,
+        )
+        helpers.run(
+            repo,
+            "git",
+            "push",
+            "upstream",
+            f"{forged_third}:refs/heads/feature/report-3",
+            f"--force-with-lease=refs/heads/feature/report-3:{propagated_third}",
+        )
+        helpers.run(clone, "git", "fetch", "upstream", "--prune")
+
+        with self.assertRaisesRegex(RehydrationError, "cannot prove"):
+            adopt_legacy_chain(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=all_live_prs(),
+                cwd=clone,
+                remote="upstream",
+                prefer_remote=True,
+            )
 
     def test_recovery_rejects_original_source_mutation(self) -> None:
         helpers.run(self.repo, "git", "checkout", "feature/report")
@@ -275,7 +931,36 @@ class SuffixRecoveryTests(unittest.TestCase):
             "feature/report-corrected",
         )
 
-        with self.assertRaisesRegex(CommandError, "unavailable on origin"):
+        with self.assertRaisesRegex(CommandError, "unavailable"):
+            self._run_recovery()
+
+        self.assertEqual(suffix_before, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_recovery_rejects_stale_cached_successor_ref_before_remote_mutation(
+        self,
+    ) -> None:
+        suffix_before = self._remote_head("feature/report-2")
+        body_before = self.prs[102].body
+        helpers.run(
+            self.repo,
+            "git",
+            "config",
+            "--replace-all",
+            "remote.origin.fetch",
+            "+refs/heads/main:refs/remotes/origin/main",
+        )
+        helpers.run(
+            self.temp_dir,
+            "git",
+            "--git-dir",
+            str(self.bare),
+            "update-ref",
+            "-d",
+            "refs/heads/feature/report-corrected",
+        )
+
+        with self.assertRaisesRegex(CommandError, "unavailable"):
             self._run_recovery()
 
         self.assertEqual(suffix_before, self._remote_head("feature/report-2"))
@@ -288,6 +973,19 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         with self.assertRaisesRegex(CommandError, "fork"):
             self._run_recovery()
+
+    def test_recovery_rejects_legacy_head_without_pr_metadata(self) -> None:
+        self.prs[102] = PullRequestRecord(
+            **{**self.prs[102].__dict__, "body": "Position 2\n"}
+        )
+        suffix_before = self._remote_head("feature/report-2")
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(CommandError, "lacks required legacy metadata"):
+            self._run_recovery()
+
+        self.assertEqual(suffix_before, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
 
     def test_recovery_enforces_exact_remote_lease_after_reauthorization(self) -> None:
         actual = recovery_mod.remote_branch_head
@@ -317,6 +1015,9 @@ class SuffixRecoveryTests(unittest.TestCase):
                 "push_changeset_branch",
                 wraps=recovery_mod.push_changeset_branch,
             ),
+            mock.patch.object(
+                recovery_mod, "edit_pull_request", side_effect=self._edit
+            ),
             mock.patch.object(recovery_mod, "_verify_merged_on_base"),
         ):
             with self.assertRaisesRegex(CommandError, "moved from"):
@@ -331,42 +1032,114 @@ class SuffixRecoveryTests(unittest.TestCase):
                     authority_acknowledged=True,
                 )
 
-    def test_interrupted_metadata_update_resumes_from_live_state(self) -> None:
-        failed = False
+    def test_interrupted_branch_update_resumes_from_live_state(self) -> None:
+        interrupted_head = self._interrupt_after_v3_branch_update()
+        self.assertNotEqual(self.fixed_head, interrupted_head)
+        self.assertIn("carve-changesets:metadata", self.prs[102].body)
 
-        def fail_once(number: int, *, body=None, **kwargs) -> None:
-            nonlocal failed
-            if not failed:
-                failed = True
-                raise CommandError("injected PR metadata interruption")
-            self._edit(number, body=body, **kwargs)
+        output = self._run_recovery()
 
-        with self.assertRaisesRegex(CommandError, "injected"):
-            self._run_recovery(edit_side_effect=fail_once)
-        pushed_head = self._remote_head("feature/report-2")
-        self.assertNotEqual(self.fixed_head, pushed_head)
-        self.assertEqual(
-            2,
-            len(
-                parse_commit_message(
-                    helpers.run(
-                        self.repo, "git", "show", "-s", "--format=%B", pushed_head
-                    )
-                ).source_lineage
-            ),
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
+        self.assertEqual("Position 2\n", self.prs[102].body)
+        self.assertNotIn("carve-changesets:metadata", self.prs[102].body)
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_interrupted_resume_rejects_unproven_same_metadata_predecessor(
+        self,
+    ) -> None:
+        older_same_metadata = helpers.run(
+            self.repo, "git", "rev-parse", f"{self.fixed_head}^"
         )
-        self.assertEqual(1, len(parse_pr_metadata(self.prs[102].body).source_lineage))
+        forged_head = self._push_v3_with_legacy_body(
+            recovery_from_head=older_same_metadata
+        )
+        self.prs[102] = PullRequestRecord(
+            **{**self.prs[102].__dict__, "body": "Position 2\n"}
+        )
+        body_before = self.prs[102].body
 
-        output = self._run_recovery(edit_side_effect=fail_once)
+        with self.assertRaisesRegex(CommandError, "cannot prove|unsupported"):
+            self._run_recovery()
+
+        self.assertEqual(forged_head, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_interrupted_resume_allows_retired_marker_text_in_human_prose(
+        self,
+    ) -> None:
+        interrupted_head = self._push_v3_with_legacy_body(
+            recovery_from_head=self.fixed_head
+        )
+        prose = "Position 2 removes carve-changesets:metadata blocks.\n"
+        self.prs[102] = PullRequestRecord(**{**self.prs[102].__dict__, "body": prose})
+
+        output = self._run_recovery()
+
+        self.assertEqual(interrupted_head, self._remote_head("feature/report-2"))
+        self.assertEqual(prose, self.prs[102].body)
+        self.assertIn("Suffix recovery completed", output)
+
+    def test_interrupted_resume_rejects_conflicting_legacy_pr_evidence(self) -> None:
+        pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
+        conflicting = ChangesetMetadata(
+            "foreign-part",
+            2,
+            "feature/report",
+            self.source_sha,
+        )
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "body": embed_pr_metadata("Tampered position 2\n", conflicting),
+            }
+        )
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(CommandError, "unsupported|cannot prove"):
+            self._run_recovery()
 
         self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
-        self.assertEqual(
-            parse_commit_message(
-                helpers.run(self.repo, "git", "show", "-s", "--format=%B", pushed_head)
-            ),
-            parse_pr_metadata(self.prs[102].body),
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_interrupted_resume_requires_exact_predecessor_pr_evidence(self) -> None:
+        pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
+        wrong_position = ChangesetMetadata(
+            "part-2",
+            3,
+            "feature/report",
+            self.source_sha,
         )
-        self.assertIn("Suffix recovery completed", output)
+        self.prs[102] = PullRequestRecord(
+            **{
+                **self.prs[102].__dict__,
+                "body": embed_pr_metadata("Tampered position 2\n", wrong_position),
+            }
+        )
+        body_before = self.prs[102].body
+
+        with self.assertRaisesRegex(CommandError, "cannot prove"):
+            self._run_recovery()
+
+        self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
+        self.assertEqual(body_before, self.prs[102].body)
+
+    def test_interrupted_resume_rejects_malformed_legacy_pr_evidence(self) -> None:
+        pushed_head = self._push_v3_with_legacy_body(recovery_from_head=self.fixed_head)
+        malformed = (
+            "Tampered position 2\n\n"
+            "<!-- carve-changesets:metadata:v1\n"
+            "{not-json}\n"
+            "-->\n"
+        )
+        self.prs[102] = PullRequestRecord(
+            **{**self.prs[102].__dict__, "body": malformed}
+        )
+
+        with self.assertRaisesRegex(CommandError, "unsupported|cannot prove"):
+            self._run_recovery()
+
+        self.assertEqual(pushed_head, self._remote_head("feature/report-2"))
+        self.assertEqual(malformed, self.prs[102].body)
 
 
 if __name__ == "__main__":

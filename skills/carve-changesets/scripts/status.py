@@ -25,7 +25,7 @@ def render_status(chain: Chain) -> str:
         state = changeset.pr_state or "MATERIALIZED"
         rows.append(
             (
-                str(changeset.metadata.index),
+                str(changeset.position),
                 changeset.metadata.slug,
                 changeset.branch,
                 changeset.head[:12],
@@ -152,6 +152,7 @@ def status_from_live(
         pull_requests=effective_pull_requests,
         base_branch=base_branch,
         cwd=repo,
+        remote=remote,
     )
     return (
         "NATIVE LOCAL TOPOLOGY  available (refreshed with authority)\n"

@@ -19,18 +19,39 @@ from common import (
     message_file,
 )
 from metadata import (
-    ChangesetMetadata,
     MetadataError,
     embed_pr_metadata,
     parse_commit_message,
-    parse_pr_metadata,
 )
+from publication import remote_branch_head, verify_lineage_for_publication
 from rehydrate import PullRequestRecord
 
 _PR_JSON_FIELDS = (
     "number,headRefName,headRefOid,baseRefName,state,body,title,mergeCommit,"
     "isCrossRepository"
 )
+
+_HEAD_REWRITE_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      timelineItems(
+        first: 100
+        after: $cursor
+        itemTypes: [HEAD_REF_FORCE_PUSHED_EVENT]
+      ) {
+        nodes {
+          ... on HeadRefForcePushedEvent {
+            beforeCommit { oid }
+            afterCommit { oid }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}
+""".strip()
 
 
 def _format_error(command: Sequence[str], error: subprocess.CalledProcessError) -> str:
@@ -160,20 +181,11 @@ def _local_remote_head(branch: str, remote: str) -> str:
     if local_result.returncode != 0:
         raise CommandError(f"Local changeset branch {branch!r} does not exist.")
     local_head = local_result.stdout.strip()
-    remote_result = git(
-        "ls-remote", "--heads", remote, f"refs/heads/{branch}", check=False
-    )
-    if remote_result.returncode != 0:
-        detail = (remote_result.stderr or remote_result.stdout or "").strip()
-        raise CommandError(
-            f"Could not resolve {remote} changeset branch {branch!r}: {detail}"
-        )
-    fields = remote_result.stdout.strip().split()
-    if len(fields) != 2 or fields[1] != f"refs/heads/{branch}":
+    remote_head = remote_branch_head(remote, branch)
+    if remote_head is None:
         raise CommandError(
             f"Remote changeset branch {remote}/{branch} does not exist; run push-chain first."
         )
-    remote_head = fields[0]
     if local_head != remote_head:
         raise CommandError(
             f"Changeset branch {branch} is not publication-ready: local head "
@@ -188,7 +200,8 @@ def _verify_created_pr(
     head: str,
     expected_head: str,
     expected_base: str,
-    expected_metadata: ChangesetMetadata,
+    expected_title: str,
+    expected_body: str,
 ) -> Dict:
     if not isinstance(created, dict):
         raise CommandError(f"PR for {head} was created but could not be verified.")
@@ -202,15 +215,13 @@ def _verify_created_pr(
             f"Created PR for {head} has base {created.get('baseRefName')!r}; "
             f"expected {expected_base!r}."
         )
-    try:
-        actual_metadata = parse_pr_metadata(str(created.get("body") or ""))
-    except MetadataError as exc:
+    if str(created.get("title") or "") != expected_title:
         raise CommandError(
-            f"Created PR for {head} has invalid changeset metadata: {exc}"
-        ) from exc
-    if actual_metadata != expected_metadata:
+            f"Created PR for {head} title does not match the submitted title."
+        )
+    if str(created.get("body") or "") != expected_body:
         raise CommandError(
-            f"Created PR for {head} metadata does not match its exact changeset commit."
+            f"Created PR for {head} body does not match the submitted human-readable body."
         )
     if not created.get("number") or not created.get("url"):
         raise CommandError(f"Created PR for {head} is missing its number or URL.")
@@ -223,16 +234,30 @@ def pr_create(
     ensure_git_repo()
     ensure_clean_tree()
     repository = github_repo_for_remote(remote)
-    if not dry_run:
-        ensure_gh_ready(repository)
 
     base = plan["base_branch"]
     source = plan["source_branch"]
     changesets = plan["changesets"]
     total = len(changesets)
+    chain = tuple(branch_name_for(source, index) for index in range(1, total + 1))
     for index in indices:
         if index < 1 or index > total:
             raise CommandError(f"--index must be between 1 and {total}.")
+    for index in indices:
+        head = branch_name_for(source, index)
+        try:
+            metadata = parse_commit_message(
+                git("show", "-s", "--format=%B", head).stdout
+            )
+        except MetadataError as exc:
+            raise CommandError(
+                f"Changeset branch {head} has invalid source identity: {exc}"
+            ) from exc
+        if metadata.version != 3:
+            raise CommandError(
+                f"New PR creation for {head} requires native v3 commit metadata; "
+                "legacy v1/v2 PR evidence is read-only and must be adopted in place."
+            )
     expected_heads = (
         {
             branch_name_for(source, index): _local_remote_head(
@@ -243,14 +268,14 @@ def pr_create(
         if not dry_run
         else {}
     )
+    if not dry_run:
+        verify_lineage_for_publication(chain, remote=remote)
+        ensure_gh_ready(repository)
     for index in indices:
         head = branch_name_for(source, index)
         pr_base = base_for_changeset(base, source, index)
         title = pr_title_for(plan["feature_title"], index, total)
         body = pr_body_for(plan, index, total, changesets[index - 1])
-        expected_metadata = parse_commit_message(
-            git("show", "-s", "--format=%B", head).stdout
-        )
         with message_file(body) as body_path:
             args = (
                 "pr",
@@ -282,14 +307,16 @@ def pr_create(
                     "-R",
                     repository,
                     "--json",
-                    "number,url,headRefOid,baseRefName,body",
+                    "number,url,headRefOid,baseRefName,title,body",
                 )
             ),
             head=head,
             expected_head=expected_head,
             expected_base=pr_base,
-            expected_metadata=expected_metadata,
+            expected_title=title,
+            expected_body=body,
         )
+        verify_lineage_for_publication(chain, remote=remote)
         print(f"[OK] PR #{created['number']} created: {created['url']}")
 
     if dry_run:
@@ -327,7 +354,18 @@ def pull_requests_for_source(
         suffix = head.removeprefix(prefix)
         if not head.startswith(prefix) or not suffix.isdigit() or int(suffix) < 1:
             continue
-        records.append(_pull_request_record(item, context=f"changeset PR for {head}"))
+        context = f"changeset PR for {head}"
+        number = _pull_request_number(item, context=context)
+        records.append(
+            _pull_request_record(
+                item,
+                context=context,
+                head_rewrite_edges=_pull_request_head_rewrite_edges(
+                    repository,
+                    number,
+                ),
+            )
+        )
     return records
 
 
@@ -339,17 +377,107 @@ def _merge_sha(item: Dict) -> str | None:
     return oid or None
 
 
-def _pull_request_record(item: object, *, context: str) -> PullRequestRecord:
-    """Decode one selected gh PR payload with operation-specific errors."""
-
+def _pull_request_number(item: object, *, context: str) -> int:
     if not isinstance(item, dict):
         raise CommandError(f"Unexpected GitHub response for {context}.")
     try:
-        number = int(item["number"])
+        return int(item["number"])
     except (KeyError, TypeError, ValueError) as exc:
         raise CommandError(
             f"GitHub response for {context} has no valid PR number."
         ) from exc
+
+
+def _pull_request_head_rewrite_edges(
+    repository: str,
+    number: int,
+) -> tuple[tuple[str, str], ...]:
+    """Read immutable GitHub evidence for every force-pushed head rewrite."""
+
+    try:
+        host, owner, name = repository.split("/", 2)
+    except ValueError as exc:
+        raise CommandError(f"Invalid GitHub repository identity: {repository}") from exc
+    cursor: str | None = None
+    edges: list[tuple[str, str]] = []
+    while True:
+        args = [
+            "api",
+            "graphql",
+            "--hostname",
+            host,
+            "-f",
+            f"query={_HEAD_REWRITE_QUERY}",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"name={name}",
+            "-F",
+            f"number={number}",
+        ]
+        if cursor is not None:
+            args.extend(("-f", f"cursor={cursor}"))
+        payload = gh_json(tuple(args))
+        if isinstance(payload, dict) and payload.get("errors"):
+            raise CommandError(
+                f"GitHub returned incomplete force-push history for PR #{number}."
+            )
+        try:
+            timeline = payload["data"]["repository"]["pullRequest"]["timelineItems"]
+            nodes = timeline["nodes"]
+            page_info = timeline["pageInfo"]
+        except (KeyError, TypeError) as exc:
+            raise CommandError(
+                f"Unexpected GitHub force-push history for PR #{number}."
+            ) from exc
+        if not isinstance(nodes, list) or not isinstance(page_info, dict):
+            raise CommandError(
+                f"Unexpected GitHub force-push history for PR #{number}."
+            )
+        for node in nodes:
+            if not isinstance(node, dict):
+                raise CommandError(
+                    f"Unexpected GitHub force-push event for PR #{number}."
+                )
+            before = node.get("beforeCommit")
+            after = node.get("afterCommit")
+            if before is None or after is None:
+                raise CommandError(
+                    f"GitHub returned incomplete force-push history for PR #{number}."
+                )
+            if not isinstance(before, dict) or not isinstance(after, dict):
+                raise CommandError(
+                    f"Unexpected GitHub force-push event for PR #{number}."
+                )
+            before_oid = str(before.get("oid") or "")
+            after_oid = str(after.get("oid") or "")
+            if not re.fullmatch(r"[0-9a-f]{40}", before_oid) or not re.fullmatch(
+                r"[0-9a-f]{40}", after_oid
+            ):
+                raise CommandError(
+                    f"Unexpected GitHub force-push event for PR #{number}."
+                )
+            edges.append((before_oid, after_oid))
+        if not page_info.get("hasNextPage"):
+            return tuple(edges)
+        cursor_value = page_info.get("endCursor")
+        if not isinstance(cursor_value, str) or not cursor_value:
+            raise CommandError(
+                f"Unexpected GitHub force-push pagination for PR #{number}."
+            )
+        cursor = cursor_value
+
+
+def _pull_request_record(
+    item: object,
+    *,
+    context: str,
+    head_rewrite_edges: tuple[tuple[str, str], ...] = (),
+) -> PullRequestRecord:
+    """Decode one selected gh PR payload with operation-specific errors."""
+
+    number = _pull_request_number(item, context=context)
+    assert isinstance(item, dict)
     return PullRequestRecord(
         number=number,
         head_branch=str(item.get("headRefName") or ""),
@@ -360,6 +488,7 @@ def _pull_request_record(item: object, *, context: str) -> PullRequestRecord:
         title=str(item.get("title") or ""),
         merge_sha=_merge_sha(item),
         is_cross_repository=bool(item.get("isCrossRepository", False)),
+        head_rewrite_edges=head_rewrite_edges,
     )
 
 
@@ -378,7 +507,11 @@ def pull_request_by_number(number: int, *, remote: str = "origin") -> PullReques
             _PR_JSON_FIELDS,
         )
     )
-    record = _pull_request_record(item, context=f"PR #{number}")
+    record = _pull_request_record(
+        item,
+        context=f"PR #{number}",
+        head_rewrite_edges=_pull_request_head_rewrite_edges(repository, number),
+    )
     actual_number = record.number
     if actual_number != number:
         raise CommandError(

@@ -4,6 +4,69 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-24 — Closed recovery verification gaps
+
+- fix: require linear recovery boundaries
+
+- fix: verify multi-commit recovery layers
+
+- fix: verify downstream recovery rebases
+
+- fix: require legacy recovery PR evidence
+
+- test: cover pagination through PR discovery
+
+- docs: backfill merged lineage changelog
+
+- fix: reconcile merged lineage validation
+
+- fix: share exact PR publication lookup
+
+- refactor: unify exact remote branch lookup
+
+- fix: revalidate lineage across mutations
+
+- fix: recheck lineage after publication
+
+- fix: verify remote publication readback
+
+- fix: verify published pull request titles
+
+- fix: reject incomplete rewrite evidence
+
+- fix: reserve successor lineage for recovery
+
+- fix: verify complete recovery evidence
+
+- fix: validate open suffix from live trunk
+  (e51780138e8dcd3484dad6a03365b318c971508d)
+
+- fix: bind publication validation to live remote
+  (082eec1362bd5a164e8e90d49ed6c660c1e9ade7)
+
+- fix: verify merged prefix on trunk (d92c24f5f54c281f46c6115e0cc23a9fc6285656)
+
+- test: configure portable git fixture
+  (20c0d70b0a344be18f2c489cfeb05e1c1aaaa29c)
+
+- feat: establish verified native source lineage
+  (f55993442d00967547c7e14a65782be3d70a8bb2)
+
+## 2026-09-23 — Completed remote-aware source lineage
+
+- fix: reject checkout shorthand in source lineage
+  (f55993442d00967547c7e14a65782be3d70a8bb2)
+
+- docs: specify immutable recovery-boundary attestation
+
+- fix: authenticate recovery boundaries from immutable GitHub head history
+
+- feat: recover recorded source lineage
+  (04ef3efa878fe43395b21ab9e50003b19f3fd8a5)
+
+- feat: establish remote source lineage contract
+  (1f9cc3c1fd9bc9d47cb770a25680b3191172207f)
+
 ## 2026-09-22 — Made native gh stack topology authoritative
 
 - fix: bound native status failures at the CLI
@@ -19,6 +82,8 @@ summary: Chronological history of repository and skill changes.
 - fix: reconcile native status against exact live repository evidence
 
 - feat: make native stack topology authoritative
+
+## 2026-09-22 — Established the native gh stack adapter baseline
 
 - fix: seal gh stack command surface (42f90991e9b2eb38ae0bdcf7f8fdcdc7109d9161)
 
