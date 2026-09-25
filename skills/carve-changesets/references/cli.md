@@ -13,25 +13,25 @@ are intentional, make that boundary explicit with an argv such as
 
 ## Command index
 
-| Subcommand        | Class           | Purpose                                                                                                      |
-| ----------------- | --------------- | ------------------------------------------------------------------------------------------------------------ |
-| `preflight`       | local-mutating  | Verify source/base readiness, cleanliness, mergeability, recordkeeping, and approved tests.                  |
-| `init-plan`       | local-mutating  | Create the ephemeral plan template.                                                                          |
-| `validate`        | local-mutating  | Validate the plan; `--strict` also proves selector and apply viability and validates an existing live chain. |
-| `status`          | read-only       | Rehydrate and render chain state from live git and optional GitHub PRs.                                      |
-| `create-chain`    | local-mutating  | Materialize append-only changeset branches and stamped commits.                                              |
-| `compare`         | local-mutating  | Compare the reconstructed chain tip with the immutable source.                                               |
-| `validate-chain`  | local-mutating  | Run approved prefix tests and validate live ancestry and source equivalence.                                 |
-| `push-chain`      | remote-mutating | Push changeset branches using exact remote identity and leases.                                              |
-| `pr-create`       | remote-mutating | Create one or all correctly based changeset PRs and verify exact candidates.                                 |
-| `propagate`       | remote-mutating | Verify an already merged PR and rewrite only its downstream suffix.                                          |
-| `merge-propagate` | remote-mutating | Directly merge one exact PR, verify mainline, then propagate its suffix.                                     |
-| `recover-suffix`  | remote-mutating | Restamp an exact owned unmerged suffix onto a verified immutable successor source.                           |
-| `db-compare`      | local-mutating  | Capture and compare source and full-chain database schemas.                                                  |
-| `hunk-preview`    | read-only       | Preview textual hunks for explicit selectors.                                                                |
-| `squash-ref`      | local-mutating  | Create or manage the local-only squashed source reference.                                                   |
-| `squash-check`    | local-mutating  | Rebase a temporary squash proof and compare it with the chain tip.                                           |
-| `run`             | local-mutating  | Convenience preflight plus plan initialization, optionally followed by materialization.                      |
+| Subcommand        | Class           | Purpose                                                                                                       |
+| ----------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `preflight`       | local-mutating  | Verify source/base readiness, cleanliness, mergeability, recordkeeping, and approved tests.                   |
+| `init-plan`       | local-mutating  | Create the ephemeral plan template.                                                                           |
+| `validate`        | local-mutating  | Validate the plan; `--strict` also proves selector and apply viability and validates an existing live chain.  |
+| `status`          | local-mutating  | Render passive evidence, or reconcile authoritative native topology under explicit bounded refresh authority. |
+| `create-chain`    | local-mutating  | Materialize append-only changeset branches and stamped commits.                                               |
+| `compare`         | local-mutating  | Compare the reconstructed chain tip with the immutable source.                                                |
+| `validate-chain`  | local-mutating  | Run approved prefix tests and validate live ancestry and source equivalence.                                  |
+| `push-chain`      | remote-mutating | Push changeset branches using exact remote identity and leases.                                               |
+| `pr-create`       | remote-mutating | Create one or all correctly based changeset PRs and verify exact candidates.                                  |
+| `propagate`       | remote-mutating | Verify an already merged PR and rewrite only its downstream suffix.                                           |
+| `merge-propagate` | remote-mutating | Directly merge one exact PR, verify mainline, then propagate its suffix.                                      |
+| `recover-suffix`  | remote-mutating | Restamp an exact owned unmerged suffix onto a verified immutable successor source.                            |
+| `db-compare`      | local-mutating  | Capture and compare source and full-chain database schemas.                                                   |
+| `hunk-preview`    | read-only       | Preview textual hunks for explicit selectors.                                                                 |
+| `squash-ref`      | local-mutating  | Create or manage the local-only squashed source reference.                                                    |
+| `squash-check`    | local-mutating  | Rebase a temporary squash proof and compare it with the chain tip.                                            |
+| `run`             | local-mutating  | Convenience preflight plus plan initialization, optionally followed by materialization.                       |
 
 ## Shared controls
 
@@ -39,8 +39,13 @@ are intentional, make that boundary explicit with an argv such as
   `--plan` only when the operating contract names another ephemeral path.
 - GitHub-aware commands default to `--remote origin`; always verify the selected
   remote resolves to the intended GitHub repository.
-- `status`, `validate --strict`, and `validate-chain` accept `--local-only` to
-  avoid GitHub reads.
+- `validate --strict` and `validate-chain` accept `--local-only` to avoid GitHub
+  reads. `status --local-only` renders passive local evidence only.
+- `status --allow-stack-state-refresh` authorizes the bounded local-state
+  refresh performed by `gh stack view --json` and reconciles authoritative
+  native topology against live remote and GitHub evidence. Without the flag,
+  `status` is passive and reports native local topology unavailable. The refresh
+  flag cannot be combined with `--local-only`.
 - `push-chain`, `pr-create`, `propagate`, `merge-propagate`, and
   `recover-suffix` require `--no-dry-run` for execution. Omitting it prints the
   intended remote actions.
@@ -158,13 +163,14 @@ python3 scripts/cli.py push-chain --no-dry-run
 python3 scripts/cli.py pr-create --no-dry-run
 ```
 
-Use `pr-create --index N` to publish one position. After publication, status no
-longer depends on the plan:
+Use `pr-create --index N` to publish one position. After publication, grant the
+bounded local refresh and reconstruct authoritative status without the plan:
 
 ```bash
 python3 scripts/cli.py status \
   --source feature/large-change \
-  --base main
+  --base main \
+  --allow-stack-state-refresh
 ```
 
 Build the per-changeset review packet and delegate the PR lifecycle as defined
@@ -253,6 +259,9 @@ same source identities. Recovery reconstructs that exact transition from live
 commit trailers, remote refs, and PR topology and resumes; it never uses the
 plan or a cache.
 
-After every operation, rerun `status` and the required live validation. Resume
-an interrupted sequence by selecting the exact PR or stable changeset index from
-rehydrated git and GitHub evidence.
+After every operation, rerun `status --allow-stack-state-refresh` under the same
+bounded local-refresh authority and run the required live validation. If that
+authority is unavailable, plain `status` is passive diagnostic evidence only and
+cannot authorize publication, propagation, or recovery. Resume an interrupted
+sequence by selecting the exact PR or stable changeset index from reconciled
+native, git, and GitHub evidence.

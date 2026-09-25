@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from common import CommandError
 from metadata import (
     ChangesetMetadata,
     MetadataError,
@@ -18,6 +19,7 @@ from metadata import (
     stamp_commit_message,
 )
 from native_stack import NativeStackSnapshot
+from publication import remote_branch_head
 
 
 class RehydrationError(RuntimeError):
@@ -219,6 +221,8 @@ def _pr_by_branch(
 
 def _validate_lineage_sequence(
     records: Sequence[ChangesetRecord],
+    *,
+    allow_authenticated_multi_successor: bool = False,
 ) -> tuple[SourceIdentity, ...]:
     previous: tuple[SourceIdentity, ...] | None = None
     previous_merged = False
@@ -228,7 +232,13 @@ def _validate_lineage_sequence(
         if previous is not None and lineage != previous:
             extends = (
                 previous_merged
-                and len(lineage) == len(previous) + 1
+                and (
+                    len(lineage) == len(previous) + 1
+                    or (
+                        allow_authenticated_multi_successor
+                        and len(lineage) > len(previous)
+                    )
+                )
                 and lineage[: len(previous)] == previous
             )
             if not extends:
@@ -255,16 +265,23 @@ def _validate_completed_recovery_provenance(
     *,
     repo: Path,
     remote: str,
+    base_branch: str,
+    base_authoritative: bool,
+    evidence_join_successor: SourceIdentity | None = None,
 ) -> None:
     """Prove each completed successor head from its exact prior candidate."""
 
     proven_predecessors: dict[int, tuple[str, ChangesetMetadata]] = {}
 
-    def proves_remote_rewrite_path(record: ChangesetRecord, predecessor: str) -> bool:
-        """Require the exact first remote transition into this successor lineage."""
+    def remote_rewrite_boundary(
+        record: ChangesetRecord,
+        predecessor: str,
+        *,
+        expected_metadata: ChangesetMetadata | None = None,
+    ) -> tuple[str, int] | None:
+        """Return the authenticated first head for this successor lineage."""
 
-        boundary: int | None = None
-        current: str | None = None
+        target_metadata = expected_metadata or record.metadata
         for index, (before, after) in enumerate(record.pr_head_rewrite_edges):
             try:
                 _ensure_commit_available(repo, after, remote=remote)
@@ -273,21 +290,51 @@ def _validate_completed_recovery_provenance(
                     remote=remote,
                 )
             except (MetadataError, RehydrationError):
-                return False
-            if after_metadata.source_lineage != record.metadata.source_lineage:
+                return None
+            if after_metadata.source_lineage != target_metadata.source_lineage:
                 continue
-            if before != predecessor or after_metadata.slug != record.metadata.slug:
-                return False
-            boundary = index
-            current = after
-            break
-        if boundary is None or current is None:
+            if before != predecessor or after_metadata.slug != target_metadata.slug:
+                return None
+            return after, index
+        return None
+
+    def proves_linear_tail(start: str, end: str) -> bool:
+        """Prove ordinary accepted commits after a recovery restamp."""
+
+        if start == end:
+            return True
+        try:
+            _git(repo, "merge-base", "--is-ancestor", start, end)
+            return not _git(
+                repo,
+                "rev-list",
+                "--merges",
+                f"{start}..{end}",
+            ).strip()
+        except RehydrationError:
             return False
-        for before, after in record.pr_head_rewrite_edges[boundary + 1 :]:
-            if before != current:
-                return False
+
+    def remote_rewrite_tip(
+        record: ChangesetRecord,
+        start: str,
+        boundary_index: int,
+        end: str,
+    ) -> str | None:
+        """Return the last authenticated rewrite before a linear tail."""
+
+        current = start
+        for before, after in record.pr_head_rewrite_edges[boundary_index + 1 :]:
+            try:
+                _ensure_commit_available(repo, before, remote=remote)
+                _ensure_commit_available(repo, after, remote=remote)
+            except RehydrationError:
+                return None
+            if proves_linear_tail(current, end):
+                return current
+            if before != current and not proves_linear_tail(current, before):
+                return None
             current = after
-        return current == record.head
+        return current if proves_linear_tail(current, end) else None
 
     def proves_prior_rewrite_path(
         record: ChangesetRecord, start: str, end: str
@@ -366,10 +413,98 @@ def _validate_completed_recovery_provenance(
             return False
         return True
 
+    def proves_evidence_preserving_join(
+        record: ChangesetRecord,
+        proof_head: str,
+        proof_metadata: ChangesetMetadata,
+    ) -> bool:
+        """Authenticate the one exact current-base/reviewed-source join."""
+
+        successor = evidence_join_successor
+        if (
+            successor is None
+            or not base_authoritative
+            or successor.remote != remote
+            or successor in record.metadata.source_lineage
+            or proof_head != record.head
+            or proof_metadata != record.metadata
+        ):
+            return False
+        try:
+            _ensure_commit_available(repo, successor.sha, remote=remote)
+            published_successor = remote_branch_head(
+                remote,
+                successor.branch,
+                cwd=repo,
+            )
+            live_base = remote_branch_head(
+                remote,
+                base_branch,
+                cwd=repo,
+            )
+            parents = _git(repo, "show", "-s", "--format=%P", proof_head).split()
+            proof_tree = _git(repo, "rev-parse", f"{proof_head}^{{tree}}")
+            successor_tree = _git(repo, "rev-parse", f"{successor.sha}^{{tree}}")
+        except (CommandError, RehydrationError):
+            return False
+        return (
+            published_successor == successor.sha
+            and parents == [live_base, successor.sha]
+            and proof_tree == successor_tree
+        )
+
     for offset, record in enumerate(records):
         lineage = record.metadata.source_lineage
         if len(lineage) == 1:
             continue
+        if len(lineage) > 2 and (
+            offset == 0 or records[offset - 1].metadata.source_lineage != lineage
+        ):
+            group = []
+            for candidate in records[offset:]:
+                if candidate.metadata.source_lineage != lineage:
+                    break
+                group.append(candidate)
+            prior_records = []
+            try:
+                for candidate in group:
+                    prior_head = candidate.metadata.recovery_from_head
+                    if prior_head is None:
+                        raise RehydrationError("prior recovery head is missing")
+                    _ensure_commit_available(repo, prior_head, remote=remote)
+                    prior_metadata = parse_commit_message(
+                        _git(repo, "show", "-s", "--format=%B", prior_head),
+                        remote=remote,
+                    )
+                    if prior_metadata.source_lineage != lineage[:-1]:
+                        raise RehydrationError("prior recovery lineage is invalid")
+                    prior_pr_metadata = (
+                        candidate.pr_metadata
+                        if candidate.pr_metadata is not None
+                        and candidate.pr_metadata.source_lineage == lineage[:-1]
+                        else None
+                    )
+                    prior_records.append(
+                        replace(
+                            candidate,
+                            metadata=prior_metadata,
+                            head=prior_head,
+                            pr_metadata=prior_pr_metadata,
+                        )
+                    )
+                _validate_completed_recovery_provenance(
+                    prior_records,
+                    repo=repo,
+                    remote=remote,
+                    base_branch=base_branch,
+                    base_authoritative=base_authoritative,
+                    evidence_join_successor=lineage[-1],
+                )
+            except (MetadataError, RehydrationError) as exc:
+                raise RehydrationError(
+                    f"Changeset branch {record.branch} cannot prove its exact "
+                    "pre-recovery head."
+                ) from exc
         predecessor = record.metadata.recovery_from_head
         if predecessor is None:
             raise RehydrationError(
@@ -383,12 +518,30 @@ def _validate_completed_recovery_provenance(
                 predecessor_message,
                 remote=remote,
             )
-            current_message = _git(repo, "show", "-s", "--format=%B", record.head)
-            same_tree = _git(repo, "rev-parse", f"{record.head}^{{tree}}") == _git(
+            boundary_result = remote_rewrite_boundary(record, predecessor)
+            if boundary_result is None:
+                raise RehydrationError("remote rewrite boundary is not proven")
+            boundary_head, boundary_index = boundary_result
+            boundary_message = _git(repo, "show", "-s", "--format=%B", boundary_head)
+            boundary_metadata = parse_commit_message(
+                boundary_message,
+                remote=remote,
+            )
+            proof_head = remote_rewrite_tip(
+                record,
+                boundary_head,
+                boundary_index,
+                record.head,
+            )
+            if proof_head is None:
+                raise RehydrationError("remote rewrite tail is not proven")
+            proof_message = _git(repo, "show", "-s", "--format=%B", proof_head)
+            proof_metadata = parse_commit_message(proof_message, remote=remote)
+            same_tree = _git(repo, "rev-parse", f"{proof_head}^{{tree}}") == _git(
                 repo, "rev-parse", f"{predecessor}^{{tree}}"
             )
             current_parents = _git(
-                repo, "show", "-s", "--format=%P", record.head
+                repo, "show", "-s", "--format=%P", proof_head
             ).split()
             expected_parents = _git(
                 repo, "show", "-s", "--format=%P", predecessor
@@ -400,6 +553,7 @@ def _validate_completed_recovery_provenance(
             ) from exc
 
         parent_proven = current_parents == expected_parents
+        later_history_proven = proves_linear_tail(proof_head, record.head)
         if offset > 0:
             previous = records[offset - 1]
             if previous.metadata.source_lineage == lineage:
@@ -430,7 +584,7 @@ def _validate_completed_recovery_provenance(
                     recovered_parent = next(
                         (
                             candidate
-                            for candidate in first_parent_ancestors(record.head)
+                            for candidate in first_parent_ancestors(proof_head)
                             if proven_post_merge_parent(
                                 previous,
                                 record,
@@ -442,7 +596,7 @@ def _validate_completed_recovery_provenance(
                 else:
                     recovered_parent = (
                         previous.head
-                        if previous.head in first_parent_ancestors(record.head)
+                        if previous.head in first_parent_ancestors(proof_head)
                         else None
                     )
                 if recovered_parent is None:
@@ -451,23 +605,32 @@ def _validate_completed_recovery_provenance(
                         "pre-recovery head."
                     )
                 same_tree = patch_id(prior_parent, predecessor) == patch_id(
-                    recovered_parent, record.head
+                    recovered_parent, proof_head
                 )
                 parent_proven = True
 
+        exact_restamp_proven = (
+            same_tree
+            and parent_proven
+            and stamp_commit_message(predecessor_message, record.metadata).strip()
+            == proof_message.strip()
+        )
+        evidence_join_proven = proves_evidence_preserving_join(
+            record,
+            proof_head,
+            proof_metadata,
+        )
         if (
             predecessor_metadata.slug != record.metadata.slug
             or predecessor_metadata.source_lineage != lineage[:-1]
-            or not proves_remote_rewrite_path(record, predecessor)
+            or boundary_metadata != record.metadata
             or (
                 record.pr_metadata is not None
                 and record.pr_metadata.source_lineage == lineage[:-1]
                 and record.pr_metadata != predecessor_metadata
             )
-            or not same_tree
-            or not parent_proven
-            or stamp_commit_message(predecessor_message, record.metadata).strip()
-            != current_message.strip()
+            or not later_history_proven
+            or not (exact_restamp_proven or evidence_join_proven)
         ):
             raise RehydrationError(
                 f"Changeset branch {record.branch} cannot prove its exact "
@@ -476,12 +639,52 @@ def _validate_completed_recovery_provenance(
         proven_predecessors[offset] = (predecessor, predecessor_metadata)
 
 
+def _validate_authenticated_lineage_sequence(
+    records: Sequence[ChangesetRecord],
+    *,
+    repo: Path,
+    remote: str,
+    base_branch: str,
+    base_authoritative: bool,
+) -> tuple[SourceIdentity, ...]:
+    """Accept a multi-successor jump only after its provenance is proven."""
+
+    try:
+        lineage = _validate_lineage_sequence(records)
+    except RehydrationError as sequence_error:
+        try:
+            lineage = _validate_lineage_sequence(
+                records,
+                allow_authenticated_multi_successor=True,
+            )
+            _validate_completed_recovery_provenance(
+                records,
+                repo=repo,
+                remote=remote,
+                base_branch=base_branch,
+                base_authoritative=base_authoritative,
+            )
+        except RehydrationError:
+            raise sequence_error
+        return lineage
+    _validate_completed_recovery_provenance(
+        records,
+        repo=repo,
+        remote=remote,
+        base_branch=base_branch,
+        base_authoritative=base_authoritative,
+    )
+    return lineage
+
+
 def _validate_recovery_transition(
     records: Sequence[ChangesetRecord],
     successor: SourceIdentity,
     *,
     repo: Path,
     remote: str,
+    base_branch: str,
+    base_authoritative: bool,
 ) -> tuple[SourceIdentity, ...]:
     first_open = next(
         (
@@ -496,23 +699,61 @@ def _validate_recovery_transition(
             "Suffix recovery requires a non-empty merged prefix and an open suffix."
         )
     base_lineage = records[first_open - 1].metadata.source_lineage
-    if successor in base_lineage or any(
-        identity.branch == successor.branch for identity in base_lineage
+    current_lineage = base_lineage
+    first_open_lineage = records[first_open].metadata.source_lineage
+    requested_lineage = (*base_lineage, successor)
+    repeated_legacy_recovery = (
+        first_open_lineage != base_lineage
+        and first_open_lineage != requested_lineage
+        and len(first_open_lineage) > len(base_lineage)
+        and first_open_lineage[: len(base_lineage)] == base_lineage
+    )
+    interrupted_repeated_recovery = (
+        len(first_open_lineage) > len(base_lineage) + 1
+        and first_open_lineage[: len(base_lineage)] == base_lineage
+        and first_open_lineage[-1] == successor
+    )
+    if repeated_legacy_recovery or interrupted_repeated_recovery:
+        current_lineage = (
+            first_open_lineage[:-1]
+            if interrupted_repeated_recovery
+            else first_open_lineage
+        )
+        target_lineage = (*current_lineage, successor)
+        if any(
+            record.metadata.source_lineage not in (current_lineage, target_lineage)
+            for record in records[first_open:]
+        ):
+            raise RehydrationError(
+                "Open legacy changeset suffix has conflicting or discontinuous "
+                "successor-source lineage."
+            )
+        _validate_completed_recovery_provenance(
+            records[first_open:],
+            repo=repo,
+            remote=remote,
+            base_branch=base_branch,
+            base_authoritative=base_authoritative,
+            evidence_join_successor=successor,
+        )
+
+    if successor in current_lineage or any(
+        identity.branch == successor.branch for identity in current_lineage
     ):
         raise RehydrationError(
             "Successor source repeats an existing lineage identity or branch."
         )
-    target = (*base_lineage, successor)
+    target = (*current_lineage, successor)
     _validate_lineage_sequence(records[:first_open])
     prior_lineage_seen = False
     for record in records[first_open:]:
         commit_lineage = record.metadata.source_lineage
-        if commit_lineage not in (base_lineage, target):
+        if commit_lineage not in (current_lineage, target):
             raise RehydrationError(
                 f"Changeset branch {record.branch} has lineage outside the current "
                 "or requested successor recovery."
             )
-        if commit_lineage == base_lineage:
+        if commit_lineage == current_lineage:
             prior_lineage_seen = True
         elif prior_lineage_seen:
             raise RehydrationError(
@@ -521,7 +762,7 @@ def _validate_recovery_transition(
             )
         if record.pr_metadata is not None:
             pr_metadata = record.pr_metadata
-            if pr_metadata.source_lineage not in (base_lineage, target):
+            if pr_metadata.source_lineage not in (current_lineage, target):
                 raise RehydrationError(
                     f"PR #{record.pr_number} has lineage outside the current or "
                     "requested successor recovery."
@@ -534,7 +775,7 @@ def _validate_recovery_transition(
                     f"PR #{record.pr_number} metadata cannot prove the stable "
                     "changeset identity during recovery."
                 )
-            if commit_lineage == base_lineage and pr_metadata != record.metadata:
+            if commit_lineage == current_lineage and pr_metadata != record.metadata:
                 raise RehydrationError(
                     f"PR #{record.pr_number} metadata advances or conflicts before "
                     "its changeset head is recovered."
@@ -548,7 +789,7 @@ def _validate_recovery_transition(
                         f"PR #{record.pr_number} has conflicting recovered provenance."
                     )
                 if (
-                    pr_metadata.source_lineage == base_lineage
+                    pr_metadata.source_lineage == current_lineage
                     and record.metadata.recovery_from_head == record.head
                 ):
                     raise RehydrationError(
@@ -565,6 +806,8 @@ def _validate_recovery_transition(
         recovered_prefix,
         repo=repo,
         remote=remote,
+        base_branch=base_branch,
+        base_authoritative=base_authoritative,
     )
     return target
 
@@ -584,6 +827,7 @@ def adopt_legacy_chain(
     if not source_branch.strip():
         raise RehydrationError("Source branch must not be empty.")
     repo = Path(cwd)
+    base_authoritative = base_branch is not None
     heads = discover_changeset_heads(
         repo, source_branch, remote, prefer_remote=prefer_remote
     )
@@ -728,16 +972,18 @@ def adopt_legacy_chain(
             recovery_successor,
             repo=repo,
             remote=remote,
+            base_branch=base_branch,
+            base_authoritative=base_authoritative,
         )
         if recovery_successor is not None
-        else _validate_lineage_sequence(records)
-    )
-    if recovery_successor is None:
-        _validate_completed_recovery_provenance(
+        else _validate_authenticated_lineage_sequence(
             records,
             repo=repo,
             remote=remote,
+            base_branch=base_branch,
+            base_authoritative=base_authoritative,
         )
+    )
     active_source = source_lineage[-1]
     return Chain(
         base_branch=base_branch,
@@ -865,11 +1111,12 @@ def rehydrate_chain(
         previous_layer_merged = layer.merged
 
     assert root_source is not None
-    source_lineage = _validate_lineage_sequence(records)
-    _validate_completed_recovery_provenance(
+    source_lineage = _validate_authenticated_lineage_sequence(
         records,
         repo=repo,
         remote=remote,
+        base_branch=native_snapshot.trunk_branch,
+        base_authoritative=True,
     )
     active_source = source_lineage[-1]
     return Chain(

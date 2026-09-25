@@ -1,26 +1,54 @@
 from __future__ import annotations
 
+import copy
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from argparse import Namespace
+from contextlib import redirect_stdout
+from dataclasses import replace
+from io import StringIO
 from pathlib import Path
+from unittest import mock
 
-import helpers
-from metadata import (
+TESTS_DIR = Path(__file__).resolve().parent
+SCRIPTS_DIR = TESTS_DIR.parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import cli as cli_mod  # noqa: E402
+import helpers  # noqa: E402
+from gh_stack import (  # noqa: E402
+    GhStackProfile,
+    GhStackProfileBlocker,
+    ProfileProbeResult,
+    StackCapability,
+)
+from metadata import (  # noqa: E402
     ChangesetMetadata,
     SourceIdentity,
     embed_pr_metadata,
     stamp_commit_message,
 )
-from rehydrate import (
+from native_stack import (  # noqa: E402
+    NativeLayer,
+    NativePullRequest,
+    NativeStackError,
+    NativeStackSnapshot,
+)
+from rehydrate import (  # noqa: E402
     ChangesetRecord,
     PullRequestRecord,
     RehydrationError,
     _validate_recovery_transition,
     adopt_legacy_chain,
+    rehydrate_chain,
 )
-from status import status_from_live
+from status import _live_remote_heads, status_from_live  # noqa: E402
 
 
 class RehydrationTests(unittest.TestCase):
@@ -75,6 +103,150 @@ class RehydrationTests(unittest.TestCase):
         helpers.run(self.temp_dir, "git", "clone", str(self.bare), str(clone))
         helpers.run(clone, "git", "fetch", "--prune", "origin")
         return clone
+
+    @staticmethod
+    def _supported_profile_probe() -> ProfileProbeResult:
+        return ProfileProbeResult(
+            status="supported",
+            observed_version="gh stack version reviewed",
+            observed_surfaces=(),
+            profile=GhStackProfile(
+                version="gh stack version reviewed",
+                source_revision="reviewed",
+                capabilities=frozenset({StackCapability.VIEW_JSON}),
+            ),
+            blocker=None,
+        )
+
+    def _materialize_named_native_stack(
+        self,
+    ) -> tuple[NativeStackSnapshot, list[PullRequestRecord]]:
+        trunk_head = helpers.run(self.repo, "git", "rev-parse", "main")
+        layers: list[NativeLayer] = []
+        prs: list[PullRequestRecord] = []
+        predecessor_branch = "main"
+        predecessor_head = trunk_head
+        for offset, (branch, legacy_index) in enumerate(
+            (("layers/zeta", 9), ("layers/alpha", 3)), start=1
+        ):
+            helpers.run(self.repo, "git", "checkout", "-b", branch, predecessor_branch)
+            path = f"native-{offset}.txt"
+            (self.repo / path).write_text(f"native layer {offset}\n")
+            helpers.run(self.repo, "git", "add", path)
+            metadata = ChangesetMetadata(
+                slug=f"native-{offset}",
+                index=legacy_index,
+                source_branch="feature/report",
+                source_sha=self.source_sha,
+            )
+            head = helpers.commit(
+                self.repo,
+                stamp_commit_message(f"feat: native layer {offset}", metadata),
+            )
+            helpers.run(self.repo, "git", "push", "-u", "origin", branch)
+            pr_number = 200 + offset
+            pr = NativePullRequest(
+                number=pr_number,
+                url=f"https://github.com/acme/widgets/pull/{pr_number}",
+                state="OPEN",
+            )
+            layers.append(
+                NativeLayer(
+                    branch=branch,
+                    head=head,
+                    base=predecessor_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=pr,
+                )
+            )
+            prs.append(
+                PullRequestRecord(
+                    number=pr_number,
+                    head_branch=branch,
+                    head_sha=head,
+                    base_branch=predecessor_branch,
+                    state="OPEN",
+                    body=embed_pr_metadata("Native layer\n", metadata),
+                )
+            )
+            predecessor_branch = branch
+            predecessor_head = head
+        return (
+            NativeStackSnapshot(
+                trunk_branch="main",
+                trunk_head=trunk_head,
+                current_branch=layers[-1].branch,
+                layers=tuple(layers),
+            ),
+            prs,
+        )
+
+    @staticmethod
+    def _native_payload(
+        snapshot: NativeStackSnapshot, *, trunk: str | None = None
+    ) -> dict[str, object]:
+        return {
+            "trunk": trunk or snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": layer.branch,
+                    "head": layer.head,
+                    "base": layer.base,
+                    "isCurrent": layer.branch == snapshot.current_branch,
+                    "isMerged": layer.merged,
+                    "isQueued": layer.queued,
+                    "needsRebase": layer.needs_rebase,
+                    "pr": {
+                        "number": layer.pull_request.number,
+                        "url": layer.pull_request.url,
+                        "state": layer.pull_request.state,
+                    },
+                }
+                for layer in snapshot.layers
+                if layer.pull_request is not None
+            ],
+        }
+
+    @staticmethod
+    def _merged_prefix_payload(snapshot: NativeStackSnapshot) -> dict[str, object]:
+        first, second = snapshot.layers
+        return {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": first.branch,
+                    "head": first.head,
+                    "base": first.base,
+                    "isCurrent": False,
+                    "isMerged": True,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": {
+                        "number": first.pull_request.number,
+                        "url": first.pull_request.url,
+                        "state": "MERGED",
+                    },
+                },
+                {
+                    "name": second.branch,
+                    "head": second.head,
+                    "base": snapshot.trunk_head,
+                    "isCurrent": True,
+                    "isMerged": False,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": {
+                        "number": second.pull_request.number,
+                        "url": second.pull_request.url,
+                        "state": second.pull_request.state,
+                    },
+                },
+            ],
+        }
 
     def test_rehydrates_full_chain_after_local_state_is_deleted(self) -> None:
         heads, prs = self._materialize()
@@ -222,18 +394,574 @@ class RehydrationTests(unittest.TestCase):
         self.assertEqual(heads[1], chain.changesets[0].head)
         self.assertEqual(1, chain.changesets[0].metadata.index)
 
-    def test_status_is_rendered_from_rehydration_without_local_files(self) -> None:
-        _, prs = self._materialize()
+    def test_native_rehydration_uses_snapshot_order_not_suffixes_or_indices(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
         clone = self._fresh_clone()
-        output = status_from_live(
-            source_branch="feature/report", pull_requests=prs, cwd=clone
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="origin",
+            native_snapshot=snapshot,
+            pull_requests=prs,
+            cwd=clone,
         )
 
+        self.assertEqual(
+            ["layers/zeta", "layers/alpha"],
+            [item.branch for item in chain.changesets],
+        )
+        self.assertEqual([9, 3], [item.metadata.index for item in chain.changesets])
+
+    def test_native_rehydration_restarts_materialized_suffix_at_trunk_after_merged_prefix(
+        self,
+    ) -> None:
+        original, prs = self._materialize_named_native_stack()
+        merged = replace(
+            original.layers[0],
+            merged=True,
+            pull_request=replace(original.layers[0].pull_request, state="MERGED"),
+        )
+        materialized = replace(original.layers[1], pull_request=None)
+        snapshot = NativeStackSnapshot(
+            trunk_branch=original.trunk_branch,
+            trunk_head=merged.head,
+            current_branch=materialized.branch,
+            layers=(merged, materialized),
+        )
+
+        chain = rehydrate_chain(
+            source_branch="feature/report",
+            remote="origin",
+            native_snapshot=snapshot,
+            pull_requests=(replace(prs[0], state="MERGED"),),
+            cwd=self._fresh_clone(),
+        )
+
+        self.assertEqual(
+            ["main", "main"],
+            [item.base for item in chain.changesets],
+        )
+
+    def test_ordinary_rehydration_requires_a_native_snapshot(self) -> None:
+        self._materialize()
+
+        with self.assertRaisesRegex(RehydrationError, "native snapshot is required"):
+            rehydrate_chain(
+                source_branch="feature/report",
+                remote="origin",
+                base_branch="main",
+                cwd=self._fresh_clone(),
+            )
+
+    def test_status_without_refresh_authority_never_invokes_native_view(self) -> None:
+        _, prs = self._materialize()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        output = status_from_live(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_requests=prs,
+            cwd=clone,
+            stack_client=client,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  unavailable", output)
         self.assertIn("feature/report-1", output)
         self.assertIn("#101", output)
         self.assertIn("MERGED", output)
         self.assertIn("feature/report-2", output)
         self.assertIn("OPEN", output)
+        client.view_json.assert_not_called()
+
+    def test_passive_status_rejects_multiple_prs_for_one_branch(self) -> None:
+        _, prs = self._materialize()
+        duplicate = replace(
+            prs[1],
+            number=999,
+            state="CLOSED",
+        )
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            r"Multiple PRs claim.*feature/report-2.*#102.*#999",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=(*prs, duplicate),
+                cwd=self._fresh_clone(),
+            )
+
+    def test_status_with_refresh_authority_reconciles_native_topology(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_requests=prs,
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+            profile_probe=self._supported_profile_probe,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
+        self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
+        client.view_json.assert_called_once_with(allow_state_refresh=True)
+
+    def test_status_refresh_rejects_native_trunk_that_disagrees_with_selected_base(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        helpers.run(self.repo, "git", "push", "origin", "main:release")
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot, trunk="release")
+        wrong_trunk_prs = [replace(prs[0], base_branch="release"), prs[1]]
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            "native trunk 'release'.*selected base 'main'",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=wrong_trunk_prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_cross_repository_pull_request(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {snapshot.layers[0].branch} GitHub PR #201 uses a fork head",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[replace(prs[0], is_cross_repository=True), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_noncanonical_native_and_live_pr_states(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        payload = self._native_payload(snapshot)
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        native_lowercase = copy.deepcopy(payload)
+        native_lowercase["branches"][0]["pr"]["state"] = "open"
+        client.view_json.return_value = native_lowercase
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {snapshot.layers[0].branch} has unknown PR state open",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+        client.view_json.return_value = payload
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {snapshot.layers[0].branch} GitHub PR #201 has unknown state open",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[replace(prs[0], state="open"), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_fetches_missing_published_head_objects(self) -> None:
+        clone = self._fresh_clone()
+        snapshot, prs = self._materialize_named_native_stack()
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_requests=prs,
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+            profile_probe=self._supported_profile_probe,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
+        self.assertLess(output.index("layers/zeta"), output.index("layers/alpha"))
+
+    def test_status_refresh_fetches_deleted_merged_branch_from_pr_head(self) -> None:
+        clone = self._fresh_clone()
+        snapshot, prs = self._materialize_named_native_stack()
+        first, second = snapshot.layers
+        helpers.run(
+            self.bare,
+            "git",
+            "update-ref",
+            f"refs/pull/{first.pull_request.number}/head",
+            first.head,
+        )
+        helpers.run(self.repo, "git", "push", "origin", "--delete", first.branch)
+        client = mock.Mock()
+        client.view_json.return_value = self._merged_prefix_payload(snapshot)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_requests=[
+                replace(prs[0], state="MERGED"),
+                replace(prs[1], base_branch=snapshot.trunk_branch),
+            ],
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+            profile_probe=self._supported_profile_probe,
+        )
+
+        self.assertIn("NATIVE LOCAL TOPOLOGY  available", output)
+        self.assertLess(output.index(first.branch), output.index(second.branch))
+
+    def test_status_refresh_rejects_divergent_published_local_head(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        helpers.run(clone, "git", "branch", first.branch, second.head)
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {first.branch} local head mismatch: native {first.head}; local {second.head}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_materialized_layer_with_divergent_remote(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        helpers.run(clone, "git", "branch", first.branch, first.head)
+        helpers.run(self.repo, "git", "checkout", first.branch)
+        (self.repo / "divergent-remote.txt").write_text("divergent\n")
+        helpers.run(self.repo, "git", "add", "divergent-remote.txt")
+        divergent = helpers.commit(self.repo, "test: diverge materialized remote")
+        helpers.run(self.repo, "git", "push", "origin", first.branch)
+        payload = {
+            "trunk": snapshot.trunk_branch,
+            "currentBranch": snapshot.current_branch,
+            "branches": [
+                {
+                    "name": first.branch,
+                    "head": first.head,
+                    "base": first.base,
+                    "isCurrent": False,
+                    "isMerged": False,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": None,
+                },
+                {
+                    "name": second.branch,
+                    "head": second.head,
+                    "base": second.base,
+                    "isCurrent": True,
+                    "isMerged": False,
+                    "isQueued": False,
+                    "needsRebase": False,
+                    "pr": {
+                        "number": second.pull_request.number,
+                        "url": second.pull_request.url,
+                        "state": second.pull_request.state,
+                    },
+                },
+            ],
+        }
+        client = mock.Mock()
+        client.view_json.return_value = payload
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {first.branch} remote head mismatch: native {first.head}; remote {divergent}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_merged_layer_with_divergent_remote(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        helpers.run(self.repo, "git", "checkout", first.branch)
+        (self.repo / "divergent-merged-remote.txt").write_text("divergent\n")
+        helpers.run(self.repo, "git", "add", "divergent-merged-remote.txt")
+        divergent = helpers.commit(self.repo, "test: diverge merged remote")
+        helpers.run(self.repo, "git", "push", "origin", first.branch)
+        client = mock.Mock()
+        client.view_json.return_value = self._merged_prefix_payload(snapshot)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {first.branch} remote head mismatch: native {first.head}; remote {divergent}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[replace(prs[0], state="MERGED"), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_rejects_open_suffix_based_on_merged_prefix(
+        self,
+    ) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        first, second = snapshot.layers
+        client = mock.Mock()
+        client.view_json.return_value = self._merged_prefix_payload(snapshot)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            f"layer {second.branch} GitHub PR #{second.pull_request.number} base mismatch: native trunk main; GitHub {first.branch}",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=[replace(prs[0], state="MERGED"), prs[1]],
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_loads_exact_native_pr_numbers(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+        records = {pr.number: pr for pr in prs}
+        loader = mock.Mock(side_effect=records.__getitem__)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            base_branch="main",
+            pull_request_loader=loader,
+            cwd=clone,
+            allow_stack_state_refresh=True,
+            stack_client=client,
+            profile_probe=self._supported_profile_probe,
+        )
+
+        self.assertIn("layers/zeta", output)
+        self.assertEqual([mock.call(201), mock.call(202)], loader.call_args_list)
+
+    def test_status_cli_defers_pr_discovery_to_exact_native_numbers(self) -> None:
+        args = Namespace(
+            source="feature/report",
+            base="main",
+            local_only=False,
+            remote="origin",
+            allow_stack_state_refresh=True,
+        )
+        record = mock.sentinel.record
+        with (
+            mock.patch.object(cli_mod, "pull_requests_for_source") as suffix_discovery,
+            mock.patch.object(
+                cli_mod, "pull_request_by_number", return_value=record
+            ) as exact_lookup,
+            mock.patch.object(cli_mod, "status_from_live", return_value="ok") as status,
+            redirect_stdout(StringIO()),
+        ):
+            cli_mod.cmd_status(args)
+
+            loader = status.call_args.kwargs["pull_request_loader"]
+            self.assertEqual(record, loader(321))
+
+        suffix_discovery.assert_not_called()
+        exact_lookup.assert_called_once_with(321, remote="origin")
+
+    def test_live_remote_heads_ignore_stale_tracking_refs(self) -> None:
+        snapshot, _ = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        branch = snapshot.layers[-1].branch
+        cached = helpers.run(clone, "git", "rev-parse", f"refs/remotes/origin/{branch}")
+        helpers.run(self.repo, "git", "checkout", branch)
+        (self.repo / "advanced.txt").write_text("advanced\n")
+        helpers.run(self.repo, "git", "add", "advanced.txt")
+        advanced = helpers.commit(self.repo, "test: advance published layer")
+        helpers.run(self.repo, "git", "push", "origin", branch)
+
+        heads = _live_remote_heads(clone, "origin", (branch,))
+
+        self.assertNotEqual(cached, advanced)
+        self.assertEqual(advanced, heads[branch])
+
+    def test_passive_status_renders_live_remote_not_cached_tracking_head(self) -> None:
+        _, prs = self._materialize()
+        clone = self._fresh_clone()
+        branch = "feature/report-2"
+        cached = helpers.run(clone, "git", "rev-parse", f"refs/remotes/origin/{branch}")
+        helpers.run(self.repo, "git", "checkout", branch)
+        (self.repo / "advanced-passive.txt").write_text("advanced\n")
+        helpers.run(self.repo, "git", "add", "advanced-passive.txt")
+        advanced = helpers.commit(self.repo, "test: advance passive status branch")
+        helpers.run(self.repo, "git", "push", "origin", branch)
+
+        output = status_from_live(
+            source_branch="feature/report",
+            pull_requests=prs,
+            cwd=clone,
+        )
+
+        self.assertNotEqual(cached, advanced)
+        branch_row = next(
+            line for line in output.splitlines() if line.startswith(branch)
+        )
+        self.assertIn(f"unavailable  {advanced[:12]}", branch_row)
+        self.assertIn(f"#102  {cached[:12]}", branch_row)
+
+    def test_status_refresh_rejects_checkout_movement(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+
+        def move_checkout(*, allow_state_refresh: bool) -> dict[str, object]:
+            self.assertTrue(allow_state_refresh)
+            helpers.run(clone, "git", "checkout", "--detach", snapshot.layers[0].head)
+            return {}
+
+        client = mock.Mock()
+        client.view_json.side_effect = move_checkout
+
+        with self.assertRaisesRegex(RehydrationError, "moved the checkout"):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
+
+    def test_status_refresh_blocks_unsupported_profile_before_view(self) -> None:
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        blocker = GhStackProfileBlocker(
+            reason="unknown_version",
+            observed_version="gh stack version unknown",
+            observed_surfaces=(),
+            mismatched_surfaces=(),
+        )
+        probe = mock.Mock(
+            return_value=ProfileProbeResult(
+                status="blocked",
+                observed_version=blocker.observed_version,
+                observed_surfaces=(),
+                profile=None,
+                blocker=blocker,
+            )
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "unknown_version"):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="main",
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=probe,
+            )
+
+        probe.assert_called_once_with()
+        client.view_json.assert_not_called()
+
+    def test_local_only_status_rejects_refresh_before_any_native_call(self) -> None:
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        probe = mock.Mock()
+
+        with self.assertRaisesRegex(
+            RehydrationError,
+            "local-only.*stack-state refresh.*mutually exclusive",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                cwd=clone,
+                read_remote=False,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=probe,
+            )
+
+        probe.assert_not_called()
+        client.view_json.assert_not_called()
+
+    def test_status_refresh_rejects_requested_base_disagreement(self) -> None:
+        snapshot, prs = self._materialize_named_native_stack()
+        clone = self._fresh_clone()
+        client = mock.Mock()
+        client.view_json.return_value = self._native_payload(snapshot)
+
+        with self.assertRaisesRegex(
+            NativeStackError,
+            "native trunk 'main'.*selected base 'release'",
+        ):
+            status_from_live(
+                source_branch="feature/report",
+                base_branch="release",
+                pull_requests=prs,
+                cwd=clone,
+                allow_stack_state_refresh=True,
+                stack_client=client,
+                profile_probe=self._supported_profile_probe,
+            )
 
     def test_trailers_survive_propagation_rebase(self) -> None:
         _, _ = self._materialize()
@@ -587,6 +1315,8 @@ class RehydrationTests(unittest.TestCase):
                 successor,
                 repo=self.repo,
                 remote="origin",
+                base_branch="main",
+                base_authoritative=True,
             )
 
     def test_rejects_discontinuous_successor_lineage(self) -> None:

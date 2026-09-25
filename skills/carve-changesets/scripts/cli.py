@@ -19,7 +19,9 @@ from common import (
     validate_plan,
 )
 from db_compare import db_compare
-from github import pr_create, pull_requests_for_source
+from gh_stack import GhStackError
+from github import pr_create, pull_request_by_number, pull_requests_for_source
+from native_stack import NativeStackError
 from patch_apply import build_diff
 from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
@@ -39,7 +41,7 @@ COMMAND_MUTATION_CLASSES = {
     "preflight": LOCAL_MUTATING,
     "init-plan": LOCAL_MUTATING,
     "validate": LOCAL_MUTATING,
-    "status": READ_ONLY,
+    "status": LOCAL_MUTATING,
     "create-chain": LOCAL_MUTATING,
     "compare": LOCAL_MUTATING,
     "validate-chain": LOCAL_MUTATING,
@@ -182,15 +184,25 @@ def cmd_validate(args: argparse.Namespace) -> None:
 def cmd_status(args: argparse.Namespace) -> None:
     pull_requests = (
         []
-        if args.local_only
+        if args.local_only or args.allow_stack_state_refresh
         else pull_requests_for_source(args.source, remote=args.remote)
     )
+    pull_request_loader = None
+    if args.allow_stack_state_refresh and not args.local_only:
+
+        def load_pull_request(number: int):
+            return pull_request_by_number(number, remote=args.remote)
+
+        pull_request_loader = load_pull_request
     print(
         status_from_live(
             source_branch=args.source,
             base_branch=args.base,
             pull_requests=pull_requests,
+            pull_request_loader=pull_request_loader,
             remote=args.remote,
+            read_remote=not args.local_only,
+            allow_stack_state_refresh=args.allow_stack_state_refresh,
         )
     )
 
@@ -504,6 +516,11 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--base", default=None, help="Base branch")
     item.add_argument("--remote", default="origin")
     item.add_argument("--local-only", action="store_true")
+    item.add_argument(
+        "--allow-stack-state-refresh",
+        action="store_true",
+        help="Authorize the bounded local-state refresh performed by gh stack view.",
+    )
     item.set_defaults(func=cmd_status)
 
     item = _command(sub, "create-chain", "Materialize append-only changeset branches.")
@@ -665,7 +682,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.mutation_class != READ_ONLY:
             ensure_clean_tree()
         return 0
-    except (CommandError, RehydrationError) as exc:
+    except (CommandError, GhStackError, NativeStackError, RehydrationError) as exc:
         print(f"[ERROR] {exc}")
         return 1
 
