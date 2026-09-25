@@ -773,6 +773,16 @@ def _live_manifest_inputs(
     )
 
 
+def _require_exact_native_membership(records, snapshot: NativeStackSnapshot) -> None:
+    selected = tuple(record.branch for record in records)
+    native = tuple(layer.branch for layer in snapshot.layers)
+    if selected != native:
+        raise CommandError(
+            "Source chain membership and order disagree with authoritative native "
+            f"topology: source {selected!r}; native {native!r}."
+        )
+
+
 def _repair_manifest(args: argparse.Namespace):
     _require_stack_refresh_authority(args.allow_stack_state_refresh)
     chain, pull_requests = _rehydrate_live(
@@ -789,6 +799,7 @@ def _repair_manifest(args: argparse.Namespace):
         base=args.base or chain.base_branch,
         remote=args.remote,
     )
+    _require_exact_native_membership(chain.changesets, native_snapshot)
     native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
     needs_rebase = tuple(
         record.branch
@@ -858,6 +869,7 @@ def _merge_manifest(args: argparse.Namespace):
         base=args.base or chain.base_branch,
         remote=args.remote,
     )
+    _require_exact_native_membership(chain.changesets, native_snapshot)
     native_open = native_snapshot.open_suffix
     if not native_open or native_open[0].branch != target.branch:
         bottom = native_open[0].branch if native_open else "none"
@@ -941,6 +953,7 @@ def _recovery_manifest(args: argparse.Namespace):
         base=args.base,
         remote=args.remote,
     )
+    _require_exact_native_membership(chain.changesets, native_snapshot)
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base,

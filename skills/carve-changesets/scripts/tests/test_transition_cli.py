@@ -629,6 +629,101 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("automatic suffix heads", output.getvalue())
 
+    def test_merge_preview_rejects_native_layer_absent_from_source_chain(self) -> None:
+        chain, prs = self._published_chain()
+        chain.changesets = chain.changesets[:1]
+        prs = {41: prs[41]}
+        prs[41].state = "OPEN"
+        native_snapshot = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=self.main_head,
+            current_branch="feature/report-2",
+            layers=(
+                NativeLayer(
+                    branch="feature/report-1",
+                    head=self.head_one,
+                    base=self.main_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(41, "https://example/pr/41", "OPEN"),
+                ),
+                NativeLayer(
+                    branch="feature/report-2",
+                    head=self.head_two,
+                    base=self.head_one,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(42, "https://example/pr/42", "OPEN"),
+                ),
+            ),
+        )
+        single_layer_snapshot = replace(
+            native_snapshot,
+            current_branch="feature/report-1",
+            layers=native_snapshot.layers[:1],
+        )
+        self.native_reader_mock.return_value = single_layer_snapshot
+        approved_output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod, "github_repo_for_remote", return_value="acme/widgets"
+            ),
+            chdir(self.repo),
+            redirect_stdout(approved_output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status)
+        approved = self.root / "approved-merge.json"
+        approved.write_text(approved_output.getvalue())
+        self.native_reader_mock.return_value = native_snapshot
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod, "github_repo_for_remote", return_value="acme/widgets"
+            ),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "merge_propagate_from_live") as executor,
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--allow-stack-state-refresh",
+                    "--manifest",
+                    str(approved),
+                    "--execute",
+                    "--ack-direct-merge",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("membership and order", output.getvalue())
+        executor.assert_not_called()
+
     def test_merge_preview_rejects_non_bottom_native_target(self) -> None:
         chain, prs = self._published_chain()
         self.native_reader_mock.return_value = self.native_snapshot
