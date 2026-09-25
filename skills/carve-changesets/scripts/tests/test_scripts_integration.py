@@ -36,6 +36,34 @@ from validate import validate_live_chain as validate_live  # noqa: E402
 
 
 class ScriptIntegrationTests(unittest.TestCase):
+    def test_run_create_chain_requires_authority_before_preflight(self) -> None:
+        stdout = io.StringIO()
+        with (
+            mock.patch("cli.cmd_preflight") as preflight,
+            mock.patch("cli.cmd_init_plan") as init_plan,
+            mock.patch("cli.cmd_create_chain") as create_native_chain,
+            mock.patch("cli.ensure_clean_tree"),
+            redirect_stdout(stdout),
+        ):
+            result = main(
+                [
+                    "run",
+                    "--base",
+                    "main",
+                    "--source",
+                    "feature/test",
+                    "--title",
+                    "Test stack",
+                    "--create-chain",
+                ]
+            )
+
+        self.assertEqual(1, result, stdout.getvalue())
+        self.assertIn("--ack-local-stack-state", stdout.getvalue())
+        preflight.assert_not_called()
+        init_plan.assert_not_called()
+        create_native_chain.assert_not_called()
+
     def test_create_chain_adopts_exact_native_order_and_restores_checkout(self) -> None:
         repo_dir, plan = init_repo()
         fake_bin = Path(tempfile.mkdtemp(prefix="pcs-fake-gh-"))

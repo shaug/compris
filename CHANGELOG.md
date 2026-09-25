@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-25 — Materialized native stacks and preserved recovery truth
 
+- fix: gate native materialization authority before preflight
+
 - feat: materialize changesets as a native stack
 
 - fix: resume multi-successor recovery

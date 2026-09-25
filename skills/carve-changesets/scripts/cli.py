@@ -453,6 +453,12 @@ def cmd_squash_check(args: argparse.Namespace) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
+    if args.create_chain and not args.ack_local_stack_state:
+        raise CommandError(
+            "Native materialization requires explicit authority for rerere, "
+            "local stack state, branch creation, and checkout restoration; "
+            "pass --ack-local-stack-state."
+        )
     cmd_preflight(args)
     plan_path = Path(args.plan)
     if not plan_path.exists() or args.force_init:
