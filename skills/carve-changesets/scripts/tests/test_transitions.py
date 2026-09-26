@@ -543,12 +543,17 @@ class OperationManifestTests(unittest.TestCase):
         effects: frozenset[EffectKind],
         merge_method: str | None = None,
     ) -> AuthorityGrant:
+        identities = ("feature-2", "feature-3")
         return AuthorityGrant(
             operation=operation,
             repository="shaug/compris",
             remote="origin",
-            identities=("feature-2", "feature-3"),
-            branches=("feature-2", "feature-3"),
+            identities=identities,
+            branches=(
+                (*identities, "main")
+                if operation is StackOperation.MERGE
+                else identities
+            ),
             phases=phases,
             effect_kinds=effects,
             merge_method=merge_method,
@@ -615,12 +620,15 @@ class OperationManifestTests(unittest.TestCase):
             prefix_numbers=(42,),
             merge_mode=MergeMode.DIRECT,
             merge_method="merge",
+            trunk_tree_before=SHA_A,
+            trunk_tree_after=SHA_B,
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
                 frozenset(
                     {
                         EffectKind.MERGE_PR,
+                        EffectKind.REFRESH_TRUNK,
                         EffectKind.PUSH_REF,
                         EffectKind.UPDATE_PR,
                         EffectKind.SYNC_STACK,
@@ -634,6 +642,8 @@ class OperationManifestTests(unittest.TestCase):
         self.assertEqual(
             (
                 EffectKind.MERGE_PR,
+                EffectKind.REFRESH_TRUNK,
+                EffectKind.SYNC_STACK,
                 EffectKind.PUSH_REF,
                 EffectKind.UPDATE_PR,
                 EffectKind.SYNC_STACK,
@@ -659,6 +669,8 @@ class OperationManifestTests(unittest.TestCase):
             prefix_numbers=(42,),
             merge_mode=MergeMode.QUEUE,
             merge_method=None,
+            trunk_tree_before=SHA_A,
+            trunk_tree_after=SHA_B,
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
@@ -666,6 +678,7 @@ class OperationManifestTests(unittest.TestCase):
                     {
                         EffectKind.QUEUE_PR,
                         EffectKind.MERGE_PR,
+                        EffectKind.REFRESH_TRUNK,
                         EffectKind.PUSH_REF,
                         EffectKind.UPDATE_PR,
                         EffectKind.SYNC_STACK,
@@ -679,6 +692,8 @@ class OperationManifestTests(unittest.TestCase):
             (
                 EffectKind.QUEUE_PR,
                 EffectKind.MERGE_PR,
+                EffectKind.REFRESH_TRUNK,
+                EffectKind.SYNC_STACK,
                 EffectKind.PUSH_REF,
                 EffectKind.UPDATE_PR,
                 EffectKind.SYNC_STACK,
@@ -723,6 +738,27 @@ class OperationManifestTests(unittest.TestCase):
         )
         self.assertEqual(TransitionState.COMPLETED, landing.state)
 
+        for field in ("tree", "open_order"):
+            with self.subTest(field=field):
+                drift_values = [
+                    (
+                        effect.key,
+                        (
+                            "f" * 40
+                            if effect.field == field and field == "tree"
+                            else ("unexpected-layer",)
+                            if effect.field == field
+                            else effect.after
+                        ),
+                    )
+                    for effect in manifest.effects
+                ]
+                drift = classify_readback(
+                    manifest,
+                    TransitionObservation(values=tuple(drift_values)),
+                )
+                self.assertEqual(TransitionState.DIVERGED, drift.state)
+
         cancelled = classify_readback(
             manifest,
             TransitionObservation.from_manifest_before(manifest),
@@ -747,10 +783,18 @@ class OperationManifestTests(unittest.TestCase):
             prefix_numbers=(42, 43),
             merge_mode=MergeMode.DIRECT,
             merge_method="squash",
+            trunk_tree_before=SHA_A,
+            trunk_tree_after=SHA_B,
             authority=self._authority(
                 StackOperation.MERGE,
                 phases,
-                frozenset({EffectKind.MERGE_PR}),
+                frozenset(
+                    {
+                        EffectKind.MERGE_PR,
+                        EffectKind.REFRESH_TRUNK,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
                 merge_method="squash",
             ),
             evidence=("merge snapshot",),
@@ -758,7 +802,12 @@ class OperationManifestTests(unittest.TestCase):
 
         self.assertEqual((TransitionPhase.DIRECT_MERGE,), manifest.enabled_phases)
         self.assertEqual(
-            (EffectKind.MERGE_PR, EffectKind.MERGE_PR),
+            (
+                EffectKind.MERGE_PR,
+                EffectKind.MERGE_PR,
+                EffectKind.REFRESH_TRUNK,
+                EffectKind.SYNC_STACK,
+            ),
             tuple(effect.kind for effect in manifest.effects),
         )
 
@@ -774,6 +823,8 @@ class OperationManifestTests(unittest.TestCase):
                 prefix_numbers=(43,),
                 merge_mode=MergeMode.DIRECT,
                 merge_method="merge",
+                trunk_tree_before=SHA_A,
+                trunk_tree_after=SHA_B,
                 authority=self._authority(
                     StackOperation.MERGE,
                     phases,

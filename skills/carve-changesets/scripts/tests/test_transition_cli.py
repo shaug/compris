@@ -671,6 +671,265 @@ class TransitionCliTests(unittest.TestCase):
         )
         return chain, prs, snapshot
 
+    def _two_open_merge_evidence(self):
+        chain, prs = self._published_chain()
+        prs[41].state = "OPEN"
+        snapshot = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=self.main_head,
+            current_branch="feature/report-2",
+            layers=(
+                NativeLayer(
+                    branch="feature/report-1",
+                    head=self.head_one,
+                    base=self.main_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(41, "https://example/pr/41", "OPEN"),
+                ),
+                NativeLayer(
+                    branch="feature/report-2",
+                    head=self.head_two,
+                    base=self.head_one,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(42, "https://example/pr/42", "OPEN"),
+                ),
+            ),
+        )
+        return chain, prs, snapshot
+
+    def _three_open_merge_evidence(self):
+        chain, prs, snapshot = self._two_open_merge_evidence()
+        third_head = "c" * 40
+        root = chain.changesets[0].metadata.active_source
+        third = SimpleNamespace(
+            position=3,
+            branch="feature/report-3",
+            head=third_head,
+            pr_number=43,
+            metadata=SimpleNamespace(active_source=root),
+        )
+        chain.changesets = (*chain.changesets, third)
+        prs[43] = SimpleNamespace(
+            number=43,
+            head_branch=third.branch,
+            head_sha=third.head,
+            base_branch="feature/report-2",
+            state="OPEN",
+            draft=False,
+            queued=False,
+            auto_merge=False,
+            merge_state_status="CLEAN",
+            title="Layer three",
+            body="Layer three body",
+        )
+        snapshot = replace(
+            snapshot,
+            current_branch=third.branch,
+            layers=(
+                *snapshot.layers,
+                NativeLayer(
+                    branch=third.branch,
+                    head=third.head,
+                    base=self.head_two,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(43, "https://example/pr/43", "OPEN"),
+                ),
+            ),
+        )
+        return chain, prs, snapshot
+
+    def test_direct_preview_selects_ordered_prefix_through_boundary(self) -> None:
+        chain, prs, snapshot = self._two_open_merge_evidence()
+        self.native_reader_mock.return_value = snapshot
+        output = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "2",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status)
+        manifest = json.loads(output.getvalue())
+        self.assertEqual([41, 42], manifest["merge_prefix"])
+        self.assertEqual(
+            [41, 42],
+            [
+                int(effect["target"].partition(":")[2])
+                for effect in manifest["effects"]
+                if effect["kind"] == "merge_pr"
+            ],
+        )
+        topology = next(
+            effect
+            for effect in manifest["effects"]
+            if effect["kind"] == "sync_stack" and effect["field"] == "open_order"
+        )
+        self.assertEqual([], topology["after"])
+
+    def test_direct_preview_separates_multi_pr_prefix_from_suffix(self) -> None:
+        chain, prs, snapshot = self._three_open_merge_evidence()
+        self.native_reader_mock.return_value = snapshot
+        output = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "2",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status)
+        manifest = json.loads(output.getvalue())
+        self.assertEqual([41, 42], manifest["merge_prefix"])
+        self.assertEqual(["direct_merge", "sync"], manifest["enabled_phases"])
+        topology = next(
+            effect
+            for effect in manifest["effects"]
+            if effect["kind"] == "sync_stack" and effect["field"] == "open_order"
+        )
+        self.assertEqual(["feature/report-3"], topology["after"])
+        self.assertEqual(
+            ["push_ref", "update_pr", "sync_stack"],
+            [
+                effect["kind"]
+                for effect in manifest["effects"]
+                if effect["target"].endswith("feature/report-3")
+                or effect["target"] == "pr:43"
+            ],
+        )
+
+    def _execute_single_merge(self, *, mode: str, outcome: str):
+        before_chain, before_prs, before_snapshot = self._single_open_merge_evidence()
+        self.native_reader_mock.return_value = before_snapshot
+        preview = StringIO()
+        preview_args = [
+            "merge-propagate",
+            "--source",
+            "feature/report",
+            "--index",
+            "1",
+            "--allow-stack-state-refresh",
+        ]
+        if mode == "queue":
+            preview_args.extend(("--merge-mode", "queue"))
+        with (
+            mock.patch.object(
+                cli_mod,
+                "_rehydrate_live",
+                return_value=(before_chain, before_prs),
+            ),
+            chdir(self.repo),
+            redirect_stdout(preview),
+        ):
+            self.assertEqual(0, main(tuple(preview_args)))
+        approved = self.root / f"approved-{mode}-{outcome}.json"
+        approved.write_text(preview.getvalue())
+
+        after_chain, after_prs, _unused = self._single_open_merge_evidence()
+        after_layer = before_snapshot.layers[0]
+        if outcome == "admitted":
+            after_prs[41].queued = True
+            after_snapshot = replace(
+                before_snapshot,
+                layers=(replace(after_layer, queued=True),),
+            )
+        else:
+            after_prs[41].state = "MERGED"
+            after_snapshot = replace(
+                before_snapshot,
+                trunk_head=self.head_one,
+                layers=(
+                    replace(
+                        after_layer,
+                        merged=True,
+                        queued=False,
+                        pull_request=replace(after_layer.pull_request, state="MERGED"),
+                    ),
+                ),
+            )
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        output = StringIO()
+        execute_args = [
+            *preview_args,
+            "--manifest",
+            str(approved),
+            "--execute",
+            "--ack-queue-merge" if mode == "queue" else "--ack-direct-merge",
+        ]
+        with (
+            mock.patch.object(
+                cli_mod,
+                "_rehydrate_live",
+                side_effect=(
+                    (before_chain, before_prs),
+                    (after_chain, after_prs),
+                ),
+            ),
+            mock.patch.object(
+                cli_mod,
+                "_native_snapshot_for_transition",
+                side_effect=(before_snapshot, after_snapshot),
+            ),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "merge_propagate_from_live"),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(tuple(execute_args))
+        result, _offset = json.JSONDecoder().raw_decode(output.getvalue())
+        return status, result
+
+    def test_direct_execution_classifies_successful_landing(self) -> None:
+        status, result = self._execute_single_merge(mode="direct", outcome="landed")
+
+        self.assertEqual(0, status)
+        self.assertEqual("completed", result["state"])
+        self.assertTrue(result["targets"])
+
+    def test_queue_execution_classifies_admission_without_landing(self) -> None:
+        status, result = self._execute_single_merge(mode="queue", outcome="admitted")
+
+        self.assertEqual(0, status)
+        self.assertEqual("admitted", result["state"])
+        self.assertTrue(result["approved_manifest_retained"])
+
+    def test_queue_execution_classifies_successful_landing(self) -> None:
+        status, result = self._execute_single_merge(mode="queue", outcome="landed")
+
+        self.assertEqual(0, status)
+        self.assertEqual("completed", result["state"])
+        self.assertTrue(result["targets"])
+
     def test_merge_execution_rejects_direct_method_drift_before_executor(self) -> None:
         chain, prs, snapshot = self._single_open_merge_evidence()
         self.native_reader_mock.return_value = snapshot
@@ -886,10 +1145,19 @@ class TransitionCliTests(unittest.TestCase):
     def test_direct_merge_preview_blocks_unknown_automatic_suffix_heads(self) -> None:
         chain, prs = self._published_chain()
         chain.changesets[0].pr_state = "OPEN"
+        prs[41].state = "OPEN"
         self.native_reader_mock.return_value = self.native_snapshot
         output = StringIO()
         with (
             mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                side_effect=lambda _remote, branch: {
+                    "feature/report-1": self.head_one,
+                    "feature/report-2": self.head_two,
+                }.get(branch),
+            ),
             chdir(self.repo),
             redirect_stdout(output),
         ):
@@ -1002,7 +1270,7 @@ class TransitionCliTests(unittest.TestCase):
         self.assertIn("membership and order", output.getvalue())
         executor.assert_not_called()
 
-    def test_merge_preview_rejects_non_bottom_native_target(self) -> None:
+    def test_queue_preview_rejects_non_bottom_native_target(self) -> None:
         chain, prs = self._published_chain()
         self.native_reader_mock.return_value = self.native_snapshot
         output = StringIO()
@@ -1018,6 +1286,8 @@ class TransitionCliTests(unittest.TestCase):
                     "feature/report",
                     "--index",
                     "2",
+                    "--merge-mode",
+                    "queue",
                     "--allow-stack-state-refresh",
                 )
             )

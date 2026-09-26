@@ -769,6 +769,31 @@ def _live_manifest_inputs(
     )
 
 
+def _commit_tree(commit: str, *, context: str) -> str:
+    resolved = git("rev-parse", "--verify", f"{commit}^{{tree}}", check=False)
+    if resolved.returncode != 0:
+        raise CommandError(f"Cannot resolve exact {context} tree for {commit}.")
+    return resolved.stdout.strip()
+
+
+def _expected_pull_request_from_live(live) -> ExpectedPullRequest:
+    return ExpectedPullRequest(
+        number=live.number,
+        branch=live.head_branch,
+        head=live.head_sha,
+        base=live.base_branch,
+        state=live.state.upper(),
+        draft=live.draft,
+        queued=live.queued,
+        auto_merge=live.auto_merge,
+        title=live.title,
+        body=live.body,
+        current_title=live.title,
+        current_body=live.body,
+        merge_state_status=live.merge_state_status,
+    )
+
+
 def _require_exact_native_membership(records, snapshot: NativeStackSnapshot) -> None:
     selected = tuple(record.branch for record in records)
     native = tuple(layer.branch for layer in snapshot.layers)
@@ -859,7 +884,6 @@ def _merge_manifest(args: argparse.Namespace):
     target, selected_pr = _target(
         chain, pull_requests, pr_number=args.pr, index=args.index
     )
-    open_suffix = chain.changesets[target.position - 1 :]
     native_snapshot = _native_snapshot_for_transition(
         source=args.source,
         base=args.base or chain.base_branch,
@@ -867,59 +891,134 @@ def _merge_manifest(args: argparse.Namespace):
     )
     _require_exact_native_membership(chain.changesets, native_snapshot)
     native_open = native_snapshot.open_suffix
-    if not native_open or native_open[0].branch != target.branch:
-        bottom = native_open[0].branch if native_open else "none"
+    open_branches = tuple(layer.branch for layer in native_open)
+    if target.branch not in open_branches:
         raise CommandError(
-            f"Merge target {target.branch!r} is not the bottom open native layer "
-            f"({bottom!r})."
+            f"Merge target {target.branch!r} is not an open native layer "
+            f"in {open_branches!r}."
         )
     mode = MergeMode(args.merge_mode)
     merge_method = args.method if mode is MergeMode.DIRECT else None
-    if mode is MergeMode.DIRECT and len(open_suffix) > 1:
+    boundary = open_branches.index(target.branch)
+    if mode is MergeMode.QUEUE and boundary != 0:
+        bottom = open_branches[0] if open_branches else "none"
         raise CommandError(
-            "Direct merge preview is blocked because exact automatic suffix heads "
-            "cannot be derived before the bottom PR lands."
+            f"Queue merge target {target.branch!r} is not the bottom open native "
+            f"layer ({bottom!r})."
         )
+    prefix_layers = (
+        native_open[: boundary + 1] if mode is MergeMode.DIRECT else native_open[:1]
+    )
+    records_by_branch = {record.branch: record for record in chain.changesets}
+    affected_records = tuple(records_by_branch[layer.branch] for layer in native_open)
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base or chain.base_branch,
         remote=args.remote,
-        records=open_suffix,
+        records=affected_records,
         pull_requests=pull_requests,
         native_snapshot=native_snapshot,
     )
     phases = (
-        frozenset({TransitionPhase.DIRECT_MERGE})
+        frozenset(
+            {TransitionPhase.DIRECT_MERGE}
+            | (
+                {TransitionPhase.SYNC}
+                if len(prefix_layers) < len(native_open)
+                else set()
+            )
+        )
         if mode is MergeMode.DIRECT
         else frozenset({TransitionPhase.QUEUE_MERGE})
     )
-    effects = (
-        frozenset({EffectKind.MERGE_PR})
-        if mode is MergeMode.DIRECT
-        else frozenset({EffectKind.QUEUE_PR, EffectKind.MERGE_PR})
-    )
+    effects = {EffectKind.MERGE_PR, EffectKind.REFRESH_TRUNK, EffectKind.SYNC_STACK}
+    if mode is MergeMode.QUEUE:
+        effects.add(EffectKind.QUEUE_PR)
+    if len(prefix_layers) < len(native_open):
+        effects.update({EffectKind.PUSH_REF, EffectKind.UPDATE_PR})
     identities = tuple(item.branch for item in prs)
+    pr_by_branch = {item.branch: item for item in prs}
+    prefix_numbers = tuple(pr_by_branch[layer.branch].number for layer in prefix_layers)
+    trunk_tree_before = _commit_tree(stack.trunk_head, context="current trunk")
+    trunk_tree_after = _commit_tree(selected_pr.head_sha, context="landing trunk")
     return preview_merge(
         repository=github_repo_for_remote(args.remote),
         remote=args.remote,
         refs=refs,
         pull_requests=prs,
         native_stack=stack,
-        prefix_numbers=(selected_pr.number,),
+        prefix_numbers=prefix_numbers,
         merge_mode=mode,
         merge_method=merge_method,
+        trunk_tree_before=trunk_tree_before,
+        trunk_tree_after=trunk_tree_after,
         authority=AuthorityGrant(
             operation=StackOperation.MERGE,
             repository=github_repo_for_remote(args.remote),
             remote=args.remote,
             identities=identities,
-            branches=identities,
+            branches=(*identities, stack.trunk),
             phases=phases,
-            effect_kinds=effects,
+            effect_kinds=frozenset(effects),
             merge_method=merge_method,
         ),
-        evidence=evidence,
+        evidence=(
+            *evidence,
+            f"{args.remote}/refs/heads/{stack.trunk} tree={trunk_tree_before}",
+            f"landing tree={trunk_tree_after}",
+        ),
     )
+
+
+def _merge_observation(
+    approved,
+    *,
+    source: str,
+    base: str | None,
+    remote: str,
+) -> TransitionObservation:
+    _chain, pull_requests = _rehydrate_live(source=source, base=base, remote=remote)
+    native_snapshot = _native_snapshot_for_transition(
+        source=source,
+        base=base or approved.expected_native_stack.trunk,
+        remote=remote,
+    )
+    native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
+    values: list[tuple[str, object]] = []
+    for effect in approved.effects:
+        identity = effect.target.partition(":")[2]
+        if effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
+            number = int(identity)
+            live = pull_requests.get(number)
+            if live is None:
+                live = pull_request_by_number(number, remote=remote)
+            observed: object = (
+                live.state.upper() if effect.field == "state" else live.queued
+            )
+        elif effect.kind is EffectKind.REFRESH_TRUNK and effect.field == "tree":
+            observed = _commit_tree(
+                native_snapshot.trunk_head, context="observed trunk"
+            )
+        elif effect.kind is EffectKind.SYNC_STACK and effect.field == "open_order":
+            observed = tuple(
+                layer.branch for layer in native_snapshot.layers if not layer.merged
+            )
+        elif effect.kind is EffectKind.SYNC_STACK and effect.field == "head":
+            observed = native_by_branch[identity.rpartition(":")[2]].head
+        elif effect.kind is EffectKind.PUSH_REF:
+            observed = remote_branch_head(remote, identity) or ZERO_SHA
+        elif effect.kind is EffectKind.UPDATE_PR:
+            number = int(identity)
+            live = pull_requests.get(number)
+            if live is None:
+                live = pull_request_by_number(number, remote=remote)
+            observed = _expected_pull_request_from_live(live).record
+        else:
+            raise ManifestError(
+                f"unsupported merge readback effect: {effect.kind.value}:{effect.field}"
+            )
+        values.append((effect.key, observed))
+    return TransitionObservation(values=tuple(values))
 
 
 def _recovery_manifest(args: argparse.Namespace):
@@ -1237,7 +1336,12 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
         ),
-        readback=lambda: _live_observation(approved, lambda: _merge_manifest(args)),
+        readback=lambda: _merge_observation(
+            approved,
+            source=args.source,
+            base=args.base,
+            remote=args.remote,
+        ),
     )
     _finish_transition(result)
 

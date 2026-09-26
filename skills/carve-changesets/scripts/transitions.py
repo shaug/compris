@@ -297,6 +297,10 @@ class ExpectedNativeStack:
     def order(self) -> tuple[str, ...]:
         return tuple(layer.branch for layer in self.layers)
 
+    @property
+    def open_order(self) -> tuple[str, ...]:
+        return tuple(layer.branch for layer in self.layers if not layer.merged)
+
     def validate(self) -> None:
         if self.identity is not None and (
             not isinstance(self.identity, str) or not self.identity.strip()
@@ -553,6 +557,21 @@ class MutationManifest:
                         (EffectKind.MERGE_PR, f"pr:{bottom}", "state"),
                     }
                 )
+        if self.operation is StackOperation.MERGE:
+            required_effects.update(
+                {
+                    (
+                        EffectKind.REFRESH_TRUNK,
+                        f"ref:{self.expected_native_stack.trunk}",
+                        "tree",
+                    ),
+                    (
+                        EffectKind.SYNC_STACK,
+                        f"stack:{self.expected_native_stack.identity or 'absent'}",
+                        "open_order",
+                    ),
+                }
+            )
         missing_required_effects = required_effects - effect_signatures
         if missing_required_effects:
             details = ", ".join(
@@ -619,6 +638,12 @@ class MutationManifest:
         mutated_branches = {
             item.name.removeprefix("refs/heads/") for item in self.expected_refs
         } | {item.branch for item in self.expected_pull_requests}
+        if self.operation is StackOperation.MERGE:
+            mutated_branches.update(
+                effect.target.removeprefix("ref:")
+                for effect in self.effects
+                if effect.target.startswith("ref:")
+            )
         ready_effect_branches = {
             item.branch
             for item in self.expected_pull_requests
@@ -1235,6 +1260,8 @@ def preview_merge(
     prefix_numbers: Sequence[int],
     merge_mode: MergeMode,
     merge_method: str | None,
+    trunk_tree_before: str,
+    trunk_tree_after: str,
     authority: AuthorityGrant,
     evidence: Sequence[str],
 ) -> MutationManifest:
@@ -1253,8 +1280,20 @@ def preview_merge(
         raise ManifestError(
             "merge prefix must be an ordered bottom prefix of open pull requests"
         )
+    for label, tree in (
+        ("current trunk", trunk_tree_before),
+        ("landing trunk", trunk_tree_after),
+    ):
+        if len(tree) != 40 or any(
+            character not in "0123456789abcdef" for character in tree
+        ):
+            raise ManifestError(f"{label} tree must be a full SHA")
     effects: list[MutationEffect] = []
-    suffix = tuple(item for item in expected_pull_requests if item.number not in prefix)
+    suffix = tuple(
+        item
+        for item in expected_pull_requests
+        if item.state == "OPEN" and item.number not in prefix
+    )
     ref_by_branch = {
         item.name.removeprefix("refs/heads/"): item for item in expected_refs
     }
@@ -1308,6 +1347,24 @@ def preview_merge(
             )
         )
         phases = (TransitionPhase.QUEUE_MERGE,)
+    effects.extend(
+        (
+            MutationEffect(
+                EffectKind.REFRESH_TRUNK,
+                f"ref:{native_stack.trunk}",
+                "tree",
+                trunk_tree_before,
+                trunk_tree_after,
+            ),
+            MutationEffect(
+                EffectKind.SYNC_STACK,
+                f"stack:{native_stack.identity or 'absent'}",
+                "open_order",
+                native_stack.open_order,
+                tuple(item.branch for item in suffix),
+            ),
+        )
+    )
     predecessor = native_stack.trunk
     for pull_request in suffix:
         expected_ref = ref_by_branch[pull_request.branch]
@@ -1587,6 +1644,8 @@ def observation_from_manifest(
                 )
             elif effect.field == "order":
                 observed = current.expected_native_stack.order
+            elif effect.field == "open_order":
+                observed = current.expected_native_stack.open_order
             elif effect.field == "head":
                 branch = identity.rpartition(":")[2]
                 observed = refs[branch].old_sha
