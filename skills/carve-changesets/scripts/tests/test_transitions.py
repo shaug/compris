@@ -469,8 +469,9 @@ class CapabilityFenceTests(unittest.TestCase):
 
         self.assertEqual(TransitionState.BLOCKED, result.state)
         self.assertIn("explicit_pull_request_bodies", result.blocker)
-        self.assertEqual([manifest], rereads)
+        self.assertEqual([], rereads)
         self.assertEqual([], calls)
+        self.assertEqual(manifest, result.retained_manifest)
 
 
 class OperationManifestTests(unittest.TestCase):

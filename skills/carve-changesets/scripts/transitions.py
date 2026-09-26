@@ -11,6 +11,7 @@ from enum import Enum
 from gh_stack import GhStackProfile, StackCapability
 
 ZERO_SHA = "0" * 40
+MISSING_OBSERVATION = object()
 
 
 class ManifestError(ValueError):
@@ -704,6 +705,8 @@ class TransitionResult:
 
 
 def _json_value(value: object) -> object:
+    if value is MISSING_OBSERVATION:
+        return {"missing": True}
     if isinstance(value, tuple):
         return [_json_value(item) for item in value]
     if isinstance(value, list):
@@ -711,6 +714,33 @@ def _json_value(value: object) -> object:
     if isinstance(value, dict):
         return {str(key): _json_value(item) for key, item in value.items()}
     return value
+
+
+def transition_result_to_json(result: TransitionResult) -> str:
+    payload = {
+        "schema_version": 1,
+        "state": result.state.value,
+        "operation": result.operation.value,
+        "identities": list(result.identities),
+        "evidence": list(result.evidence),
+        "blocker": result.blocker,
+        "next_action": result.next_action,
+        "fresh_manifest_required": result.fresh_manifest_required,
+        "approved_manifest_retained": result.retained_manifest is not None,
+        "targets": [
+            {
+                "kind": item.effect.kind.value,
+                "target": item.effect.target,
+                "field": item.effect.field,
+                "expected_before": _json_value(item.effect.before),
+                "expected_after": _json_value(item.effect.after),
+                "observed": _json_value(item.observed),
+                "disposition": item.disposition.value,
+            }
+            for item in result.targets
+        ],
+    }
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
 def _frozen_value(value: object) -> object:
@@ -1490,7 +1520,7 @@ def classify_readback(
     observation: TransitionObservation,
 ) -> TransitionResult:
     observed = observation.as_mapping()
-    missing = object()
+    missing = MISSING_OBSERVATION
     targets: list[TargetReadback] = []
     for effect in manifest.effects:
         value = observed.get(effect.key, missing)
@@ -1683,6 +1713,23 @@ def execute_transition(
             blocker=str(exc),
             next_action="approve a complete operation-scoped manifest",
         )
+    required = required_capabilities(
+        manifest.operation,
+        phases=manifest.enabled_phases,
+        merge_mode=manifest.merge_mode,
+    )
+    missing = required - profile.capabilities
+    if missing:
+        names = ", ".join(sorted(capability.value for capability in missing))
+        return TransitionResult(
+            state=TransitionState.BLOCKED,
+            operation=manifest.operation,
+            identities=manifest.identities,
+            evidence=manifest.evidence,
+            blocker=f"gh stack profile {profile.version} lacks: {names}",
+            next_action="install a repository-tested compatible gh-stack profile",
+            retained_manifest=manifest,
+        )
     try:
         current = reread()
         current.validate_complete()
@@ -1705,22 +1752,6 @@ def execute_transition(
             blocker="manifest changed during pre-execution reread",
             next_action="review and approve a newly generated manifest",
             fresh_manifest_required=True,
-        )
-    required = required_capabilities(
-        manifest.operation,
-        phases=manifest.enabled_phases,
-        merge_mode=manifest.merge_mode,
-    )
-    missing = required - profile.capabilities
-    if missing:
-        names = ", ".join(sorted(capability.value for capability in missing))
-        return TransitionResult(
-            state=TransitionState.BLOCKED,
-            operation=manifest.operation,
-            identities=manifest.identities,
-            evidence=manifest.evidence,
-            blocker=f"gh stack profile {profile.version} lacks: {names}",
-            next_action="install a repository-tested compatible gh-stack profile",
         )
     execution_error: Exception | None = None
     try:

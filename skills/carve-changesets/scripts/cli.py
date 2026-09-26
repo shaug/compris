@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
@@ -32,6 +34,7 @@ from gh_stack import (
     REVIEWED_PROFILE_PATH,
     GhStackClient,
     GhStackError,
+    GhStackProfile,
     StackCapability,
     probe_profile,
     reviewed_preview_profile,
@@ -91,12 +94,18 @@ from transitions import (
     preview_recovery,
     preview_repair,
     required_capabilities,
+    transition_result_to_json,
 )
 from validate import ChainValidation, validate_live_chain
 
 READ_ONLY = "read-only"
 LOCAL_MUTATING = "local-mutating"
 REMOTE_MUTATING = "remote-mutating"
+
+
+class StructuredTransitionError(CommandError):
+    """A structured transition result was already emitted on stdout."""
+
 
 COMMAND_MUTATION_CLASSES = {
     "preflight": LOCAL_MUTATING,
@@ -382,17 +391,6 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
     if not hasattr(args, "execute"):
         pr_create(plan, indices=indices, dry_run=args.dry_run, remote=args.remote)
         return
-    if args.execute:
-        if args.ready_for_review and not args.ack_ready_for_review:
-            raise CommandError(
-                "--execute with --ready-for-review requires --ack-ready-for-review"
-            )
-        _require_supported_execution(
-            acknowledged=args.ack_submit,
-            acknowledgement="--ack-submit",
-            operation=StackOperation.PUBLISH,
-            phases=(TransitionPhase.PUSH, TransitionPhase.SUBMIT),
-        )
     if not args.execute:
         print(
             manifest_to_json(
@@ -408,9 +406,22 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
         )
         return
     approved = _read_manifest(args.manifest)
-    result = execute_transition(
+    profile, blocked = _execution_preflight(
         approved,
-        profile=_reviewed_profile(),
+        acknowledgements=(
+            (args.ack_submit, "--ack-submit"),
+            (
+                not args.ready_for_review or args.ack_ready_for_review,
+                "--ack-ready-for-review",
+            ),
+        ),
+    )
+    if blocked is not None:
+        _finish_transition(blocked)
+    assert profile is not None
+    result = _execute_for_cli(
+        approved,
+        profile=profile,
         reread=lambda: _publish_manifest(
             plan,
             remote=args.remote,
@@ -1122,21 +1133,70 @@ def _read_manifest(path: str | None):
         raise CommandError(f"Approved manifest is unreadable: {path}") from exc
 
 
-def _require_supported_execution(
-    *, acknowledged: bool, acknowledgement: str, operation, phases, merge_mode=None
-) -> None:
-    if not acknowledged:
-        raise CommandError(f"--execute requires {acknowledgement}")
-    profile = _reviewed_profile()
+def _blocked_manifest_result(
+    manifest,
+    *,
+    blocker: str,
+    next_action: str,
+) -> TransitionResult:
+    return TransitionResult(
+        state=TransitionState.BLOCKED,
+        operation=manifest.operation,
+        identities=manifest.identities,
+        evidence=manifest.evidence,
+        blocker=blocker,
+        next_action=next_action,
+        retained_manifest=manifest,
+    )
+
+
+def _execution_preflight(
+    manifest,
+    *,
+    acknowledgements: Sequence[tuple[bool, str]],
+) -> tuple[GhStackProfile | None, TransitionResult | None]:
+    missing_acknowledgements = tuple(
+        flag for acknowledged, flag in acknowledgements if not acknowledged
+    )
+    if missing_acknowledgements:
+        required = ", ".join(missing_acknowledgements)
+        return None, _blocked_manifest_result(
+            manifest,
+            blocker=f"--execute requires {required}",
+            next_action="confirm the exact authority grant and retry this manifest",
+        )
+    try:
+        profile = _reviewed_profile()
+    except GhStackError as exc:
+        return None, _blocked_manifest_result(
+            manifest,
+            blocker=f"reviewed gh stack profile is unavailable: {exc}",
+            next_action="install a repository-tested compatible gh-stack profile",
+        )
     missing = (
-        required_capabilities(operation, phases=phases, merge_mode=merge_mode)
+        required_capabilities(
+            manifest.operation,
+            phases=manifest.enabled_phases,
+            merge_mode=manifest.merge_mode,
+        )
         - profile.capabilities
     )
     if missing:
         names = ", ".join(sorted(item.value for item in missing))
-        raise CommandError(
-            f"gh stack profile {profile.version} lacks: {names}; no state was refreshed"
+        return None, _blocked_manifest_result(
+            manifest,
+            blocker=(
+                f"gh stack profile {profile.version} lacks: {names}; "
+                "no state was refreshed"
+            ),
+            next_action="install a repository-tested compatible gh-stack profile",
         )
+    return profile, None
+
+
+def _execute_for_cli(*args, **kwargs) -> TransitionResult:
+    with redirect_stdout(sys.stderr):
+        return execute_transition(*args, **kwargs)
 
 
 def _live_observation(approved, builder) -> TransitionObservation:
@@ -1155,29 +1215,7 @@ def _push_observation(manifest) -> TransitionObservation:
 
 
 def _print_transition_result(result: TransitionResult) -> None:
-    print(
-        json.dumps(
-            {
-                "state": result.state.value,
-                "operation": result.operation.value,
-                "identities": list(result.identities),
-                "blocker": result.blocker,
-                "next_action": result.next_action,
-                "fresh_manifest_required": result.fresh_manifest_required,
-                "approved_manifest_retained": result.retained_manifest is not None,
-                "targets": [
-                    {
-                        "target": item.effect.target,
-                        "field": item.effect.field,
-                        "disposition": item.disposition.value,
-                    }
-                    for item in result.targets
-                ],
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
+    print(transition_result_to_json(result), end="")
 
 
 def _finish_transition(result: TransitionResult) -> None:
@@ -1192,7 +1230,7 @@ def _finish_transition(result: TransitionResult) -> None:
         }
         or result.fresh_manifest_required
     ):
-        raise CommandError(
+        raise StructuredTransitionError(
             result.blocker
             or "transition readback requires a fresh manifest before continuing"
         )
@@ -1203,13 +1241,6 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
     if not hasattr(args, "execute"):
         push_chain(plan, remote=args.remote, dry_run=args.dry_run)
         return
-    if args.execute:
-        _require_supported_execution(
-            acknowledged=args.ack_push,
-            acknowledgement="--ack-push",
-            operation=StackOperation.PUBLISH,
-            phases=(TransitionPhase.PUSH,),
-        )
     if not args.execute:
         print(
             manifest_to_json(
@@ -1223,9 +1254,16 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
         )
         return
     approved = _read_manifest(args.manifest)
-    result = execute_transition(
+    profile, blocked = _execution_preflight(
         approved,
-        profile=_reviewed_profile(),
+        acknowledgements=((args.ack_push, "--ack-push"),),
+    )
+    if blocked is not None:
+        _finish_transition(blocked)
+    assert profile is not None
+    result = _execute_for_cli(
+        approved,
+        profile=profile,
         reread=lambda: _push_manifest(
             plan,
             remote=args.remote,
@@ -1250,24 +1288,20 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             authority_acknowledged=args.ack_merge_and_propagate,
         )
         return
-    if args.execute:
-        _require_supported_execution(
-            acknowledged=args.ack_repair,
-            acknowledgement="--ack-repair",
-            operation=StackOperation.REPAIR,
-            phases=(
-                TransitionPhase.REBASE_NO_TRUNK,
-                TransitionPhase.PUSH,
-                TransitionPhase.SYNC,
-            ),
-        )
     if not args.execute:
         print(manifest_to_json(_repair_manifest(args)), end="")
         return
     approved = _read_manifest(args.manifest)
-    result = execute_transition(
+    profile, blocked = _execution_preflight(
         approved,
-        profile=_reviewed_profile(),
+        acknowledgements=((args.ack_repair, "--ack-repair"),),
+    )
+    if blocked is not None:
+        _finish_transition(blocked)
+    assert profile is not None
+    result = _execute_for_cli(
+        approved,
+        profile=profile,
         reread=lambda: _repair_manifest(args),
         executor=lambda _manifest: propagate_from_live(
             source=args.source,
@@ -1299,31 +1333,32 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
         )
         return
     mode = MergeMode(args.merge_mode)
-    phases = (
-        (TransitionPhase.DIRECT_MERGE,)
-        if mode is MergeMode.DIRECT
-        else (TransitionPhase.QUEUE_MERGE,)
-    )
     acknowledgement = (
         args.ack_queue_merge if mode is MergeMode.QUEUE else args.ack_direct_merge
     )
-    if args.execute:
-        _require_supported_execution(
-            acknowledged=acknowledgement,
-            acknowledgement=(
-                "--ack-queue-merge" if mode is MergeMode.QUEUE else "--ack-direct-merge"
-            ),
-            operation=StackOperation.MERGE,
-            phases=phases,
-            merge_mode=mode,
-        )
     if not args.execute:
         print(manifest_to_json(_merge_manifest(args)), end="")
         return
     approved = _read_manifest(args.manifest)
-    result = execute_transition(
+    profile, blocked = _execution_preflight(
         approved,
-        profile=_reviewed_profile(),
+        acknowledgements=(
+            (
+                acknowledgement,
+                (
+                    "--ack-queue-merge"
+                    if mode is MergeMode.QUEUE
+                    else "--ack-direct-merge"
+                ),
+            ),
+        ),
+    )
+    if blocked is not None:
+        _finish_transition(blocked)
+    assert profile is not None
+    result = _execute_for_cli(
+        approved,
+        profile=profile,
         reread=lambda: _merge_manifest(args),
         executor=lambda _manifest: merge_propagate_from_live(
             source=args.source,
@@ -1359,25 +1394,20 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             authority_acknowledged=args.ack_suffix_recovery,
         )
         return
-    if args.execute:
-        _require_supported_execution(
-            acknowledged=args.ack_suffix_recovery,
-            acknowledgement="--ack-suffix-recovery",
-            operation=StackOperation.RECOVER,
-            phases=(
-                TransitionPhase.TRUNK_REFRESH,
-                TransitionPhase.REBASE_NO_TRUNK,
-                TransitionPhase.PUSH,
-                TransitionPhase.SYNC,
-            ),
-        )
     if not args.execute:
         print(manifest_to_json(_recovery_manifest(args)), end="")
         return
     approved = _read_manifest(args.manifest)
-    result = execute_transition(
+    profile, blocked = _execution_preflight(
         approved,
-        profile=_reviewed_profile(),
+        acknowledgements=((args.ack_suffix_recovery, "--ack-suffix-recovery"),),
+    )
+    if blocked is not None:
+        _finish_transition(blocked)
+    assert profile is not None
+    result = _execute_for_cli(
+        approved,
+        profile=profile,
         reread=lambda: _recovery_manifest(args),
         executor=lambda _manifest: recover_suffix_from_live(
             source=args.source,
@@ -1837,7 +1867,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         NativeStackError,
         RehydrationError,
     ) as exc:
-        print(f"[ERROR] {exc}")
+        destination = (
+            sys.stderr if isinstance(exc, StructuredTransitionError) else sys.stdout
+        )
+        print(f"[ERROR] {exc}", file=destination)
         return 1
 
 

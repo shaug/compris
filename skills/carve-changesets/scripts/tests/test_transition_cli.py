@@ -4,7 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
-from contextlib import chdir, redirect_stdout
+from contextlib import chdir, redirect_stderr, redirect_stdout
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
@@ -32,6 +32,7 @@ from transitions import (  # noqa: E402
     StackOperation,
     TransitionResult,
     TransitionState,
+    manifest_from_json,
 )
 
 
@@ -288,8 +289,9 @@ class TransitionCliTests(unittest.TestCase):
         approved = self.root / "approved.json"
         approved.write_text(self._preview_manifest())
         output = StringIO()
+        errors = StringIO()
 
-        with chdir(self.repo), redirect_stdout(output):
+        with chdir(self.repo), redirect_stdout(output), redirect_stderr(errors):
             status = main(
                 (
                     "push-chain",
@@ -303,8 +305,16 @@ class TransitionCliTests(unittest.TestCase):
             )
 
         self.assertEqual(1, status)
-        self.assertIn("fenced_push", output.getvalue())
-        self.assertIn("no state was refreshed", output.getvalue())
+        result = json.loads(output.getvalue())
+        manifest = manifest_from_json(approved.read_text())
+        self.assertEqual("blocked", result["state"])
+        self.assertEqual("publish", result["operation"])
+        self.assertEqual(list(manifest.identities), result["identities"])
+        self.assertEqual(list(manifest.evidence), result["evidence"])
+        self.assertIn("fenced_push", result["blocker"])
+        self.assertEqual([], result["targets"])
+        self.assertIn("[ERROR]", errors.getvalue())
+        self.assertNotIn("[ERROR]", output.getvalue())
         self.assertEqual(
             "",
             helpers.run(
@@ -396,8 +406,9 @@ class TransitionCliTests(unittest.TestCase):
         approved = self.root / "approved.json"
         approved.write_text(self._preview_manifest())
         output = StringIO()
+        errors = StringIO()
 
-        with chdir(self.repo), redirect_stdout(output):
+        with chdir(self.repo), redirect_stdout(output), redirect_stderr(errors):
             status = main(
                 (
                     "push-chain",
@@ -410,7 +421,10 @@ class TransitionCliTests(unittest.TestCase):
             )
 
         self.assertEqual(1, status)
-        self.assertIn("requires --ack-push", output.getvalue())
+        result = json.loads(output.getvalue())
+        self.assertEqual("blocked", result["state"])
+        self.assertIn("requires --ack-push", result["blocker"])
+        self.assertIn("[ERROR]", errors.getvalue())
         self.assertEqual(
             "",
             helpers.run(
@@ -495,42 +509,128 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual("feature/report-1", create.after[3])
 
     def test_execute_refuses_unsupported_profile_before_manifest_refresh(self) -> None:
-        args = cli_mod.build_parser().parse_args(
-            (
-                "propagate",
-                "--source",
-                "feature/report",
-                "--index",
-                "1",
-                "--execute",
-                "--ack-repair",
-            )
-        )
+        approved = self.root / "approved-no-refresh.json"
+        approved.write_text(self._preview_manifest())
         output = StringIO()
+        errors = StringIO()
 
         with (
             mock.patch.object(
                 cli_mod,
-                "_repair_manifest",
+                "_push_manifest",
                 side_effect=AssertionError("must not refresh"),
             ),
+            chdir(self.repo),
             redirect_stdout(output),
+            redirect_stderr(errors),
         ):
             status = cli_mod.main(
                 (
-                    "propagate",
-                    "--source",
-                    "feature/report",
-                    "--index",
-                    "1",
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved),
                     "--execute",
-                    "--ack-repair",
+                    "--ack-push",
                 )
             )
 
-        self.assertTrue(args.execute)
         self.assertEqual(1, status)
-        self.assertIn("no state was refreshed", output.getvalue())
+        result = json.loads(output.getvalue())
+        self.assertEqual("blocked", result["state"])
+        self.assertIn("fenced_push", result["blocker"])
+        self.assertIn("[ERROR]", errors.getvalue())
+
+    def _execute_push_with_readback(
+        self, *, observed: tuple[tuple[str, object], ...], executor_error: bool
+    ) -> tuple[int, dict[str, object], str]:
+        approved_path = self.root / "approved-readback.json"
+        approved_path.write_text(self._preview_manifest())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        output = StringIO()
+        errors = StringIO()
+        executor = mock.Mock(
+            side_effect=(
+                RuntimeError("second lease rejected") if executor_error else None
+            )
+        )
+        with (
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "push_chain", executor),
+            mock.patch.object(
+                cli_mod,
+                "_push_observation",
+                return_value=cli_mod.TransitionObservation(values=observed),
+            ),
+            chdir(self.repo),
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved_path),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+        return status, json.loads(output.getvalue()), errors.getvalue()
+
+    def test_partial_execution_renders_lossless_exact_readback(self) -> None:
+        approved = manifest_from_json(self._preview_manifest())
+        first, *remaining = approved.effects
+        observed = (
+            (first.key, first.after),
+            *((effect.key, effect.before) for effect in remaining),
+        )
+
+        status, result, errors = self._execute_push_with_readback(
+            observed=observed, executor_error=True
+        )
+
+        self.assertEqual(1, status)
+        self.assertEqual("partial", result["state"])
+        self.assertEqual(list(approved.evidence), result["evidence"])
+        self.assertEqual(
+            {
+                "kind": first.kind.value,
+                "target": first.target,
+                "field": first.field,
+                "expected_before": first.before,
+                "expected_after": first.after,
+                "observed": first.after,
+                "disposition": "changed_as_expected",
+            },
+            result["targets"][0],
+        )
+        self.assertIn("second lease rejected", result["blocker"])
+        self.assertIn("[ERROR]", errors)
+
+    def test_divergent_execution_renders_explicit_missing_observation(self) -> None:
+        approved = manifest_from_json(self._preview_manifest())
+        first, *remaining = approved.effects
+        observed = tuple((effect.key, effect.before) for effect in remaining)
+
+        status, result, errors = self._execute_push_with_readback(
+            observed=observed, executor_error=False
+        )
+
+        self.assertEqual(1, status)
+        self.assertEqual("blocked", result["state"])
+        self.assertEqual("changed_unexpectedly", result["targets"][0]["disposition"])
+        self.assertEqual({"missing": True}, result["targets"][0]["observed"])
+        self.assertEqual(first.before, result["targets"][0]["expected_before"])
+        self.assertEqual(first.after, result["targets"][0]["expected_after"])
+        self.assertIn("[ERROR]", errors)
 
     def test_preview_requires_explicit_native_snapshot_refresh_authority(self) -> None:
         self.native_reader_mock.reset_mock()
