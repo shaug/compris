@@ -61,8 +61,9 @@ are intentional, make that boundary explicit with an argv such as
   Remote execution requires `--execute`, the exact approved manifest, and the
   operation-specific acknowledgement; unsupported reviewed-profile capabilities
   block before refresh or mutation.
-- `propagate` and `merge-propagate` additionally require
-  `--ack-merge-and-propagate` and exactly one of `--pr` or `--index`.
+- `propagate` requires `--ack-repair`; `merge-propagate` requires
+  `--ack-direct-merge` or `--ack-queue-merge` according to its merge mode. Both
+  commands also require exactly one of `--pr` or `--index`.
 - `recover-suffix` additionally requires `--ack-suffix-recovery`, the stable
   `--from-index` of the first unmerged position, and exact `--successor-source`
   and `--successor-sha` identity.

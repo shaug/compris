@@ -1689,6 +1689,28 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("exact restamped successor heads", output.getvalue())
 
+    def test_recovery_requires_an_explicit_base(self) -> None:
+        errors = StringIO()
+
+        with redirect_stderr(errors), self.assertRaises(SystemExit) as raised:
+            main(
+                (
+                    "recover-suffix",
+                    "--source",
+                    "feature/report",
+                    "--from-index",
+                    "2",
+                    "--successor-source",
+                    "feature/report-corrected",
+                    "--successor-sha",
+                    "d" * 40,
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(2, raised.exception.code)
+        self.assertIn("--base", errors.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
