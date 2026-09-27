@@ -81,6 +81,7 @@ class PullRequestRecord(Protocol):
     head_sha: str
     base_branch: str
     state: str
+    queued: bool
     is_cross_repository: bool
 
 
@@ -325,6 +326,11 @@ def reconcile_native_stack(
             raise NativeStackError(
                 f"layer {layer.branch} GitHub PR #{live.number} state mismatch: "
                 f"native {native_pr.state}; GitHub {live_state}"
+            )
+        if live.queued != layer.queued:
+            raise NativeStackError(
+                f"layer {layer.branch} GitHub PR #{live.number} queue mismatch: "
+                f"native {layer.queued}; GitHub {live.queued}"
             )
         previous_branch = layer.branch
         previous_merged = layer.merged

@@ -40,6 +40,10 @@ class PullRequestRecord:
     merge_sha: str | None = None
     is_cross_repository: bool = False
     head_rewrite_edges: tuple[tuple[str, str], ...] = ()
+    draft: bool = False
+    queued: bool = False
+    auto_merge: bool = False
+    merge_state_status: str = ""
 
 
 @dataclass(frozen=True)
