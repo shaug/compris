@@ -33,6 +33,56 @@ from metadata import (  # noqa: E402
 
 
 class GithubTests(unittest.TestCase):
+    def test_pr_discovery_preserves_draft_queue_and_auto_merge_fence_state(
+        self,
+    ) -> None:
+        pull_request = {
+            "number": 92,
+            "headRefName": "feature/test-1",
+            "headRefOid": "c" * 40,
+            "baseRefName": "main",
+            "state": "OPEN",
+            "body": "Current body\n",
+            "title": "Current title",
+            "mergeCommit": None,
+            "isCrossRepository": False,
+            "isDraft": True,
+            "mergeStateStatus": "CLEAN",
+            "autoMergeRequest": {"enabledAt": "2026-09-25T00:00:00Z"},
+        }
+        timeline = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "mergeQueueEntry": {"id": "MQE_queued"},
+                        "timelineItems": {
+                            "nodes": [],
+                            "pageInfo": {
+                                "hasNextPage": False,
+                                "endCursor": None,
+                            },
+                        },
+                    }
+                }
+            }
+        }
+        with (
+            mock.patch.object(
+                github_mod,
+                "github_repo_for_remote",
+                return_value="github.com/acme/widgets",
+            ),
+            mock.patch.object(
+                github_mod, "gh_json", side_effect=([pull_request], timeline)
+            ),
+        ):
+            record = github_mod.pull_requests_for_source("feature/test")[0]
+
+        self.assertTrue(record.draft)
+        self.assertTrue(record.queued)
+        self.assertTrue(record.auto_merge)
+        self.assertEqual("CLEAN", record.merge_state_status)
+
     def test_pr_discovery_rejects_incomplete_force_push_history(self) -> None:
         pull_request = {
             "number": 92,
