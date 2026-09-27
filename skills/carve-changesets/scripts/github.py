@@ -28,13 +28,14 @@ from rehydrate import PullRequestRecord
 
 _PR_JSON_FIELDS = (
     "number,headRefName,headRefOid,baseRefName,state,body,title,mergeCommit,"
-    "isCrossRepository"
+    "isCrossRepository,isDraft,mergeStateStatus,autoMergeRequest"
 )
 
 _HEAD_REWRITE_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
-  repository(owner: $owner, name: $name) {
+    repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
+      mergeQueueEntry { id }
       timelineItems(
         first: 100
         after: $cursor
@@ -356,14 +357,13 @@ def pull_requests_for_source(
             continue
         context = f"changeset PR for {head}"
         number = _pull_request_number(item, context=context)
+        head_rewrite_edges, queued = _pull_request_remote_evidence(repository, number)
         records.append(
             _pull_request_record(
                 item,
                 context=context,
-                head_rewrite_edges=_pull_request_head_rewrite_edges(
-                    repository,
-                    number,
-                ),
+                head_rewrite_edges=head_rewrite_edges,
+                queued=queued,
             )
         )
     return records
@@ -388,11 +388,11 @@ def _pull_request_number(item: object, *, context: str) -> int:
         ) from exc
 
 
-def _pull_request_head_rewrite_edges(
+def _pull_request_remote_evidence(
     repository: str,
     number: int,
-) -> tuple[tuple[str, str], ...]:
-    """Read immutable GitHub evidence for every force-pushed head rewrite."""
+) -> tuple[tuple[tuple[str, str], ...], bool]:
+    """Read force-push history and exact merge-queue membership."""
 
     try:
         host, owner, name = repository.split("/", 2)
@@ -400,6 +400,7 @@ def _pull_request_head_rewrite_edges(
         raise CommandError(f"Invalid GitHub repository identity: {repository}") from exc
     cursor: str | None = None
     edges: list[tuple[str, str]] = []
+    queued: bool | None = None
     while True:
         args = [
             "api",
@@ -423,7 +424,8 @@ def _pull_request_head_rewrite_edges(
                 f"GitHub returned incomplete force-push history for PR #{number}."
             )
         try:
-            timeline = payload["data"]["repository"]["pullRequest"]["timelineItems"]
+            pull_request = payload["data"]["repository"]["pullRequest"]
+            timeline = pull_request["timelineItems"]
             nodes = timeline["nodes"]
             page_info = timeline["pageInfo"]
         except (KeyError, TypeError) as exc:
@@ -433,6 +435,29 @@ def _pull_request_head_rewrite_edges(
         if not isinstance(nodes, list) or not isinstance(page_info, dict):
             raise CommandError(
                 f"Unexpected GitHub force-push history for PR #{number}."
+            )
+        if "mergeQueueEntry" not in pull_request:
+            raise CommandError(
+                f"GitHub returned incomplete merge-queue evidence for PR #{number}."
+            )
+        queue_entry = pull_request["mergeQueueEntry"]
+        if queue_entry is None:
+            page_queued = False
+        elif (
+            isinstance(queue_entry, dict)
+            and isinstance(queue_entry.get("id"), str)
+            and queue_entry["id"].strip()
+        ):
+            page_queued = True
+        else:
+            raise CommandError(
+                f"GitHub returned invalid merge-queue evidence for PR #{number}."
+            )
+        if queued is None:
+            queued = page_queued
+        elif queued != page_queued:
+            raise CommandError(
+                f"GitHub merge-queue membership changed while reading PR #{number}."
             )
         for node in nodes:
             if not isinstance(node, dict):
@@ -459,7 +484,7 @@ def _pull_request_head_rewrite_edges(
                 )
             edges.append((before_oid, after_oid))
         if not page_info.get("hasNextPage"):
-            return tuple(edges)
+            return tuple(edges), bool(queued)
         cursor_value = page_info.get("endCursor")
         if not isinstance(cursor_value, str) or not cursor_value:
             raise CommandError(
@@ -473,11 +498,29 @@ def _pull_request_record(
     *,
     context: str,
     head_rewrite_edges: tuple[tuple[str, str], ...] = (),
+    queued: bool = False,
 ) -> PullRequestRecord:
     """Decode one selected gh PR payload with operation-specific errors."""
 
     number = _pull_request_number(item, context=context)
     assert isinstance(item, dict)
+    draft = item.get("isDraft")
+    if not isinstance(draft, bool):
+        raise CommandError(f"GitHub response for {context} has no valid isDraft.")
+    if "autoMergeRequest" not in item:
+        raise CommandError(
+            f"GitHub response for {context} has no valid autoMergeRequest."
+        )
+    auto_merge_request = item["autoMergeRequest"]
+    if auto_merge_request is not None and not isinstance(auto_merge_request, dict):
+        raise CommandError(
+            f"GitHub response for {context} has no valid autoMergeRequest."
+        )
+    merge_state_status = item.get("mergeStateStatus")
+    if not isinstance(merge_state_status, str) or not merge_state_status.strip():
+        raise CommandError(
+            f"GitHub response for {context} has no valid mergeStateStatus."
+        )
     return PullRequestRecord(
         number=number,
         head_branch=str(item.get("headRefName") or ""),
@@ -489,6 +532,10 @@ def _pull_request_record(
         merge_sha=_merge_sha(item),
         is_cross_repository=bool(item.get("isCrossRepository", False)),
         head_rewrite_edges=head_rewrite_edges,
+        draft=draft,
+        queued=queued,
+        auto_merge=auto_merge_request is not None,
+        merge_state_status=merge_state_status,
     )
 
 
@@ -507,10 +554,12 @@ def pull_request_by_number(number: int, *, remote: str = "origin") -> PullReques
             _PR_JSON_FIELDS,
         )
     )
+    head_rewrite_edges, queued = _pull_request_remote_evidence(repository, number)
     record = _pull_request_record(
         item,
         context=f"PR #{number}",
-        head_rewrite_edges=_pull_request_head_rewrite_edges(repository, number),
+        head_rewrite_edges=head_rewrite_edges,
+        queued=queued,
     )
     actual_number = record.number
     if actual_number != number:
