@@ -2410,7 +2410,10 @@ def execute_transition(
             operation=manifest.operation,
             identities=manifest.identities,
             evidence=manifest.evidence,
-            blocker=f"pre-execution reread is invalid: {exc}",
+            blocker=(
+                "manifest changed during pre-execution reread; "
+                f"pre-execution reread is invalid: {exc}"
+            ),
             next_action="review and approve a newly generated manifest",
             fresh_manifest_required=True,
         )
