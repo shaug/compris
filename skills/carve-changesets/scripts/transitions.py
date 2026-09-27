@@ -459,6 +459,15 @@ class MutationManifest:
         if len(set(pr_numbers)) != len(pr_numbers):
             raise ManifestError("manifest contains duplicate pull-request identities")
         self.expected_native_stack.validate()
+        ordered_pr_branches = tuple(
+            branch
+            for branch in self.expected_native_stack.order
+            if branch in set(pr_branches)
+        )
+        if pr_branches != ordered_pr_branches:
+            raise ManifestError(
+                "manifest pull requests must follow expected native stack order"
+            )
         if len(set(self.authority.ready_for_review)) != len(
             self.authority.ready_for_review
         ):
@@ -577,6 +586,53 @@ class MutationManifest:
                     ),
                 }
             )
+            suffix = tuple(
+                item
+                for item in self.expected_pull_requests
+                if item.state == "OPEN" and item.number not in self.merge_prefix
+            )
+            required_effects.update(
+                (
+                    EffectKind.PUSH_REF,
+                    f"ref:{pull_request.branch}",
+                    "sha",
+                )
+                for pull_request in suffix
+            )
+            required_effects.update(
+                (
+                    EffectKind.UPDATE_PR,
+                    f"pr:{pull_request.number}",
+                    "record",
+                )
+                for pull_request in suffix
+            )
+            required_effects.update(
+                (
+                    EffectKind.SYNC_STACK,
+                    "stack:"
+                    f"{self.expected_native_stack.identity or 'absent'}:"
+                    f"{pull_request.branch}",
+                    "head",
+                )
+                for pull_request in suffix
+            )
+        if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}:
+            required_effects.update(
+                (
+                    EffectKind.UPDATE_PR,
+                    f"pr:{pull_request.number}",
+                    "record",
+                )
+                for pull_request in self.expected_pull_requests
+            )
+            required_effects.add(
+                (
+                    EffectKind.SYNC_STACK,
+                    f"stack:{self.expected_native_stack.identity or 'absent'}",
+                    "order",
+                )
+            )
         missing_required_effects = required_effects - effect_signatures
         if missing_required_effects:
             details = ", ".join(
@@ -587,6 +643,16 @@ class MutationManifest:
                 )
             )
             raise ManifestError(f"manifest is missing required effect: {details}")
+        unexpected_effects = effect_signatures - required_effects
+        if unexpected_effects:
+            details = ", ".join(
+                f"{kind.value}:{target}:{field}"
+                for kind, target, field in sorted(
+                    unexpected_effects,
+                    key=lambda item: (item[0].value, item[1], item[2]),
+                )
+            )
+            raise ManifestError(f"manifest has unexpected effect: {details}")
         if self.operation is StackOperation.MERGE and self.merge_mode is None:
             raise ManifestError("merge manifests must select direct or queue mode")
         if self.operation is StackOperation.MERGE and not self.merge_prefix:
@@ -862,69 +928,221 @@ def _strings(value: object, context: str) -> tuple[str, ...]:
     return tuple(items)
 
 
+def _exact_object(
+    value: object, context: str, expected_fields: frozenset[str]
+) -> dict[str, object]:
+    result = _object(value, context)
+    actual_fields = frozenset(result)
+    if actual_fields != expected_fields:
+        missing = sorted(expected_fields - actual_fields)
+        unknown = sorted(actual_fields - expected_fields)
+        raise ManifestError(
+            f"{context} fields are invalid; missing={missing!r}, unknown={unknown!r}"
+        )
+    return result
+
+
+def _string(value: object, context: str) -> str:
+    if not isinstance(value, str):
+        raise ManifestError(f"{context} must be a string")
+    return value
+
+
+def _optional_string(value: object, context: str) -> str | None:
+    if value is None:
+        return None
+    return _string(value, context)
+
+
+def _integer(value: object, context: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ManifestError(f"{context} must be an integer")
+    return value
+
+
+def _optional_integer(value: object, context: str) -> int | None:
+    if value is None:
+        return None
+    return _integer(value, context)
+
+
+def _boolean(value: object, context: str) -> bool:
+    if not isinstance(value, bool):
+        raise ManifestError(f"{context} must be boolean")
+    return value
+
+
+def _optional_boolean(value: object, context: str) -> bool | None:
+    if value is None:
+        return None
+    return _boolean(value, context)
+
+
 def manifest_from_json(raw: str) -> MutationManifest:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ManifestError(f"manifest is not valid JSON: {exc}") from exc
-    root = _object(payload, "manifest")
+    root = _exact_object(
+        payload,
+        "manifest",
+        frozenset(
+            {
+                "schema_version",
+                "operation",
+                "repository",
+                "remote",
+                "identities",
+                "expected_refs",
+                "expected_pull_requests",
+                "expected_native_stack",
+                "enabled_phases",
+                "merge_mode",
+                "merge_method",
+                "merge_prefix",
+                "effects",
+                "evidence",
+                "authority",
+            }
+        ),
+    )
     if root.get("schema_version") != 1:
         raise ManifestError("manifest schema_version must be 1")
     try:
         refs = tuple(
             ExpectedRef(
-                name=str(item["name"]),
-                old_sha=str(item["old_sha"]),
-                proposed_sha=str(item["proposed_sha"]),
+                name=_string(item["name"], "expected ref.name"),
+                old_sha=_string(item["old_sha"], "expected ref.old_sha"),
+                proposed_sha=_string(item["proposed_sha"], "expected ref.proposed_sha"),
             )
             for item in (
-                _object(value, "expected ref")
+                _exact_object(
+                    value,
+                    "expected ref",
+                    frozenset({"name", "old_sha", "proposed_sha"}),
+                )
                 for value in _array(root["expected_refs"], "expected_refs")
             )
         )
         pull_requests = tuple(
             ExpectedPullRequest(
-                number=item["number"],
-                branch=str(item["branch"]),
-                head=item["head"],
-                base=item["base"],
-                state=str(item["state"]),
-                draft=item["draft"],
-                queued=item["queued"],
-                auto_merge=item["auto_merge"],
-                title=str(item["title"]),
-                body=str(item["body"]),
-                current_title=item.get("current_title"),
-                current_body=item.get("current_body"),
-                merge_state_status=item.get("merge_state_status"),
+                number=_optional_integer(
+                    item["number"], "expected pull request.number"
+                ),
+                branch=_string(item["branch"], "expected pull request.branch"),
+                head=_optional_string(item["head"], "expected pull request.head"),
+                base=_optional_string(item["base"], "expected pull request.base"),
+                state=_string(item["state"], "expected pull request.state"),
+                draft=_optional_boolean(item["draft"], "expected pull request.draft"),
+                queued=_optional_boolean(
+                    item["queued"], "expected pull request.queued"
+                ),
+                auto_merge=_optional_boolean(
+                    item["auto_merge"], "expected pull request.auto_merge"
+                ),
+                title=_string(item["title"], "expected pull request.title"),
+                body=_string(item["body"], "expected pull request.body"),
+                current_title=_optional_string(
+                    item["current_title"], "expected pull request.current_title"
+                ),
+                current_body=_optional_string(
+                    item["current_body"], "expected pull request.current_body"
+                ),
+                merge_state_status=_optional_string(
+                    item["merge_state_status"],
+                    "expected pull request.merge_state_status",
+                ),
             )
             for item in (
-                _object(value, "expected pull request")
+                _exact_object(
+                    value,
+                    "expected pull request",
+                    frozenset(
+                        {
+                            "number",
+                            "branch",
+                            "head",
+                            "base",
+                            "state",
+                            "draft",
+                            "queued",
+                            "auto_merge",
+                            "title",
+                            "body",
+                            "current_title",
+                            "current_body",
+                            "merge_state_status",
+                        }
+                    ),
+                )
                 for value in _array(
                     root["expected_pull_requests"], "expected_pull_requests"
                 )
             )
         )
-        stack_data = _object(root["expected_native_stack"], "expected_native_stack")
+        stack_data = _exact_object(
+            root["expected_native_stack"],
+            "expected_native_stack",
+            frozenset(
+                {
+                    "identity",
+                    "registered",
+                    "trunk",
+                    "trunk_head",
+                    "trunk_tree",
+                    "layers",
+                }
+            ),
+        )
         native_stack = ExpectedNativeStack(
-            identity=stack_data["identity"],
-            registered=stack_data["registered"],
-            trunk=str(stack_data["trunk"]),
-            trunk_head=str(stack_data["trunk_head"]),
-            trunk_tree=str(stack_data["trunk_tree"]),
+            identity=_optional_string(
+                stack_data["identity"], "expected_native_stack.identity"
+            ),
+            registered=_boolean(
+                stack_data["registered"], "expected_native_stack.registered"
+            ),
+            trunk=_string(stack_data["trunk"], "expected_native_stack.trunk"),
+            trunk_head=_string(
+                stack_data["trunk_head"], "expected_native_stack.trunk_head"
+            ),
+            trunk_tree=_string(
+                stack_data["trunk_tree"], "expected_native_stack.trunk_tree"
+            ),
             layers=tuple(
                 ExpectedNativeLayer(
-                    branch=str(item["branch"]),
-                    head=str(item["head"]),
-                    base=str(item["base"]),
-                    merged=item["merged"],
-                    queued=item["queued"],
-                    needs_rebase=item["needs_rebase"],
-                    pull_request=item["pull_request"],
-                    pull_request_state=item["pull_request_state"],
+                    branch=_string(item["branch"], "expected native layer.branch"),
+                    head=_string(item["head"], "expected native layer.head"),
+                    base=_string(item["base"], "expected native layer.base"),
+                    merged=_boolean(item["merged"], "expected native layer.merged"),
+                    queued=_boolean(item["queued"], "expected native layer.queued"),
+                    needs_rebase=_boolean(
+                        item["needs_rebase"], "expected native layer.needs_rebase"
+                    ),
+                    pull_request=_optional_integer(
+                        item["pull_request"], "expected native layer.pull_request"
+                    ),
+                    pull_request_state=_optional_string(
+                        item["pull_request_state"],
+                        "expected native layer.pull_request_state",
+                    ),
                 )
                 for item in (
-                    _object(value, "expected native layer")
+                    _exact_object(
+                        value,
+                        "expected native layer",
+                        frozenset(
+                            {
+                                "branch",
+                                "head",
+                                "base",
+                                "merged",
+                                "queued",
+                                "needs_rebase",
+                                "pull_request",
+                                "pull_request_state",
+                            }
+                        ),
+                    )
                     for value in _array(
                         stack_data["layers"], "expected_native_stack.layers"
                     )
@@ -933,21 +1151,44 @@ def manifest_from_json(raw: str) -> MutationManifest:
         )
         effects = tuple(
             MutationEffect(
-                kind=EffectKind(str(item["kind"])),
-                target=str(item["target"]),
-                field=str(item["field"]),
+                kind=EffectKind(_string(item["kind"], "effect.kind")),
+                target=_string(item["target"], "effect.target"),
+                field=_string(item["field"], "effect.field"),
                 before=_frozen_value(item["before"]),
                 after=_frozen_value(item["after"]),
             )
             for item in (
-                _object(value, "effect") for value in _array(root["effects"], "effects")
+                _exact_object(
+                    value,
+                    "effect",
+                    frozenset({"kind", "target", "field", "before", "after"}),
+                )
+                for value in _array(root["effects"], "effects")
             )
         )
-        authority_data = _object(root["authority"], "authority")
+        authority_data = _exact_object(
+            root["authority"],
+            "authority",
+            frozenset(
+                {
+                    "operation",
+                    "repository",
+                    "remote",
+                    "identities",
+                    "branches",
+                    "phases",
+                    "effect_kinds",
+                    "ready_for_review",
+                    "merge_method",
+                }
+            ),
+        )
         authority = AuthorityGrant(
-            operation=StackOperation(str(authority_data["operation"])),
-            repository=str(authority_data["repository"]),
-            remote=str(authority_data["remote"]),
+            operation=StackOperation(
+                _string(authority_data["operation"], "authority.operation")
+            ),
+            repository=_string(authority_data["repository"], "authority.repository"),
+            remote=_string(authority_data["remote"], "authority.remote"),
             identities=_strings(authority_data["identities"], "authority.identities"),
             branches=_strings(authority_data["branches"], "authority.branches"),
             phases=frozenset(
@@ -963,13 +1204,15 @@ def manifest_from_json(raw: str) -> MutationManifest:
             ready_for_review=_strings(
                 authority_data["ready_for_review"], "authority.ready_for_review"
             ),
-            merge_method=authority_data.get("merge_method"),
+            merge_method=_optional_string(
+                authority_data["merge_method"], "authority.merge_method"
+            ),
         )
         merge_mode_value = root["merge_mode"]
         manifest = MutationManifest(
-            operation=StackOperation(str(root["operation"])),
-            repository=str(root["repository"]),
-            remote=str(root["remote"]),
+            operation=StackOperation(_string(root["operation"], "operation")),
+            repository=_string(root["repository"], "repository"),
+            remote=_string(root["remote"], "remote"),
             identities=_strings(root["identities"], "identities"),
             expected_refs=refs,
             expected_pull_requests=pull_requests,
@@ -979,14 +1222,17 @@ def manifest_from_json(raw: str) -> MutationManifest:
                 for item in _strings(root["enabled_phases"], "enabled_phases")
             ),
             merge_mode=(
-                None if merge_mode_value is None else MergeMode(str(merge_mode_value))
+                None
+                if merge_mode_value is None
+                else MergeMode(_string(merge_mode_value, "merge_mode"))
             ),
-            merge_method=root.get("merge_method"),
+            merge_method=_optional_string(root["merge_method"], "merge_method"),
             effects=effects,
             evidence=_strings(root["evidence"], "evidence"),
             authority=authority,
             merge_prefix=tuple(
-                int(item) for item in _array(root["merge_prefix"], "merge_prefix")
+                _integer(item, "merge_prefix item")
+                for item in _array(root["merge_prefix"], "merge_prefix")
             ),
         )
     except (KeyError, TypeError, ValueError) as exc:

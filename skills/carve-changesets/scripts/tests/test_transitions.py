@@ -131,6 +131,34 @@ class PublishManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "draft.*boolean"):
             manifest_from_json(__import__("json").dumps(payload))
 
+    def test_manifest_json_rejects_coerced_scalar_types_and_unknown_fields(
+        self,
+    ) -> None:
+        baseline = __import__("json").loads(manifest_to_json(publish_manifest()))
+        mutations = (
+            ("remote", lambda payload: payload.__setitem__("remote", 7)),
+            (
+                "pull request title",
+                lambda payload: payload["expected_pull_requests"][0].__setitem__(
+                    "title", 7
+                ),
+            ),
+            (
+                "pull request body",
+                lambda payload: payload["expected_pull_requests"][0].__setitem__(
+                    "body", 7
+                ),
+            ),
+            ("unknown field", lambda payload: payload.__setitem__("surprise", True)),
+        )
+
+        for label, mutate in mutations:
+            with self.subTest(label=label):
+                payload = __import__("copy").deepcopy(baseline)
+                mutate(payload)
+                with self.assertRaises(ManifestError):
+                    manifest_from_json(__import__("json").dumps(payload))
+
     def test_preview_enumerates_direct_and_automatic_effects(self) -> None:
         manifest = publish_manifest()
 
@@ -313,6 +341,19 @@ class PublishManifestTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ManifestError, "missing required effect"):
             incomplete.validate_complete()
+
+    def test_manifest_rejects_an_extra_effect_outside_declared_resources(self) -> None:
+        manifest = publish_manifest()
+        extra = MutationEffect(
+            EffectKind.PUSH_REF,
+            "ref:outside-authority",
+            "sha",
+            SHA_A,
+            SHA_B,
+        )
+
+        with self.assertRaisesRegex(ManifestError, "unexpected effect"):
+            replace(manifest, effects=(*manifest.effects, extra)).validate_complete()
 
 
 class CapabilityFenceTests(unittest.TestCase):
@@ -612,6 +653,40 @@ class OperationManifestTests(unittest.TestCase):
             tuple(effect.kind for effect in manifest.effects),
         )
 
+    def test_repair_rejects_pull_requests_outside_native_stack_order(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+
+        with self.assertRaisesRegex(ManifestError, "native stack order"):
+            preview_repair(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=tuple(reversed(self.pull_requests)),
+                native_stack=self.stack,
+                authority=replace(
+                    self._authority(
+                        StackOperation.REPAIR,
+                        phases,
+                        frozenset(
+                            {
+                                EffectKind.REBASE_BRANCH,
+                                EffectKind.PUSH_REF,
+                                EffectKind.UPDATE_PR,
+                                EffectKind.SYNC_STACK,
+                            }
+                        ),
+                    ),
+                    identities=("feature-3", "feature-2"),
+                ),
+                evidence=("repair snapshot",),
+            )
+
     def test_direct_merge_binds_prefix_and_automatic_suffix_effects(self) -> None:
         phases = frozenset({TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC})
         manifest = preview_merge(
@@ -885,6 +960,42 @@ class OperationManifestTests(unittest.TestCase):
             ),
         )
 
+    def test_recovery_rejects_pull_requests_outside_native_stack_order(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+
+        with self.assertRaisesRegex(ManifestError, "native stack order"):
+            preview_recovery(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=tuple(reversed(self.pull_requests)),
+                native_stack=self.stack,
+                authority=replace(
+                    self._authority(
+                        StackOperation.RECOVER,
+                        phases,
+                        frozenset(
+                            {
+                                EffectKind.REFRESH_TRUNK,
+                                EffectKind.REBASE_BRANCH,
+                                EffectKind.PUSH_REF,
+                                EffectKind.UPDATE_PR,
+                                EffectKind.SYNC_STACK,
+                            }
+                        ),
+                    ),
+                    identities=("feature-3", "feature-2"),
+                ),
+                evidence=("recovery snapshot",),
+            )
+
     def test_direct_and_queue_merge_have_distinct_capability_fences(self) -> None:
         direct = required_capabilities(
             StackOperation.MERGE,
@@ -910,13 +1021,7 @@ class OperationManifestTests(unittest.TestCase):
 
     def test_execution_rereads_the_complete_manifest_before_mutation(self) -> None:
         manifest = publish_manifest()
-        stale_stack = replace(
-            manifest,
-            expected_native_stack=replace(
-                manifest.expected_native_stack,
-                layers=tuple(reversed(manifest.expected_native_stack.layers)),
-            ),
-        )
+        stale_stack = replace(manifest, evidence=("newer native stack snapshot",))
         profile = replace(
             reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
             capabilities=required_capabilities(
