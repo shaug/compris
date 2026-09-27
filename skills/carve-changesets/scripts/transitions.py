@@ -170,6 +170,16 @@ class ExpectedPullRequest:
                 raise ManifestError(
                     f"pull request #{self.number} merge gate state must be non-empty"
                 )
+            if self.current_title is None or self.current_body is None:
+                raise ManifestError(
+                    f"pull request #{self.number} needs exact current title and body"
+                )
+        if self.state == "ABSENT" and (
+            self.current_title is not None or self.current_body is not None
+        ):
+            raise ManifestError(
+                f"expected-absent pull request for {self.branch} carries current text"
+            )
         if not isinstance(self.title, str) or not self.title.strip():
             raise ManifestError(
                 f"pull request for {self.branch} needs an explicit title"
@@ -433,6 +443,8 @@ class MutationManifest:
             not identity.strip() for identity in self.identities
         ):
             raise ManifestError("manifest must bind every selected identity")
+        if len(set(self.identities)) != len(self.identities):
+            raise ManifestError("manifest identities must not contain duplicates")
         if not self.enabled_phases or len(set(self.enabled_phases)) != len(
             self.enabled_phases
         ):
@@ -478,6 +490,11 @@ class MutationManifest:
         native_by_branch = {
             layer.branch: layer for layer in self.expected_native_stack.layers
         }
+        merge_open_order = tuple(
+            layer.branch
+            for layer in self.expected_native_stack.layers
+            if not layer.merged
+        )
         for pull_request in self.expected_pull_requests:
             native_layer = native_by_branch[pull_request.branch]
             if pull_request.state == "ABSENT":
@@ -500,10 +517,52 @@ class MutationManifest:
                     "pull request state disagrees with expected native layer "
                     f"{pull_request.branch}"
                 )
+            topology_order = (
+                merge_open_order
+                if self.operation is StackOperation.MERGE
+                and pull_request.state != "MERGED"
+                else self.expected_native_stack.order
+            )
+            branch_index = topology_order.index(pull_request.branch)
+            expected_base = (
+                self.expected_native_stack.trunk
+                if branch_index == 0
+                else topology_order[branch_index - 1]
+            )
+            if (
+                self.operation is StackOperation.MERGE
+                and pull_request.state != "ABSENT"
+                and pull_request.state != "MERGED"
+                and pull_request.base != expected_base
+            ):
+                raise ManifestError(
+                    "pull request base disagrees with expected native stack topology: "
+                    f"{pull_request.branch}"
+                )
+        if self.operation is StackOperation.MERGE:
+            seen_unmerged = False
+            for layer in self.expected_native_stack.layers:
+                if layer.merged:
+                    if seen_unmerged:
+                        raise ManifestError(
+                            "merged native layers must form a bottom prefix"
+                        )
+                else:
+                    seen_unmerged = True
+                    if layer.pull_request_state != "OPEN":
+                        raise ManifestError(
+                            "every unmerged native layer must have an open pull request"
+                        )
         if len(set(self.authority.ready_for_review)) != len(
             self.authority.ready_for_review
         ):
             raise ManifestError("ready-for-review authority contains duplicates")
+        for label, values in (
+            ("identities", self.authority.identities),
+            ("branches", self.authority.branches),
+        ):
+            if len(set(values)) != len(values):
+                raise ManifestError(f"authority {label} must not contain duplicates")
         if set(self.authority.ready_for_review) - set(self.authority.branches):
             raise ManifestError(
                 "ready-for-review authority is outside the granted branches"
@@ -570,6 +629,13 @@ class MutationManifest:
                     EffectKind.REGISTER_STACK,
                     f"stack:{self.expected_native_stack.identity or 'absent'}",
                     "identity",
+                )
+            )
+            required_effects.add(
+                (
+                    EffectKind.REGISTER_STACK,
+                    f"stack:{self.expected_native_stack.identity or 'absent'}",
+                    "registered",
                 )
             )
             required_effects.add(
@@ -777,8 +843,14 @@ class MutationManifest:
                 self.expected_native_stack.identity,
             )
             expected_values[(EffectKind.REGISTER_STACK, stack_target, "order")] = (
+                self.expected_native_stack.order
+                if self.expected_native_stack.registered
+                else (),
                 self.expected_native_stack.order,
-                self.expected_native_stack.order,
+            )
+            expected_values[(EffectKind.REGISTER_STACK, stack_target, "registered")] = (
+                self.expected_native_stack.registered,
+                True,
             )
         if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}:
             expected_values[(EffectKind.SYNC_STACK, stack_target, "order")] = (
@@ -833,7 +905,9 @@ class MutationManifest:
         for effect in self.effects:
             signature = (effect.kind, effect.target, effect.field)
             expected = expected_values.get(signature)
-            if expected is not None and (effect.before, effect.after) != expected:
+            if expected is not None and not _exact_value_equal(
+                (effect.before, effect.after), expected
+            ):
                 raise ManifestError(
                     "manifest effect values disagree with bound resource state: "
                     f"{effect.kind.value}:{effect.target}:{effect.field}"
@@ -1029,6 +1103,17 @@ def _frozen_value(value: object) -> object:
     return value
 
 
+def _exact_value_equal(left: object, right: object) -> bool:
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, tuple):
+        return len(left) == len(right) and all(
+            _exact_value_equal(left_item, right_item)
+            for left_item, right_item in zip(left, right, strict=True)
+        )
+    return left == right
+
+
 def manifest_to_json(manifest: MutationManifest) -> str:
     manifest.validate_complete()
     payload = {
@@ -1132,6 +1217,13 @@ def _strings(value: object, context: str) -> tuple[str, ...]:
     if any(not isinstance(item, str) for item in items):
         raise ManifestError(f"{context} must contain only strings")
     return tuple(items)
+
+
+def _unique_strings(value: object, context: str) -> tuple[str, ...]:
+    items = _strings(value, context)
+    if len(set(items)) != len(items):
+        raise ManifestError(f"{context} must not contain duplicates")
+    return items
 
 
 def _exact_object(
@@ -1416,19 +1508,23 @@ def manifest_from_json(raw: str) -> MutationManifest:
             ),
             repository=_string(authority_data["repository"], "authority.repository"),
             remote=_string(authority_data["remote"], "authority.remote"),
-            identities=_strings(authority_data["identities"], "authority.identities"),
-            branches=_strings(authority_data["branches"], "authority.branches"),
+            identities=_unique_strings(
+                authority_data["identities"], "authority.identities"
+            ),
+            branches=_unique_strings(authority_data["branches"], "authority.branches"),
             phases=frozenset(
                 TransitionPhase(item)
-                for item in _strings(authority_data["phases"], "authority.phases")
+                for item in _unique_strings(
+                    authority_data["phases"], "authority.phases"
+                )
             ),
             effect_kinds=frozenset(
                 EffectKind(item)
-                for item in _strings(
+                for item in _unique_strings(
                     authority_data["effect_kinds"], "authority.effect_kinds"
                 )
             ),
-            ready_for_review=_strings(
+            ready_for_review=_unique_strings(
                 authority_data["ready_for_review"], "authority.ready_for_review"
             ),
             merge_method=_optional_string(
@@ -1598,8 +1694,17 @@ def preview_publish(
         MutationEffect(
             EffectKind.REGISTER_STACK,
             f"stack:{native_stack.identity or 'absent'}",
+            "registered",
+            native_stack.registered,
+            True,
+        )
+    )
+    effects.append(
+        MutationEffect(
+            EffectKind.REGISTER_STACK,
+            f"stack:{native_stack.identity or 'absent'}",
             "order",
-            native_stack.order,
+            native_stack.order if native_stack.registered else (),
             native_stack.order,
         )
     )
@@ -1986,20 +2091,20 @@ def preview_recovery(
 
 def _matches_after(effect: MutationEffect, value: object) -> bool:
     if effect.kind is not EffectKind.CREATE_PR or effect.field != "record":
-        return value == effect.after
+        return _exact_value_equal(value, effect.after)
     expected = effect.after
     if not isinstance(expected, tuple) or not isinstance(value, tuple):
         return False
     if len(expected) != len(value):
         return False
     if expected[0] is not None:
-        return value == expected
+        return _exact_value_equal(value, expected)
     assigned = value[0]
     return (
         isinstance(assigned, int)
         and not isinstance(assigned, bool)
         and assigned > 0
-        and value[1:] == expected[1:]
+        and _exact_value_equal(value[1:], expected[1:])
     )
 
 
@@ -2012,11 +2117,13 @@ def classify_readback(
     targets: list[TargetReadback] = []
     for effect in manifest.effects:
         value = observed.get(effect.key, missing)
-        if effect.before == effect.after and _matches_after(effect, value):
+        if _exact_value_equal(effect.before, effect.after) and _matches_after(
+            effect, value
+        ):
             disposition = TargetDisposition.UNCHANGED
         elif _matches_after(effect, value):
             disposition = TargetDisposition.CHANGED_AS_EXPECTED
-        elif value == effect.before:
+        elif _exact_value_equal(value, effect.before):
             disposition = TargetDisposition.UNCHANGED
         else:
             disposition = TargetDisposition.CHANGED_UNEXPECTEDLY
@@ -2160,6 +2267,8 @@ def observation_from_manifest(
                     if current.expected_native_stack.registered
                     else None
                 )
+            elif effect.field == "registered":
+                observed = current.expected_native_stack.registered
             elif effect.field == "order":
                 observed = current.expected_native_stack.order
             elif effect.field == "open_order":
@@ -2236,7 +2345,7 @@ def execute_transition(
             next_action="review and approve a newly generated manifest",
             fresh_manifest_required=True,
         )
-    if current != manifest:
+    if manifest_to_json(current) != manifest_to_json(manifest):
         return TransitionResult(
             state=TransitionState.BLOCKED,
             operation=manifest.operation,
