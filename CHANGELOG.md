@@ -4,7 +4,9 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-27 — Closed transition authority gaps and recorded triggering evidence
+## 2026-09-27 — Closed transition authority and readback gaps
+
+- fix: preserve exact remote transition fences and outcomes
 
 - fix: keep transition phases and readback inside their authority fence
 

@@ -22,6 +22,7 @@ from metadata import (
     stamp_commit_message,
 )
 from propagate import (
+    REMOTE_REF_ABSENT,
     merge_propagate_from_live,
     propagate_from_live,
     push_chain,
@@ -212,6 +213,21 @@ class PushChainTests(unittest.TestCase):
                     remote="origin",
                     dry_run=False,
                     expected_remote_head="a" * 40,
+                )
+
+        git_call.assert_not_called()
+
+    def test_push_rejects_branch_created_after_approved_absence(self) -> None:
+        with (
+            mock.patch("propagate.remote_branch_head", return_value="b" * 40),
+            mock.patch("propagate.git") as git_call,
+        ):
+            with self.assertRaisesRegex(CommandError, "expected to be absent"):
+                push_changeset_branch(
+                    "feature/test-2",
+                    remote="origin",
+                    dry_run=False,
+                    expected_remote_head=REMOTE_REF_ABSENT,
                 )
 
         git_call.assert_not_called()

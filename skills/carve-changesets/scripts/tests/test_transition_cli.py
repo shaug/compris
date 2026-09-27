@@ -29,6 +29,8 @@ from native_stack import (  # noqa: E402
     NativeStackSnapshot,
 )
 from transitions import (  # noqa: E402
+    EffectKind,
+    MutationEffect,
     StackOperation,
     TransitionResult,
     TransitionState,
@@ -220,6 +222,48 @@ class TransitionCliTests(unittest.TestCase):
                     "example.com/acme/widgets", manifest["authority"]["repository"]
                 )
                 self.assertNotIn("secret", output.getvalue())
+
+    def test_readback_projects_divergent_pr_without_rebuilding_preview(self) -> None:
+        approved = SimpleNamespace(
+            expected_native_stack=SimpleNamespace(trunk="main"),
+            effects=(
+                MutationEffect(
+                    EffectKind.UPDATE_PR,
+                    "pr:41",
+                    "record",
+                    (41, "feature/report-1", self.head_one, "main", "OPEN"),
+                    (41, "feature/report-1", self.head_one, "main", "OPEN"),
+                ),
+            ),
+        )
+        closed = SimpleNamespace(
+            number=41,
+            head_branch="feature/report-1",
+            head_sha=self.head_one,
+            base_branch="main",
+            state="CLOSED",
+            draft=False,
+            queued=False,
+            auto_merge=False,
+            merge_state_status="DIRTY",
+            title="Layer one",
+            body="Layer one body",
+        )
+        with (
+            mock.patch.object(
+                cli_mod, "pull_requests_for_source", return_value=[closed]
+            ),
+            chdir(self.repo),
+        ):
+            observation = cli_mod._live_observation(
+                approved,
+                source="feature/report",
+                base="main",
+                remote="origin",
+            )
+
+        observed = observation.as_mapping()[approved.effects[0].key]
+        self.assertEqual("CLOSED", observed[4])
 
     def test_push_preview_rejects_duplicate_remote_urls(self) -> None:
         helpers.run(
@@ -571,7 +615,7 @@ class TransitionCliTests(unittest.TestCase):
                     "feature/report-2",
                     remote="origin",
                     dry_run=False,
-                    expected_remote_head=None,
+                    expected_remote_head=cli_mod.REMOTE_REF_ABSENT,
                 ),
             ]
         )
@@ -775,7 +819,7 @@ class TransitionCliTests(unittest.TestCase):
         )
 
         self.assertEqual(1, status)
-        self.assertEqual("blocked", result["state"])
+        self.assertEqual("diverged", result["state"])
         self.assertEqual("changed_unexpectedly", result["targets"][0]["disposition"])
         self.assertEqual({"missing": True}, result["targets"][0]["observed"])
         self.assertEqual(first.before, result["targets"][0]["expected_before"])
@@ -1032,6 +1076,64 @@ class TransitionCliTests(unittest.TestCase):
             if effect["kind"] == "sync_stack" and effect["field"] == "open_order"
         )
         self.assertEqual([], topology["after"])
+
+    def test_direct_preview_after_merged_prefix_retains_complete_pr_evidence(
+        self,
+    ) -> None:
+        chain, prs = self._published_chain()
+        prs[42].base_branch = "main"
+        snapshot = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=self.main_head,
+            current_branch="feature/report-2",
+            layers=(
+                NativeLayer(
+                    branch="feature/report-1",
+                    head=self.head_one,
+                    base=self.main_head,
+                    merged=True,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(
+                        41, "https://example/pr/41", "MERGED"
+                    ),
+                ),
+                NativeLayer(
+                    branch="feature/report-2",
+                    head=self.head_two,
+                    base=self.main_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=NativePullRequest(42, "https://example/pr/42", "OPEN"),
+                ),
+            ),
+        )
+        self.native_reader_mock.return_value = snapshot
+        output = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "2",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status)
+        manifest = json.loads(output.getvalue())
+        self.assertEqual(
+            [41, 42], [item["number"] for item in manifest["expected_pull_requests"]]
+        )
+        self.assertEqual([42], manifest["merge_prefix"])
 
     def test_direct_preview_separates_multi_pr_prefix_from_suffix(self) -> None:
         chain, prs, snapshot = self._three_open_merge_evidence()

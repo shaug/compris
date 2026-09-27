@@ -57,6 +57,7 @@ from patch_apply import build_diff
 from plan_checks import strict_apply_check, validate_plan_strict
 from preflight import preflight
 from propagate import (
+    REMOTE_REF_ABSENT,
     _rehydrate_live,
     _target,
     merge_propagate_from_live,
@@ -88,7 +89,6 @@ from transitions import (
     execute_transition,
     manifest_from_json,
     manifest_to_json,
-    observation_from_manifest,
     preview_merge,
     preview_publish,
     preview_push,
@@ -433,20 +433,16 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
         executor=_execute_publish_manifest,
         readback=lambda: _live_observation(
             approved,
-            lambda: _publish_manifest(
-                plan,
-                remote=args.remote,
-                indices=indices,
-                allow_stack_state_refresh=args.allow_stack_state_refresh,
-                ready_for_review=args.ready_for_review,
-            ),
+            source=plan["source_branch"],
+            base=plan["base_branch"],
+            remote=args.remote,
         ),
     )
     _finish_transition(result)
 
 
 def _native_snapshot_for_transition(
-    *, source: str, base: str, remote: str
+    *, source: str, base: str, remote: str, reconcile: bool = True
 ) -> NativeStackSnapshot:
     """Refresh and reconcile the authoritative native topology."""
 
@@ -496,6 +492,10 @@ def _native_snapshot_for_transition(
         expected_trunk_branch=base,
         trunk_head=trunk_head,
     )
+    if not snapshot.layers:
+        raise CommandError(f"Native stack for {source!r} has no layers.")
+    if not reconcile:
+        return snapshot
     live_pull_requests = {
         layer.pull_request.number: pull_request_by_number(
             layer.pull_request.number, remote=remote
@@ -921,7 +921,9 @@ def _merge_manifest(args: argparse.Namespace):
         native_open[: boundary + 1] if mode is MergeMode.DIRECT else native_open[:1]
     )
     records_by_branch = {record.branch: record for record in chain.changesets}
-    affected_records = tuple(records_by_branch[layer.branch] for layer in native_open)
+    affected_records = tuple(
+        records_by_branch[layer.branch] for layer in native_snapshot.layers
+    )
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base or chain.base_branch,
@@ -1224,7 +1226,9 @@ def _execute_push_manifest(manifest) -> None:
             remote=manifest.remote,
             dry_run=False,
             expected_remote_head=(
-                None if expected_ref.old_sha == ZERO_SHA else expected_ref.old_sha
+                REMOTE_REF_ABSENT
+                if expected_ref.old_sha == ZERO_SHA
+                else expected_ref.old_sha
             ),
         )
 
@@ -1248,8 +1252,98 @@ def _execute_merge_manifest(manifest) -> None:
     )
 
 
-def _live_observation(approved, builder) -> TransitionObservation:
-    return observation_from_manifest(approved, builder())
+def _live_observation(
+    approved,
+    *,
+    source: str,
+    base: str | None,
+    remote: str,
+) -> TransitionObservation:
+    """Read approved targets without requiring live state to form a new preview."""
+
+    native = _native_snapshot_for_transition(
+        source=source,
+        base=base or approved.expected_native_stack.trunk,
+        remote=remote,
+        reconcile=False,
+    )
+    listed = pull_requests_for_source(source, remote=remote)
+    prs_by_branch = {item.head_branch: item for item in listed}
+    prs_by_number = {item.number: item for item in listed}
+
+    def pull_request(identity: str):
+        if identity.isdigit():
+            number = int(identity)
+            if number not in prs_by_number:
+                prs_by_number[number] = pull_request_by_number(number, remote=remote)
+            return prs_by_number[number]
+        return prs_by_branch.get(identity)
+
+    values: list[tuple[str, object]] = []
+    for effect in approved.effects:
+        identity = effect.target.partition(":")[2]
+        if effect.kind is EffectKind.PUSH_REF:
+            observed: object = remote_branch_head(remote, identity) or ZERO_SHA
+        elif effect.kind is EffectKind.REBASE_BRANCH:
+            resolved = git(
+                "rev-parse",
+                "--verify",
+                f"refs/heads/{identity}^{{commit}}",
+                check=False,
+            )
+            observed = resolved.stdout.strip() if resolved.returncode == 0 else ZERO_SHA
+        elif effect.kind in {EffectKind.CREATE_PR, EffectKind.UPDATE_PR}:
+            live = pull_request(identity)
+            observed = (
+                None if live is None else _expected_pull_request_from_live(live).record
+            )
+        elif effect.kind is EffectKind.DISABLE_AUTO_MERGE:
+            live = pull_request(identity)
+            observed = None if live is None else live.auto_merge
+        elif effect.kind is EffectKind.READY_PR:
+            live = pull_request(identity)
+            observed = None if live is None else live.draft
+        elif effect.kind in {EffectKind.REGISTER_STACK, EffectKind.SYNC_STACK}:
+            if effect.field == "identity":
+                observed = (
+                    source
+                    if any(layer.pull_request for layer in native.layers)
+                    else None
+                )
+            elif effect.field == "registered":
+                observed = any(layer.pull_request for layer in native.layers)
+            elif effect.field == "order":
+                observed = tuple(layer.branch for layer in native.layers)
+            elif effect.field == "open_order":
+                observed = tuple(
+                    layer.branch for layer in native.layers if not layer.merged
+                )
+            elif effect.field == "head":
+                branch = identity.rpartition(":")[2]
+                observed = remote_branch_head(remote, branch) or ZERO_SHA
+            else:
+                raise ManifestError(
+                    f"unsupported native-stack readback field: {effect.field}"
+                )
+        elif effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
+            live = pull_request(identity)
+            observed = (
+                None
+                if live is None
+                else live.state.upper()
+                if effect.field == "state"
+                else live.queued
+            )
+        elif effect.kind is EffectKind.REFRESH_TRUNK:
+            observed = (
+                native.trunk_head
+                if effect.field == "sha"
+                else _commit_tree(native.trunk_head, context="observed trunk")
+            )
+        else:  # pragma: no cover
+            raise ManifestError(f"unsupported readback effect: {effect.kind.value}")
+        values.append((effect.key, observed))
+    return TransitionObservation(values=tuple(values))
 
 
 def _push_observation(manifest) -> TransitionObservation:
@@ -1362,7 +1456,12 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
         ),
-        readback=lambda: _live_observation(approved, lambda: _repair_manifest(args)),
+        readback=lambda: _live_observation(
+            approved,
+            source=args.source,
+            base=args.base,
+            remote=args.remote,
+        ),
     )
     _finish_transition(result)
 
@@ -1458,7 +1557,12 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
         ),
-        readback=lambda: _live_observation(approved, lambda: _recovery_manifest(args)),
+        readback=lambda: _live_observation(
+            approved,
+            source=args.successor_source,
+            base=args.base,
+            remote=args.remote,
+        ),
     )
     _finish_transition(result)
 

@@ -683,7 +683,7 @@ class CapabilityFenceTests(unittest.TestCase):
         self.assertIn("operator interrupted remote command", result.blocker)
         self.assertTrue(result.fresh_manifest_required)
 
-    def test_successful_executor_with_partial_readback_returns_blocked(self) -> None:
+    def test_successful_executor_with_partial_readback_preserves_partial(self) -> None:
         manifest = publish_manifest()
         profile = replace(
             reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
@@ -709,10 +709,10 @@ class CapabilityFenceTests(unittest.TestCase):
             readback=lambda: observation,
         )
 
-        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertEqual(TransitionState.PARTIAL, result.state)
         self.assertTrue(result.fresh_manifest_required)
 
-    def test_successful_executor_with_every_pending_write_unchanged_is_blocked(
+    def test_successful_executor_with_every_pending_write_unchanged_is_partial(
         self,
     ) -> None:
         manifest = publish_manifest()
@@ -729,7 +729,7 @@ class CapabilityFenceTests(unittest.TestCase):
             readback=lambda: TransitionObservation.from_manifest_before(manifest),
         )
 
-        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertEqual(TransitionState.PARTIAL, result.state)
         self.assertIn("pending", result.blocker)
 
     def test_reviewed_profile_blocks_before_executor_invocation(self) -> None:

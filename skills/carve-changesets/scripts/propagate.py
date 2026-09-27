@@ -38,6 +38,7 @@ from validate import validate_live_chain
 
 AUTHORITY_FLAG = "--ack-merge-and-propagate"
 _TITLE_COUNT_RE = re.compile(r"\s+\([1-9][0-9]* of [1-9][0-9]*\)$")
+REMOTE_REF_ABSENT = object()
 
 
 def _ensure_chain_exists(source: str, total: int) -> List[str]:
@@ -57,18 +58,34 @@ def push_changeset_branch(
     *,
     remote: str,
     dry_run: bool,
-    expected_remote_head: str | None = None,
+    expected_remote_head: str | object | None = None,
     local_ref: str | None = None,
 ) -> None:
     source_ref = local_ref or branch
     current = remote_branch_head(remote, branch)
-    if expected_remote_head is not None and current != expected_remote_head:
+    expected_absent = expected_remote_head is REMOTE_REF_ABSENT
+    if expected_absent and current is not None:
+        raise CommandError(
+            f"Remote branch {remote}/{branch} was expected to be absent but is "
+            f"now {current}; propagation was withheld."
+        )
+    if (
+        expected_remote_head is not None
+        and not expected_absent
+        and current != expected_remote_head
+    ):
         raise CommandError(
             f"Remote branch {remote}/{branch} moved from verified head "
             f"{expected_remote_head} to {current}; propagation was withheld."
         )
     proposed = _resolve(source_ref)
-    expected = expected_remote_head if expected_remote_head is not None else current
+    expected = (
+        None
+        if expected_absent
+        else expected_remote_head
+        if expected_remote_head is not None
+        else current
+    )
     lease = f"--force-with-lease=refs/heads/{branch}:{expected or ''}"
     refspec = f"refs/heads/{source_ref}:refs/heads/{branch}"
     command = ("git", "push", remote, refspec, lease)

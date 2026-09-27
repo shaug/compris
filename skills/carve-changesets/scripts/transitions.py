@@ -2497,7 +2497,6 @@ def execute_transition(
         if result.state in {TransitionState.PARTIAL, TransitionState.DIVERGED}:
             return replace(
                 result,
-                state=TransitionState.BLOCKED,
                 blocker=result.blocker
                 or "post-command readback was partial or divergent",
                 next_action="reread every declared target and approve a fresh manifest",
