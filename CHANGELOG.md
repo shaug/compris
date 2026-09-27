@@ -4,6 +4,10 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-27 — Recorded triggering evidence availability
+
+- test(evals): record carve triggering evidence attempts
+
 ## 2026-09-25 — Fenced native transitions and materialized stacks
 
 - fix: preserve every native transition selector and automatic effect
