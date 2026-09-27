@@ -12,6 +12,7 @@ from gh_stack import GhStackProfile, StackCapability
 
 ZERO_SHA = "0" * 40
 MISSING_OBSERVATION = object()
+PASSING_MERGE_STATES = frozenset({"CLEAN"})
 
 
 class ManifestError(ValueError):
@@ -339,6 +340,8 @@ class ExpectedNativeStack:
             layer.validate()
         if len(set(self.order)) != len(self.order):
             raise ManifestError("expected native stack order contains duplicates")
+        if self.trunk in self.order:
+            raise ManifestError("expected native stack trunk must not be a layer")
 
 
 @dataclass(frozen=True)
@@ -473,6 +476,15 @@ class MutationManifest:
         if len(set(pr_numbers)) != len(pr_numbers):
             raise ManifestError("manifest contains duplicate pull-request identities")
         self.expected_native_stack.validate()
+        protected_trunk_targets = {
+            (EffectKind.PUSH_REF, f"ref:{self.expected_native_stack.trunk}"),
+            (EffectKind.REBASE_BRANCH, f"local:{self.expected_native_stack.trunk}"),
+        }
+        if any(
+            (effect.kind, effect.target) in protected_trunk_targets
+            for effect in self.effects
+        ):
+            raise ManifestError("manifest cannot mutate the protected trunk")
         ordered_pr_branches = tuple(
             branch
             for branch in self.expected_native_stack.order
@@ -555,6 +567,11 @@ class MutationManifest:
                         raise ManifestError(
                             "every unmerged native layer must have an open pull request"
                         )
+        if self.operation is StackOperation.PUBLISH and any(
+            pull_request.state not in {"ABSENT", "OPEN"}
+            for pull_request in self.expected_pull_requests
+        ):
+            raise ManifestError("publish requires absent or open pull requests")
         if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER} and any(
             pull_request.state != "OPEN" for pull_request in self.expected_pull_requests
         ):
@@ -1001,6 +1018,19 @@ class MutationManifest:
                 raise ManifestError(
                     "merge manifests must bind exact merge gate state for PRs: "
                     f"{missing_gate_state!r}"
+                )
+            ineligible_prefix = tuple(
+                number
+                for number in self.merge_prefix
+                if selected_pull_requests[number].draft
+                or native_by_branch[selected_pull_requests[number].branch].needs_rebase
+                or selected_pull_requests[number].merge_state_status
+                not in PASSING_MERGE_STATES
+            )
+            if ineligible_prefix:
+                raise ManifestError(
+                    "merge prefix requires passing ready current pull requests: "
+                    f"{ineligible_prefix!r}"
                 )
             if self.merge_mode is MergeMode.DIRECT:
                 if self.merge_method not in {"merge", "squash", "rebase"}:
@@ -2380,7 +2410,10 @@ def execute_transition(
             operation=manifest.operation,
             identities=manifest.identities,
             evidence=manifest.evidence,
-            blocker=f"pre-execution reread is invalid: {exc}",
+            blocker=(
+                "manifest changed during pre-execution reread; "
+                f"pre-execution reread is invalid: {exc}"
+            ),
             next_action="review and approve a newly generated manifest",
             fresh_manifest_required=True,
         )
