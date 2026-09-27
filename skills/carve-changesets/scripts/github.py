@@ -436,7 +436,23 @@ def _pull_request_remote_evidence(
             raise CommandError(
                 f"Unexpected GitHub force-push history for PR #{number}."
             )
-        page_queued = pull_request.get("mergeQueueEntry") is not None
+        if "mergeQueueEntry" not in pull_request:
+            raise CommandError(
+                f"GitHub returned incomplete merge-queue evidence for PR #{number}."
+            )
+        queue_entry = pull_request["mergeQueueEntry"]
+        if queue_entry is None:
+            page_queued = False
+        elif (
+            isinstance(queue_entry, dict)
+            and isinstance(queue_entry.get("id"), str)
+            and queue_entry["id"].strip()
+        ):
+            page_queued = True
+        else:
+            raise CommandError(
+                f"GitHub returned invalid merge-queue evidence for PR #{number}."
+            )
         if queued is None:
             queued = page_queued
         elif queued != page_queued:
@@ -488,6 +504,23 @@ def _pull_request_record(
 
     number = _pull_request_number(item, context=context)
     assert isinstance(item, dict)
+    draft = item.get("isDraft")
+    if not isinstance(draft, bool):
+        raise CommandError(f"GitHub response for {context} has no valid isDraft.")
+    if "autoMergeRequest" not in item:
+        raise CommandError(
+            f"GitHub response for {context} has no valid autoMergeRequest."
+        )
+    auto_merge_request = item["autoMergeRequest"]
+    if auto_merge_request is not None and not isinstance(auto_merge_request, dict):
+        raise CommandError(
+            f"GitHub response for {context} has no valid autoMergeRequest."
+        )
+    merge_state_status = item.get("mergeStateStatus")
+    if not isinstance(merge_state_status, str) or not merge_state_status.strip():
+        raise CommandError(
+            f"GitHub response for {context} has no valid mergeStateStatus."
+        )
     return PullRequestRecord(
         number=number,
         head_branch=str(item.get("headRefName") or ""),
@@ -499,10 +532,10 @@ def _pull_request_record(
         merge_sha=_merge_sha(item),
         is_cross_repository=bool(item.get("isCrossRepository", False)),
         head_rewrite_edges=head_rewrite_edges,
-        draft=bool(item.get("isDraft", False)),
+        draft=draft,
         queued=queued,
-        auto_merge=item.get("autoMergeRequest") is not None,
-        merge_state_status=str(item.get("mergeStateStatus") or ""),
+        auto_merge=auto_merge_request is not None,
+        merge_state_status=merge_state_status,
     )
 
 
