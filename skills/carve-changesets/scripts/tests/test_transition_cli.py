@@ -610,12 +610,14 @@ class TransitionCliTests(unittest.TestCase):
                     remote="origin",
                     dry_run=False,
                     expected_remote_head=self.head_one,
+                    local_ref=self.head_one,
                 ),
                 mock.call(
                     "feature/report-2",
                     remote="origin",
                     dry_run=False,
                     expected_remote_head=cli_mod.REMOTE_REF_ABSENT,
+                    local_ref=self.head_two,
                 ),
             ]
         )

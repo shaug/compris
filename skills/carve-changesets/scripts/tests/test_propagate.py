@@ -514,6 +514,41 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("Report API (2 of 3)", self.prs[102].title)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
+    def test_propagate_is_fenced_by_manifest_declared_pr_text(self) -> None:
+        self._merge(101)
+        approved_pr_text = {
+            102: ("Report API (2 of 3)", self.prs[102].body),
+            103: ("Report API (3 of 3)", self.prs[103].body),
+        }
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ),
+        ):
+            propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=101,
+                index=None,
+                strategy="rebase",
+                remote="origin",
+                dry_run=False,
+                authority_acknowledged=True,
+                approved_pr_text=approved_pr_text,
+            )
+
+        self.assertEqual(approved_pr_text[102][0], self.prs[102].title)
+        self.assertEqual(approved_pr_text[103][0], self.prs[103].title)
+
     def test_propagation_rechecks_lineage_after_each_push(self) -> None:
         self._merge(101)
         actual_push = propagate_mod.push_changeset_branch

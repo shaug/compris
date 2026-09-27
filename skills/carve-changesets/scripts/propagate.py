@@ -87,7 +87,8 @@ def push_changeset_branch(
         else current
     )
     lease = f"--force-with-lease=refs/heads/{branch}:{expected or ''}"
-    refspec = f"refs/heads/{source_ref}:refs/heads/{branch}"
+    source = source_ref if local_ref is not None else f"refs/heads/{source_ref}"
+    refspec = f"{source}:refs/heads/{branch}"
     command = ("git", "push", remote, refspec, lease)
     print(f"[STEP] Pushing changeset branch {branch} to {remote} with an exact lease")
     if dry_run:
@@ -523,6 +524,7 @@ def _propagate_chain(
     strategy: str,
     remote: str,
     dry_run: bool,
+    approved_pr_text: dict[int, tuple[str, str]] | None = None,
 ) -> None:
     if strategy not in ("rebase", "cherry-pick"):
         raise CommandError("Propagation strategy must be 'rebase' or 'cherry-pick'.")
@@ -588,15 +590,29 @@ def _propagate_chain(
                 allowed_bases=allowed_bases,
                 remote=remote,
             )
-        expected_title = _updated_title(
+        computed_title = _updated_title(
             live, index=record.position, total=len(chain.changesets)
         )
+        expected_title = computed_title
+        if approved_pr_text is not None:
+            approved = approved_pr_text.get(live.number)
+            if approved is None:
+                raise CommandError(
+                    f"Approved manifest has no PR text for #{live.number}."
+                )
+            expected_title, expected_body = approved
+            if expected_title != computed_title or expected_body != live.body:
+                raise CommandError(
+                    f"PR #{live.number} automatic text differs from the approved "
+                    "manifest; propagation was withheld."
+                )
         if not already_propagated:
             push_changeset_branch(
                 record.branch,
                 remote=remote,
                 dry_run=dry_run,
                 expected_remote_head=current_head,
+                local_ref=new_head,
             )
             if not dry_run:
                 verify_remote_lineage(chain.source_lineage, remote=remote)
@@ -641,6 +657,7 @@ def propagate_from_live(
     remote: str,
     dry_run: bool,
     authority_acknowledged: bool,
+    approved_pr_text: dict[int, tuple[str, str]] | None = None,
 ) -> None:
     """Verify one merged PR and propagate its open downstream suffix."""
 
@@ -669,6 +686,7 @@ def propagate_from_live(
         strategy=strategy,
         remote=remote,
         dry_run=dry_run,
+        approved_pr_text=approved_pr_text,
     )
     print(
         "[OK] Dry-run propagation complete."

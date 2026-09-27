@@ -8,6 +8,7 @@ import json
 import shlex
 import sys
 from contextlib import redirect_stdout
+from dataclasses import replace
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
@@ -47,6 +48,7 @@ from github import (
     pull_request_by_number,
     pull_requests_for_source,
 )
+from metadata import embed_pr_metadata
 from native_stack import (
     NativeStackError,
     NativeStackSnapshot,
@@ -60,6 +62,7 @@ from propagate import (
     REMOTE_REF_ABSENT,
     _rehydrate_live,
     _target,
+    _updated_title,
     merge_propagate_from_live,
     propagate_from_live,
     push_chain,
@@ -852,6 +855,19 @@ def _repair_manifest(args: argparse.Namespace):
         pull_requests=pull_requests,
         native_snapshot=native_snapshot,
     )
+    record_by_branch = {record.branch: record for record in suffix}
+    live_by_number = {item.number: item for item in pull_requests.values()}
+    prs = tuple(
+        replace(
+            item,
+            title=_updated_title(
+                live_by_number[item.number],
+                index=record_by_branch[item.branch].position,
+                total=len(chain.changesets),
+            ),
+        )
+        for item in prs
+    )
     phases = frozenset(
         {
             TransitionPhase.REBASE_NO_TRUNK,
@@ -1073,6 +1089,17 @@ def _recovery_manifest(args: argparse.Namespace):
         pull_requests=pull_requests,
         native_snapshot=native_snapshot,
     )
+    record_by_branch = {record.branch: record for record in suffix}
+    prs = tuple(
+        replace(
+            item,
+            body=embed_pr_metadata(
+                item.current_body or item.body,
+                record_by_branch[item.branch].metadata,
+            ),
+        )
+        for item in prs
+    )
     identities = (*tuple(item.branch for item in prs), args.successor_source)
     phases = frozenset(
         {
@@ -1230,7 +1257,16 @@ def _execute_push_manifest(manifest) -> None:
                 if expected_ref.old_sha == ZERO_SHA
                 else expected_ref.old_sha
             ),
+            local_ref=expected_ref.proposed_sha,
         )
+
+
+def _approved_pr_text(manifest) -> dict[int, tuple[str, str]]:
+    return {
+        item.number: (item.title, item.body)
+        for item in manifest.expected_pull_requests
+        if item.number is not None
+    }
 
 
 def _execute_publish_manifest(_manifest) -> None:
@@ -1446,7 +1482,7 @@ def cmd_propagate(args: argparse.Namespace) -> None:
         approved,
         profile=profile,
         reread=lambda: _repair_manifest(args),
-        executor=lambda _manifest: propagate_from_live(
+        executor=lambda manifest: propagate_from_live(
             source=args.source,
             base=args.base,
             pr_number=args.pr,
@@ -1455,6 +1491,7 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             remote=args.remote,
             dry_run=False,
             authority_acknowledged=True,
+            approved_pr_text=_approved_pr_text(manifest),
         ),
         readback=lambda: _live_observation(
             approved,
@@ -1547,7 +1584,7 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
         approved,
         profile=profile,
         reread=lambda: _recovery_manifest(args),
-        executor=lambda _manifest: recover_suffix_from_live(
+        executor=lambda manifest: recover_suffix_from_live(
             source=args.source,
             base=args.base,
             from_index=args.from_index,
@@ -1556,6 +1593,7 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             remote=args.remote,
             dry_run=False,
             authority_acknowledged=True,
+            approved_pr_text=_approved_pr_text(manifest),
         ),
         readback=lambda: _live_observation(
             approved,

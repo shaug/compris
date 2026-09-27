@@ -208,6 +208,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         successor_branch: str = "feature/report-corrected",
         successor_sha: str | None = None,
         dry_run: bool = False,
+        approved_pr_text=None,
     ) -> str:
         output = io.StringIO()
         with (
@@ -239,6 +240,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 remote="origin",
                 dry_run=dry_run,
                 authority_acknowledged=True,
+                approved_pr_text=approved_pr_text,
             )
         return output.getvalue()
 
@@ -1589,6 +1591,15 @@ class SuffixRecoveryTests(unittest.TestCase):
             "Server-altered recovery context.\n",
             self.prs[102].body,
         )
+
+    def test_recovery_refuses_pr_body_outside_manifest_after_state(self) -> None:
+        body_before = self.prs[102].body
+        approved_pr_text = {102: (self.prs[102].title, self.prs[102].body)}
+
+        with self.assertRaisesRegex(CommandError, "approved manifest"):
+            self._run_recovery(approved_pr_text=approved_pr_text)
+
+        self.assertEqual(body_before, self.prs[102].body)
 
     def test_public_recovery_rejects_lineage_from_another_remote(self) -> None:
         self._restamp_open_suffix_as_native(identity_remote="upstream")

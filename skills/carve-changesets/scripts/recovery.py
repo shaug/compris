@@ -273,6 +273,7 @@ def recover_suffix_from_live(
     remote: str,
     dry_run: bool,
     authority_acknowledged: bool,
+    approved_pr_text: dict[int, tuple[str, str]] | None = None,
 ) -> None:
     """Restamp only the first unmerged suffix against an immutable successor."""
 
@@ -414,17 +415,30 @@ def recover_suffix_from_live(
                     target_lineage=target_lineage,
                     remote=remote,
                 )
+                updated_body = embed_pr_metadata(live.body, metadata)
+                if approved_pr_text is not None:
+                    approved = approved_pr_text.get(live.number)
+                    if approved is None:
+                        raise CommandError(
+                            f"Approved manifest has no PR text for #{live.number}."
+                        )
+                    approved_title, approved_body = approved
+                    if approved_title != live.title or approved_body != updated_body:
+                        raise CommandError(
+                            f"PR #{live.number} automatic text differs from the "
+                            "approved manifest; recovery was withheld."
+                        )
+                    updated_body = approved_body
                 if candidate != record.head:
                     push_changeset_branch(
                         record.branch,
                         remote=remote,
                         dry_run=dry_run,
                         expected_remote_head=record.head,
-                        local_ref=temp_by_index[index],
+                        local_ref=candidate,
                     )
                     if not dry_run:
                         verify_remote_lineage(target_lineage, remote=remote)
-                updated_body = embed_pr_metadata(live.body, metadata)
                 if updated_body != live.body:
                     edit_pull_request(
                         live.number,

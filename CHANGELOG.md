@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-27 — Closed transition authority and readback gaps
 
+- fix: bind exact manifest effects through execution
+
 - fix: preserve exact remote transition fences and outcomes
 
 - fix: keep transition phases and readback inside their authority fence

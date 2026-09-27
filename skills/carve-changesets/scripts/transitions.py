@@ -2450,7 +2450,7 @@ def execute_transition(
     try:
         current = reread()
         current.validate_complete()
-    except ManifestError as exc:
+    except (Exception, KeyboardInterrupt) as exc:
         return TransitionResult(
             state=TransitionState.BLOCKED,
             operation=manifest.operation,
@@ -2482,7 +2482,7 @@ def execute_transition(
         execution_error = exc
     try:
         result = classify_readback(manifest, readback())
-    except Exception as exc:
+    except (Exception, KeyboardInterrupt) as exc:
         detail = f"executor failed ({execution_error}); " if execution_error else ""
         return TransitionResult(
             state=TransitionState.BLOCKED,

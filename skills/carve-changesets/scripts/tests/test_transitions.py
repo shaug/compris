@@ -611,6 +611,32 @@ class CapabilityFenceTests(unittest.TestCase):
         self.assertEqual(TransitionState.BLOCKED, result.state)
         self.assertIn("pre-execution reread is invalid", result.blocker)
 
+    def test_live_pre_execution_reread_failure_returns_blocked(self) -> None:
+        manifest = publish_manifest()
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+
+        def fail_reread() -> MutationManifest:
+            raise RuntimeError("live topology unavailable")
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=fail_reread,
+            executor=lambda _approved: self.fail("executor must remain fenced"),
+            readback=lambda: TransitionObservation.from_manifest_before(manifest),
+        )
+
+        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertIn("live topology unavailable", result.blocker)
+        self.assertTrue(result.fresh_manifest_required)
+
     def test_executor_failure_still_classifies_partial_remote_effects(self) -> None:
         manifest = publish_manifest()
         profile = replace(
@@ -681,6 +707,32 @@ class CapabilityFenceTests(unittest.TestCase):
         self.assertEqual(["performed"], readbacks)
         self.assertEqual(TransitionState.PARTIAL, result.state)
         self.assertIn("operator interrupted remote command", result.blocker)
+        self.assertTrue(result.fresh_manifest_required)
+
+    def test_keyboard_interrupt_during_readback_returns_blocked(self) -> None:
+        manifest = publish_manifest()
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+
+        def interrupt_readback() -> TransitionObservation:
+            raise KeyboardInterrupt("operator interrupted live readback")
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=lambda: manifest,
+            executor=lambda _approved: None,
+            readback=interrupt_readback,
+        )
+
+        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertIn("operator interrupted live readback", result.blocker)
         self.assertTrue(result.fresh_manifest_required)
 
     def test_successful_executor_with_partial_readback_preserves_partial(self) -> None:
