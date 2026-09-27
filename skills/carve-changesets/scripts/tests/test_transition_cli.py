@@ -153,6 +153,10 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(["push"], manifest["authority"]["phases"])
         self.assertEqual(["push_ref"], manifest["authority"]["effect_kinds"])
         self.assertEqual(
+            helpers.run(self.repo, "git", "rev-parse", "main^{tree}"),
+            manifest["expected_native_stack"]["trunk_tree"],
+        )
+        self.assertEqual(
             "",
             helpers.run(
                 self.repo,

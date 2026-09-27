@@ -547,6 +547,7 @@ def _expected_native_stack(
         registered=any(layer.pull_request is not None for layer in snapshot.layers),
         trunk=snapshot.trunk_branch,
         trunk_head=snapshot.trunk_head,
+        trunk_tree=_commit_tree(snapshot.trunk_head, context="native trunk"),
         layers=tuple(
             ExpectedNativeLayer(
                 branch=layer.branch,
