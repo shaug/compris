@@ -29,6 +29,7 @@ from transitions import (
     observation_from_manifest,
     preview_merge,
     preview_publish,
+    preview_push,
     preview_recovery,
     preview_repair,
     required_capabilities,
@@ -857,7 +858,7 @@ class OperationManifestTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(
-            ManifestError, "repair and recovery require existing pull requests"
+            ManifestError, "repair and recovery require open pull requests"
         ):
             preview_repair(
                 repository="shaug/compris",
@@ -878,6 +879,161 @@ class OperationManifestTests(unittest.TestCase):
                     ),
                 ),
                 evidence=("repair snapshot",),
+            )
+
+    def test_repair_rejects_closed_pull_request_lifecycle_state(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        closed_pull_requests = (
+            replace(self.pull_requests[0], state="CLOSED"),
+            self.pull_requests[1],
+        )
+        closed_stack = replace(
+            self.stack,
+            layers=(
+                replace(self.stack.layers[0], pull_request_state="CLOSED"),
+                self.stack.layers[1],
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ManifestError, "repair and recovery require open pull requests"
+        ):
+            preview_repair(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=closed_pull_requests,
+                native_stack=closed_stack,
+                authority=self._authority(
+                    StackOperation.REPAIR,
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.REBASE_BRANCH,
+                            EffectKind.PUSH_REF,
+                            EffectKind.UPDATE_PR,
+                            EffectKind.SYNC_STACK,
+                        }
+                    ),
+                ),
+                evidence=("repair snapshot",),
+            )
+
+    def test_recovery_rejects_merged_pull_request_lifecycle_state(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        merged_pull_requests = (
+            replace(self.pull_requests[0], state="MERGED"),
+            self.pull_requests[1],
+        )
+        merged_stack = replace(
+            self.stack,
+            layers=(
+                replace(
+                    self.stack.layers[0],
+                    pull_request_state="MERGED",
+                    merged=True,
+                ),
+                self.stack.layers[1],
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ManifestError, "repair and recovery require open pull requests"
+        ):
+            preview_recovery(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=merged_pull_requests,
+                native_stack=merged_stack,
+                authority=self._authority(
+                    StackOperation.RECOVER,
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.REFRESH_TRUNK,
+                            EffectKind.REBASE_BRANCH,
+                            EffectKind.PUSH_REF,
+                            EffectKind.UPDATE_PR,
+                            EffectKind.SYNC_STACK,
+                        }
+                    ),
+                ),
+                evidence=("recovery snapshot",),
+            )
+
+    def test_repair_suffix_keeps_untouched_native_predecessor(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        authority = replace(
+            self._authority(
+                StackOperation.REPAIR,
+                phases,
+                frozenset(
+                    {
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            identities=("feature-3",),
+            branches=("feature-3",),
+        )
+
+        manifest = preview_repair(
+            repository="shaug/compris",
+            remote="origin",
+            refs=(self.refs[1],),
+            pull_requests=(self.pull_requests[1],),
+            native_stack=self.stack,
+            authority=authority,
+            evidence=("repair suffix snapshot",),
+        )
+        update = next(
+            effect for effect in manifest.effects if effect.kind is EffectKind.UPDATE_PR
+        )
+
+        self.assertEqual("feature-2", update.after[3])
+
+    def test_push_rejects_zero_proposed_sha(self) -> None:
+        authority = AuthorityGrant(
+            operation=StackOperation.PUBLISH,
+            repository="shaug/compris",
+            remote="origin",
+            identities=("feature-2",),
+            branches=("feature-2",),
+            phases=frozenset({TransitionPhase.PUSH}),
+            effect_kinds=frozenset({EffectKind.PUSH_REF}),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "proposed SHA cannot be zero"):
+            preview_push(
+                repository="shaug/compris",
+                remote="origin",
+                refs=(ExpectedRef("refs/heads/feature-2", SHA_A, ZERO_SHA),),
+                native_stack=self.stack,
+                authority=authority,
+                evidence=("push snapshot",),
             )
 
     def test_direct_merge_binds_prefix_and_automatic_suffix_effects(self) -> None:
