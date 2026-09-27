@@ -62,6 +62,7 @@ from propagate import (
     merge_propagate_from_live,
     propagate_from_live,
     push_chain,
+    push_changeset_branch,
 )
 from publication import remote_branch_head
 from recovery import recover_suffix_from_live
@@ -429,9 +430,7 @@ def cmd_pr_create(args: argparse.Namespace) -> None:
             allow_stack_state_refresh=args.allow_stack_state_refresh,
             ready_for_review=args.ready_for_review,
         ),
-        executor=lambda _manifest: pr_create(
-            plan, indices=indices, dry_run=False, remote=args.remote
-        ),
+        executor=_execute_publish_manifest,
         readback=lambda: _live_observation(
             approved,
             lambda: _publish_manifest(
@@ -1200,6 +1199,55 @@ def _execute_for_cli(*args, **kwargs) -> TransitionResult:
         return execute_transition(*args, **kwargs)
 
 
+def _execute_push_manifest(manifest) -> None:
+    """Apply only the exact ref leases approved by one push manifest."""
+
+    manifest.validate_complete()
+    if manifest.enabled_phases != (TransitionPhase.PUSH,):
+        raise CommandError("push executor requires an exact push-only manifest")
+    for expected_ref in manifest.expected_refs:
+        branch = expected_ref.name.removeprefix("refs/heads/")
+        local = git(
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{branch}^{{commit}}",
+            check=False,
+        )
+        if local.returncode != 0 or local.stdout.strip() != expected_ref.proposed_sha:
+            observed = local.stdout.strip() if local.returncode == 0 else "absent"
+            raise CommandError(
+                f"Local branch {branch} is {observed}; approved manifest requires "
+                f"{expected_ref.proposed_sha}."
+            )
+        push_changeset_branch(
+            branch,
+            remote=manifest.remote,
+            dry_run=False,
+            expected_remote_head=(
+                None if expected_ref.old_sha == ZERO_SHA else expected_ref.old_sha
+            ),
+        )
+
+
+def _execute_publish_manifest(_manifest) -> None:
+    """Fail closed until native submit can consume every declared effect."""
+
+    raise CommandError(
+        "manifest-native submit executor is unavailable; no publish effect was applied"
+    )
+
+
+def _execute_merge_manifest(manifest) -> None:
+    """Fail closed until native merge can bind mode and the complete PR prefix."""
+
+    mode = "unselected" if manifest.merge_mode is None else manifest.merge_mode.value
+    prefix = ", ".join(str(number) for number in manifest.merge_prefix) or "empty"
+    raise CommandError(
+        f"manifest-native {mode} merge executor is unavailable for exact prefix "
+        f"{prefix}; no merge effect was applied"
+    )
+
+
 def _live_observation(approved, builder) -> TransitionObservation:
     return observation_from_manifest(approved, builder())
 
@@ -1270,7 +1318,7 @@ def cmd_push_chain(args: argparse.Namespace) -> None:
             remote=args.remote,
             allow_stack_state_refresh=args.allow_stack_state_refresh,
         ),
-        executor=lambda _manifest: push_chain(plan, remote=args.remote, dry_run=False),
+        executor=_execute_push_manifest,
         readback=lambda: _push_observation(approved),
     )
     _finish_transition(result)
@@ -1361,17 +1409,7 @@ def cmd_merge_propagate(args: argparse.Namespace) -> None:
         approved,
         profile=profile,
         reread=lambda: _merge_manifest(args),
-        executor=lambda _manifest: merge_propagate_from_live(
-            source=args.source,
-            base=args.base,
-            pr_number=args.pr,
-            index=args.index,
-            strategy=args.strategy,
-            method=args.method,
-            remote=args.remote,
-            dry_run=False,
-            authority_acknowledged=True,
-        ),
+        executor=_execute_merge_manifest,
         readback=lambda: _merge_observation(
             approved,
             source=args.source,
