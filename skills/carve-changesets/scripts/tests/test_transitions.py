@@ -134,6 +134,23 @@ class PublishManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "draft.*boolean"):
             manifest_from_json(__import__("json").dumps(payload))
 
+    def test_native_stack_rejects_trunk_as_a_layer(self) -> None:
+        stack = publish_manifest().expected_native_stack
+        aliased = replace(
+            stack,
+            layers=(replace(stack.layers[0], branch=stack.trunk), stack.layers[1]),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "trunk.*layer"):
+            aliased.validate()
+
+    def test_deserialized_manifest_rejects_push_to_trunk(self) -> None:
+        payload = __import__("json").loads(manifest_to_json(publish_manifest()))
+        payload["effects"][0]["target"] = "ref:main"
+
+        with self.assertRaisesRegex(ManifestError, "protected trunk"):
+            manifest_from_json(__import__("json").dumps(payload))
+
     def test_manifest_json_rejects_coerced_scalar_types_and_unknown_fields(
         self,
     ) -> None:
@@ -368,6 +385,46 @@ class PublishManifestTests(unittest.TestCase):
                 authority=manifest.authority,
                 evidence=manifest.evidence,
             )
+
+    def test_publish_rejects_terminal_pull_request_lifecycle_states(self) -> None:
+        manifest = publish_manifest()
+
+        for state in ("CLOSED", "MERGED"):
+            with (
+                self.subTest(state=state),
+                self.assertRaisesRegex(
+                    ManifestError, "publish requires absent or open pull requests"
+                ),
+            ):
+                pull_requests = (
+                    replace(manifest.expected_pull_requests[0], state=state),
+                    manifest.expected_pull_requests[1],
+                )
+                native_stack = replace(
+                    manifest.expected_native_stack,
+                    layers=(
+                        replace(
+                            manifest.expected_native_stack.layers[0],
+                            pull_request_state=state,
+                            merged=state == "MERGED",
+                        ),
+                        manifest.expected_native_stack.layers[1],
+                    ),
+                )
+                preview_publish(
+                    repository=manifest.repository,
+                    remote=manifest.remote,
+                    refs=manifest.expected_refs,
+                    pull_requests=pull_requests,
+                    native_stack=native_stack,
+                    authority=AuthorityGrant.publish(
+                        repository=manifest.repository,
+                        remote=manifest.remote,
+                        branches=("feature-1", "feature-2"),
+                        pull_requests=pull_requests,
+                    ),
+                    evidence=manifest.evidence,
+                )
 
     def test_publish_requires_an_explicit_body_for_every_layer(self) -> None:
         manifest = publish_manifest()
@@ -1229,6 +1286,84 @@ class OperationManifestTests(unittest.TestCase):
                 ),
                 evidence=("queue snapshot",),
             )
+
+    def test_direct_and_queue_merge_require_passing_ready_current_prefix(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "draft",
+                (replace(self.pull_requests[0], draft=True), self.pull_requests[1]),
+                self.stack,
+            ),
+            (
+                "needs-rebase",
+                self.pull_requests,
+                replace(
+                    self.stack,
+                    layers=(
+                        replace(self.stack.layers[0], needs_rebase=True),
+                        self.stack.layers[1],
+                    ),
+                ),
+            ),
+            (
+                "blocked",
+                (
+                    replace(self.pull_requests[0], merge_state_status="BLOCKED"),
+                    self.pull_requests[1],
+                ),
+                self.stack,
+            ),
+        )
+        for merge_mode in (MergeMode.DIRECT, MergeMode.QUEUE):
+            phase = (
+                TransitionPhase.DIRECT_MERGE
+                if merge_mode is MergeMode.DIRECT
+                else TransitionPhase.QUEUE_MERGE
+            )
+            effect_kinds = {
+                EffectKind.MERGE_PR,
+                EffectKind.REFRESH_TRUNK,
+                EffectKind.PUSH_REF,
+                EffectKind.UPDATE_PR,
+                EffectKind.SYNC_STACK,
+            }
+            if merge_mode is MergeMode.QUEUE:
+                effect_kinds.add(EffectKind.QUEUE_PR)
+            phases = {phase}
+            if merge_mode is MergeMode.DIRECT:
+                phases.add(TransitionPhase.SYNC)
+            for case, pull_requests, stack in cases:
+                with (
+                    self.subTest(mode=merge_mode, case=case),
+                    self.assertRaisesRegex(
+                        ManifestError, "passing ready current pull requests"
+                    ),
+                ):
+                    preview_merge(
+                        repository="shaug/compris",
+                        remote="origin",
+                        refs=self.refs,
+                        pull_requests=pull_requests,
+                        native_stack=stack,
+                        prefix_numbers=(42,),
+                        merge_mode=merge_mode,
+                        merge_method=(
+                            "merge" if merge_mode is MergeMode.DIRECT else None
+                        ),
+                        trunk_tree_before=SHA_A,
+                        trunk_tree_after=SHA_B,
+                        authority=self._authority(
+                            StackOperation.MERGE,
+                            frozenset(phases),
+                            frozenset(effect_kinds),
+                            merge_method=(
+                                "merge" if merge_mode is MergeMode.DIRECT else None
+                            ),
+                        ),
+                        evidence=("merge gate snapshot",),
+                    )
 
     def test_direct_full_prefix_does_not_claim_a_suffix_sync(self) -> None:
         phases = frozenset({TransitionPhase.DIRECT_MERGE})
