@@ -85,6 +85,8 @@ class ExpectedRef:
                 raise ManifestError(
                     f"{self.name} {label} SHA must be 40 lowercase hex characters"
                 )
+        if self.proposed_sha == ZERO_SHA:
+            raise ManifestError(f"{self.name} proposed SHA cannot be zero")
 
 
 @dataclass(frozen=True)
@@ -554,10 +556,9 @@ class MutationManifest:
                             "every unmerged native layer must have an open pull request"
                         )
         if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER} and any(
-            pull_request.state == "ABSENT"
-            for pull_request in self.expected_pull_requests
+            pull_request.state != "OPEN" for pull_request in self.expected_pull_requests
         ):
-            raise ManifestError("repair and recovery require existing pull requests")
+            raise ManifestError("repair and recovery require open pull requests")
         if len(set(self.authority.ready_for_review)) != len(
             self.authority.ready_for_review
         ):
@@ -798,7 +799,11 @@ class MutationManifest:
                 self.operation is StackOperation.PUBLISH
                 and pull_request.branch in self.authority.ready_for_review
             )
-            if self.operation is StackOperation.PUBLISH:
+            if self.operation in {
+                StackOperation.PUBLISH,
+                StackOperation.REPAIR,
+                StackOperation.RECOVER,
+            }:
                 branch_index = self.expected_native_stack.order.index(
                     pull_request.branch
                 )
@@ -1839,9 +1844,14 @@ def _repair_effects(
                 expected_ref.proposed_sha,
             )
         )
-    predecessor = native_stack.trunk
     for pull_request in pull_requests:
         head = proposed[pull_request.branch]
+        branch_index = native_stack.order.index(pull_request.branch)
+        predecessor = (
+            native_stack.trunk
+            if branch_index == 0
+            else native_stack.order[branch_index - 1]
+        )
         effects.append(
             MutationEffect(
                 EffectKind.UPDATE_PR,
@@ -1855,7 +1865,6 @@ def _repair_effects(
                 ),
             )
         )
-        predecessor = pull_request.branch
     effects.append(
         MutationEffect(
             EffectKind.SYNC_STACK,
