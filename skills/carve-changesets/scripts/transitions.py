@@ -553,6 +553,11 @@ class MutationManifest:
                         raise ManifestError(
                             "every unmerged native layer must have an open pull request"
                         )
+        if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER} and any(
+            pull_request.state == "ABSENT"
+            for pull_request in self.expected_pull_requests
+        ):
+            raise ManifestError("repair and recovery require existing pull requests")
         if len(set(self.authority.ready_for_review)) != len(
             self.authority.ready_for_review
         ):
@@ -902,6 +907,31 @@ class MutationManifest:
                         "head",
                     )
                 ] = (expected_ref.old_sha, expected_ref.proposed_sha)
+        specialized_bindings = (
+            {
+                (
+                    EffectKind.REFRESH_TRUNK,
+                    f"ref:{self.expected_native_stack.trunk}",
+                    "tree",
+                )
+            }
+            if self.operation is StackOperation.MERGE
+            else set()
+        )
+        unbound_required_effects = (
+            required_effects - set(expected_values) - specialized_bindings
+        )
+        if unbound_required_effects:
+            details = ", ".join(
+                f"{kind.value}:{target}:{field}"
+                for kind, target, field in sorted(
+                    unbound_required_effects,
+                    key=lambda item: (item[0].value, item[1], item[2]),
+                )
+            )
+            raise ManifestError(
+                f"required effects lack expected-value bindings: {details}"
+            )
         for effect in self.effects:
             signature = (effect.kind, effect.target, effect.field)
             expected = expected_values.get(signature)
