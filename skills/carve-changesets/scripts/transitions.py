@@ -292,6 +292,7 @@ class ExpectedNativeStack:
     registered: bool
     trunk: str
     trunk_head: str
+    trunk_tree: str
     layers: tuple[ExpectedNativeLayer, ...]
 
     @property
@@ -313,10 +314,13 @@ class ExpectedNativeStack:
             raise ManifestError("registered native stack needs an exact identity")
         if not self.trunk.strip():
             raise ManifestError("expected native stack trunk must be non-empty")
-        if len(self.trunk_head) != 40 or any(
-            character not in "0123456789abcdef" for character in self.trunk_head
-        ):
-            raise ManifestError("expected native stack trunk head must be a full SHA")
+        for label, sha in (("head", self.trunk_head), ("tree", self.trunk_tree)):
+            if len(sha) != 40 or any(
+                character not in "0123456789abcdef" for character in sha
+            ):
+                raise ManifestError(
+                    f"expected native stack trunk {label} must be a full SHA"
+                )
         if not self.layers:
             raise ManifestError("expected native stack order must name every layer")
         for layer in self.layers:
@@ -792,6 +796,7 @@ def manifest_to_json(manifest: MutationManifest) -> str:
             "registered": manifest.expected_native_stack.registered,
             "trunk": manifest.expected_native_stack.trunk,
             "trunk_head": manifest.expected_native_stack.trunk_head,
+            "trunk_tree": manifest.expected_native_stack.trunk_tree,
             "layers": [
                 {
                     "branch": item.branch,
@@ -906,6 +911,7 @@ def manifest_from_json(raw: str) -> MutationManifest:
             registered=stack_data["registered"],
             trunk=str(stack_data["trunk"]),
             trunk_head=str(stack_data["trunk_head"]),
+            trunk_tree=str(stack_data["trunk_tree"]),
             layers=tuple(
                 ExpectedNativeLayer(
                     branch=str(item["branch"]),
@@ -1687,7 +1693,12 @@ def observation_from_manifest(
             pr = prs_by_number[int(identity)]
             observed = pr.state if effect.field == "state" else pr.queued
         elif effect.kind is EffectKind.REFRESH_TRUNK:
-            observed = current.expected_native_stack.trunk_head
+            if effect.field == "sha":
+                observed = current.expected_native_stack.trunk_head
+            elif effect.field == "tree":
+                observed = current.expected_native_stack.trunk_tree
+            else:
+                raise ManifestError(f"unsupported trunk readback field: {effect.field}")
         else:  # pragma: no cover
             raise ManifestError(f"unsupported readback effect: {effect.kind.value}")
         values.append((effect.key, observed))

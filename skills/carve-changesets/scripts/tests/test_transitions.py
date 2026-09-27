@@ -76,6 +76,7 @@ def publish_manifest() -> MutationManifest:
         registered=False,
         trunk="main",
         trunk_head=SHA_A,
+        trunk_tree=SHA_B,
         layers=(
             ExpectedNativeLayer(
                 branch="feature-1",
@@ -513,6 +514,7 @@ class OperationManifestTests(unittest.TestCase):
             registered=True,
             trunk="main",
             trunk_head=SHA_A,
+            trunk_tree=SHA_A,
             layers=(
                 ExpectedNativeLayer(
                     branch="feature-2",
@@ -952,6 +954,7 @@ class ReadbackClassificationTests(unittest.TestCase):
                 registered=True,
                 trunk="main",
                 trunk_head=SHA_A,
+                trunk_tree=SHA_A,
                 layers=(
                     ExpectedNativeLayer(
                         branch="feature-1",
@@ -1022,6 +1025,29 @@ class ReadbackClassificationTests(unittest.TestCase):
         observation = observation_from_manifest(approved, current)
 
         self.assertEqual((("stack:stack-9:feature-1:head", SHA_C),), observation.values)
+
+    def test_live_observation_projects_trunk_tree_not_trunk_commit(self) -> None:
+        approved = self._manifest(
+            MutationEffect(
+                EffectKind.REFRESH_TRUNK,
+                "ref:main",
+                "tree",
+                SHA_A,
+                SHA_B,
+            )
+        )
+        current_stack = replace(
+            approved.expected_native_stack,
+            trunk_head=SHA_C,
+            trunk_tree=SHA_B,
+        )
+        current = replace(approved, expected_native_stack=current_stack)
+
+        observation = observation_from_manifest(approved, current)
+        result = classify_readback(approved, observation)
+
+        self.assertEqual((("ref:main:tree", SHA_B),), observation.values)
+        self.assertEqual(TransitionState.COMPLETED, result.state)
 
     def test_complete_and_no_op_results_remain_distinct(self) -> None:
         changing = self._manifest(
