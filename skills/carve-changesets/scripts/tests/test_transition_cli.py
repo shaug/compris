@@ -383,7 +383,7 @@ class TransitionCliTests(unittest.TestCase):
                     mock.patch.object(
                         cli_mod, "_reviewed_profile", return_value=profile
                     ),
-                    mock.patch.object(cli_mod, "push_chain") as executor,
+                    mock.patch.object(cli_mod, "_execute_push_manifest") as executor,
                     chdir(self.repo),
                     redirect_stdout(output),
                 ):
@@ -459,7 +459,7 @@ class TransitionCliTests(unittest.TestCase):
             mock.patch.object(cli_mod, "_push_manifest", reread),
             mock.patch.object(cli_mod, "_read_manifest", return_value=approved),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
-            mock.patch.object(cli_mod, "push_chain"),
+            mock.patch.object(cli_mod, "_execute_push_manifest"),
             mock.patch.object(
                 cli_mod,
                 "_push_observation",
@@ -487,6 +487,152 @@ class TransitionCliTests(unittest.TestCase):
 
         self.assertEqual(0, status)
         self.assertEqual(1, reread.call_count)
+
+    def test_push_execution_passes_the_approved_manifest_to_its_executor(self) -> None:
+        with chdir(self.repo):
+            approved = cli_mod._push_manifest(
+                json.loads(self.plan.read_text()),
+                remote="origin",
+                allow_stack_state_refresh=True,
+            )
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executor = mock.Mock()
+
+        with (
+            mock.patch.object(cli_mod, "_read_manifest", return_value=approved),
+            mock.patch.object(cli_mod, "_push_manifest", return_value=approved),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "_execute_push_manifest", executor),
+            mock.patch.object(cli_mod, "push_chain") as legacy_executor,
+            mock.patch.object(
+                cli_mod,
+                "_push_observation",
+                return_value=cli_mod.TransitionObservation(
+                    values=tuple(
+                        (effect.key, effect.after) for effect in approved.effects
+                    )
+                ),
+            ),
+            chdir(self.repo),
+            redirect_stdout(StringIO()),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(self.root / "ignored.json"),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status)
+        executor.assert_called_once_with(approved)
+        legacy_executor.assert_not_called()
+
+    def test_push_manifest_executor_uses_approved_old_heads_as_leases(self) -> None:
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            "refs/heads/feature/report-1:refs/heads/feature/report-1",
+        )
+        with chdir(self.repo):
+            approved = cli_mod._push_manifest(
+                json.loads(self.plan.read_text()),
+                remote="origin",
+                allow_stack_state_refresh=True,
+            )
+
+        with (
+            mock.patch.object(cli_mod, "push_changeset_branch") as push,
+            chdir(self.repo),
+        ):
+            cli_mod._execute_push_manifest(approved)
+
+        self.assertEqual(2, push.call_count)
+        push.assert_has_calls(
+            [
+                mock.call(
+                    "feature/report-1",
+                    remote="origin",
+                    dry_run=False,
+                    expected_remote_head=self.head_one,
+                ),
+                mock.call(
+                    "feature/report-2",
+                    remote="origin",
+                    dry_run=False,
+                    expected_remote_head=None,
+                ),
+            ]
+        )
+
+    def test_submit_execution_does_not_fall_back_to_legacy_pr_creation(self) -> None:
+        plan = json.loads(self.plan.read_text())
+        with (
+            chdir(self.repo),
+            mock.patch.object(cli_mod, "pull_requests_for_source", return_value=[]),
+            mock.patch.object(cli_mod, "pr_body_for", return_value="Layer body\n"),
+        ):
+            approved = cli_mod._publish_manifest(
+                plan,
+                remote="origin",
+                indices=(1,),
+                allow_stack_state_refresh=True,
+            )
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        output = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_read_manifest", return_value=approved),
+            mock.patch.object(cli_mod, "_publish_manifest", return_value=approved),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "pr_create") as legacy_executor,
+            mock.patch.object(
+                cli_mod,
+                "_live_observation",
+                return_value=cli_mod.TransitionObservation(
+                    values=tuple(
+                        (effect.key, effect.before) for effect in approved.effects
+                    )
+                ),
+            ),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "pr-create",
+                    "--plan",
+                    str(self.plan),
+                    "--index",
+                    "1",
+                    "--manifest",
+                    str(self.root / "ignored.json"),
+                    "--execute",
+                    "--ack-submit",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn(
+            "manifest-native submit executor is unavailable", output.getvalue()
+        )
+        legacy_executor.assert_not_called()
 
     def test_single_layer_submit_binds_its_actual_predecessor(self) -> None:
         plan = json.loads(self.plan.read_text())
@@ -565,7 +711,7 @@ class TransitionCliTests(unittest.TestCase):
         )
         with (
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
-            mock.patch.object(cli_mod, "push_chain", executor),
+            mock.patch.object(cli_mod, "_execute_push_manifest", executor),
             mock.patch.object(
                 cli_mod,
                 "_push_observation",
@@ -1005,7 +1151,7 @@ class TransitionCliTests(unittest.TestCase):
                 side_effect=(before_snapshot, after_snapshot),
             ),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
-            mock.patch.object(cli_mod, "merge_propagate_from_live"),
+            mock.patch.object(cli_mod, "_execute_merge_manifest"),
             chdir(self.repo),
             redirect_stdout(output),
         ):
@@ -1033,6 +1179,18 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(0, status)
         self.assertEqual("completed", result["state"])
         self.assertTrue(result["targets"])
+
+    def test_merge_executor_fails_closed_with_exact_mode_and_prefix(self) -> None:
+        manifest = SimpleNamespace(
+            merge_mode=cli_mod.MergeMode.QUEUE,
+            merge_prefix=(41, 42),
+        )
+
+        with self.assertRaisesRegex(
+            CommandError,
+            "manifest-native queue merge executor is unavailable for exact prefix 41, 42",
+        ):
+            cli_mod._execute_merge_manifest(manifest)
 
     def test_merge_execution_rejects_direct_method_drift_before_executor(self) -> None:
         chain, prs, snapshot = self._single_open_merge_evidence()
@@ -1070,7 +1228,7 @@ class TransitionCliTests(unittest.TestCase):
         with (
             mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
-            mock.patch.object(cli_mod, "merge_propagate_from_live", executor),
+            mock.patch.object(cli_mod, "_execute_merge_manifest", executor),
             chdir(self.repo),
             redirect_stdout(output),
         ):
@@ -1130,7 +1288,7 @@ class TransitionCliTests(unittest.TestCase):
         with (
             mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
-            mock.patch.object(cli_mod, "merge_propagate_from_live", executor),
+            mock.patch.object(cli_mod, "_execute_merge_manifest", executor),
             chdir(self.repo),
             redirect_stdout(output),
         ):
@@ -1351,7 +1509,7 @@ class TransitionCliTests(unittest.TestCase):
                 cli_mod, "github_repo_for_remote", return_value="acme/widgets"
             ),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
-            mock.patch.object(cli_mod, "merge_propagate_from_live") as executor,
+            mock.patch.object(cli_mod, "_execute_merge_manifest") as executor,
             chdir(self.repo),
             redirect_stdout(output),
         ):
