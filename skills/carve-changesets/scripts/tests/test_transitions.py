@@ -57,6 +57,8 @@ def publish_manifest() -> MutationManifest:
             auto_merge=True,
             title="Add transition model",
             body="Layer one body",
+            current_title="Add transition model",
+            current_body="Layer one body",
         ),
         ExpectedPullRequest(
             number=None,
@@ -173,6 +175,27 @@ class PublishManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "schema_version must be 1"):
             manifest_from_json(boolean_schema)
 
+    def test_manifest_json_rejects_type_coercion_inside_effect_records(self) -> None:
+        payload = __import__("json").loads(manifest_to_json(publish_manifest()))
+        update = next(
+            effect for effect in payload["effects"] if effect["kind"] == "update_pr"
+        )
+        update["before"][0] = 41.0
+
+        with self.assertRaisesRegex(ManifestError, "effect values disagree"):
+            manifest_from_json(__import__("json").dumps(payload))
+
+    def test_manifest_json_rejects_duplicate_authority_arrays(self) -> None:
+        baseline = __import__("json").loads(manifest_to_json(publish_manifest()))
+        for field in ("identities", "branches", "phases", "effect_kinds"):
+            with self.subTest(field=field):
+                payload = __import__("copy").deepcopy(baseline)
+                payload["authority"][field].append(payload["authority"][field][0])
+                with self.assertRaisesRegex(
+                    ManifestError, "must not contain duplicates"
+                ):
+                    manifest_from_json(__import__("json").dumps(payload))
+
     def test_preview_enumerates_direct_and_automatic_effects(self) -> None:
         manifest = publish_manifest()
 
@@ -184,6 +207,7 @@ class PublishManifestTests(unittest.TestCase):
                 EffectKind.UPDATE_PR,
                 EffectKind.CREATE_PR,
                 EffectKind.DISABLE_AUTO_MERGE,
+                EffectKind.REGISTER_STACK,
                 EffectKind.REGISTER_STACK,
                 EffectKind.REGISTER_STACK,
             ),
@@ -201,6 +225,18 @@ class PublishManifestTests(unittest.TestCase):
         )
         self.assertIsNone(registration.before)
         self.assertEqual("stack-9", registration.after)
+        registered = next(
+            effect
+            for effect in manifest.effects
+            if effect.kind is EffectKind.REGISTER_STACK and effect.field == "registered"
+        )
+        order = next(
+            effect
+            for effect in manifest.effects
+            if effect.kind is EffectKind.REGISTER_STACK and effect.field == "order"
+        )
+        self.assertEqual((False, True), (registered.before, registered.after))
+        self.assertEqual(((), ("feature-1", "feature-2")), (order.before, order.after))
         created = next(
             effect for effect in manifest.effects if effect.kind is EffectKind.CREATE_PR
         )
@@ -313,6 +349,25 @@ class PublishManifestTests(unittest.TestCase):
         self.assertIn("Add transition model", update.after)
         self.assertIn("Layer one body", update.after)
 
+    def test_publish_rejects_live_pr_without_current_text(self) -> None:
+        manifest = publish_manifest()
+        missing = replace(
+            manifest.expected_pull_requests[0],
+            current_title=None,
+            current_body=None,
+        )
+
+        with self.assertRaisesRegex(ManifestError, "exact current title and body"):
+            preview_publish(
+                repository=manifest.repository,
+                remote=manifest.remote,
+                refs=manifest.expected_refs,
+                pull_requests=(missing, manifest.expected_pull_requests[1]),
+                native_stack=manifest.expected_native_stack,
+                authority=manifest.authority,
+                evidence=manifest.evidence,
+            )
+
     def test_publish_requires_an_explicit_body_for_every_layer(self) -> None:
         manifest = publish_manifest()
         pull_requests = list(manifest.expected_pull_requests)
@@ -408,6 +463,30 @@ class PublishManifestTests(unittest.TestCase):
         observation = observation_from_manifest(approved, current).as_mapping()
 
         self.assertEqual(("feature-2", "feature-1"), observation[order_effect.key])
+
+    def test_absent_stack_registration_cannot_read_back_as_completed(self) -> None:
+        approved = publish_manifest()
+        values = tuple(
+            (
+                effect.key,
+                False
+                if effect.kind is EffectKind.REGISTER_STACK
+                and effect.field == "registered"
+                else effect.after,
+            )
+            for effect in approved.effects
+        )
+
+        result = classify_readback(approved, TransitionObservation(values=values))
+
+        self.assertNotEqual(TransitionState.COMPLETED, result.state)
+        registration = next(
+            target
+            for target in result.targets
+            if target.effect.kind is EffectKind.REGISTER_STACK
+            and target.effect.field == "registered"
+        )
+        self.assertEqual(TargetDisposition.UNCHANGED, registration.disposition)
 
 
 class CapabilityFenceTests(unittest.TestCase):
@@ -589,6 +668,8 @@ class OperationManifestTests(unittest.TestCase):
                 merge_state_status="CLEAN",
                 title="Layer 2",
                 body="Layer 2 body",
+                current_title="Layer 2",
+                current_body="Layer 2 body",
             ),
             ExpectedPullRequest(
                 number=43,
@@ -602,6 +683,8 @@ class OperationManifestTests(unittest.TestCase):
                 merge_state_status="CLEAN",
                 title="Layer 3",
                 body="Layer 3 body",
+                current_title="Layer 3",
+                current_body="Layer 3 body",
             ),
         )
         self.stack = ExpectedNativeStack(
@@ -1025,6 +1108,83 @@ class OperationManifestTests(unittest.TestCase):
                     ),
                     identities=("feature-3",),
                     branches=("feature-3", "main"),
+                ),
+                evidence=("merge snapshot",),
+            )
+
+    def test_merge_rejects_pull_request_base_outside_open_stack_topology(self) -> None:
+        phases = frozenset({TransitionPhase.DIRECT_MERGE})
+        pull_requests = (
+            replace(self.pull_requests[0], base="release"),
+            self.pull_requests[1],
+        )
+
+        with self.assertRaisesRegex(ManifestError, "native stack topology"):
+            preview_merge(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=pull_requests,
+                native_stack=self.stack,
+                prefix_numbers=(42,),
+                merge_mode=MergeMode.DIRECT,
+                merge_method="merge",
+                trunk_tree_before=SHA_A,
+                trunk_tree_after=SHA_B,
+                authority=self._authority(
+                    StackOperation.MERGE,
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.MERGE_PR,
+                            EffectKind.REFRESH_TRUNK,
+                            EffectKind.SYNC_STACK,
+                        }
+                    ),
+                    merge_method="merge",
+                ),
+                evidence=("merge snapshot",),
+            )
+
+    def test_merge_rejects_closed_unmerged_layer_below_an_open_layer(self) -> None:
+        phases = frozenset({TransitionPhase.DIRECT_MERGE})
+        closed_pr = replace(self.pull_requests[0], state="CLOSED")
+        stack = replace(
+            self.stack,
+            layers=(
+                replace(
+                    self.stack.layers[0],
+                    pull_request_state="CLOSED",
+                ),
+                self.stack.layers[1],
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ManifestError, "bottom prefix of open|every unmerged.*open"
+        ):
+            preview_merge(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=(closed_pr, self.pull_requests[1]),
+                native_stack=stack,
+                prefix_numbers=(42,),
+                merge_mode=MergeMode.DIRECT,
+                merge_method="merge",
+                trunk_tree_before=SHA_A,
+                trunk_tree_after=SHA_B,
+                authority=self._authority(
+                    StackOperation.MERGE,
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.MERGE_PR,
+                            EffectKind.REFRESH_TRUNK,
+                            EffectKind.SYNC_STACK,
+                        }
+                    ),
+                    merge_method="merge",
                 ),
                 evidence=("merge snapshot",),
             )
