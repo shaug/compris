@@ -824,6 +824,62 @@ class OperationManifestTests(unittest.TestCase):
                 evidence=("repair snapshot",),
             )
 
+    def test_repair_rejects_absent_pull_request_lifecycle_state(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        absent = ExpectedPullRequest(
+            number=None,
+            branch="feature-2",
+            head=None,
+            base=None,
+            state="ABSENT",
+            draft=None,
+            queued=None,
+            auto_merge=None,
+            title="Layer 2",
+            body="Layer 2 body",
+        )
+        stack = replace(
+            self.stack,
+            layers=(
+                replace(
+                    self.stack.layers[0],
+                    pull_request=None,
+                    pull_request_state=None,
+                ),
+                self.stack.layers[1],
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ManifestError, "repair and recovery require existing pull requests"
+        ):
+            preview_repair(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=(absent, self.pull_requests[1]),
+                native_stack=stack,
+                authority=self._authority(
+                    StackOperation.REPAIR,
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.REBASE_BRANCH,
+                            EffectKind.PUSH_REF,
+                            EffectKind.UPDATE_PR,
+                            EffectKind.SYNC_STACK,
+                        }
+                    ),
+                ),
+                evidence=("repair snapshot",),
+            )
+
     def test_direct_merge_binds_prefix_and_automatic_suffix_effects(self) -> None:
         phases = frozenset({TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC})
         manifest = preview_merge(
