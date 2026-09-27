@@ -83,6 +83,146 @@ class GithubTests(unittest.TestCase):
         self.assertTrue(record.auto_merge)
         self.assertEqual("CLEAN", record.merge_state_status)
 
+    def test_pr_discovery_rejects_missing_or_malformed_transition_fields(self) -> None:
+        valid = {
+            "number": 92,
+            "headRefName": "feature/test-1",
+            "headRefOid": "c" * 40,
+            "baseRefName": "main",
+            "state": "OPEN",
+            "body": "Human context only.\n",
+            "title": "Feature (1 of 1)",
+            "mergeCommit": None,
+            "isCrossRepository": False,
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "autoMergeRequest": None,
+        }
+        timeline = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "mergeQueueEntry": None,
+                        "timelineItems": {
+                            "nodes": [],
+                            "pageInfo": {
+                                "hasNextPage": False,
+                                "endCursor": None,
+                            },
+                        },
+                    }
+                }
+            }
+        }
+        invalid_values = {
+            "isDraft": (None, "false", 0),
+            "autoMergeRequest": (False, "enabled", []),
+            "mergeStateStatus": (None, "", 7),
+        }
+
+        for field, values in invalid_values.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    pull_request = {**valid, field: value}
+                    with (
+                        mock.patch.object(
+                            github_mod,
+                            "github_repo_for_remote",
+                            return_value="github.com/acme/widgets",
+                        ),
+                        mock.patch.object(
+                            github_mod,
+                            "gh_json",
+                            side_effect=([pull_request], timeline),
+                        ),
+                    ):
+                        with self.assertRaisesRegex(CommandError, f"valid {field}"):
+                            github_mod.pull_requests_for_source("feature/test")
+
+        for field in invalid_values:
+            with self.subTest(field=field, value="missing"):
+                pull_request = dict(valid)
+                del pull_request[field]
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        github_mod,
+                        "gh_json",
+                        side_effect=([pull_request], timeline),
+                    ),
+                ):
+                    with self.assertRaisesRegex(CommandError, f"valid {field}"):
+                        github_mod.pull_requests_for_source("feature/test")
+
+    def test_pr_discovery_rejects_missing_or_malformed_queue_evidence(self) -> None:
+        pull_request = {
+            "number": 92,
+            "headRefName": "feature/test-1",
+            "headRefOid": "c" * 40,
+            "baseRefName": "main",
+            "state": "OPEN",
+            "body": "Human context only.\n",
+            "title": "Feature (1 of 1)",
+            "mergeCommit": None,
+            "isCrossRepository": False,
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "autoMergeRequest": None,
+        }
+        base_timeline = {
+            "nodes": [],
+            "pageInfo": {"hasNextPage": False, "endCursor": None},
+        }
+
+        for queue_value in (False, "queued", {}, {"id": ""}, {"id": 7}):
+            with self.subTest(queue_value=queue_value):
+                timeline = {
+                    "data": {
+                        "repository": {
+                            "pullRequest": {
+                                "mergeQueueEntry": queue_value,
+                                "timelineItems": base_timeline,
+                            }
+                        }
+                    }
+                }
+                with (
+                    mock.patch.object(
+                        github_mod,
+                        "github_repo_for_remote",
+                        return_value="github.com/acme/widgets",
+                    ),
+                    mock.patch.object(
+                        github_mod,
+                        "gh_json",
+                        side_effect=([pull_request], timeline),
+                    ),
+                ):
+                    with self.assertRaisesRegex(CommandError, "merge-queue evidence"):
+                        github_mod.pull_requests_for_source("feature/test")
+
+        missing = {
+            "data": {"repository": {"pullRequest": {"timelineItems": base_timeline}}}
+        }
+        with (
+            mock.patch.object(
+                github_mod,
+                "github_repo_for_remote",
+                return_value="github.com/acme/widgets",
+            ),
+            mock.patch.object(
+                github_mod,
+                "gh_json",
+                side_effect=([pull_request], missing),
+            ),
+        ):
+            with self.assertRaisesRegex(CommandError, "merge-queue evidence"):
+                github_mod.pull_requests_for_source("feature/test")
+
     def test_pr_discovery_rejects_incomplete_force_push_history(self) -> None:
         pull_request = {
             "number": 92,
@@ -94,11 +234,15 @@ class GithubTests(unittest.TestCase):
             "title": "Feature (1 of 2)",
             "mergeCommit": None,
             "isCrossRepository": False,
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "autoMergeRequest": None,
         }
         timeline = {
             "data": {
                 "repository": {
                     "pullRequest": {
+                        "mergeQueueEntry": None,
                         "timelineItems": {
                             "nodes": [
                                 {
@@ -114,7 +258,7 @@ class GithubTests(unittest.TestCase):
                                 "hasNextPage": False,
                                 "endCursor": None,
                             },
-                        }
+                        },
                     }
                 }
             }
@@ -229,11 +373,15 @@ class GithubTests(unittest.TestCase):
             "title": "Feature (1 of 1)",
             "mergeCommit": None,
             "isCrossRepository": False,
+            "isDraft": False,
+            "mergeStateStatus": "CLEAN",
+            "autoMergeRequest": None,
         }
         first = {
             "data": {
                 "repository": {
                     "pullRequest": {
+                        "mergeQueueEntry": None,
                         "timelineItems": {
                             "nodes": [
                                 {
@@ -245,7 +393,7 @@ class GithubTests(unittest.TestCase):
                                 "hasNextPage": True,
                                 "endCursor": "next-page",
                             },
-                        }
+                        },
                     }
                 }
             }
@@ -254,6 +402,7 @@ class GithubTests(unittest.TestCase):
             "data": {
                 "repository": {
                     "pullRequest": {
+                        "mergeQueueEntry": None,
                         "timelineItems": {
                             "nodes": [
                                 {
@@ -265,7 +414,7 @@ class GithubTests(unittest.TestCase):
                                 "hasNextPage": False,
                                 "endCursor": None,
                             },
-                        }
+                        },
                     }
                 }
             }
