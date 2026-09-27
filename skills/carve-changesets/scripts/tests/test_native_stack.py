@@ -250,6 +250,19 @@ class NativeStackSnapshotTest(unittest.TestCase):
                 pull_requests={101: OPEN_PR_101, 102: wrong_state},
             )
 
+    def test_reconcile_rejects_queue_membership_disagreement(self) -> None:
+        snapshot = parse_native_stack(
+            VIEW_OPEN, expected_trunk_branch="main", trunk_head=A_SHA
+        )
+        queued = PullRequestRecord(**{**OPEN_PR_101.__dict__, "queued": True})
+
+        with self.assertRaisesRegex(NativeStackError, "queue mismatch"):
+            reconcile_native_stack(
+                snapshot,
+                remote_heads={"feature-1": "1" * 40, "feature-2": "2" * 40},
+                pull_requests={101: queued, 102: OPEN_PR_102},
+            )
+
     def test_reconcile_retains_merged_historical_predecessor_base(self) -> None:
         payload = copy.deepcopy(VIEW_OPEN)
         for layer in payload["branches"]:
