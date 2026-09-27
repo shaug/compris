@@ -151,6 +151,18 @@ class PublishManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "protected trunk"):
             manifest_from_json(__import__("json").dumps(payload))
 
+    def test_deserialized_publish_manifest_rejects_merge_phases(self) -> None:
+        baseline = __import__("json").loads(manifest_to_json(publish_manifest()))
+
+        for phase in ("direct_merge", "queue_merge"):
+            with self.subTest(phase=phase):
+                payload = __import__("copy").deepcopy(baseline)
+                payload["enabled_phases"].append(phase)
+                payload["authority"]["phases"].append(phase)
+
+                with self.assertRaisesRegex(ManifestError, "publish operation phases"):
+                    manifest_from_json(__import__("json").dumps(payload))
+
     def test_manifest_json_rejects_coerced_scalar_types_and_unknown_fields(
         self,
     ) -> None:
@@ -630,6 +642,45 @@ class CapabilityFenceTests(unittest.TestCase):
 
         self.assertEqual(TransitionState.PARTIAL, result.state)
         self.assertIn("second lease rejected", result.blocker)
+        self.assertTrue(result.fresh_manifest_required)
+
+    def test_keyboard_interrupt_still_classifies_partial_remote_effects(self) -> None:
+        manifest = publish_manifest()
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+        first, *remaining = manifest.effects
+        observation = TransitionObservation(
+            values=(
+                (first.key, first.after),
+                *((effect.key, effect.before) for effect in remaining),
+            )
+        )
+        readbacks: list[str] = []
+
+        def interrupt_after_first(_approved: MutationManifest) -> None:
+            raise KeyboardInterrupt("operator interrupted remote command")
+
+        def readback() -> TransitionObservation:
+            readbacks.append("performed")
+            return observation
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=lambda: manifest,
+            executor=interrupt_after_first,
+            readback=readback,
+        )
+
+        self.assertEqual(["performed"], readbacks)
+        self.assertEqual(TransitionState.PARTIAL, result.state)
+        self.assertIn("operator interrupted remote command", result.blocker)
         self.assertTrue(result.fresh_manifest_required)
 
     def test_successful_executor_with_partial_readback_returns_blocked(self) -> None:

@@ -41,6 +41,55 @@ class MergeMode(str, Enum):
     QUEUE = "queue"
 
 
+_NON_MERGE_OPERATION_PHASES: Mapping[
+    StackOperation, tuple[tuple[TransitionPhase, ...], ...]
+] = {
+    StackOperation.PUBLISH: (
+        (TransitionPhase.PUSH,),
+        (TransitionPhase.PUSH, TransitionPhase.SUBMIT),
+    ),
+    StackOperation.REPAIR: (
+        (
+            TransitionPhase.REBASE_NO_TRUNK,
+            TransitionPhase.PUSH,
+            TransitionPhase.SYNC,
+        ),
+    ),
+    StackOperation.RECOVER: (
+        (
+            TransitionPhase.TRUNK_REFRESH,
+            TransitionPhase.REBASE_NO_TRUNK,
+            TransitionPhase.PUSH,
+            TransitionPhase.SYNC,
+        ),
+    ),
+}
+
+
+def _validate_operation_phases(
+    operation: StackOperation,
+    phases: Sequence[TransitionPhase],
+    merge_mode: MergeMode | None,
+) -> None:
+    selected = tuple(phases)
+    if operation is StackOperation.MERGE:
+        allowed = {
+            MergeMode.DIRECT: (
+                (TransitionPhase.DIRECT_MERGE,),
+                (TransitionPhase.DIRECT_MERGE, TransitionPhase.SYNC),
+            ),
+            MergeMode.QUEUE: ((TransitionPhase.QUEUE_MERGE,),),
+        }.get(merge_mode, ())
+    else:
+        if merge_mode is not None:
+            raise ManifestError("non-merge operation selected a merge mode")
+        allowed = _NON_MERGE_OPERATION_PHASES[operation]
+    if selected not in allowed:
+        raise ManifestError(
+            f"{operation.value} operation phases do not match an approved phase set"
+        )
+
+
 class EffectKind(str, Enum):
     PUSH_REF = "push_ref"
     CREATE_PR = "create_pr"
@@ -454,6 +503,11 @@ class MutationManifest:
             self.enabled_phases
         ):
             raise ManifestError("manifest enabled phases must be non-empty and unique")
+        _validate_operation_phases(
+            self.operation,
+            self.enabled_phases,
+            self.merge_mode,
+        )
         if not self.effects:
             raise ManifestError("manifest must enumerate its effects")
         if not self.evidence or any(not item.strip() for item in self.evidence):
@@ -1654,15 +1708,7 @@ def required_capabilities(
     merge_mode: MergeMode | None,
 ) -> frozenset[StackCapability]:
     selected = tuple(phases)
-    if operation is StackOperation.MERGE:
-        required_phase = {
-            MergeMode.DIRECT: TransitionPhase.DIRECT_MERGE,
-            MergeMode.QUEUE: TransitionPhase.QUEUE_MERGE,
-        }.get(merge_mode)
-        if required_phase is None or required_phase not in selected:
-            raise ManifestError("merge mode and enabled merge phase disagree")
-    elif merge_mode is not None:
-        raise ManifestError("non-merge operation selected a merge mode")
+    _validate_operation_phases(operation, selected, merge_mode)
     capabilities: set[StackCapability] = set()
     for phase in selected:
         capabilities.update(_PHASE_CAPABILITIES[phase])
@@ -2427,10 +2473,12 @@ def execute_transition(
             next_action="review and approve a newly generated manifest",
             fresh_manifest_required=True,
         )
-    execution_error: Exception | None = None
+    execution_error: BaseException | None = None
     try:
         executor(manifest)
-    except Exception as exc:  # readback must account for partial remote effects
+    except (Exception, KeyboardInterrupt) as exc:
+        # Operator interruption can arrive after a remote effect. Classify the
+        # durable post-state before returning control to the caller.
         execution_error = exc
     try:
         result = classify_readback(manifest, readback())
