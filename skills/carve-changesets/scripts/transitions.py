@@ -468,6 +468,38 @@ class MutationManifest:
             raise ManifestError(
                 "manifest pull requests must follow expected native stack order"
             )
+        if (
+            self.operation is StackOperation.MERGE
+            and pr_branches != self.expected_native_stack.order
+        ):
+            raise ManifestError(
+                "manifest pull requests must cover the complete native stack order"
+            )
+        native_by_branch = {
+            layer.branch: layer for layer in self.expected_native_stack.layers
+        }
+        for pull_request in self.expected_pull_requests:
+            native_layer = native_by_branch[pull_request.branch]
+            if pull_request.state == "ABSENT":
+                consistent = (
+                    native_layer.pull_request is None
+                    and native_layer.pull_request_state is None
+                    and not native_layer.queued
+                    and not native_layer.merged
+                )
+            else:
+                consistent = (
+                    native_layer.pull_request == pull_request.number
+                    and native_layer.pull_request_state == pull_request.state
+                    and native_layer.head == pull_request.head
+                    and native_layer.queued == pull_request.queued
+                    and native_layer.merged == (pull_request.state == "MERGED")
+                )
+            if not consistent:
+                raise ManifestError(
+                    "pull request state disagrees with expected native layer "
+                    f"{pull_request.branch}"
+                )
         if len(set(self.authority.ready_for_review)) != len(
             self.authority.ready_for_review
         ):
@@ -538,6 +570,13 @@ class MutationManifest:
                     EffectKind.REGISTER_STACK,
                     f"stack:{self.expected_native_stack.identity or 'absent'}",
                     "identity",
+                )
+            )
+            required_effects.add(
+                (
+                    EffectKind.REGISTER_STACK,
+                    f"stack:{self.expected_native_stack.identity or 'absent'}",
+                    "order",
                 )
             )
         if TransitionPhase.REBASE_NO_TRUNK in self.enabled_phases:
@@ -653,6 +692,169 @@ class MutationManifest:
                 )
             )
             raise ManifestError(f"manifest has unexpected effect: {details}")
+        expected_values: dict[tuple[EffectKind, str, str], tuple[object, object]] = {}
+        for branch, expected_ref in ref_by_branch.items():
+            for kind, target in (
+                (EffectKind.PUSH_REF, f"ref:{branch}"),
+                (EffectKind.REBASE_BRANCH, f"local:{branch}"),
+            ):
+                signature = (kind, target, "sha")
+                if signature in required_effects:
+                    expected_values[signature] = (
+                        expected_ref.old_sha,
+                        expected_ref.proposed_sha,
+                    )
+        if self.operation is StackOperation.PUBLISH:
+            changing_pull_requests = self.expected_pull_requests
+        elif self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}:
+            changing_pull_requests = self.expected_pull_requests
+        elif self.operation is StackOperation.MERGE:
+            changing_pull_requests = tuple(
+                item
+                for item in self.expected_pull_requests
+                if item.state == "OPEN" and item.number not in self.merge_prefix
+            )
+        else:
+            changing_pull_requests = ()
+        predecessor = self.expected_native_stack.trunk
+        for pull_request in changing_pull_requests:
+            expected_ref = ref_by_branch.get(pull_request.branch)
+            if expected_ref is None:
+                raise ManifestError(
+                    f"pull request branch {pull_request.branch} has no proposed ref"
+                )
+            ready = (
+                self.operation is StackOperation.PUBLISH
+                and pull_request.branch in self.authority.ready_for_review
+            )
+            if self.operation is StackOperation.PUBLISH:
+                branch_index = self.expected_native_stack.order.index(
+                    pull_request.branch
+                )
+                predecessor = (
+                    self.expected_native_stack.trunk
+                    if branch_index == 0
+                    else self.expected_native_stack.order[branch_index - 1]
+                )
+            kind = (
+                EffectKind.CREATE_PR
+                if pull_request.state == "ABSENT"
+                else EffectKind.UPDATE_PR
+            )
+            identity = (
+                str(pull_request.number)
+                if pull_request.number is not None
+                else pull_request.branch
+            )
+            expected_values[(kind, f"pr:{identity}", "record")] = (
+                None if pull_request.state == "ABSENT" else pull_request.record,
+                pull_request.proposed_record(
+                    expected_head=expected_ref.proposed_sha,
+                    expected_base=predecessor,
+                    ready_for_review=ready,
+                ),
+            )
+            if pull_request.auto_merge is True:
+                expected_values[
+                    (
+                        EffectKind.DISABLE_AUTO_MERGE,
+                        f"pr:{pull_request.number}",
+                        "auto_merge",
+                    )
+                ] = (True, False)
+            if ready and pull_request.draft is not False:
+                expected_values[(EffectKind.READY_PR, f"pr:{identity}", "draft")] = (
+                    pull_request.draft,
+                    False,
+                )
+            predecessor = pull_request.branch
+        stack_target = f"stack:{self.expected_native_stack.identity or 'absent'}"
+        if self.operation is StackOperation.PUBLISH:
+            expected_values[(EffectKind.REGISTER_STACK, stack_target, "identity")] = (
+                self.expected_native_stack.identity
+                if self.expected_native_stack.registered
+                else None,
+                self.expected_native_stack.identity,
+            )
+            expected_values[(EffectKind.REGISTER_STACK, stack_target, "order")] = (
+                self.expected_native_stack.order,
+                self.expected_native_stack.order,
+            )
+        if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}:
+            expected_values[(EffectKind.SYNC_STACK, stack_target, "order")] = (
+                self.expected_native_stack.order,
+                self.expected_native_stack.order,
+            )
+        if self.operation is StackOperation.RECOVER:
+            expected_values[
+                (
+                    EffectKind.REFRESH_TRUNK,
+                    f"ref:{self.expected_native_stack.trunk}",
+                    "sha",
+                )
+            ] = (
+                self.expected_native_stack.trunk_head,
+                self.expected_native_stack.trunk_head,
+            )
+        if self.operation is StackOperation.MERGE:
+            pull_requests_by_number = {
+                item.number: item for item in self.expected_pull_requests
+            }
+            for number in self.merge_prefix:
+                pull_request = pull_requests_by_number[number]
+                expected_values[(EffectKind.MERGE_PR, f"pr:{number}", "state")] = (
+                    pull_request.state,
+                    "MERGED",
+                )
+            if self.merge_mode is MergeMode.QUEUE:
+                bottom = self.merge_prefix[0]
+                expected_values[(EffectKind.QUEUE_PR, f"pr:{bottom}", "queued")] = (
+                    pull_requests_by_number[bottom].queued,
+                    True,
+                )
+            suffix = tuple(
+                item
+                for item in self.expected_pull_requests
+                if item.state == "OPEN" and item.number not in self.merge_prefix
+            )
+            expected_values[(EffectKind.SYNC_STACK, stack_target, "open_order")] = (
+                self.expected_native_stack.open_order,
+                tuple(item.branch for item in suffix),
+            )
+            for pull_request in suffix:
+                expected_ref = ref_by_branch[pull_request.branch]
+                expected_values[
+                    (
+                        EffectKind.SYNC_STACK,
+                        f"{stack_target}:{pull_request.branch}",
+                        "head",
+                    )
+                ] = (expected_ref.old_sha, expected_ref.proposed_sha)
+        for effect in self.effects:
+            signature = (effect.kind, effect.target, effect.field)
+            expected = expected_values.get(signature)
+            if expected is not None and (effect.before, effect.after) != expected:
+                raise ManifestError(
+                    "manifest effect values disagree with bound resource state: "
+                    f"{effect.kind.value}:{effect.target}:{effect.field}"
+                )
+            if (
+                effect.kind is EffectKind.REFRESH_TRUNK
+                and effect.field == "tree"
+                and (
+                    effect.before != self.expected_native_stack.trunk_tree
+                    or not isinstance(effect.after, str)
+                    or len(effect.after) != 40
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in effect.after
+                    )
+                )
+            ):
+                raise ManifestError(
+                    "manifest effect values disagree with bound resource state: "
+                    f"{effect.kind.value}:{effect.target}:{effect.field}"
+                )
         if self.operation is StackOperation.MERGE and self.merge_mode is None:
             raise ManifestError("merge manifests must select direct or queue mode")
         if self.operation is StackOperation.MERGE and not self.merge_prefix:
@@ -673,6 +875,10 @@ class MutationManifest:
             if self.merge_prefix != ordered_open[: len(self.merge_prefix)]:
                 raise ManifestError(
                     "merge prefix must be an ordered bottom prefix of open pull requests"
+                )
+            if self.merge_mode is MergeMode.QUEUE and len(self.merge_prefix) != 1:
+                raise ManifestError(
+                    "queue merge prefix must contain exactly the bottom open pull request"
                 )
             selected_pull_requests = {
                 item.number: item for item in self.expected_pull_requests
@@ -979,8 +1185,25 @@ def _optional_boolean(value: object, context: str) -> bool | None:
 
 
 def manifest_from_json(raw: str) -> MutationManifest:
+    def reject_duplicate_members(
+        pairs: list[tuple[str, object]],
+    ) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ManifestError(f"duplicate JSON member: {key}")
+            result[key] = value
+        return result
+
+    def reject_nonstandard_constant(value: str) -> object:
+        raise ManifestError(f"manifest contains non-standard JSON constant: {value}")
+
     try:
-        payload = json.loads(raw)
+        payload = json.loads(
+            raw,
+            object_pairs_hook=reject_duplicate_members,
+            parse_constant=reject_nonstandard_constant,
+        )
     except json.JSONDecodeError as exc:
         raise ManifestError(f"manifest is not valid JSON: {exc}") from exc
     root = _exact_object(
@@ -1006,7 +1229,11 @@ def manifest_from_json(raw: str) -> MutationManifest:
             }
         ),
     )
-    if root.get("schema_version") != 1:
+    if (
+        not isinstance(root.get("schema_version"), int)
+        or isinstance(root.get("schema_version"), bool)
+        or root["schema_version"] != 1
+    ):
         raise ManifestError("manifest schema_version must be 1")
     try:
         refs = tuple(
@@ -1365,6 +1592,15 @@ def preview_publish(
             "identity",
             native_stack.identity if native_stack.registered else None,
             native_stack.identity,
+        )
+    )
+    effects.append(
+        MutationEffect(
+            EffectKind.REGISTER_STACK,
+            f"stack:{native_stack.identity or 'absent'}",
+            "order",
+            native_stack.order,
+            native_stack.order,
         )
     )
     manifest = MutationManifest(

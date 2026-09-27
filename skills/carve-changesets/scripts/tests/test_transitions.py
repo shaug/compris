@@ -159,6 +159,20 @@ class PublishManifestTests(unittest.TestCase):
                 with self.assertRaises(ManifestError):
                     manifest_from_json(__import__("json").dumps(payload))
 
+    def test_manifest_json_rejects_duplicate_keys_and_boolean_schema(self) -> None:
+        raw = manifest_to_json(publish_manifest())
+        duplicate = raw.replace(
+            '"remote": "origin",',
+            '"remote": "wrong", "remote": "origin",',
+            1,
+        )
+        boolean_schema = raw.replace('"schema_version": 1', '"schema_version": true')
+
+        with self.assertRaisesRegex(ManifestError, "duplicate JSON member"):
+            manifest_from_json(duplicate)
+        with self.assertRaisesRegex(ManifestError, "schema_version must be 1"):
+            manifest_from_json(boolean_schema)
+
     def test_preview_enumerates_direct_and_automatic_effects(self) -> None:
         manifest = publish_manifest()
 
@@ -170,6 +184,7 @@ class PublishManifestTests(unittest.TestCase):
                 EffectKind.UPDATE_PR,
                 EffectKind.CREATE_PR,
                 EffectKind.DISABLE_AUTO_MERGE,
+                EffectKind.REGISTER_STACK,
                 EffectKind.REGISTER_STACK,
             ),
         )
@@ -239,7 +254,19 @@ class PublishManifestTests(unittest.TestCase):
             remote=approved.remote,
             refs=approved.expected_refs,
             pull_requests=current_pull_requests,
-            native_stack=replace(approved.expected_native_stack, registered=True),
+            native_stack=replace(
+                approved.expected_native_stack,
+                registered=True,
+                layers=(
+                    approved.expected_native_stack.layers[0],
+                    replace(
+                        approved.expected_native_stack.layers[1],
+                        head=SHA_D,
+                        pull_request=52,
+                        pull_request_state="OPEN",
+                    ),
+                ),
+            ),
             authority=AuthorityGrant.publish(
                 repository=approved.repository,
                 remote=approved.remote,
@@ -354,6 +381,33 @@ class PublishManifestTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ManifestError, "unexpected effect"):
             replace(manifest, effects=(*manifest.effects, extra)).validate_complete()
+
+    def test_manifest_rejects_effect_values_that_disagree_with_bound_ref(self) -> None:
+        manifest = publish_manifest()
+        effects = list(manifest.effects)
+        effects[0] = replace(effects[0], before=SHA_D)
+
+        with self.assertRaisesRegex(ManifestError, "effect values disagree"):
+            replace(manifest, effects=tuple(effects)).validate_complete()
+
+    def test_publish_manifest_observes_native_stack_order(self) -> None:
+        approved = publish_manifest()
+        order_effect = next(
+            effect
+            for effect in approved.effects
+            if effect.kind is EffectKind.REGISTER_STACK and effect.field == "order"
+        )
+        current = replace(
+            approved,
+            expected_native_stack=replace(
+                approved.expected_native_stack,
+                layers=tuple(reversed(approved.expected_native_stack.layers)),
+            ),
+        )
+
+        observation = observation_from_manifest(approved, current).as_mapping()
+
+        self.assertEqual(("feature-2", "feature-1"), observation[order_effect.key])
 
 
 class CapabilityFenceTests(unittest.TestCase):
@@ -851,6 +905,36 @@ class OperationManifestTests(unittest.TestCase):
         )
         self.assertEqual(TransitionState.DIVERGED, drift.state)
 
+    def test_queue_merge_rejects_more_than_the_bottom_pull_request(self) -> None:
+        phases = frozenset({TransitionPhase.QUEUE_MERGE})
+
+        with self.assertRaisesRegex(ManifestError, "exactly the bottom"):
+            preview_merge(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=self.pull_requests,
+                native_stack=self.stack,
+                prefix_numbers=(42, 43),
+                merge_mode=MergeMode.QUEUE,
+                merge_method=None,
+                trunk_tree_before=SHA_A,
+                trunk_tree_after=SHA_B,
+                authority=self._authority(
+                    StackOperation.MERGE,
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.QUEUE_PR,
+                            EffectKind.MERGE_PR,
+                            EffectKind.REFRESH_TRUNK,
+                            EffectKind.SYNC_STACK,
+                        }
+                    ),
+                ),
+                evidence=("queue snapshot",),
+            )
+
     def test_direct_full_prefix_does_not_claim_a_suffix_sync(self) -> None:
         phases = frozenset({TransitionPhase.DIRECT_MERGE})
         manifest = preview_merge(
@@ -911,6 +995,76 @@ class OperationManifestTests(unittest.TestCase):
                 ),
                 evidence=("merge snapshot",),
             )
+
+    def test_merge_requires_complete_native_pull_request_view(self) -> None:
+        phases = frozenset({TransitionPhase.DIRECT_MERGE})
+
+        with self.assertRaisesRegex(ManifestError, "complete native stack order"):
+            preview_merge(
+                repository="shaug/compris",
+                remote="origin",
+                pull_requests=(self.pull_requests[1],),
+                native_stack=self.stack,
+                prefix_numbers=(43,),
+                merge_mode=MergeMode.DIRECT,
+                merge_method="merge",
+                trunk_tree_before=SHA_A,
+                trunk_tree_after=SHA_B,
+                authority=replace(
+                    self._authority(
+                        StackOperation.MERGE,
+                        phases,
+                        frozenset(
+                            {
+                                EffectKind.MERGE_PR,
+                                EffectKind.REFRESH_TRUNK,
+                                EffectKind.SYNC_STACK,
+                            }
+                        ),
+                        merge_method="merge",
+                    ),
+                    identities=("feature-3",),
+                    branches=("feature-3", "main"),
+                ),
+                evidence=("merge snapshot",),
+            )
+
+    def test_manifest_rejects_pr_identity_that_disagrees_with_native_layer(
+        self,
+    ) -> None:
+        manifest = preview_repair(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self.stack,
+            authority=self._authority(
+                StackOperation.REPAIR,
+                frozenset(
+                    {
+                        TransitionPhase.REBASE_NO_TRUNK,
+                        TransitionPhase.PUSH,
+                        TransitionPhase.SYNC,
+                    }
+                ),
+                frozenset(
+                    {
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            evidence=("repair snapshot",),
+        )
+        pull_requests = list(manifest.expected_pull_requests)
+        pull_requests[0] = replace(pull_requests[0], number=99)
+
+        with self.assertRaisesRegex(ManifestError, "native layer"):
+            replace(
+                manifest, expected_pull_requests=tuple(pull_requests)
+            ).validate_complete()
 
     def test_recovery_fences_trunk_refresh_rebase_push_pr_and_sync(self) -> None:
         phases = frozenset(
