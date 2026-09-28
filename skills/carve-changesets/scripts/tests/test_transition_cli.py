@@ -1698,6 +1698,34 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual("completed", result["state"])
         self.assertTrue(result["targets"])
 
+    def test_direct_execution_preserves_observed_siblings_when_readback_fails(
+        self,
+    ) -> None:
+        commit_tree = cli_mod._commit_tree
+
+        def fail_observed_trunk(commit: str, *, context: str) -> str:
+            if context == "observed trunk":
+                raise RuntimeError("trunk readback unavailable")
+            return commit_tree(commit, context=context)
+
+        with mock.patch.object(
+            cli_mod, "_commit_tree", side_effect=fail_observed_trunk
+        ):
+            status, result = self._execute_single_merge(mode="direct", outcome="landed")
+
+        self.assertEqual(1, status)
+        self.assertEqual("diverged", result["state"])
+        targets = {target["kind"]: target for target in result["targets"]}
+        self.assertEqual("MERGED", targets["merge_pr"]["observed"])
+        self.assertEqual("changed_as_expected", targets["merge_pr"]["disposition"])
+        self.assertEqual({"missing": True}, targets["refresh_trunk"]["observed"])
+        self.assertEqual(
+            "changed_unexpectedly", targets["refresh_trunk"]["disposition"]
+        )
+        self.assertEqual([], targets["sync_stack"]["observed"])
+        self.assertEqual("changed_as_expected", targets["sync_stack"]["disposition"])
+        self.assertIn("trunk readback unavailable", result["blocker"])
+
     def test_queue_execution_classifies_admission_without_landing(self) -> None:
         status, result = self._execute_single_merge(mode="queue", outcome="admitted")
 

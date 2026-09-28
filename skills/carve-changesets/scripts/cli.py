@@ -1062,41 +1062,43 @@ def _merge_observation(
         remote=remote,
     )
     native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
-    values: list[tuple[str, object]] = []
-    for effect in approved.effects:
+
+    def observe(effect) -> object:
         identity = effect.target.partition(":")[2]
         if effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
             number = int(identity)
             live = pull_requests.get(number)
             if live is None:
                 live = pull_request_by_number(number, remote=remote)
-            observed: object = (
-                live.state.upper() if effect.field == "state" else live.queued
-            )
-        elif effect.kind is EffectKind.REFRESH_TRUNK and effect.field == "tree":
-            observed = _commit_tree(
-                native_snapshot.trunk_head, context="observed trunk"
-            )
-        elif effect.kind is EffectKind.SYNC_STACK and effect.field == "open_order":
-            observed = tuple(
+            return live.state.upper() if effect.field == "state" else live.queued
+        if effect.kind is EffectKind.REFRESH_TRUNK and effect.field == "tree":
+            return _commit_tree(native_snapshot.trunk_head, context="observed trunk")
+        if effect.kind is EffectKind.SYNC_STACK and effect.field == "open_order":
+            return tuple(
                 layer.branch for layer in native_snapshot.layers if not layer.merged
             )
-        elif effect.kind is EffectKind.SYNC_STACK and effect.field == "head":
-            observed = native_by_branch[identity.rpartition(":")[2]].head
-        elif effect.kind is EffectKind.PUSH_REF:
-            observed = remote_branch_head(remote, identity) or ZERO_SHA
-        elif effect.kind is EffectKind.UPDATE_PR:
+        if effect.kind is EffectKind.SYNC_STACK and effect.field == "head":
+            return native_by_branch[identity.rpartition(":")[2]].head
+        if effect.kind is EffectKind.PUSH_REF:
+            return remote_branch_head(remote, identity) or ZERO_SHA
+        if effect.kind is EffectKind.UPDATE_PR:
             number = int(identity)
             live = pull_requests.get(number)
             if live is None:
                 live = pull_request_by_number(number, remote=remote)
-            observed = _expected_pull_request_from_live(live).record
-        else:
-            raise ManifestError(
-                f"unsupported merge readback effect: {effect.kind.value}:{effect.field}"
-            )
-        values.append((effect.key, observed))
-    return TransitionObservation(values=tuple(values))
+            return _expected_pull_request_from_live(live).record
+        raise ManifestError(
+            f"unsupported merge readback effect: {effect.kind.value}:{effect.field}"
+        )
+
+    values: list[tuple[str, object]] = []
+    errors: list[str] = []
+    for effect in approved.effects:
+        try:
+            values.append((effect.key, observe(effect)))
+        except (Exception, KeyboardInterrupt) as exc:
+            errors.append(f"{effect.key}: {exc}")
+    return TransitionObservation(values=tuple(values), errors=tuple(errors))
 
 
 def _recovery_manifest(args: argparse.Namespace):
