@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-28 — Closed stack-target and lineage readback fences
 
+- fix: classify ambiguous post-executor observations
+
 - fix: preserve merge observations across readback failures
 
 - fix: preserve target classifications when readback fails

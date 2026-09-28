@@ -2614,6 +2614,27 @@ def observation_from_manifest(
     return TransitionObservation(values=tuple(values))
 
 
+def _unambiguous_observation(
+    observation: TransitionObservation,
+) -> tuple[TransitionObservation, tuple[str, ...]]:
+    counts: dict[str, int] = {}
+    for key, _value in observation.values:
+        counts[key] = counts.get(key, 0) + 1
+    duplicates = tuple(key for key, count in counts.items() if count > 1)
+    if not duplicates:
+        return observation, ()
+    duplicate_set = set(duplicates)
+    return (
+        replace(
+            observation,
+            values=tuple(
+                item for item in observation.values if item[0] not in duplicate_set
+            ),
+        ),
+        duplicates,
+    )
+
+
 def execute_transition(
     manifest: MutationManifest,
     *,
@@ -2690,6 +2711,11 @@ def execute_transition(
     except (Exception, KeyboardInterrupt) as exc:
         observation = TransitionObservation(values=())
         readback_errors = (str(exc),)
+    observation, duplicate_keys = _unambiguous_observation(observation)
+    if duplicate_keys:
+        readback_errors += (
+            f"readback observation contains duplicate targets: {duplicate_keys!r}",
+        )
     result = classify_readback(manifest, observation)
     if readback_errors:
         detail = f"executor failed ({execution_error}); " if execution_error else ""

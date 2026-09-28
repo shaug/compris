@@ -831,6 +831,50 @@ class CapabilityFenceTests(unittest.TestCase):
         )
         self.assertIn("second target: live read failed", result.blocker)
 
+    def test_duplicate_post_executor_observation_preserves_unique_targets(
+        self,
+    ) -> None:
+        manifest = publish_manifest()
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+        duplicate = manifest.effects[0]
+        unique = manifest.effects[1]
+        executed: list[bool] = []
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=lambda: manifest,
+            executor=lambda _approved: executed.append(True),
+            readback=lambda: TransitionObservation(
+                values=(
+                    (duplicate.key, duplicate.before),
+                    (duplicate.key, duplicate.after),
+                    (unique.key, unique.after),
+                )
+            ),
+        )
+
+        self.assertEqual([True], executed)
+        self.assertEqual(TransitionState.DIVERGED, result.state)
+        self.assertTrue(result.fresh_manifest_required)
+        self.assertEqual(len(manifest.effects), len(result.targets))
+        self.assertIs(MISSING_OBSERVATION, result.targets[0].observed)
+        self.assertEqual(
+            TargetDisposition.CHANGED_UNEXPECTEDLY, result.targets[0].disposition
+        )
+        self.assertEqual(unique.after, result.targets[1].observed)
+        self.assertEqual(
+            TargetDisposition.CHANGED_AS_EXPECTED, result.targets[1].disposition
+        )
+        self.assertIn("duplicate targets", result.blocker)
+
     def test_successful_executor_with_partial_readback_preserves_partial(self) -> None:
         manifest = publish_manifest()
         profile = replace(
