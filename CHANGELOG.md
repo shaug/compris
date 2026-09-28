@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-28 — Closed stack-target and lineage readback fences
 
+- fix: preserve independent readback observations across bootstrap failures
+
 - fix: fence recovery trunk refresh authority
 
 - fix: classify ambiguous post-executor observations

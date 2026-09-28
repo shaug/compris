@@ -1055,37 +1055,71 @@ def _merge_observation(
     base: str | None,
     remote: str,
 ) -> TransitionObservation:
-    _chain, pull_requests = _rehydrate_live(source=source, base=base, remote=remote)
-    native_snapshot = _native_snapshot_for_transition(
-        source=source,
-        base=base or approved.expected_native_stack.trunk,
-        remote=remote,
-    )
-    native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
+    pull_requests: object | None = None
+    pull_request_error: BaseException | None = None
+    native_snapshot: object | None = None
+    native_error: BaseException | None = None
+
+    def live_pull_requests():
+        nonlocal pull_requests, pull_request_error
+        if pull_requests is None and pull_request_error is None:
+            try:
+                _chain, pull_requests = _rehydrate_live(
+                    source=source,
+                    base=base,
+                    remote=remote,
+                )
+            except (Exception, KeyboardInterrupt) as exc:
+                pull_request_error = exc
+        if pull_request_error is not None:
+            raise pull_request_error
+        return pull_requests
+
+    def live_pull_request(number: int):
+        try:
+            live = live_pull_requests().get(number)
+        except (Exception, KeyboardInterrupt):
+            live = None
+        if live is None:
+            live = pull_request_by_number(number, remote=remote)
+        return live
+
+    def live_native_snapshot():
+        nonlocal native_snapshot, native_error
+        if native_snapshot is None and native_error is None:
+            try:
+                native_snapshot = _native_snapshot_for_transition(
+                    source=source,
+                    base=base or approved.expected_native_stack.trunk,
+                    remote=remote,
+                )
+            except (Exception, KeyboardInterrupt) as exc:
+                native_error = exc
+        if native_error is not None:
+            raise native_error
+        return native_snapshot
 
     def observe(effect) -> object:
         identity = effect.target.partition(":")[2]
         if effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
             number = int(identity)
-            live = pull_requests.get(number)
-            if live is None:
-                live = pull_request_by_number(number, remote=remote)
+            live = live_pull_request(number)
             return live.state.upper() if effect.field == "state" else live.queued
         if effect.kind is EffectKind.REFRESH_TRUNK and effect.field == "tree":
-            return _commit_tree(native_snapshot.trunk_head, context="observed trunk")
+            snapshot = live_native_snapshot()
+            return _commit_tree(snapshot.trunk_head, context="observed trunk")
         if effect.kind is EffectKind.SYNC_STACK and effect.field == "open_order":
-            return tuple(
-                layer.branch for layer in native_snapshot.layers if not layer.merged
-            )
+            snapshot = live_native_snapshot()
+            return tuple(layer.branch for layer in snapshot.layers if not layer.merged)
         if effect.kind is EffectKind.SYNC_STACK and effect.field == "head":
+            snapshot = live_native_snapshot()
+            native_by_branch = {layer.branch: layer for layer in snapshot.layers}
             return native_by_branch[identity.rpartition(":")[2]].head
         if effect.kind is EffectKind.PUSH_REF:
             return remote_branch_head(remote, identity) or ZERO_SHA
         if effect.kind is EffectKind.UPDATE_PR:
             number = int(identity)
-            live = pull_requests.get(number)
-            if live is None:
-                live = pull_request_by_number(number, remote=remote)
+            live = live_pull_request(number)
             return _expected_pull_request_from_live(live).record
         raise ManifestError(
             f"unsupported merge readback effect: {effect.kind.value}:{effect.field}"
@@ -1403,22 +1437,52 @@ def _live_observation(
 ) -> TransitionObservation:
     """Read approved targets without requiring live state to form a new preview."""
 
-    native = _native_snapshot_for_transition(
-        source=source,
-        base=base or approved.expected_native_stack.trunk,
-        remote=remote,
-        reconcile=False,
-    )
-    listed = pull_requests_for_source(source, remote=remote)
-    prs_by_branch = {item.head_branch: item for item in listed}
-    prs_by_number = {item.number: item for item in listed}
+    native: object | None = None
+    native_error: BaseException | None = None
+    listed: object | None = None
+    listed_error: BaseException | None = None
+
+    def native_snapshot():
+        nonlocal native, native_error
+        if native is None and native_error is None:
+            try:
+                native = _native_snapshot_for_transition(
+                    source=source,
+                    base=base or approved.expected_native_stack.trunk,
+                    remote=remote,
+                    reconcile=False,
+                )
+            except (Exception, KeyboardInterrupt) as exc:
+                native_error = exc
+        if native_error is not None:
+            raise native_error
+        return native
+
+    def listed_pull_requests():
+        nonlocal listed, listed_error
+        if listed is None and listed_error is None:
+            try:
+                listed = pull_requests_for_source(source, remote=remote)
+            except (Exception, KeyboardInterrupt) as exc:
+                listed_error = exc
+        if listed_error is not None:
+            raise listed_error
+        return listed
 
     def pull_request(identity: str):
         if identity.isdigit():
             number = int(identity)
-            if number not in prs_by_number:
-                prs_by_number[number] = pull_request_by_number(number, remote=remote)
-            return prs_by_number[number]
+            try:
+                prs_by_number = {item.number: item for item in listed_pull_requests()}
+                live = prs_by_number.get(number)
+            except (Exception, KeyboardInterrupt):
+                live = None
+            return (
+                live
+                if live is not None
+                else pull_request_by_number(number, remote=remote)
+            )
+        prs_by_branch = {item.head_branch: item for item in listed_pull_requests()}
         return prs_by_branch.get(identity)
 
     def observe(effect) -> object:
@@ -1450,23 +1514,24 @@ def _live_observation(
             live = pull_request(identity)
             return None if live is None else live.draft
         if effect.kind in {EffectKind.REGISTER_STACK, EffectKind.SYNC_STACK}:
-            if effect.field == "identity":
-                return (
-                    source
-                    if any(layer.pull_request for layer in native.layers)
-                    else None
-                )
-            if effect.field == "registered":
-                return any(layer.pull_request for layer in native.layers)
-            if effect.field == "order":
-                return tuple(layer.branch for layer in native.layers)
-            if effect.field == "open_order":
-                return tuple(
-                    layer.branch for layer in native.layers if not layer.merged
-                )
             if effect.field == "head":
                 branch = identity.rpartition(":")[2]
                 return remote_branch_head(remote, branch) or ZERO_SHA
+            snapshot = native_snapshot()
+            if effect.field == "identity":
+                return (
+                    source
+                    if any(layer.pull_request for layer in snapshot.layers)
+                    else None
+                )
+            if effect.field == "registered":
+                return any(layer.pull_request for layer in snapshot.layers)
+            if effect.field == "order":
+                return tuple(layer.branch for layer in snapshot.layers)
+            if effect.field == "open_order":
+                return tuple(
+                    layer.branch for layer in snapshot.layers if not layer.merged
+                )
             raise ManifestError(
                 f"unsupported native-stack readback field: {effect.field}"
             )
@@ -1480,10 +1545,11 @@ def _live_observation(
                 else live.queued
             )
         if effect.kind is EffectKind.REFRESH_TRUNK:
+            snapshot = native_snapshot()
             return (
-                native.trunk_head
+                snapshot.trunk_head
                 if effect.field == "sha"
-                else _commit_tree(native.trunk_head, context="observed trunk")
+                else _commit_tree(snapshot.trunk_head, context="observed trunk")
             )
         raise ManifestError(f"unsupported readback effect: {effect.kind.value}")
 

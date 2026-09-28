@@ -478,6 +478,102 @@ class TransitionCliTests(unittest.TestCase):
         self.assertIn(first.key, observation.errors[0])
         self.assertIn("first ref read failed", observation.errors[0])
 
+    def test_live_readback_preserves_remote_target_when_native_bootstrap_fails(
+        self,
+    ) -> None:
+        native = MutationEffect(
+            EffectKind.SYNC_STACK,
+            "stack:feature/report",
+            "open_order",
+            ("feature/report-1",),
+            ("feature/report-1",),
+        )
+        remote = MutationEffect(
+            EffectKind.PUSH_REF,
+            "ref:feature/report-1",
+            "sha",
+            self.head_one,
+            self.head_one,
+        )
+        approved = SimpleNamespace(
+            expected_native_stack=SimpleNamespace(trunk="main"),
+            effects=(native, remote),
+        )
+
+        with (
+            mock.patch.object(
+                cli_mod,
+                "_native_snapshot_for_transition",
+                side_effect=RuntimeError("native readback unavailable"),
+            ),
+            mock.patch.object(cli_mod, "pull_requests_for_source", return_value=[]),
+            mock.patch.object(
+                cli_mod, "remote_branch_head", return_value=self.head_one
+            ) as remote_head,
+            chdir(self.repo),
+        ):
+            observation = cli_mod._live_observation(
+                approved,
+                source="feature/report",
+                base="main",
+                remote="origin",
+            )
+
+        self.assertNotIn(native.key, observation.as_mapping())
+        self.assertEqual(self.head_one, observation.as_mapping()[remote.key])
+        remote_head.assert_called_once_with("origin", "feature/report-1")
+        self.assertEqual(1, len(observation.errors))
+        self.assertIn(native.key, observation.errors[0])
+        self.assertIn("native readback unavailable", observation.errors[0])
+
+    def test_merge_readback_preserves_remote_target_when_native_bootstrap_fails(
+        self,
+    ) -> None:
+        native = MutationEffect(
+            EffectKind.SYNC_STACK,
+            "stack:feature/report",
+            "open_order",
+            ("feature/report-1",),
+            ("feature/report-1",),
+        )
+        remote = MutationEffect(
+            EffectKind.PUSH_REF,
+            "ref:feature/report-1",
+            "sha",
+            self.head_one,
+            self.head_one,
+        )
+        approved = SimpleNamespace(
+            expected_native_stack=SimpleNamespace(trunk="main"),
+            effects=(native, remote),
+        )
+
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(None, {})),
+            mock.patch.object(
+                cli_mod,
+                "_native_snapshot_for_transition",
+                side_effect=RuntimeError("native readback unavailable"),
+            ),
+            mock.patch.object(
+                cli_mod, "remote_branch_head", return_value=self.head_one
+            ) as remote_head,
+            chdir(self.repo),
+        ):
+            observation = cli_mod._merge_observation(
+                approved,
+                source="feature/report",
+                base="main",
+                remote="origin",
+            )
+
+        self.assertNotIn(native.key, observation.as_mapping())
+        self.assertEqual(self.head_one, observation.as_mapping()[remote.key])
+        remote_head.assert_called_once_with("origin", "feature/report-1")
+        self.assertEqual(1, len(observation.errors))
+        self.assertIn(native.key, observation.errors[0])
+        self.assertIn("native readback unavailable", observation.errors[0])
+
     def test_push_preview_rejects_duplicate_remote_urls(self) -> None:
         helpers.run(
             self.repo,
@@ -1606,7 +1702,9 @@ class TransitionCliTests(unittest.TestCase):
             ],
         )
 
-    def _execute_single_merge(self, *, mode: str, outcome: str):
+    def _execute_single_merge(
+        self, *, mode: str, outcome: str, fail_native_readback: bool = False
+    ):
         before_chain, before_prs, before_snapshot = self._single_open_merge_evidence()
         self.native_reader_mock.return_value = before_snapshot
         preview = StringIO()
@@ -1680,7 +1778,12 @@ class TransitionCliTests(unittest.TestCase):
             mock.patch.object(
                 cli_mod,
                 "_native_snapshot_for_transition",
-                side_effect=(before_snapshot, after_snapshot),
+                side_effect=(
+                    before_snapshot,
+                    RuntimeError("native readback unavailable")
+                    if fail_native_readback
+                    else after_snapshot,
+                ),
             ),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
             mock.patch.object(cli_mod, "_execute_merge_manifest"),
@@ -1725,6 +1828,24 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual([], targets["sync_stack"]["observed"])
         self.assertEqual("changed_as_expected", targets["sync_stack"]["disposition"])
         self.assertIn("trunk readback unavailable", result["blocker"])
+
+    def test_direct_execution_preserves_pr_when_native_bootstrap_fails(self) -> None:
+        status, result = self._execute_single_merge(
+            mode="direct",
+            outcome="landed",
+            fail_native_readback=True,
+        )
+
+        self.assertEqual(1, status)
+        self.assertEqual("diverged", result["state"])
+        targets = {target["kind"]: target for target in result["targets"]}
+        self.assertEqual("MERGED", targets["merge_pr"]["observed"])
+        self.assertEqual("changed_as_expected", targets["merge_pr"]["disposition"])
+        self.assertEqual({"missing": True}, targets["refresh_trunk"]["observed"])
+        self.assertEqual(
+            "changed_unexpectedly", targets["refresh_trunk"]["disposition"]
+        )
+        self.assertIn("native readback unavailable", result["blocker"])
 
     def test_queue_execution_classifies_admission_without_landing(self) -> None:
         status, result = self._execute_single_merge(mode="queue", outcome="admitted")
@@ -2873,7 +2994,10 @@ class TransitionCliTests(unittest.TestCase):
         executor.assert_not_called()
 
     def _run_recovery_execution(
-        self, *, drift_lineage_after_executor: bool
+        self,
+        *,
+        drift_lineage_after_executor: bool,
+        fail_native_readback: bool = False,
     ) -> tuple[int, dict[str, object]]:
         chain, prs = self._published_chain(recovered=False)
         projected_tree = helpers.run(
@@ -2990,7 +3114,13 @@ class TransitionCliTests(unittest.TestCase):
             mock.patch.object(
                 cli_mod,
                 "_native_snapshot_for_transition",
-                side_effect=(before_snapshot, before_snapshot, after_snapshot),
+                side_effect=(
+                    before_snapshot,
+                    before_snapshot,
+                    RuntimeError("native readback unavailable")
+                    if fail_native_readback
+                    else after_snapshot,
+                ),
             ),
             mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
             mock.patch.object(
@@ -3069,6 +3199,39 @@ class TransitionCliTests(unittest.TestCase):
             and target["target"].endswith(":feature/report-corrected")
         )
         self.assertEqual("changed_unexpectedly", lineage["disposition"])
+
+    def test_recovery_readback_preserves_remote_targets_when_native_bootstrap_fails(
+        self,
+    ) -> None:
+        status, result = self._run_recovery_execution(
+            drift_lineage_after_executor=False,
+            fail_native_readback=True,
+        )
+
+        self.assertEqual(1, status)
+        self.assertEqual("diverged", result["state"])
+        self.assertIn("native readback unavailable", result["blocker"])
+        self.assertTrue(result["targets"])
+        self.assertTrue(
+            any(
+                target["kind"] == "push_ref" and target["observed"] != {"missing": True}
+                for target in result["targets"]
+            )
+        )
+        self.assertTrue(
+            any(
+                target["kind"] == "verify_lineage"
+                and target["observed"] != {"missing": True}
+                for target in result["targets"]
+            )
+        )
+        self.assertTrue(
+            any(
+                target["kind"] == "sync_stack"
+                and target["observed"] == {"missing": True}
+                for target in result["targets"]
+            )
+        )
 
     def test_recovery_requires_an_explicit_base(self) -> None:
         errors = StringIO()
