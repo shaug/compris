@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import os
 import shutil
 import tempfile
 import unittest
@@ -20,7 +21,7 @@ from metadata import (
     parse_commit_message,
     stamp_commit_message,
 )
-from recovery import recover_suffix_from_live
+from recovery import project_suffix_recovery_from_live, recover_suffix_from_live
 from rehydrate import PullRequestRecord, RehydrationError, adopt_legacy_chain
 from validate import validate_live_chain
 
@@ -245,6 +246,40 @@ class SuffixRecoveryTests(unittest.TestCase):
                 approved_ref_transitions=approved_ref_transitions,
             )
         return output.getvalue()
+
+    def _project_recovery(
+        self,
+        *,
+        successor_branch: str = "feature/report-corrected",
+        successor_sha: str | None = None,
+        committer_date: str,
+    ):
+        with (
+            chdir(self.repo),
+            mock.patch.dict(
+                os.environ,
+                {"GIT_COMMITTER_DATE": committer_date},
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_requests_for_source",
+                side_effect=self._all_live_prs,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "pull_request_by_number",
+                side_effect=self._live_pr,
+            ),
+            mock.patch.object(recovery_mod, "_verify_merged_on_base"),
+        ):
+            return project_suffix_recovery_from_live(
+                source="feature/report",
+                base="main",
+                from_index=2,
+                successor_branch=successor_branch,
+                successor_sha=successor_sha or self.successor_sha,
+                remote="origin",
+            )
 
     def _prepare_completed_legacy_recovery(
         self, *, prove_boundary: bool, merge_tail: bool = False
@@ -933,6 +968,132 @@ class SuffixRecoveryTests(unittest.TestCase):
         validation = validate_live_chain(chain, cwd=clone)
         self.assertTrue(validation.valid, validation.errors)
         self.assertEqual(self.successor_sha, chain.source_sha)
+
+    def test_approved_initial_projection_recomputes_exact_heads(self) -> None:
+        projection = self._project_recovery(committer_date="2001-02-03T04:05:06+00:00")
+        approved = {
+            record.branch: (record.head, projection.candidates[record.branch])
+            for record in projection.suffix
+        }
+
+        with mock.patch.dict(
+            os.environ,
+            {"GIT_COMMITTER_DATE": "2031-12-13T14:15:16+00:00"},
+        ):
+            output = self._run_recovery(
+                dry_run=True,
+                approved_ref_transitions=approved,
+                edit_side_effect=lambda *_args, **_kwargs: None,
+            )
+
+        self.assertIn("Dry-run suffix recovery passed", output)
+        self.assertEqual(self.fixed_head, self._remote_head("feature/report-2"))
+
+    def test_approved_mixed_projection_recomputes_exact_remaining_tail(self) -> None:
+        root = SourceIdentity("origin", "feature/report", self.source_sha)
+        helpers.run(
+            self.repo,
+            "git",
+            "checkout",
+            "-b",
+            "feature/report-3",
+            self.fixed_head,
+        )
+        (self.repo / "third.txt").write_text("third source part\n")
+        helpers.run(self.repo, "git", "add", "third.txt")
+        third_metadata = ChangesetMetadata(
+            "part-3", 3, root.branch, root.sha, source_lineage=(root,)
+        )
+        third_head = helpers.commit(
+            self.repo,
+            stamp_commit_message("feat: changeset 3", third_metadata),
+        )
+        helpers.run(self.repo, "git", "push", "-u", "origin", "feature/report-3")
+        helpers.run(
+            self.repo,
+            "git",
+            "branch",
+            "-f",
+            "feature/report-corrected",
+            third_head,
+        )
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "--force-with-lease",
+            "origin",
+            "feature/report-corrected",
+        )
+        self.successor_sha = third_head
+        self.prs[101] = PullRequestRecord(
+            **{**self.prs[101].__dict__, "title": "Report (1 of 3)"}
+        )
+        self.prs[102] = PullRequestRecord(
+            **{**self.prs[102].__dict__, "title": "Report (2 of 3)"}
+        )
+        self.prs[103] = PullRequestRecord(
+            number=103,
+            head_branch="feature/report-3",
+            head_sha=third_head,
+            base_branch="feature/report-2",
+            state="OPEN",
+            body=embed_pr_metadata("Position 3\n", third_metadata),
+            title="Report (3 of 3)",
+        )
+        actual_push = recovery_mod.push_changeset_branch
+
+        def interrupt_after_recovered_prefix(branch: str, **kwargs) -> None:
+            if branch == "feature/report-3":
+                raise CommandError("injected after recovered prefix")
+            actual_push(branch, **kwargs)
+
+        with mock.patch.object(
+            recovery_mod,
+            "push_changeset_branch",
+            side_effect=interrupt_after_recovered_prefix,
+        ):
+            with self.assertRaisesRegex(CommandError, "recovered prefix"):
+                self._run_recovery(
+                    successor_branch="feature/report-corrected",
+                    successor_sha=third_head,
+                )
+
+        recovered_prefix = self._remote_head("feature/report-2")
+        unrecovered_tail = self._remote_head("feature/report-3")
+        projection = self._project_recovery(
+            successor_branch="feature/report-corrected",
+            successor_sha=third_head,
+            committer_date="2002-03-04T05:06:07+00:00",
+        )
+        self.assertEqual(
+            recovered_prefix,
+            projection.candidates["feature/report-2"],
+        )
+        self.assertNotEqual(
+            unrecovered_tail,
+            projection.candidates["feature/report-3"],
+        )
+        approved = {
+            record.branch: (record.head, projection.candidates[record.branch])
+            for record in projection.suffix
+        }
+
+        with mock.patch.dict(
+            os.environ,
+            {"GIT_COMMITTER_DATE": "2032-11-12T13:14:15+00:00"},
+        ):
+            output = self._run_recovery(
+                successor_branch="feature/report-corrected",
+                successor_sha=third_head,
+                dry_run=True,
+                approved_ref_transitions=approved,
+                edit_side_effect=lambda *_args, **_kwargs: None,
+            )
+
+        self.assertIn("Dry-run suffix recovery passed", output)
+        self.assertEqual(recovered_prefix, self._remote_head("feature/report-2"))
+        self.assertEqual(unrecovered_tail, self._remote_head("feature/report-3"))
 
     def test_native_human_only_pr_recovers_through_public_workflow(self) -> None:
         native_head = self._restamp_open_suffix_as_native(identity_remote="origin")

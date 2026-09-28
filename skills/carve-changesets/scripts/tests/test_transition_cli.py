@@ -1855,11 +1855,52 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("not the bottom open native layer", output.getvalue())
 
-    def test_recovery_preview_blocks_unmaterialized_successor_heads(self) -> None:
+    def test_recovery_preview_projects_initial_successor_heads(self) -> None:
         chain, prs = self._published_chain(recovered=False)
+        projected_head = "e" * 40
+        projection = SimpleNamespace(
+            chain=chain,
+            pull_requests=tuple(prs.values()),
+            suffix=chain.changesets[1:],
+            candidates={"feature/report-2": projected_head},
+            metadata={"feature/report-2": object()},
+        )
+        self.native_reader_mock.return_value = replace(
+            self.native_snapshot,
+            layers=(
+                replace(
+                    self.native_snapshot.layers[0],
+                    merged=True,
+                    pull_request=NativePullRequest(
+                        number=41, url="https://example.test/41", state="MERGED"
+                    ),
+                ),
+                replace(
+                    self.native_snapshot.layers[1],
+                    pull_request=NativePullRequest(
+                        number=42, url="https://example.test/42", state="OPEN"
+                    ),
+                ),
+            ),
+        )
         output = StringIO()
         with (
-            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod,
+                "project_suffix_recovery_from_live",
+                return_value=projection,
+                create=True,
+            ) as project,
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                return_value=self.head_two,
+            ),
+            mock.patch.object(
+                cli_mod,
+                "embed_pr_metadata",
+                return_value="Recovered layer two body",
+            ),
             chdir(self.repo),
             redirect_stdout(output),
         ):
@@ -1880,8 +1921,160 @@ class TransitionCliTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(1, status)
-        self.assertIn("exact restamped successor heads", output.getvalue())
+        self.assertEqual(0, status, output.getvalue())
+        manifest = json.loads(output.getvalue())
+        self.assertEqual("recover", manifest["operation"])
+        self.assertEqual(
+            [
+                {
+                    "name": "refs/heads/feature/report-2",
+                    "old_sha": self.head_two,
+                    "proposed_sha": projected_head,
+                }
+            ],
+            manifest["expected_refs"],
+        )
+        self.assertEqual(
+            "Recovered layer two body",
+            manifest["expected_pull_requests"][0]["body"],
+        )
+        project.assert_called_once_with(
+            source="feature/report",
+            base="main",
+            from_index=2,
+            successor_branch="feature/report-corrected",
+            successor_sha="d" * 40,
+            remote="origin",
+        )
+
+    def test_recovery_preview_resumes_mixed_recovered_prefix(self) -> None:
+        chain, prs = self._published_chain(recovered=True)
+        recovered = chain.changesets[1]
+        unrecovered = SimpleNamespace(
+            position=3,
+            branch="feature/report-3",
+            head="f" * 40,
+            pr_number=43,
+            metadata=SimpleNamespace(
+                active_source=SimpleNamespace(
+                    remote="origin", branch="feature/report", sha="a" * 40
+                )
+            ),
+        )
+        chain.changesets = (*chain.changesets, unrecovered)
+        prs[43] = SimpleNamespace(
+            number=43,
+            head_branch=unrecovered.branch,
+            head_sha=unrecovered.head,
+            base_branch=recovered.branch,
+            state="OPEN",
+            draft=False,
+            queued=False,
+            auto_merge=False,
+            merge_state_status="CLEAN",
+            title="Layer three",
+            body="Layer three body",
+        )
+        projected_tail = "b" * 40
+        projection = SimpleNamespace(
+            chain=chain,
+            pull_requests=tuple(prs.values()),
+            suffix=(recovered, unrecovered),
+            candidates={
+                recovered.branch: recovered.head,
+                unrecovered.branch: projected_tail,
+            },
+            metadata={recovered.branch: object(), unrecovered.branch: object()},
+        )
+        native_snapshot = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head=self.main_head,
+            current_branch=unrecovered.branch,
+            layers=(
+                replace(
+                    self.native_snapshot.layers[0],
+                    merged=True,
+                    pull_request=NativePullRequest(
+                        number=41, url="https://example.test/41", state="MERGED"
+                    ),
+                ),
+                replace(
+                    self.native_snapshot.layers[1],
+                    pull_request=NativePullRequest(
+                        number=42, url="https://example.test/42", state="OPEN"
+                    ),
+                ),
+                NativeLayer(
+                    branch=unrecovered.branch,
+                    head=unrecovered.head,
+                    base=recovered.head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=True,
+                    pull_request=NativePullRequest(
+                        number=43, url="https://example.test/43", state="OPEN"
+                    ),
+                ),
+            ),
+        )
+        self.native_reader_mock.return_value = native_snapshot
+        output = StringIO()
+        with (
+            mock.patch.object(
+                cli_mod,
+                "project_suffix_recovery_from_live",
+                return_value=projection,
+                create=True,
+            ),
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                side_effect=lambda _remote, branch: {
+                    recovered.branch: recovered.head,
+                    unrecovered.branch: unrecovered.head,
+                }.get(branch),
+            ),
+            mock.patch.object(
+                cli_mod,
+                "embed_pr_metadata",
+                side_effect=lambda body, _metadata: f"Recovered {body}",
+            ),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "recover-suffix",
+                    "--source",
+                    "feature/report",
+                    "--base",
+                    "main",
+                    "--from-index",
+                    "2",
+                    "--successor-source",
+                    "feature/report-corrected",
+                    "--successor-sha",
+                    "d" * 40,
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(0, status, output.getvalue())
+        manifest = json.loads(output.getvalue())
+        self.assertEqual(
+            [
+                (recovered.branch, recovered.head, recovered.head),
+                (unrecovered.branch, unrecovered.head, projected_tail),
+            ],
+            [
+                (
+                    item["name"].removeprefix("refs/heads/"),
+                    item["old_sha"],
+                    item["proposed_sha"],
+                )
+                for item in manifest["expected_refs"]
+            ],
+        )
 
     def test_recovery_requires_an_explicit_base(self) -> None:
         errors = StringIO()

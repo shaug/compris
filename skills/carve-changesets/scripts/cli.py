@@ -69,7 +69,7 @@ from propagate import (
     push_changeset_branch,
 )
 from publication import remote_branch_head, verify_lineage_for_publication
-from recovery import recover_suffix_from_live
+from recovery import project_suffix_recovery_from_live, recover_suffix_from_live
 from rehydrate import RehydrationError, adopt_legacy_chain, discover_changeset_heads
 from squash_check import squash_check
 from squash_ref import _resolve_base_source, create_squashed_ref
@@ -1068,29 +1068,17 @@ def _merge_observation(
 
 def _recovery_manifest(args: argparse.Namespace):
     _require_stack_refresh_authority(args.allow_stack_state_refresh)
-    chain, pull_requests = _rehydrate_live(
-        source=args.source, base=args.base, remote=args.remote
+    projection = project_suffix_recovery_from_live(
+        source=args.source,
+        base=args.base,
+        from_index=args.from_index,
+        successor_branch=args.successor_source,
+        successor_sha=args.successor_sha,
+        remote=args.remote,
     )
-    if args.from_index < 1 or args.from_index > len(chain.changesets):
-        raise CommandError(
-            f"--from-index must be between 1 and {len(chain.changesets)}."
-        )
-    suffix = chain.changesets[args.from_index - 1 :]
-    unrecovered = tuple(
-        record.branch
-        for record in suffix
-        if (
-            record.metadata.active_source.remote,
-            record.metadata.active_source.branch,
-            record.metadata.active_source.sha,
-        )
-        != (args.remote, args.successor_source, args.successor_sha)
-    )
-    if unrecovered:
-        raise CommandError(
-            "Recovery preview is blocked because exact restamped successor heads "
-            f"cannot be derived without materialization: {unrecovered!r}."
-        )
+    chain = projection.chain
+    pull_requests = {item.number: item for item in projection.pull_requests}
+    suffix = projection.suffix
     native_snapshot = _native_snapshot_for_transition(
         source=args.source,
         base=args.base,
@@ -1105,13 +1093,19 @@ def _recovery_manifest(args: argparse.Namespace):
         pull_requests=pull_requests,
         native_snapshot=native_snapshot,
     )
-    record_by_branch = {record.branch: record for record in suffix}
+    refs = tuple(
+        replace(
+            item,
+            proposed_sha=projection.candidates[item.name.removeprefix("refs/heads/")],
+        )
+        for item in refs
+    )
     prs = tuple(
         replace(
             item,
             body=embed_pr_metadata(
                 item.current_body or item.body,
-                record_by_branch[item.branch].metadata,
+                projection.metadata[item.branch],
             ),
         )
         for item in prs
@@ -1153,6 +1147,10 @@ def _recovery_manifest(args: argparse.Namespace):
         evidence=(
             *evidence,
             f"successor={args.remote}/{args.successor_source}@{args.successor_sha}",
+            *(
+                f"projected recovery head {branch}={head}"
+                for branch, head in projection.candidates.items()
+            ),
         ),
         identities=identities,
     )
