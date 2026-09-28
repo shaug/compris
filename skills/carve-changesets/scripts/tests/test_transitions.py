@@ -9,6 +9,7 @@ from transitions import (
     ZERO_SHA,
     AuthorityGrant,
     EffectKind,
+    ExpectedLineageRef,
     ExpectedNativeLayer,
     ExpectedNativeStack,
     ExpectedPullRequest,
@@ -877,6 +878,10 @@ class OperationManifestTests(unittest.TestCase):
                 ),
             ),
         )
+        self.lineage = (
+            ExpectedLineageRef("origin", "feature/report", SHA_A),
+            ExpectedLineageRef("origin", "feature/report-corrected", SHA_D),
+        )
 
     def _authority(
         self,
@@ -899,6 +904,25 @@ class OperationManifestTests(unittest.TestCase):
             phases=phases,
             effect_kinds=effects,
             merge_method=merge_method,
+        )
+
+    def _recovery_authority(
+        self,
+        phases: frozenset[TransitionPhase],
+        effects: frozenset[EffectKind],
+    ) -> AuthorityGrant:
+        authority = self._authority(StackOperation.RECOVER, phases, effects)
+        return replace(
+            authority,
+            identities=(*authority.identities, *(item.branch for item in self.lineage)),
+        )
+
+    @property
+    def recovery_identities(self) -> tuple[str, ...]:
+        return (
+            "feature-2",
+            "feature-3",
+            *(item.branch for item in self.lineage),
         )
 
     def test_repair_fences_rebase_push_pr_and_stack_sync_independently(self) -> None:
@@ -1119,8 +1143,7 @@ class OperationManifestTests(unittest.TestCase):
                 refs=self.refs,
                 pull_requests=merged_pull_requests,
                 native_stack=merged_stack,
-                authority=self._authority(
-                    StackOperation.RECOVER,
+                authority=self._recovery_authority(
                     phases,
                     frozenset(
                         {
@@ -1133,9 +1156,29 @@ class OperationManifestTests(unittest.TestCase):
                     ),
                 ),
                 evidence=("recovery snapshot",),
+                lineage=self.lineage,
+                identities=self.recovery_identities,
             )
 
-    def test_repair_suffix_keeps_untouched_native_predecessor(self) -> None:
+    def _stack_with_merged_prefix(self) -> ExpectedNativeStack:
+        return replace(
+            self.stack,
+            layers=(
+                ExpectedNativeLayer(
+                    branch="feature-1",
+                    head=SHA_A,
+                    base=SHA_A,
+                    merged=True,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=41,
+                    pull_request_state="MERGED",
+                ),
+                *self.stack.layers,
+            ),
+        )
+
+    def test_repair_first_open_suffix_pr_rebases_onto_trunk(self) -> None:
         phases = frozenset(
             {
                 TransitionPhase.REBASE_NO_TRUNK,
@@ -1156,24 +1199,67 @@ class OperationManifestTests(unittest.TestCase):
                     }
                 ),
             ),
-            identities=("feature-3",),
-            branches=("feature-3",),
+            identities=("feature-2", "feature-3"),
+            branches=("feature-2", "feature-3"),
         )
 
         manifest = preview_repair(
             repository="shaug/compris",
             remote="origin",
-            refs=(self.refs[1],),
-            pull_requests=(self.pull_requests[1],),
-            native_stack=self.stack,
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self._stack_with_merged_prefix(),
             authority=authority,
             evidence=("repair suffix snapshot",),
         )
-        update = next(
+        updates = tuple(
             effect for effect in manifest.effects if effect.kind is EffectKind.UPDATE_PR
         )
 
-        self.assertEqual("feature-2", update.after[3])
+        self.assertEqual(
+            ("main", "feature-2"), tuple(item.after[3] for item in updates)
+        )
+
+    def test_recovery_first_open_suffix_pr_rebases_onto_trunk(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        authority = self._recovery_authority(
+            phases,
+            frozenset(
+                {
+                    EffectKind.REFRESH_TRUNK,
+                    EffectKind.REBASE_BRANCH,
+                    EffectKind.PUSH_REF,
+                    EffectKind.UPDATE_PR,
+                    EffectKind.SYNC_STACK,
+                }
+            ),
+        )
+
+        manifest = preview_recovery(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self._stack_with_merged_prefix(),
+            authority=authority,
+            evidence=("recovery suffix snapshot",),
+            lineage=self.lineage,
+            identities=self.recovery_identities,
+        )
+        updates = tuple(
+            effect for effect in manifest.effects if effect.kind is EffectKind.UPDATE_PR
+        )
+
+        self.assertEqual(
+            ("main", "feature-2"), tuple(item.after[3] for item in updates)
+        )
 
     def test_push_rejects_zero_proposed_sha(self) -> None:
         authority = AuthorityGrant(
@@ -1691,8 +1777,7 @@ class OperationManifestTests(unittest.TestCase):
             refs=self.refs,
             pull_requests=self.pull_requests,
             native_stack=self.stack,
-            authority=self._authority(
-                StackOperation.RECOVER,
+            authority=self._recovery_authority(
                 phases,
                 frozenset(
                     {
@@ -1705,9 +1790,16 @@ class OperationManifestTests(unittest.TestCase):
                 ),
             ),
             evidence=("recovery snapshot",),
+            lineage=self.lineage,
+            identities=self.recovery_identities,
         )
 
         self.assertEqual(EffectKind.REFRESH_TRUNK, manifest.effects[0].kind)
+        self.assertEqual(self.lineage, manifest.expected_lineage)
+        self.assertEqual(
+            self.lineage,
+            manifest_from_json(manifest_to_json(manifest)).expected_lineage,
+        )
         self.assertEqual(
             required_capabilities(
                 StackOperation.RECOVER,
@@ -1741,23 +1833,21 @@ class OperationManifestTests(unittest.TestCase):
                 refs=self.refs,
                 pull_requests=tuple(reversed(self.pull_requests)),
                 native_stack=self.stack,
-                authority=replace(
-                    self._authority(
-                        StackOperation.RECOVER,
-                        phases,
-                        frozenset(
-                            {
-                                EffectKind.REFRESH_TRUNK,
-                                EffectKind.REBASE_BRANCH,
-                                EffectKind.PUSH_REF,
-                                EffectKind.UPDATE_PR,
-                                EffectKind.SYNC_STACK,
-                            }
-                        ),
+                authority=self._recovery_authority(
+                    phases,
+                    frozenset(
+                        {
+                            EffectKind.REFRESH_TRUNK,
+                            EffectKind.REBASE_BRANCH,
+                            EffectKind.PUSH_REF,
+                            EffectKind.UPDATE_PR,
+                            EffectKind.SYNC_STACK,
+                        }
                     ),
-                    identities=("feature-3", "feature-2"),
                 ),
                 evidence=("recovery snapshot",),
+                lineage=self.lineage,
+                identities=self.recovery_identities,
             )
 
     def test_direct_and_queue_merge_have_distinct_capability_fences(self) -> None:

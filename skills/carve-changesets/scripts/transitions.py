@@ -140,6 +140,25 @@ class ExpectedRef:
 
 
 @dataclass(frozen=True)
+class ExpectedLineageRef:
+    remote: str
+    branch: str
+    sha: str
+
+    def validate(self) -> None:
+        if not self.remote.strip():
+            raise ManifestError("expected lineage remote must be non-empty")
+        if not self.branch.strip():
+            raise ManifestError("expected lineage branch must be non-empty")
+        if len(self.sha) != 40 or any(
+            character not in "0123456789abcdef" for character in self.sha
+        ):
+            raise ManifestError(
+                "expected lineage SHA must be 40 lowercase hex characters"
+            )
+
+
+@dataclass(frozen=True)
 class ExpectedPullRequest:
     number: int | None
     branch: str
@@ -487,6 +506,7 @@ class MutationManifest:
     evidence: tuple[str, ...]
     authority: AuthorityGrant
     merge_prefix: tuple[int, ...] = ()
+    expected_lineage: tuple[ExpectedLineageRef, ...] = ()
 
     def validate_complete(self) -> None:
         if not self.repository.strip() or "/" not in self.repository:
@@ -514,11 +534,33 @@ class MutationManifest:
             raise ManifestError("manifest must cite its snapshot evidence")
         for expected_ref in self.expected_refs:
             expected_ref.validate()
+        for expected_lineage_ref in self.expected_lineage:
+            expected_lineage_ref.validate()
         for pull_request in self.expected_pull_requests:
             pull_request.validate()
         ref_names = tuple(item.name for item in self.expected_refs)
         if len(set(ref_names)) != len(ref_names):
             raise ManifestError("manifest contains duplicate expected refs")
+        lineage_names = tuple(
+            (item.remote, item.branch) for item in self.expected_lineage
+        )
+        if len(set(lineage_names)) != len(lineage_names):
+            raise ManifestError("manifest contains duplicate expected lineage refs")
+        if self.operation is StackOperation.RECOVER:
+            if not self.expected_lineage:
+                raise ManifestError("recovery manifest must bind expected lineage")
+            if any(item.remote != self.remote for item in self.expected_lineage):
+                raise ManifestError(
+                    "expected lineage remotes must match the manifest remote"
+                )
+            if set(item.branch for item in self.expected_lineage) - set(
+                self.identities
+            ):
+                raise ManifestError(
+                    "expected lineage branches must be bound manifest identities"
+                )
+        elif self.expected_lineage:
+            raise ManifestError("only recovery manifests may bind expected lineage")
         pr_branches = tuple(item.branch for item in self.expected_pull_requests)
         if len(set(pr_branches)) != len(pr_branches):
             raise ManifestError("manifest contains duplicate pull-request branches")
@@ -870,11 +912,7 @@ class MutationManifest:
                 self.operation is StackOperation.PUBLISH
                 and pull_request.branch in self.authority.ready_for_review
             )
-            if self.operation in {
-                StackOperation.PUBLISH,
-                StackOperation.REPAIR,
-                StackOperation.RECOVER,
-            }:
+            if self.operation is StackOperation.PUBLISH:
                 branch_index = self.expected_native_stack.order.index(
                     pull_request.branch
                 )
@@ -1249,6 +1287,14 @@ def manifest_to_json(manifest: MutationManifest) -> str:
             }
             for item in manifest.expected_refs
         ],
+        "expected_lineage": [
+            {
+                "remote": item.remote,
+                "branch": item.branch,
+                "sha": item.sha,
+            }
+            for item in manifest.expected_lineage
+        ],
         "expected_pull_requests": [
             {
                 "number": item.number,
@@ -1428,6 +1474,7 @@ def manifest_from_json(raw: str) -> MutationManifest:
                 "remote",
                 "identities",
                 "expected_refs",
+                "expected_lineage",
                 "expected_pull_requests",
                 "expected_native_stack",
                 "enabled_phases",
@@ -1460,6 +1507,21 @@ def manifest_from_json(raw: str) -> MutationManifest:
                     frozenset({"name", "old_sha", "proposed_sha"}),
                 )
                 for value in _array(root["expected_refs"], "expected_refs")
+            )
+        )
+        lineage = tuple(
+            ExpectedLineageRef(
+                remote=_string(item["remote"], "expected lineage.remote"),
+                branch=_string(item["branch"], "expected lineage.branch"),
+                sha=_string(item["sha"], "expected lineage.sha"),
+            )
+            for item in (
+                _exact_object(
+                    value,
+                    "expected lineage",
+                    frozenset({"remote", "branch", "sha"}),
+                )
+                for value in _array(root["expected_lineage"], "expected_lineage")
             )
         )
         pull_requests = tuple(
@@ -1676,6 +1738,7 @@ def manifest_from_json(raw: str) -> MutationManifest:
                 _integer(item, "merge_prefix item")
                 for item in _array(root["merge_prefix"], "merge_prefix")
             ),
+            expected_lineage=lineage,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ManifestError(f"manifest structure is invalid: {exc}") from exc
@@ -1920,14 +1983,9 @@ def _repair_effects(
                 expected_ref.proposed_sha,
             )
         )
+    predecessor = native_stack.trunk
     for pull_request in pull_requests:
         head = proposed[pull_request.branch]
-        branch_index = native_stack.order.index(pull_request.branch)
-        predecessor = (
-            native_stack.trunk
-            if branch_index == 0
-            else native_stack.order[branch_index - 1]
-        )
         effects.append(
             MutationEffect(
                 EffectKind.UPDATE_PR,
@@ -1941,6 +1999,7 @@ def _repair_effects(
                 ),
             )
         )
+        predecessor = pull_request.branch
     effects.append(
         MutationEffect(
             EffectKind.SYNC_STACK,
@@ -2165,6 +2224,7 @@ def preview_recovery(
     native_stack: ExpectedNativeStack,
     authority: AuthorityGrant,
     evidence: Sequence[str],
+    lineage: Sequence[ExpectedLineageRef],
     identities: Sequence[str] = (),
 ) -> MutationManifest:
     expected_refs = tuple(refs)
@@ -2199,6 +2259,7 @@ def preview_recovery(
         effects=effects,
         evidence=tuple(evidence),
         authority=authority,
+        expected_lineage=tuple(lineage),
     )
     manifest.validate_complete()
     return manifest

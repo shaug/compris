@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -450,6 +450,7 @@ def recover_suffix_from_live(
     authority_acknowledged: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
     approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    approved_lineage: Sequence[SourceIdentity] | None = None,
 ) -> None:
     """Restamp only the first unmerged suffix against an immutable successor."""
 
@@ -466,6 +467,12 @@ def recover_suffix_from_live(
         successor_sha=successor_sha,
         remote=remote,
     )
+    if approved_lineage is not None and tuple(approved_lineage) != (
+        projection.target_lineage
+    ):
+        raise CommandError(
+            "Computed recovery lineage differs from the approved manifest lineage."
+        )
     suffix = projection.suffix
     if approved_ref_transitions is not None:
         selected = tuple(record.branch for record in suffix)

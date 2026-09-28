@@ -211,6 +211,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         dry_run: bool = False,
         approved_pr_text=None,
         approved_ref_transitions=None,
+        approved_lineage=None,
     ) -> str:
         output = io.StringIO()
         with (
@@ -244,6 +245,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 authority_acknowledged=True,
                 approved_pr_text=approved_pr_text,
                 approved_ref_transitions=approved_ref_transitions,
+                approved_lineage=approved_lineage,
             )
         return output.getvalue()
 
@@ -983,6 +985,7 @@ class SuffixRecoveryTests(unittest.TestCase):
             output = self._run_recovery(
                 dry_run=True,
                 approved_ref_transitions=approved,
+                approved_lineage=projection.target_lineage,
                 edit_side_effect=lambda *_args, **_kwargs: None,
             )
 
@@ -1088,12 +1091,36 @@ class SuffixRecoveryTests(unittest.TestCase):
                 successor_sha=third_head,
                 dry_run=True,
                 approved_ref_transitions=approved,
+                approved_lineage=projection.target_lineage,
                 edit_side_effect=lambda *_args, **_kwargs: None,
             )
 
         self.assertIn("Dry-run suffix recovery passed", output)
         self.assertEqual(recovered_prefix, self._remote_head("feature/report-2"))
         self.assertEqual(unrecovered_tail, self._remote_head("feature/report-3"))
+
+    def test_execution_rejects_approved_lineage_drift_before_effects(self) -> None:
+        projection = self._project_recovery(committer_date="2001-02-03T04:05:06+00:00")
+        approved = {
+            record.branch: (record.head, projection.candidates[record.branch])
+            for record in projection.suffix
+        }
+        drifted = (
+            projection.target_lineage[0],
+            SourceIdentity(
+                "origin", "feature/report-reviewed", projection.target_lineage[-1].sha
+            ),
+        )
+
+        with self.assertRaisesRegex(CommandError, "approved manifest lineage"):
+            self._run_recovery(
+                dry_run=True,
+                approved_ref_transitions=approved,
+                approved_lineage=drifted,
+                edit_side_effect=lambda *_args, **_kwargs: None,
+            )
+
+        self.assertEqual(self.fixed_head, self._remote_head("feature/report-2"))
 
     def test_native_human_only_pr_recovers_through_public_workflow(self) -> None:
         native_head = self._restamp_open_suffix_as_native(identity_remote="origin")

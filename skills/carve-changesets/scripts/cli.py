@@ -48,7 +48,7 @@ from github import (
     pull_request_by_number,
     pull_requests_for_source,
 )
-from metadata import embed_pr_metadata
+from metadata import SourceIdentity, embed_pr_metadata
 from native_stack import (
     NativeStackError,
     NativeStackSnapshot,
@@ -78,6 +78,7 @@ from transitions import (
     ZERO_SHA,
     AuthorityGrant,
     EffectKind,
+    ExpectedLineageRef,
     ExpectedNativeLayer,
     ExpectedNativeStack,
     ExpectedPullRequest,
@@ -1110,7 +1111,18 @@ def _recovery_manifest(args: argparse.Namespace):
         )
         for item in prs
     )
-    identities = (*tuple(item.branch for item in prs), args.successor_source)
+    lineage = tuple(
+        ExpectedLineageRef(item.remote, item.branch, item.sha)
+        for item in projection.target_lineage
+    )
+    identities = tuple(
+        dict.fromkeys(
+            (
+                *(item.branch for item in prs),
+                *(item.branch for item in lineage),
+            )
+        )
+    )
     phases = frozenset(
         {
             TransitionPhase.TRUNK_REFRESH,
@@ -1151,7 +1163,12 @@ def _recovery_manifest(args: argparse.Namespace):
                 f"projected recovery head {branch}={head}"
                 for branch, head in projection.candidates.items()
             ),
+            *(
+                f"source lineage={item.remote}/{item.branch}@{item.sha}"
+                for item in lineage
+            ),
         ),
+        lineage=lineage,
         identities=identities,
     )
 
@@ -1635,6 +1652,10 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             authority_acknowledged=True,
             approved_pr_text=_approved_pr_text(manifest),
             approved_ref_transitions=_approved_ref_transitions(manifest),
+            approved_lineage=tuple(
+                SourceIdentity(item.remote, item.branch, item.sha)
+                for item in manifest.expected_lineage
+            ),
         ),
         readback=lambda: _live_observation(
             approved,
