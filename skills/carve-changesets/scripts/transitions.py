@@ -124,11 +124,16 @@ class ExpectedRef:
     name: str
     old_sha: str
     proposed_sha: str
+    local_sha: str
 
     def validate(self) -> None:
         if not self.name.startswith("refs/heads/"):
             raise ManifestError(f"expected ref is not a full branch ref: {self.name!r}")
-        for label, sha in (("old", self.old_sha), ("proposed", self.proposed_sha)):
+        for label, sha in (
+            ("old", self.old_sha),
+            ("proposed", self.proposed_sha),
+            ("local", self.local_sha),
+        ):
             if len(sha) != 40 or any(
                 character not in "0123456789abcdef" for character in sha
             ):
@@ -879,16 +884,18 @@ class MutationManifest:
             raise ManifestError(f"manifest has unexpected effect: {details}")
         expected_values: dict[tuple[EffectKind, str, str], tuple[object, object]] = {}
         for branch, expected_ref in ref_by_branch.items():
-            for kind, target in (
-                (EffectKind.PUSH_REF, f"ref:{branch}"),
-                (EffectKind.REBASE_BRANCH, f"local:{branch}"),
-            ):
-                signature = (kind, target, "sha")
-                if signature in required_effects:
-                    expected_values[signature] = (
-                        expected_ref.old_sha,
-                        expected_ref.proposed_sha,
-                    )
+            push_signature = (EffectKind.PUSH_REF, f"ref:{branch}", "sha")
+            if push_signature in required_effects:
+                expected_values[push_signature] = (
+                    expected_ref.old_sha,
+                    expected_ref.proposed_sha,
+                )
+            rebase_signature = (EffectKind.REBASE_BRANCH, f"local:{branch}", "sha")
+            if rebase_signature in required_effects:
+                expected_values[rebase_signature] = (
+                    expected_ref.local_sha,
+                    expected_ref.local_sha,
+                )
         if self.operation is StackOperation.PUBLISH:
             changing_pull_requests = self.expected_pull_requests
         elif self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}:
@@ -1284,6 +1291,7 @@ def manifest_to_json(manifest: MutationManifest) -> str:
                 "name": item.name,
                 "old_sha": item.old_sha,
                 "proposed_sha": item.proposed_sha,
+                "local_sha": item.local_sha,
             }
             for item in manifest.expected_refs
         ],
@@ -1499,12 +1507,13 @@ def manifest_from_json(raw: str) -> MutationManifest:
                 name=_string(item["name"], "expected ref.name"),
                 old_sha=_string(item["old_sha"], "expected ref.old_sha"),
                 proposed_sha=_string(item["proposed_sha"], "expected ref.proposed_sha"),
+                local_sha=_string(item["local_sha"], "expected ref.local_sha"),
             )
             for item in (
                 _exact_object(
                     value,
                     "expected ref",
-                    frozenset({"name", "old_sha", "proposed_sha"}),
+                    frozenset({"name", "old_sha", "proposed_sha", "local_sha"}),
                 )
                 for value in _array(root["expected_refs"], "expected_refs")
             )
@@ -1968,8 +1977,8 @@ def _repair_effects(
                 EffectKind.REBASE_BRANCH,
                 f"local:{branch}",
                 "sha",
-                expected_ref.old_sha,
-                expected_ref.proposed_sha,
+                expected_ref.local_sha,
+                expected_ref.local_sha,
             )
         )
     for expected_ref in refs:
@@ -2423,7 +2432,7 @@ def observation_from_manifest(
         if effect.kind is EffectKind.PUSH_REF:
             observed: object = refs[identity].old_sha
         elif effect.kind is EffectKind.REBASE_BRANCH:
-            observed = refs[identity].proposed_sha
+            observed = refs[identity].local_sha
         elif effect.kind in {EffectKind.CREATE_PR, EffectKind.UPDATE_PR}:
             pr = prs_by_branch.get(identity)
             if pr is None and identity.isdigit():

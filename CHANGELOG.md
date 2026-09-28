@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-27 — Closed transition authority and readback gaps
 
+- fix: separate local and remote ref fences
+
 - fix: bind recovery lineage and suffix bases
 
 - fix: project exact recovery heads before manifest approval

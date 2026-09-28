@@ -594,6 +594,7 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
                 name=f"refs/heads/{branch}",
                 old_sha=old or ZERO_SHA,
                 proposed_sha=proposed,
+                local_sha=proposed,
             )
         )
         ref_evidence.append(f"{remote}/refs/heads/{branch}={old or 'absent'}")
@@ -754,6 +755,15 @@ def _live_manifest_inputs(
     for record in records:
         old = remote_branch_head(remote, record.branch)
         native_head = native_by_branch[record.branch].head
+        local_result = git(
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{record.branch}^{{commit}}",
+            check=False,
+        )
+        local_head = (
+            local_result.stdout.strip() if local_result.returncode == 0 else ZERO_SHA
+        )
         if record.head != native_head:
             raise CommandError(
                 f"Live chain head for {record.branch} is {record.head}; native head is "
@@ -764,9 +774,14 @@ def _live_manifest_inputs(
                 name=f"refs/heads/{record.branch}",
                 old_sha=old or ZERO_SHA,
                 proposed_sha=native_head,
+                local_sha=local_head,
             )
         )
         evidence.append(f"{remote}/refs/heads/{record.branch}={old or 'absent'}")
+        evidence.append(
+            f"local/refs/heads/{record.branch}="
+            f"{local_head if local_head != ZERO_SHA else 'absent'}"
+        )
         if record.pr_number is None or record.pr_number not in pull_requests:
             raise CommandError(
                 f"Changeset {record.position} has no exact live pull-request state."

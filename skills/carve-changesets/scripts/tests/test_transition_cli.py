@@ -1663,11 +1663,14 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertIn("exact rewritten heads", output.getvalue())
 
-    def test_already_propagated_repair_preview_records_exact_no_op_head(self) -> None:
+    def test_fresh_clone_no_op_repair_preserves_absent_local_ref(self) -> None:
         chain, prs = self._published_chain()
-        self.native_reader_mock.return_value = self._published_snapshot(
-            needs_rebase=False
-        )
+        prs[42].base_branch = "main"
+        prs[42].title = "Layer two (2 of 2)"
+        snapshot = self._published_snapshot(needs_rebase=False)
+        self.native_reader_mock.return_value = snapshot
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "branch", "-D", "feature/report-2")
         output = StringIO()
         with (
             mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
@@ -1701,6 +1704,57 @@ class TransitionCliTests(unittest.TestCase):
         ref = manifest["expected_refs"][0]
         self.assertEqual(self.head_two, ref["old_sha"])
         self.assertEqual(self.head_two, ref["proposed_sha"])
+        self.assertEqual("0" * 40, ref["local_sha"])
+        local_effect = next(
+            effect
+            for effect in manifest["effects"]
+            if effect["kind"] == "rebase_branch"
+        )
+        self.assertEqual("0" * 40, local_effect["before"])
+        self.assertEqual("0" * 40, local_effect["after"])
+
+        approved = self.root / "approved-no-op-repair.json"
+        approved.write_text(output.getvalue())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executed = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod, "remote_branch_head", return_value=self.head_two
+            ),
+            mock.patch.object(
+                cli_mod, "pull_requests_for_source", return_value=list(prs.values())
+            ),
+            mock.patch.object(
+                cli_mod, "github_repo_for_remote", return_value="acme/widgets"
+            ),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "propagate_from_live") as executor,
+            chdir(self.repo),
+            redirect_stdout(executed),
+        ):
+            status = main(
+                (
+                    "propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--allow-stack-state-refresh",
+                    "--manifest",
+                    str(approved),
+                    "--execute",
+                    "--ack-repair",
+                )
+            )
+
+        self.assertEqual(0, status, executed.getvalue())
+        self.assertEqual("unchanged", json.loads(executed.getvalue())["state"])
+        executor.assert_called_once()
 
     def test_direct_merge_preview_blocks_unknown_automatic_suffix_heads(self) -> None:
         chain, prs = self._published_chain()
@@ -1938,6 +1992,7 @@ class TransitionCliTests(unittest.TestCase):
                     "name": "refs/heads/feature/report-2",
                     "old_sha": self.head_two,
                     "proposed_sha": projected_head,
+                    "local_sha": self.head_two,
                 }
             ],
             manifest["expected_refs"],

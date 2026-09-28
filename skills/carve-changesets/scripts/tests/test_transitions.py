@@ -44,8 +44,8 @@ SHA_D = "d" * 40
 
 def publish_manifest() -> MutationManifest:
     refs = (
-        ExpectedRef("refs/heads/feature-1", SHA_A, SHA_C),
-        ExpectedRef("refs/heads/feature-2", ZERO_SHA, SHA_D),
+        ExpectedRef("refs/heads/feature-1", SHA_A, SHA_C, SHA_C),
+        ExpectedRef("refs/heads/feature-2", ZERO_SHA, SHA_D, SHA_D),
     )
     pull_requests = (
         ExpectedPullRequest(
@@ -814,8 +814,8 @@ class CapabilityFenceTests(unittest.TestCase):
 class OperationManifestTests(unittest.TestCase):
     def setUp(self) -> None:
         self.refs = (
-            ExpectedRef("refs/heads/feature-2", SHA_A, SHA_C),
-            ExpectedRef("refs/heads/feature-3", SHA_B, SHA_D),
+            ExpectedRef("refs/heads/feature-2", SHA_A, SHA_C, SHA_A),
+            ExpectedRef("refs/heads/feature-3", SHA_B, SHA_D, SHA_B),
         )
         self.pull_requests = (
             ExpectedPullRequest(
@@ -1276,7 +1276,7 @@ class OperationManifestTests(unittest.TestCase):
             preview_push(
                 repository="shaug/compris",
                 remote="origin",
-                refs=(ExpectedRef("refs/heads/feature-2", SHA_A, ZERO_SHA),),
+                refs=(ExpectedRef("refs/heads/feature-2", SHA_A, ZERO_SHA, SHA_A),),
                 native_stack=self.stack,
                 authority=authority,
                 evidence=("push snapshot",),
@@ -1978,7 +1978,7 @@ class ReadbackClassificationTests(unittest.TestCase):
         )
         current = replace(
             approved,
-            expected_refs=(ExpectedRef("refs/heads/feature-1", SHA_C, SHA_C),),
+            expected_refs=(ExpectedRef("refs/heads/feature-1", SHA_C, SHA_C, SHA_C),),
         )
 
         observation = observation_from_manifest(approved, current)
