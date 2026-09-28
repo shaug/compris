@@ -1,0 +1,46 @@
+{
+  "candidate": {
+    "branch": "scott/issue-167-operation-manifests-corrected-stack-v14",
+    "sha": "61d32e45125bfb50121ec0fba31b53b5ffa4b8d8",
+    "tree": "5f1423cd5de23843cf35a320182f805e486248b4",
+    "trees": {
+      "skills/carve-changesets": "f24c10425055ea1116b4b0db1dd3d55a529a50fa",
+      "triggering": "b264788958de82f7b74f89a3b6d7ae5626112aa1"
+    },
+    "trees_unresolved": [],
+    "worktree_clean": true
+  },
+  "case_evidence": {},
+  "cases": {},
+  "command": [
+    "/private/tmp/compris-164-tools/bin/python3",
+    "triggering/runner.py",
+    "--skill",
+    "carve-changesets",
+    "--executor",
+    "/private/tmp/compris-164-tools/bin/python3 triggering/executors/description_executor.py --model claude-opus-5"
+  ],
+  "compared_to": null,
+  "diff": {
+    "newly_failing": [],
+    "newly_passing": [],
+    "still_failing": [],
+    "unchanged": 0
+  },
+  "exit_code": 1,
+  "failures": [],
+  "forward_evals": false,
+  "gap": null,
+  "limitation": "eval command exited 1 without an aggregate summary; model-behavior evidence not collected",
+  "model": "claude-opus-5",
+  "note": null,
+  "output_tail": "\u2026aise RuntimeError(\n        f\"executor exited {completed.returncode}: {completed.stderr.strip()}\"\n    )\nRuntimeError: executor exited 1: Traceback (most recent call last):\n  File \"/Users/scott/code/compris-worktrees/issue-167-operation-manifests/triggering/executors/description_executor.py\", line 130, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/scott/code/compris-worktrees/issue-167-operation-manifests/triggering/executors/description_executor.py\", line 109, in main\n    parse_answer(run_claude(prompt, args.claude_bin, args.model), known)\n                 ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/scott/code/compris-worktrees/issue-167-operation-manifests/triggering/executors/description_executor.py\", line 64, in run_claude\n    completed = subprocess.run(\n        command, input=prompt, text=True, capture_output=True, check=False\n    )\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 555, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ~~~~~^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1039, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n                        pass_fds, cwd, env,\n                        ^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n                        gid, gids, uid, umask,\n                        ^^^^^^^^^^^^^^^^^^^^^^\n                        start_new_session, process_group)\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py\", line 1990, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'claude'",
+  "recorded_at": "2026-09-27T22:15:00Z",
+  "schema": "eval-run-summary/1",
+  "skill": "carve-changesets",
+  "stage": "before",
+  "status": "attempted",
+  "suite": "triggering",
+  "tier": "real-model",
+  "totals": null
+}

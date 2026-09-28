@@ -4,27 +4,87 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-25 — Materialized native stacks and preserved recovery truth
+## 2026-09-28 — Closed stack-target and lineage readback fences
+
+- fix: preserve independent readback observations across bootstrap failures
+
+- fix: fence recovery trunk refresh authority
+
+- fix: classify ambiguous post-executor observations
+
+- fix: preserve merge observations across readback failures
+
+- fix: preserve target classifications when readback fails
+
+- fix: exclude merged layers from transition authority
+
+- fix: bind complete native targets and lineage readback
+
+## 2026-09-27 — Closed transition authority and readback gaps
+
+- fix: apply recovery local fences before remote effects
+
+- fix: preserve recovery local-ref approval fences
+
+- fix: project repair heads before manifest approval
+
+- fix: bind repair heads and exact manifest identities
+
+- fix: bind recovered local refs to projected heads
+
+- fix: separate local and remote ref fences
+
+- fix: bind recovery lineage and suffix bases
+
+- fix: project exact recovery heads before manifest approval
+
+- fix: consume approved ref transitions during repair and recovery
+
+- fix: preserve clean-tree and source-lineage publication gates
+
+- docs: align transition acknowledgement reference
+
+- fix: bind exact manifest effects through execution
+
+- fix: preserve exact remote transition fences and outcomes
+
+- fix: keep transition phases and readback inside their authority fence
+
+- test(evals): record carve triggering evidence attempts
+
+## 2026-09-25 — Fenced native transitions and materialized stacks
+
+- fix: preserve every native transition selector and automatic effect
+
+- feat: fence native stack transitions by capability
 
 - docs: complete native materialization change journal
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - test: prove authority refusal has no public effects
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - fix: gate native materialization authority before preflight
+  (8fdffcf52c15049a7c260c97e87ce2b2b8df764c)
 
 - fix: resume unpublished native materialization
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
-- test: record native authority eval
+- test: record native authority eval (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - docs: require native materialization authority
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
-- test: record pre-change carve eval
+- test: record pre-change carve eval (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - fix: bind native adoption to semantic heads
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - fix: restore detached checkout exactly
+  (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)
 
 - feat: materialize changesets as a native stack
+  (54c72885bb9483472993109b4691ab81d6f94894)
 
 - fix: resume multi-successor recovery
   (43f81a2d6f46b2700aa66b3e4301e03704de7af7)
