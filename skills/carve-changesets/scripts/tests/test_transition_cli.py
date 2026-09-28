@@ -435,6 +435,49 @@ class TransitionCliTests(unittest.TestCase):
         observed = observation.as_mapping()[approved.effects[0].key]
         self.assertEqual("CLOSED", observed[4])
 
+    def test_live_readback_preserves_other_targets_when_one_read_fails(self) -> None:
+        first = MutationEffect(
+            EffectKind.PUSH_REF,
+            "ref:feature/report-1",
+            "sha",
+            self.head_one,
+            self.head_one,
+        )
+        second = MutationEffect(
+            EffectKind.PUSH_REF,
+            "ref:feature/report-2",
+            "sha",
+            self.head_two,
+            self.head_two,
+        )
+        approved = SimpleNamespace(
+            expected_native_stack=SimpleNamespace(trunk="main"),
+            effects=(first, second),
+        )
+
+        def remote_head(_remote: str, branch: str):
+            if branch == "feature/report-1":
+                raise RuntimeError("first ref read failed")
+            return self.head_two
+
+        with (
+            mock.patch.object(cli_mod, "pull_requests_for_source", return_value=[]),
+            mock.patch.object(cli_mod, "remote_branch_head", side_effect=remote_head),
+            chdir(self.repo),
+        ):
+            observation = cli_mod._live_observation(
+                approved,
+                source="feature/report",
+                base="main",
+                remote="origin",
+            )
+
+        self.assertNotIn(first.key, observation.as_mapping())
+        self.assertEqual(self.head_two, observation.as_mapping()[second.key])
+        self.assertEqual(1, len(observation.errors))
+        self.assertIn(first.key, observation.errors[0])
+        self.assertIn("first ref read failed", observation.errors[0])
+
     def test_push_preview_rejects_duplicate_remote_urls(self) -> None:
         helpers.run(
             self.repo,
@@ -1063,6 +1106,7 @@ class TransitionCliTests(unittest.TestCase):
         result = json.loads(output.getvalue())
         self.assertEqual("blocked", result["state"])
         self.assertIn("fenced_push", result["blocker"])
+        self.assertEqual([], result["targets"])
         self.assertIn("[ERROR]", errors.getvalue())
 
     def _execute_push_with_readback(
@@ -1154,6 +1198,63 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(first.before, result["targets"][0]["expected_before"])
         self.assertEqual(first.after, result["targets"][0]["expected_after"])
         self.assertIn("[ERROR]", errors)
+
+    def test_readback_failure_after_executor_renders_every_missing_target(
+        self,
+    ) -> None:
+        approved_path = self.root / "approved-readback-failure.json"
+        approved_path.write_text(self._preview_manifest())
+        approved = manifest_from_json(approved_path.read_text())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executor = mock.Mock()
+        output = StringIO()
+        errors = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "_execute_push_manifest", executor),
+            mock.patch.object(
+                cli_mod,
+                "_push_observation",
+                side_effect=RuntimeError("remote readback unavailable"),
+            ),
+            chdir(self.repo),
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved_path),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        executor.assert_called_once_with(approved)
+        result = json.loads(output.getvalue())
+        self.assertEqual("diverged", result["state"])
+        self.assertEqual(len(approved.effects), len(result["targets"]))
+        self.assertTrue(
+            all(target["observed"] == {"missing": True} for target in result["targets"])
+        )
+        self.assertTrue(
+            all(
+                target["disposition"] == "changed_unexpectedly"
+                for target in result["targets"]
+            )
+        )
+        self.assertIn("remote readback unavailable", result["blocker"])
+        self.assertIn("[ERROR]", errors.getvalue())
 
     def test_preview_requires_explicit_native_snapshot_refresh_authority(self) -> None:
         self.native_reader_mock.reset_mock()

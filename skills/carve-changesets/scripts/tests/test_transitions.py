@@ -7,6 +7,7 @@ from dataclasses import replace
 import helpers  # noqa: F401  # ensures the scripts directory is importable
 from gh_stack import StackCapability, reviewed_preview_profile
 from transitions import (
+    MISSING_OBSERVATION,
     ZERO_SHA,
     AuthorityGrant,
     EffectKind,
@@ -759,7 +760,7 @@ class CapabilityFenceTests(unittest.TestCase):
         self.assertIn("operator interrupted remote command", result.blocker)
         self.assertTrue(result.fresh_manifest_required)
 
-    def test_keyboard_interrupt_during_readback_returns_blocked(self) -> None:
+    def test_keyboard_interrupt_during_readback_classifies_every_target(self) -> None:
         manifest = publish_manifest()
         profile = replace(
             reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
@@ -781,9 +782,54 @@ class CapabilityFenceTests(unittest.TestCase):
             readback=interrupt_readback,
         )
 
-        self.assertEqual(TransitionState.BLOCKED, result.state)
+        self.assertEqual(TransitionState.DIVERGED, result.state)
         self.assertIn("operator interrupted live readback", result.blocker)
         self.assertTrue(result.fresh_manifest_required)
+        self.assertEqual(len(manifest.effects), len(result.targets))
+        self.assertTrue(
+            all(target.observed is MISSING_OBSERVATION for target in result.targets)
+        )
+        self.assertTrue(
+            all(
+                target.disposition is TargetDisposition.CHANGED_UNEXPECTEDLY
+                for target in result.targets
+            )
+        )
+
+    def test_partial_readback_failure_preserves_observed_and_missing_targets(
+        self,
+    ) -> None:
+        manifest = publish_manifest()
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+        first = manifest.effects[0]
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=lambda: manifest,
+            executor=lambda _approved: None,
+            readback=lambda: TransitionObservation(
+                values=((first.key, first.after),),
+                errors=("second target: live read failed",),
+            ),
+        )
+
+        self.assertEqual(TransitionState.DIVERGED, result.state)
+        self.assertEqual(len(manifest.effects), len(result.targets))
+        self.assertEqual(
+            TargetDisposition.CHANGED_AS_EXPECTED, result.targets[0].disposition
+        )
+        self.assertTrue(
+            all(target.observed is MISSING_OBSERVATION for target in result.targets[1:])
+        )
+        self.assertIn("second target: live read failed", result.blocker)
 
     def test_successful_executor_with_partial_readback_preserves_partial(self) -> None:
         manifest = publish_manifest()

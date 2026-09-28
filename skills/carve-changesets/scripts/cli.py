@@ -1419,98 +1419,109 @@ def _live_observation(
             return prs_by_number[number]
         return prs_by_branch.get(identity)
 
-    values: list[tuple[str, object]] = []
-    for effect in approved.effects:
+    def observe(effect) -> object:
         identity = effect.target.partition(":")[2]
         if effect.kind is EffectKind.PUSH_REF:
-            observed: object = remote_branch_head(remote, identity) or ZERO_SHA
-        elif effect.kind is EffectKind.VERIFY_LINEAGE:
+            return remote_branch_head(remote, identity) or ZERO_SHA
+        if effect.kind is EffectKind.VERIFY_LINEAGE:
             lineage_remote, separator, lineage_branch = identity.partition(":")
             if not separator:
                 raise ManifestError("invalid lineage verification target")
-            observed = remote_branch_head(lineage_remote, lineage_branch) or ZERO_SHA
-        elif effect.kind is EffectKind.REBASE_BRANCH:
+            return remote_branch_head(lineage_remote, lineage_branch) or ZERO_SHA
+        if effect.kind is EffectKind.REBASE_BRANCH:
             resolved = git(
                 "rev-parse",
                 "--verify",
                 f"refs/heads/{identity}^{{commit}}",
                 check=False,
             )
-            observed = resolved.stdout.strip() if resolved.returncode == 0 else ZERO_SHA
-        elif effect.kind in {EffectKind.CREATE_PR, EffectKind.UPDATE_PR}:
+            return resolved.stdout.strip() if resolved.returncode == 0 else ZERO_SHA
+        if effect.kind in {EffectKind.CREATE_PR, EffectKind.UPDATE_PR}:
             live = pull_request(identity)
-            observed = (
+            return (
                 None if live is None else _expected_pull_request_from_live(live).record
             )
-        elif effect.kind is EffectKind.DISABLE_AUTO_MERGE:
+        if effect.kind is EffectKind.DISABLE_AUTO_MERGE:
             live = pull_request(identity)
-            observed = None if live is None else live.auto_merge
-        elif effect.kind is EffectKind.READY_PR:
+            return None if live is None else live.auto_merge
+        if effect.kind is EffectKind.READY_PR:
             live = pull_request(identity)
-            observed = None if live is None else live.draft
-        elif effect.kind in {EffectKind.REGISTER_STACK, EffectKind.SYNC_STACK}:
+            return None if live is None else live.draft
+        if effect.kind in {EffectKind.REGISTER_STACK, EffectKind.SYNC_STACK}:
             if effect.field == "identity":
-                observed = (
+                return (
                     source
                     if any(layer.pull_request for layer in native.layers)
                     else None
                 )
-            elif effect.field == "registered":
-                observed = any(layer.pull_request for layer in native.layers)
-            elif effect.field == "order":
-                observed = tuple(layer.branch for layer in native.layers)
-            elif effect.field == "open_order":
-                observed = tuple(
+            if effect.field == "registered":
+                return any(layer.pull_request for layer in native.layers)
+            if effect.field == "order":
+                return tuple(layer.branch for layer in native.layers)
+            if effect.field == "open_order":
+                return tuple(
                     layer.branch for layer in native.layers if not layer.merged
                 )
-            elif effect.field == "head":
+            if effect.field == "head":
                 branch = identity.rpartition(":")[2]
-                observed = remote_branch_head(remote, branch) or ZERO_SHA
-            else:
-                raise ManifestError(
-                    f"unsupported native-stack readback field: {effect.field}"
-                )
-        elif effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
+                return remote_branch_head(remote, branch) or ZERO_SHA
+            raise ManifestError(
+                f"unsupported native-stack readback field: {effect.field}"
+            )
+        if effect.kind in {EffectKind.MERGE_PR, EffectKind.QUEUE_PR}:
             live = pull_request(identity)
-            observed = (
+            return (
                 None
                 if live is None
                 else live.state.upper()
                 if effect.field == "state"
                 else live.queued
             )
-        elif effect.kind is EffectKind.REFRESH_TRUNK:
-            observed = (
+        if effect.kind is EffectKind.REFRESH_TRUNK:
+            return (
                 native.trunk_head
                 if effect.field == "sha"
                 else _commit_tree(native.trunk_head, context="observed trunk")
             )
-        else:  # pragma: no cover
-            raise ManifestError(f"unsupported readback effect: {effect.kind.value}")
-        values.append((effect.key, observed))
-    return TransitionObservation(values=tuple(values))
+        raise ManifestError(f"unsupported readback effect: {effect.kind.value}")
+
+    values: list[tuple[str, object]] = []
+    errors: list[str] = []
+    for effect in approved.effects:
+        try:
+            values.append((effect.key, observe(effect)))
+        except (Exception, KeyboardInterrupt) as exc:
+            errors.append(f"{effect.key}: {exc}")
+    return TransitionObservation(values=tuple(values), errors=tuple(errors))
 
 
 def _push_observation(manifest) -> TransitionObservation:
     values: list[tuple[str, object]] = []
+    errors: list[str] = []
     for effect in manifest.effects:
-        if effect.target.startswith("ref:") and effect.field == "sha":
-            branch = effect.target.removeprefix("ref:")
-            values.append(
-                (effect.key, remote_branch_head(manifest.remote, branch) or ZERO_SHA)
-            )
-        elif effect.kind is EffectKind.VERIFY_LINEAGE:
-            identity = effect.target.removeprefix("lineage:")
-            lineage_remote, separator, lineage_branch = identity.partition(":")
-            if not separator:
-                raise ManifestError("invalid lineage verification target")
-            values.append(
-                (
-                    effect.key,
-                    remote_branch_head(lineage_remote, lineage_branch) or ZERO_SHA,
+        try:
+            if effect.target.startswith("ref:") and effect.field == "sha":
+                branch = effect.target.removeprefix("ref:")
+                values.append(
+                    (
+                        effect.key,
+                        remote_branch_head(manifest.remote, branch) or ZERO_SHA,
+                    )
                 )
-            )
-    return TransitionObservation(values=tuple(values))
+            elif effect.kind is EffectKind.VERIFY_LINEAGE:
+                identity = effect.target.removeprefix("lineage:")
+                lineage_remote, separator, lineage_branch = identity.partition(":")
+                if not separator:
+                    raise ManifestError("invalid lineage verification target")
+                values.append(
+                    (
+                        effect.key,
+                        remote_branch_head(lineage_remote, lineage_branch) or ZERO_SHA,
+                    )
+                )
+        except (Exception, KeyboardInterrupt) as exc:
+            errors.append(f"{effect.key}: {exc}")
+    return TransitionObservation(values=tuple(values), errors=tuple(errors))
 
 
 def _print_transition_result(result: TransitionResult) -> None:

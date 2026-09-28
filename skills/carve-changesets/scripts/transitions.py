@@ -1262,6 +1262,7 @@ class MutationManifest:
 @dataclass(frozen=True)
 class TransitionObservation:
     values: tuple[tuple[str, object], ...]
+    errors: tuple[str, ...] = ()
 
     def as_mapping(self) -> Mapping[str, object]:
         result = dict(self.values)
@@ -2682,16 +2683,22 @@ def execute_transition(
         # Operator interruption can arrive after a remote effect. Classify the
         # durable post-state before returning control to the caller.
         execution_error = exc
+    readback_errors: tuple[str, ...] = ()
     try:
-        result = classify_readback(manifest, readback())
+        observation = readback()
+        readback_errors = observation.errors
     except (Exception, KeyboardInterrupt) as exc:
+        observation = TransitionObservation(values=())
+        readback_errors = (str(exc),)
+    result = classify_readback(manifest, observation)
+    if readback_errors:
         detail = f"executor failed ({execution_error}); " if execution_error else ""
-        return TransitionResult(
-            state=TransitionState.BLOCKED,
-            operation=manifest.operation,
-            identities=manifest.identities,
-            evidence=manifest.evidence,
-            blocker=f"{detail}post-command readback failed: {exc}",
+        return replace(
+            result,
+            state=TransitionState.DIVERGED,
+            blocker=(
+                f"{detail}post-command readback failed: " + "; ".join(readback_errors)
+            ),
             next_action="reread every declared target and generate a fresh manifest",
             fresh_manifest_required=True,
         )
