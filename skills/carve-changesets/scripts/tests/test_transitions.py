@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from dataclasses import replace
 
@@ -974,6 +975,73 @@ class OperationManifestTests(unittest.TestCase):
             ),
             tuple(effect.kind for effect in manifest.effects),
         )
+
+    def test_repair_success_readback_accepts_rebased_local_heads(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        manifest = preview_repair(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self.stack,
+            authority=self._authority(
+                StackOperation.REPAIR,
+                phases,
+                frozenset(
+                    {
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            evidence=("repair snapshot",),
+        )
+        expected_local_heads = {
+            "local:feature-2": SHA_C,
+            "local:feature-3": SHA_D,
+        }
+        local_effects = tuple(
+            (effect.before, effect.after)
+            for effect in manifest.effects
+            if effect.kind is EffectKind.REBASE_BRANCH
+        )
+        observation = TransitionObservation(
+            values=tuple(
+                (
+                    effect.key,
+                    expected_local_heads[effect.target]
+                    if effect.kind is EffectKind.REBASE_BRANCH
+                    else effect.after,
+                )
+                for effect in manifest.effects
+            )
+        )
+
+        self.assertEqual(((SHA_A, SHA_C), (SHA_B, SHA_D)), local_effects)
+        self.assertEqual(
+            TransitionState.COMPLETED,
+            classify_readback(manifest, observation).state,
+        )
+
+    def test_deserialized_manifest_rejects_identities_outside_selected_targets(
+        self,
+    ) -> None:
+        payload = json.loads(manifest_to_json(publish_manifest()))
+        payload["identities"] = ["unrelated-branch"]
+        payload["authority"]["identities"] = ["unrelated-branch"]
+
+        with self.assertRaisesRegex(
+            ManifestError, "identities must exactly match selected targets"
+        ):
+            manifest_from_json(json.dumps(payload))
 
     def test_repair_rejects_pull_requests_outside_native_stack_order(self) -> None:
         phases = frozenset(

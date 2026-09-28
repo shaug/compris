@@ -707,6 +707,21 @@ class MutationManifest:
             raise ManifestError(
                 "manifest selected branches are outside expected native stack order"
             )
+        expected_identities = tuple(
+            branch
+            for branch in self.expected_native_stack.order
+            if branch in selected_branches
+        )
+        if self.operation is StackOperation.RECOVER:
+            expected_identities += tuple(
+                item.branch
+                for item in self.expected_lineage
+                if item.branch not in selected_branches
+            )
+        if self.identities != expected_identities:
+            raise ManifestError(
+                "manifest identities must exactly match selected targets"
+            )
 
         required_effects: set[tuple[EffectKind, str, str]] = set()
         if TransitionPhase.PUSH in self.enabled_phases:
@@ -897,6 +912,7 @@ class MutationManifest:
                     (
                         expected_ref.proposed_sha
                         if self.operation is StackOperation.RECOVER
+                        or expected_ref.old_sha != expected_ref.proposed_sha
                         else expected_ref.local_sha
                     ),
                 )
@@ -1970,7 +1986,7 @@ def _repair_effects(
     pull_requests: tuple[ExpectedPullRequest, ...],
     native_stack: ExpectedNativeStack,
     *,
-    sync_local_to_proposed: bool,
+    always_project_local: bool,
 ) -> tuple[MutationEffect, ...]:
     proposed = {
         item.name.removeprefix("refs/heads/"): item.proposed_sha for item in refs
@@ -1986,7 +2002,8 @@ def _repair_effects(
                 expected_ref.local_sha,
                 (
                     expected_ref.proposed_sha
-                    if sync_local_to_proposed
+                    if always_project_local
+                    or expected_ref.old_sha != expected_ref.proposed_sha
                     else expected_ref.local_sha
                 ),
             )
@@ -2062,7 +2079,7 @@ def preview_repair(
             expected_refs,
             expected_pull_requests,
             native_stack,
-            sync_local_to_proposed=False,
+            always_project_local=False,
         ),
         evidence=tuple(evidence),
         authority=authority,
@@ -2265,7 +2282,7 @@ def preview_recovery(
             expected_refs,
             expected_pull_requests,
             native_stack,
-            sync_local_to_proposed=True,
+            always_project_local=True,
         ),
     )
     manifest = MutationManifest(
