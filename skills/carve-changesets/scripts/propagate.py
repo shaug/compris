@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Dict, List
 
@@ -525,6 +526,7 @@ def _propagate_chain(
     remote: str,
     dry_run: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
+    approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
 ) -> None:
     if strategy not in ("rebase", "cherry-pick"):
         raise CommandError("Propagation strategy must be 'rebase' or 'cherry-pick'.")
@@ -532,6 +534,14 @@ def _propagate_chain(
     if not downstream:
         print("[OK] Merged changeset has no downstream branches to propagate.")
         return
+    if approved_ref_transitions is not None:
+        selected = tuple(record.branch for record in downstream)
+        if tuple(approved_ref_transitions) != selected:
+            raise CommandError(
+                "Approved manifest ref membership does not match the propagation "
+                f"suffix: approved {tuple(approved_ref_transitions)!r}; "
+                f"observed {selected!r}."
+            )
 
     planned: list[tuple[ChangesetRecord, PullRequestRecord, str]] = []
     for record in downstream:
@@ -553,6 +563,16 @@ def _propagate_chain(
     rewrite_frontier_reached = False
     for record, _pr, expected_base in planned:
         current_head = record.head
+        approved_ref = (
+            None
+            if approved_ref_transitions is None
+            else approved_ref_transitions[record.branch]
+        )
+        if approved_ref is not None and current_head != approved_ref[0]:
+            raise CommandError(
+                f"Changeset {record.branch} is {current_head}; approved manifest "
+                f"requires old head {approved_ref[0]}."
+            )
         allowed_bases = {record.base}
         if expected_base == chain.base_branch:
             allowed_bases.add(chain.base_branch)
@@ -583,6 +603,12 @@ def _propagate_chain(
             if not dry_run and current_branch() != original:
                 git("checkout", original)
 
+        if approved_ref is not None and new_head != approved_ref[1]:
+            raise CommandError(
+                f"Computed propagation head for {record.branch} is {new_head}; "
+                f"approved manifest requires {approved_ref[1]}."
+            )
+
         if not already_propagated:
             live = _verify_live_downstream(
                 record,
@@ -611,7 +637,9 @@ def _propagate_chain(
                 record.branch,
                 remote=remote,
                 dry_run=dry_run,
-                expected_remote_head=current_head,
+                expected_remote_head=(
+                    current_head if approved_ref is None else approved_ref[0]
+                ),
                 local_ref=new_head,
             )
             if not dry_run:
@@ -658,6 +686,7 @@ def propagate_from_live(
     dry_run: bool,
     authority_acknowledged: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
+    approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
 ) -> None:
     """Verify one merged PR and propagate its open downstream suffix."""
 
@@ -687,6 +716,7 @@ def propagate_from_live(
         remote=remote,
         dry_run=dry_run,
         approved_pr_text=approved_pr_text,
+        approved_ref_transitions=approved_ref_transitions,
     )
     print(
         "[OK] Dry-run propagation complete."

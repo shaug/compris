@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from common import (
@@ -274,6 +275,7 @@ def recover_suffix_from_live(
     dry_run: bool,
     authority_acknowledged: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
+    approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
 ) -> None:
     """Restamp only the first unmerged suffix against an immutable successor."""
 
@@ -335,6 +337,21 @@ def recover_suffix_from_live(
         )
 
     suffix = list(chain.changesets[first_open - 1 :])
+    if approved_ref_transitions is not None:
+        selected = tuple(record.branch for record in suffix)
+        if tuple(approved_ref_transitions) != selected:
+            raise CommandError(
+                "Approved manifest ref membership does not match the recovery "
+                f"suffix: approved {tuple(approved_ref_transitions)!r}; "
+                f"observed {selected!r}."
+            )
+        for record in suffix:
+            approved_old, _approved_new = approved_ref_transitions[record.branch]
+            if record.head != approved_old:
+                raise CommandError(
+                    f"Changeset {record.branch} is {record.head}; approved manifest "
+                    f"requires old head {approved_old}."
+                )
     target_lineage = chain.source_lineage
     expected_bases = {
         record.position: (
@@ -407,6 +424,16 @@ def recover_suffix_from_live(
             for record in suffix:
                 index = record.position
                 candidate = candidates[index]
+                approved_ref = (
+                    None
+                    if approved_ref_transitions is None
+                    else approved_ref_transitions[record.branch]
+                )
+                if approved_ref is not None and candidate != approved_ref[1]:
+                    raise CommandError(
+                        f"Computed recovery head for {record.branch} is {candidate}; "
+                        f"approved manifest requires {approved_ref[1]}."
+                    )
                 metadata = metadata_by_index[index]
                 live = _verify_open_suffix_pr(
                     record,
@@ -434,7 +461,9 @@ def recover_suffix_from_live(
                         record.branch,
                         remote=remote,
                         dry_run=dry_run,
-                        expected_remote_head=record.head,
+                        expected_remote_head=(
+                            record.head if approved_ref is None else approved_ref[0]
+                        ),
                         local_ref=candidate,
                     )
                     if not dry_run:

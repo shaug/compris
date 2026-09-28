@@ -209,6 +209,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         successor_sha: str | None = None,
         dry_run: bool = False,
         approved_pr_text=None,
+        approved_ref_transitions=None,
     ) -> str:
         output = io.StringIO()
         with (
@@ -241,6 +242,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 dry_run=dry_run,
                 authority_acknowledged=True,
                 approved_pr_text=approved_pr_text,
+                approved_ref_transitions=approved_ref_transitions,
             )
         return output.getvalue()
 
@@ -1600,6 +1602,21 @@ class SuffixRecoveryTests(unittest.TestCase):
             self._run_recovery(approved_pr_text=approved_pr_text)
 
         self.assertEqual(body_before, self.prs[102].body)
+
+    def test_recovery_rejects_manifest_old_head_drift_before_any_push(self) -> None:
+        approved_ref_transitions = {
+            "feature/report-2": ("f" * 40, self.fixed_head),
+        }
+        with mock.patch.object(recovery_mod, "push_changeset_branch") as push:
+            try:
+                with self.assertRaisesRegex(CommandError, "approved manifest"):
+                    self._run_recovery(
+                        approved_ref_transitions=approved_ref_transitions
+                    )
+            except TypeError as exc:
+                self.fail(f"recovery executor does not consume approved refs: {exc}")
+
+        push.assert_not_called()
 
     def test_public_recovery_rejects_lineage_from_another_remote(self) -> None:
         self._restamp_open_suffix_as_native(identity_remote="upstream")

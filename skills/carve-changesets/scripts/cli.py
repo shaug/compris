@@ -578,12 +578,8 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         for index in range(1, len(plan["changesets"]) + 1)
     )
     repository = github_repo_for_remote(remote)
-    source_lineage = verify_lineage_for_publication(branches, remote=remote)
     refs: list[ExpectedRef] = []
-    evidence = [
-        f"source lineage={identity.remote}/{identity.branch}@{identity.sha}"
-        for identity in source_lineage
-    ]
+    ref_evidence: list[str] = []
     for branch in branches:
         local = git(
             "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}", check=False
@@ -599,7 +595,23 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
                 proposed_sha=proposed,
             )
         )
-        evidence.append(f"{remote}/refs/heads/{branch}={old or 'absent'}")
+        ref_evidence.append(f"{remote}/refs/heads/{branch}={old or 'absent'}")
+    expected_heads = {
+        expected_ref.name.removeprefix("refs/heads/"): expected_ref.proposed_sha
+        for expected_ref in refs
+    }
+    source_lineage = verify_lineage_for_publication(
+        branches,
+        remote=remote,
+        expected_heads=expected_heads,
+    )
+    evidence = [
+        *(
+            f"source lineage={identity.remote}/{identity.branch}@{identity.sha}"
+            for identity in source_lineage
+        ),
+        *ref_evidence,
+    ]
     base = plan["base_branch"]
     snapshot = _native_snapshot_for_transition(source=source, base=base, remote=remote)
     native_order = tuple(layer.branch for layer in snapshot.layers)
@@ -1242,7 +1254,7 @@ def _execute_push_manifest(manifest) -> None:
         expected_ref.name.removeprefix("refs/heads/")
         for expected_ref in manifest.expected_refs
     )
-    verify_lineage_for_publication(branches, remote=manifest.remote)
+    expected_heads: dict[str, str] = {}
     for expected_ref in manifest.expected_refs:
         branch = expected_ref.name.removeprefix("refs/heads/")
         local = git(
@@ -1257,6 +1269,14 @@ def _execute_push_manifest(manifest) -> None:
                 f"Local branch {branch} is {observed}; approved manifest requires "
                 f"{expected_ref.proposed_sha}."
             )
+        expected_heads[branch] = expected_ref.proposed_sha
+    verify_lineage_for_publication(
+        branches,
+        remote=manifest.remote,
+        expected_heads=expected_heads,
+    )
+    for expected_ref in manifest.expected_refs:
+        branch = expected_ref.name.removeprefix("refs/heads/")
         push_changeset_branch(
             branch,
             remote=manifest.remote,
@@ -1268,7 +1288,11 @@ def _execute_push_manifest(manifest) -> None:
             ),
             local_ref=expected_ref.proposed_sha,
         )
-        verify_lineage_for_publication(branches, remote=manifest.remote)
+        verify_lineage_for_publication(
+            branches,
+            remote=manifest.remote,
+            expected_heads=expected_heads,
+        )
 
 
 def _approved_pr_text(manifest) -> dict[int, tuple[str, str]]:
@@ -1276,6 +1300,13 @@ def _approved_pr_text(manifest) -> dict[int, tuple[str, str]]:
         item.number: (item.title, item.body)
         for item in manifest.expected_pull_requests
         if item.number is not None
+    }
+
+
+def _approved_ref_transitions(manifest) -> dict[str, tuple[str, str]]:
+    return {
+        item.name.removeprefix("refs/heads/"): (item.old_sha, item.proposed_sha)
+        for item in manifest.expected_refs
     }
 
 
@@ -1502,6 +1533,7 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
             approved_pr_text=_approved_pr_text(manifest),
+            approved_ref_transitions=_approved_ref_transitions(manifest),
         ),
         readback=lambda: _live_observation(
             approved,
@@ -1604,6 +1636,7 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             dry_run=False,
             authority_acknowledged=True,
             approved_pr_text=_approved_pr_text(manifest),
+            approved_ref_transitions=_approved_ref_transitions(manifest),
         ),
         readback=lambda: _live_observation(
             approved,
