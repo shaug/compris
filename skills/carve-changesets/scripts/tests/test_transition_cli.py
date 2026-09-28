@@ -2471,6 +2471,12 @@ class TransitionCliTests(unittest.TestCase):
             ),
             tuple(manifest["identities"]),
         )
+        self.assertEqual(
+            ("feature/report-2", "main"),
+            tuple(manifest["authority"]["branches"]),
+        )
+        self.assertNotIn("feature/report", manifest["authority"]["branches"])
+        self.assertNotIn("feature/report-corrected", manifest["authority"]["branches"])
         project.assert_called_once_with(
             source="feature/report",
             base="main",
@@ -2479,6 +2485,127 @@ class TransitionCliTests(unittest.TestCase):
             successor_sha="d" * 40,
             remote="origin",
         )
+
+    def test_recovery_execution_rejects_authority_omitting_trunk_before_executor(
+        self,
+    ) -> None:
+        chain, prs = self._published_chain(recovered=False)
+        projected_head = "e" * 40
+        projection = SimpleNamespace(
+            chain=chain,
+            pull_requests=tuple(prs.values()),
+            suffix=chain.changesets[1:],
+            candidates={"feature/report-2": projected_head},
+            metadata={"feature/report-2": object()},
+            target_lineage=(
+                SimpleNamespace(remote="origin", branch="feature/report", sha="a" * 40),
+                SimpleNamespace(
+                    remote="origin",
+                    branch="feature/report-corrected",
+                    sha="d" * 40,
+                ),
+            ),
+        )
+        self.native_reader_mock.return_value = replace(
+            self.native_snapshot,
+            layers=(
+                replace(
+                    self.native_snapshot.layers[0],
+                    merged=True,
+                    pull_request=NativePullRequest(
+                        number=41, url="https://example.test/41", state="MERGED"
+                    ),
+                ),
+                replace(
+                    self.native_snapshot.layers[1],
+                    pull_request=NativePullRequest(
+                        number=42, url="https://example.test/42", state="OPEN"
+                    ),
+                ),
+            ),
+        )
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        approved_output = StringIO()
+        with (
+            mock.patch.object(
+                cli_mod,
+                "project_suffix_recovery_from_live",
+                return_value=projection,
+                create=True,
+            ),
+            mock.patch.object(
+                cli_mod, "remote_branch_head", return_value=self.head_two
+            ),
+            mock.patch.object(
+                cli_mod, "embed_pr_metadata", return_value="Recovered layer two body"
+            ),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "recover_suffix_from_live") as executor,
+            chdir(self.repo),
+            redirect_stdout(approved_output),
+        ):
+            self.assertEqual(
+                0,
+                main(
+                    (
+                        "recover-suffix",
+                        "--source",
+                        "feature/report",
+                        "--base",
+                        "main",
+                        "--from-index",
+                        "2",
+                        "--successor-source",
+                        "feature/report-corrected",
+                        "--successor-sha",
+                        "d" * 40,
+                        "--allow-stack-state-refresh",
+                    )
+                ),
+            )
+            payload = json.loads(approved_output.getvalue())
+            self.assertIn(
+                "ref:main",
+                [
+                    effect["target"]
+                    for effect in payload["effects"]
+                    if effect["kind"] == "refresh_trunk"
+                ],
+            )
+            payload["authority"]["branches"] = ["feature/report-2"]
+            approved = self.root / "approved-recovery-without-trunk.json"
+            approved.write_text(json.dumps(payload))
+
+            output = StringIO()
+            with redirect_stdout(output):
+                status = main(
+                    (
+                        "recover-suffix",
+                        "--source",
+                        "feature/report",
+                        "--base",
+                        "main",
+                        "--from-index",
+                        "2",
+                        "--successor-source",
+                        "feature/report-corrected",
+                        "--successor-sha",
+                        "d" * 40,
+                        "--allow-stack-state-refresh",
+                        "--manifest",
+                        str(approved),
+                        "--execute",
+                        "--ack-suffix-recovery",
+                    )
+                )
+
+        self.assertEqual(1, status)
+        executor.assert_not_called()
+        self.assertIn("authority grant must exactly match", output.getvalue())
 
     def test_recovery_preview_resumes_mixed_recovered_prefix(self) -> None:
         chain, prs = self._published_chain(recovered=True)
@@ -2615,6 +2742,10 @@ class TransitionCliTests(unittest.TestCase):
                 )
                 for item in manifest["expected_refs"]
             ],
+        )
+        self.assertEqual(
+            (recovered.branch, unrecovered.branch, "main"),
+            tuple(manifest["authority"]["branches"]),
         )
 
     def test_recovery_execution_rejects_lineage_drift_before_executor(self) -> None:

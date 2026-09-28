@@ -1186,7 +1186,7 @@ def _recovery_manifest(args: argparse.Namespace):
             repository=repository,
             remote=args.remote,
             identities=identities,
-            branches=tuple(item.branch for item in prs),
+            branches=(*tuple(item.branch for item in prs), stack.trunk),
             phases=phases,
             effect_kinds=effects,
         ),

@@ -1054,6 +1054,7 @@ class OperationManifestTests(unittest.TestCase):
         return replace(
             authority,
             identities=(*authority.identities, *(item.branch for item in self.lineage)),
+            branches=(*authority.branches, self.stack.trunk),
         )
 
     @property
@@ -2195,6 +2196,42 @@ class OperationManifestTests(unittest.TestCase):
                 }
             ),
         )
+
+    def test_recovery_authority_must_cover_trunk_refresh_target(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        effects = frozenset(
+            {
+                EffectKind.REFRESH_TRUNK,
+                EffectKind.REBASE_BRANCH,
+                EffectKind.PUSH_REF,
+                EffectKind.UPDATE_PR,
+                EffectKind.SYNC_STACK,
+            }
+        )
+        incomplete = replace(
+            self._recovery_authority(phases, effects),
+            branches=("feature-2", "feature-3"),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "exactly match"):
+            preview_recovery(
+                repository="shaug/compris",
+                remote="origin",
+                refs=self.refs,
+                pull_requests=self.pull_requests,
+                native_stack=self.stack,
+                authority=incomplete,
+                evidence=("recovery snapshot",),
+                lineage=self.lineage,
+                identities=self.recovery_identities,
+            )
 
     def test_recovery_binds_local_branch_readback_to_projected_heads(self) -> None:
         phases = frozenset(

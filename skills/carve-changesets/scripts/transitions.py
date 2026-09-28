@@ -1231,12 +1231,11 @@ class MutationManifest:
         mutated_branches = {
             item.name.removeprefix("refs/heads/") for item in self.expected_refs
         } | {item.branch for item in self.expected_pull_requests}
-        if self.operation is StackOperation.MERGE:
-            mutated_branches.update(
-                effect.target.removeprefix("ref:")
-                for effect in self.effects
-                if effect.target.startswith("ref:")
-            )
+        mutated_branches.update(
+            effect.target.removeprefix("ref:")
+            for effect in self.effects
+            if effect.target.startswith("ref:")
+        )
         ready_effect_branches = {
             item.branch
             for item in self.expected_pull_requests
