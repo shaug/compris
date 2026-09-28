@@ -608,6 +608,10 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         remote=remote,
         expected_heads=expected_heads,
     )
+    expected_lineage = tuple(
+        ExpectedLineageRef(item.remote, item.branch, item.sha)
+        for item in source_lineage
+    )
     evidence = [
         *(
             f"source lineage={identity.remote}/{identity.branch}@{identity.sha}"
@@ -630,6 +634,7 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         remote=remote,
         refs=refs,
         native_stack=_expected_native_stack(source, snapshot),
+        lineage=expected_lineage,
         authority=AuthorityGrant.push(
             repository=repository,
             remote=remote,
@@ -700,6 +705,7 @@ def _publish_manifest(
         ),
         pull_requests=expected_pull_requests,
         native_stack=push.expected_native_stack,
+        lineage=push.expected_lineage,
         authority=AuthorityGrant.publish(
             repository=github_repo_for_remote(remote),
             remote=remote,
@@ -1418,6 +1424,11 @@ def _live_observation(
         identity = effect.target.partition(":")[2]
         if effect.kind is EffectKind.PUSH_REF:
             observed: object = remote_branch_head(remote, identity) or ZERO_SHA
+        elif effect.kind is EffectKind.VERIFY_LINEAGE:
+            lineage_remote, separator, lineage_branch = identity.partition(":")
+            if not separator:
+                raise ManifestError("invalid lineage verification target")
+            observed = remote_branch_head(lineage_remote, lineage_branch) or ZERO_SHA
         elif effect.kind is EffectKind.REBASE_BRANCH:
             resolved = git(
                 "rev-parse",
@@ -1487,6 +1498,17 @@ def _push_observation(manifest) -> TransitionObservation:
             branch = effect.target.removeprefix("ref:")
             values.append(
                 (effect.key, remote_branch_head(manifest.remote, branch) or ZERO_SHA)
+            )
+        elif effect.kind is EffectKind.VERIFY_LINEAGE:
+            identity = effect.target.removeprefix("lineage:")
+            lineage_remote, separator, lineage_branch = identity.partition(":")
+            if not separator:
+                raise ManifestError("invalid lineage verification target")
+            values.append(
+                (
+                    effect.key,
+                    remote_branch_head(lineage_remote, lineage_branch) or ZERO_SHA,
+                )
             )
     return TransitionObservation(values=tuple(values))
 

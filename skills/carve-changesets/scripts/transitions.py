@@ -102,6 +102,7 @@ class EffectKind(str, Enum):
     MERGE_PR = "merge_pr"
     QUEUE_PR = "queue_pr"
     READY_PR = "ready_pr"
+    VERIFY_LINEAGE = "verify_lineage"
 
 
 class TargetDisposition(str, Enum):
@@ -551,21 +552,25 @@ class MutationManifest:
         )
         if len(set(lineage_names)) != len(lineage_names):
             raise ManifestError("manifest contains duplicate expected lineage refs")
-        if self.operation is StackOperation.RECOVER:
+        if self.operation in {StackOperation.PUBLISH, StackOperation.RECOVER}:
             if not self.expected_lineage:
-                raise ManifestError("recovery manifest must bind expected lineage")
+                raise ManifestError(
+                    f"{self.operation.value} manifest must bind expected lineage"
+                )
             if any(item.remote != self.remote for item in self.expected_lineage):
                 raise ManifestError(
                     "expected lineage remotes must match the manifest remote"
                 )
-            if set(item.branch for item in self.expected_lineage) - set(
-                self.identities
-            ):
+            if self.operation is StackOperation.RECOVER and set(
+                item.branch for item in self.expected_lineage
+            ) - set(self.identities):
                 raise ManifestError(
                     "expected lineage branches must be bound manifest identities"
                 )
         elif self.expected_lineage:
-            raise ManifestError("only recovery manifests may bind expected lineage")
+            raise ManifestError(
+                "only publish and recovery manifests may bind expected lineage"
+            )
         pr_branches = tuple(item.branch for item in self.expected_pull_requests)
         if len(set(pr_branches)) != len(pr_branches):
             raise ManifestError("manifest contains duplicate pull-request branches")
@@ -707,6 +712,32 @@ class MutationManifest:
             raise ManifestError(
                 "manifest selected branches are outside expected native stack order"
             )
+        active_order = self.expected_native_stack.open_order
+        selected_ref_order = tuple(
+            branch for branch in active_order if branch in ref_by_branch
+        )
+        if self.operation is StackOperation.PUBLISH:
+            if selected_ref_order != active_order:
+                raise ManifestError(
+                    "publish manifest must target the complete active stack"
+                )
+            if (
+                TransitionPhase.SUBMIT in self.enabled_phases
+                and pr_branches != active_order
+            ):
+                raise ManifestError(
+                    "publish manifest must target the complete active stack"
+                )
+        if self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}:
+            if selected_ref_order != pr_branches:
+                raise ManifestError(
+                    "repair and recovery refs and pull requests must select the "
+                    "same active suffix"
+                )
+            if not pr_branches or pr_branches != active_order[-len(pr_branches) :]:
+                raise ManifestError(
+                    "repair and recovery must target a complete active-stack suffix"
+                )
         expected_identities = tuple(
             branch
             for branch in self.expected_native_stack.order
@@ -783,6 +814,15 @@ class MutationManifest:
                     f"stack:{self.expected_native_stack.identity or 'absent'}",
                     "order",
                 )
+            )
+        if self.operation in {StackOperation.PUBLISH, StackOperation.RECOVER}:
+            required_effects.update(
+                (
+                    EffectKind.VERIFY_LINEAGE,
+                    f"lineage:{item.remote}:{item.branch}",
+                    "sha",
+                )
+                for item in self.expected_lineage
             )
         if TransitionPhase.REBASE_NO_TRUNK in self.enabled_phases:
             required_effects.update(
@@ -929,6 +969,13 @@ class MutationManifest:
         else:
             changing_pull_requests = ()
         predecessor = self.expected_native_stack.trunk
+        if (
+            self.operation in {StackOperation.REPAIR, StackOperation.RECOVER}
+            and changing_pull_requests
+        ):
+            first_index = active_order.index(changing_pull_requests[0].branch)
+            if first_index:
+                predecessor = active_order[first_index - 1]
         for pull_request in changing_pull_requests:
             expected_ref = ref_by_branch.get(pull_request.branch)
             if expected_ref is None:
@@ -1014,6 +1061,15 @@ class MutationManifest:
                 self.expected_native_stack.trunk_head,
                 self.expected_native_stack.trunk_head,
             )
+        if self.operation in {StackOperation.PUBLISH, StackOperation.RECOVER}:
+            for item in self.expected_lineage:
+                expected_values[
+                    (
+                        EffectKind.VERIFY_LINEAGE,
+                        f"lineage:{item.remote}:{item.branch}",
+                        "sha",
+                    )
+                ] = (item.sha, item.sha)
         if self.operation is StackOperation.MERGE:
             pull_requests_by_number = {
                 item.number: item for item in self.expected_pull_requests
@@ -1169,7 +1225,11 @@ class MutationManifest:
 
         grant = self.authority
         manifest_phases = frozenset(self.enabled_phases)
-        manifest_effects = frozenset(effect.kind for effect in self.effects)
+        manifest_effects = frozenset(
+            effect.kind
+            for effect in self.effects
+            if effect.kind is not EffectKind.VERIFY_LINEAGE
+        )
         mutated_branches = {
             item.name.removeprefix("refs/heads/") for item in self.expected_refs
         } | {item.branch for item in self.expected_pull_requests}
@@ -1807,6 +1867,21 @@ def required_capabilities(
     return frozenset(capabilities)
 
 
+def _lineage_effects(
+    lineage: Sequence[ExpectedLineageRef],
+) -> tuple[MutationEffect, ...]:
+    return tuple(
+        MutationEffect(
+            EffectKind.VERIFY_LINEAGE,
+            f"lineage:{item.remote}:{item.branch}",
+            "sha",
+            item.sha,
+            item.sha,
+        )
+        for item in lineage
+    )
+
+
 def preview_publish(
     *,
     repository: str,
@@ -1814,6 +1889,7 @@ def preview_publish(
     refs: Sequence[ExpectedRef],
     pull_requests: Sequence[ExpectedPullRequest],
     native_stack: ExpectedNativeStack,
+    lineage: Sequence[ExpectedLineageRef],
     authority: AuthorityGrant,
     evidence: Sequence[str],
 ) -> MutationManifest:
@@ -1911,6 +1987,7 @@ def preview_publish(
             native_stack.order,
         )
     )
+    effects.extend(_lineage_effects(lineage))
     manifest = MutationManifest(
         operation=StackOperation.PUBLISH,
         repository=repository,
@@ -1925,6 +2002,7 @@ def preview_publish(
         effects=tuple(effects),
         evidence=tuple(evidence),
         authority=authority,
+        expected_lineage=tuple(lineage),
     )
     manifest.validate_complete()
     return manifest
@@ -1936,6 +2014,7 @@ def preview_push(
     remote: str,
     refs: Sequence[ExpectedRef],
     native_stack: ExpectedNativeStack,
+    lineage: Sequence[ExpectedLineageRef],
     authority: AuthorityGrant,
     evidence: Sequence[str],
 ) -> MutationManifest:
@@ -1949,7 +2028,7 @@ def preview_push(
             item.proposed_sha,
         )
         for item in expected_refs
-    )
+    ) + _lineage_effects(lineage)
     identities = tuple(item.name.removeprefix("refs/heads/") for item in expected_refs)
     manifest = MutationManifest(
         operation=StackOperation.PUBLISH,
@@ -1965,6 +2044,7 @@ def preview_push(
         effects=effects,
         evidence=tuple(evidence),
         authority=authority,
+        expected_lineage=tuple(lineage),
     )
     manifest.validate_complete()
     return manifest
@@ -2019,7 +2099,15 @@ def _repair_effects(
                 expected_ref.proposed_sha,
             )
         )
-    predecessor = native_stack.trunk
+    active_order = native_stack.open_order
+    first_index = (
+        active_order.index(pull_requests[0].branch)
+        if pull_requests and pull_requests[0].branch in active_order
+        else 0
+    )
+    predecessor = (
+        native_stack.trunk if first_index == 0 else active_order[first_index - 1]
+    )
     for pull_request in pull_requests:
         head = proposed[pull_request.branch]
         effects.append(
@@ -2284,6 +2372,7 @@ def preview_recovery(
             native_stack,
             always_project_local=True,
         ),
+        *_lineage_effects(lineage),
     )
     manifest = MutationManifest(
         operation=StackOperation.RECOVER,
@@ -2463,11 +2552,19 @@ def observation_from_manifest(
         for item in current.expected_pull_requests
         if item.number is not None
     }
+    lineage = {
+        (item.remote, item.branch): item.sha for item in current.expected_lineage
+    }
     values: list[tuple[str, object]] = []
     for effect in approved.effects:
         identity = effect.target.partition(":")[2]
         if effect.kind is EffectKind.PUSH_REF:
             observed: object = refs[identity].old_sha
+        elif effect.kind is EffectKind.VERIFY_LINEAGE:
+            lineage_remote, separator, lineage_branch = identity.partition(":")
+            if not separator:
+                raise ManifestError("invalid lineage verification target")
+            observed = lineage.get((lineage_remote, lineage_branch), ZERO_SHA)
         elif effect.kind is EffectKind.REBASE_BRANCH:
             observed = refs[identity].local_sha
         elif effect.kind in {EffectKind.CREATE_PR, EffectKind.UPDATE_PR}:

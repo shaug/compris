@@ -111,6 +111,7 @@ def publish_manifest() -> MutationManifest:
         refs=refs,
         pull_requests=pull_requests,
         native_stack=stack,
+        lineage=(ExpectedLineageRef("origin", "feature/report", SHA_A),),
         authority=AuthorityGrant.publish(
             repository="shaug/compris",
             remote="origin",
@@ -122,6 +123,47 @@ def publish_manifest() -> MutationManifest:
 
 
 class PublishManifestTests(unittest.TestCase):
+    def test_publish_binds_lineage_as_read_only_targets(self) -> None:
+        manifest = publish_manifest()
+
+        self.assertEqual(
+            (ExpectedLineageRef("origin", "feature/report", SHA_A),),
+            manifest.expected_lineage,
+        )
+        self.assertEqual(
+            ("verify_lineage",),
+            tuple(
+                effect.kind.value
+                for effect in manifest.effects
+                if effect.target.startswith("lineage:")
+            ),
+        )
+        self.assertNotIn(
+            "verify_lineage",
+            {effect.value for effect in manifest.authority.effect_kinds},
+        )
+
+    def test_publish_rejects_partial_active_stack_targets(self) -> None:
+        complete = publish_manifest()
+        pull_request = complete.expected_pull_requests[0]
+
+        with self.assertRaisesRegex(ManifestError, "complete active stack"):
+            preview_publish(
+                repository=complete.repository,
+                remote=complete.remote,
+                refs=complete.expected_refs[:1],
+                pull_requests=(pull_request,),
+                native_stack=complete.expected_native_stack,
+                lineage=complete.expected_lineage,
+                authority=AuthorityGrant.publish(
+                    repository=complete.repository,
+                    remote=complete.remote,
+                    branches=(pull_request.branch,),
+                    pull_requests=(pull_request,),
+                ),
+                evidence=complete.evidence,
+            )
+
     def test_manifest_json_round_trip_preserves_every_fenced_input(self) -> None:
         manifest = publish_manifest()
 
@@ -242,6 +284,7 @@ class PublishManifestTests(unittest.TestCase):
                 EffectKind.REGISTER_STACK,
                 EffectKind.REGISTER_STACK,
                 EffectKind.REGISTER_STACK,
+                EffectKind.VERIFY_LINEAGE,
             ),
         )
         self.assertEqual(SHA_A, manifest.expected_refs[0].old_sha)
@@ -289,6 +332,7 @@ class PublishManifestTests(unittest.TestCase):
             refs=manifest.expected_refs,
             pull_requests=manifest.expected_pull_requests,
             native_stack=manifest.expected_native_stack,
+            lineage=manifest.expected_lineage,
             authority=grant,
             evidence=manifest.evidence,
         )
@@ -335,6 +379,7 @@ class PublishManifestTests(unittest.TestCase):
                     ),
                 ),
             ),
+            lineage=approved.expected_lineage,
             authority=AuthorityGrant.publish(
                 repository=approved.repository,
                 remote=approved.remote,
@@ -369,6 +414,7 @@ class PublishManifestTests(unittest.TestCase):
             refs=manifest.expected_refs,
             pull_requests=(current, manifest.expected_pull_requests[1]),
             native_stack=manifest.expected_native_stack,
+            lineage=manifest.expected_lineage,
             authority=manifest.authority,
             evidence=manifest.evidence,
         )
@@ -396,6 +442,7 @@ class PublishManifestTests(unittest.TestCase):
                 refs=manifest.expected_refs,
                 pull_requests=(missing, manifest.expected_pull_requests[1]),
                 native_stack=manifest.expected_native_stack,
+                lineage=manifest.expected_lineage,
                 authority=manifest.authority,
                 evidence=manifest.evidence,
             )
@@ -431,6 +478,7 @@ class PublishManifestTests(unittest.TestCase):
                     refs=manifest.expected_refs,
                     pull_requests=pull_requests,
                     native_stack=native_stack,
+                    lineage=manifest.expected_lineage,
                     authority=AuthorityGrant.publish(
                         repository=manifest.repository,
                         remote=manifest.remote,
@@ -1329,6 +1377,64 @@ class OperationManifestTests(unittest.TestCase):
             ("main", "feature-2"), tuple(item.after[3] for item in updates)
         )
 
+    def test_repair_middle_open_suffix_preserves_unaffected_predecessor(self) -> None:
+        predecessor_head = "e" * 40
+        stack = replace(
+            self.stack,
+            layers=(
+                ExpectedNativeLayer(
+                    branch="feature-1",
+                    head=predecessor_head,
+                    base=self.stack.trunk_head,
+                    merged=False,
+                    queued=False,
+                    needs_rebase=False,
+                    pull_request=41,
+                    pull_request_state="OPEN",
+                ),
+                replace(self.stack.layers[0], base=predecessor_head),
+                self.stack.layers[1],
+            ),
+        )
+        pull_requests = (
+            replace(self.pull_requests[0], base="feature-1"),
+            self.pull_requests[1],
+        )
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        manifest = preview_repair(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=pull_requests,
+            native_stack=stack,
+            authority=self._authority(
+                StackOperation.REPAIR,
+                phases,
+                frozenset(
+                    {
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            evidence=("middle repair snapshot",),
+        )
+        updates = tuple(
+            effect for effect in manifest.effects if effect.kind is EffectKind.UPDATE_PR
+        )
+
+        self.assertEqual(
+            ("feature-1", "feature-2"), tuple(item.after[3] for item in updates)
+        )
+
     def test_push_rejects_zero_proposed_sha(self) -> None:
         authority = AuthorityGrant(
             operation=StackOperation.PUBLISH,
@@ -1346,8 +1452,28 @@ class OperationManifestTests(unittest.TestCase):
                 remote="origin",
                 refs=(ExpectedRef("refs/heads/feature-2", SHA_A, ZERO_SHA, SHA_A),),
                 native_stack=self.stack,
+                lineage=(ExpectedLineageRef("origin", "feature/report", SHA_A),),
                 authority=authority,
                 evidence=("push snapshot",),
+            )
+
+    def test_push_rejects_partial_active_stack_targets(self) -> None:
+        complete = publish_manifest()
+        expected_ref = complete.expected_refs[0]
+
+        with self.assertRaisesRegex(ManifestError, "complete active stack"):
+            preview_push(
+                repository=complete.repository,
+                remote=complete.remote,
+                refs=(expected_ref,),
+                native_stack=complete.expected_native_stack,
+                lineage=complete.expected_lineage,
+                authority=AuthorityGrant.push(
+                    repository=complete.repository,
+                    remote=complete.remote,
+                    branches=(expected_ref.name.removeprefix("refs/heads/"),),
+                ),
+                evidence=complete.evidence,
             )
 
     def test_direct_merge_binds_prefix_and_automatic_suffix_effects(self) -> None:
@@ -1922,6 +2048,58 @@ class OperationManifestTests(unittest.TestCase):
         )
 
         self.assertEqual(((SHA_A, SHA_C), (SHA_B, SHA_D)), local_ref_effects)
+
+    def test_recovery_post_executor_readback_rejects_lineage_drift(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        approved = preview_recovery(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self.stack,
+            authority=self._recovery_authority(
+                phases,
+                frozenset(
+                    {
+                        EffectKind.REFRESH_TRUNK,
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            evidence=("recovery snapshot",),
+            lineage=self.lineage,
+            identities=self.recovery_identities,
+        )
+        drifted = replace(
+            approved,
+            expected_lineage=(
+                replace(self.lineage[0], sha=SHA_B),
+                self.lineage[1],
+            ),
+        )
+
+        result = classify_readback(
+            approved, observation_from_manifest(approved, drifted)
+        )
+        lineage = next(
+            target
+            for target in result.targets
+            if target.effect.kind is EffectKind.VERIFY_LINEAGE
+            and target.effect.target.endswith(":feature/report")
+        )
+
+        self.assertEqual(TransitionState.DIVERGED, result.state)
+        self.assertEqual(TargetDisposition.CHANGED_UNEXPECTEDLY, lineage.disposition)
 
     def test_recovery_push_failure_reports_applied_local_ref_as_partial(self) -> None:
         phases = frozenset(

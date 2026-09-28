@@ -4,6 +4,10 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-09-28 — Closed stack-target and lineage readback fences
+
+- fix: bind complete native targets and lineage readback
+
 ## 2026-09-27 — Closed transition authority and readback gaps
 
 - fix: apply recovery local fences before remote effects

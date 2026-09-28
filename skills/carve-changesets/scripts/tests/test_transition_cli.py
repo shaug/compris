@@ -30,6 +30,7 @@ from native_stack import (  # noqa: E402
 )
 from transitions import (  # noqa: E402
     EffectKind,
+    ManifestError,
     MutationEffect,
     StackOperation,
     TransitionResult,
@@ -159,7 +160,7 @@ class TransitionCliTests(unittest.TestCase):
             [item["proposed_sha"] for item in manifest["expected_refs"]],
         )
         self.assertEqual(
-            ["push_ref", "push_ref"],
+            ["push_ref", "push_ref", "verify_lineage"],
             [item["kind"] for item in manifest["effects"]],
         )
         self.assertEqual(["push"], manifest["authority"]["phases"])
@@ -172,6 +173,25 @@ class TransitionCliTests(unittest.TestCase):
             f"source lineage=origin/feature/report@{self.source_sha}",
             manifest["evidence"],
         )
+        self.assertEqual(
+            [
+                {
+                    "branch": "feature/report",
+                    "remote": "origin",
+                    "sha": self.source_sha,
+                }
+            ],
+            manifest["expected_lineage"],
+        )
+        self.assertEqual(
+            ["verify_lineage"],
+            [
+                item["kind"]
+                for item in manifest["effects"]
+                if item["target"].startswith("lineage:")
+            ],
+        )
+        self.assertNotIn("verify_lineage", manifest["authority"]["effect_kinds"])
         self.assertEqual(
             "",
             helpers.run(
@@ -811,9 +831,66 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(1, status)
         self.assertEqual(["feature/report-1"], pushed)
         result = json.loads(output.getvalue())
-        self.assertEqual("partial", result["state"])
+        self.assertEqual("diverged", result["state"])
         self.assertIn("source", result["blocker"])
         self.assertIn("unavailable", result["blocker"])
+        self.assertIn("[ERROR]", errors.getvalue())
+
+    def test_push_readback_rejects_lineage_moved_after_executor(self) -> None:
+        approved_path = self.root / "approved-source-moves-after-push.json"
+        approved_path.write_text(self._preview_manifest())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+
+        execute_push = cli_mod._execute_push_manifest
+
+        def push_then_delete_source(manifest) -> None:
+            execute_push(manifest)
+            helpers.run(
+                self.repo,
+                "git",
+                "push",
+                "origin",
+                "--delete",
+                "feature/report",
+            )
+
+        output = StringIO()
+        errors = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(
+                cli_mod,
+                "_execute_push_manifest",
+                side_effect=push_then_delete_source,
+            ),
+            chdir(self.repo),
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved_path),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        result = json.loads(output.getvalue())
+        self.assertEqual("diverged", result["state"])
+        lineage = next(
+            target for target in result["targets"] if target["kind"] == "verify_lineage"
+        )
+        self.assertEqual("changed_unexpectedly", lineage["disposition"])
         self.assertIn("[ERROR]", errors.getvalue())
 
     def test_submit_execution_does_not_fall_back_to_legacy_pr_creation(self) -> None:
@@ -826,7 +903,6 @@ class TransitionCliTests(unittest.TestCase):
             approved = cli_mod._publish_manifest(
                 plan,
                 remote="origin",
-                indices=(1,),
                 allow_stack_state_refresh=True,
             )
         profile = GhStackProfile(
@@ -874,7 +950,7 @@ class TransitionCliTests(unittest.TestCase):
         )
         legacy_executor.assert_not_called()
 
-    def test_single_layer_submit_binds_its_actual_predecessor(self) -> None:
+    def test_single_layer_submit_rejects_incomplete_active_stack(self) -> None:
         plan = json.loads(self.plan.read_text())
 
         with (
@@ -885,18 +961,13 @@ class TransitionCliTests(unittest.TestCase):
                 cli_mod, "github_repo_for_remote", return_value="acme/widgets"
             ),
         ):
-            manifest = cli_mod._publish_manifest(
-                plan,
-                remote="origin",
-                indices=(2,),
-                allow_stack_state_refresh=True,
-            )
-
-        self.assertEqual(("feature/report-2",), manifest.identities)
-        create = next(
-            effect for effect in manifest.effects if effect.kind.value == "create_pr"
-        )
-        self.assertEqual("feature/report-1", create.after[3])
+            with self.assertRaisesRegex(ManifestError, "complete active stack"):
+                cli_mod._publish_manifest(
+                    plan,
+                    remote="origin",
+                    indices=(2,),
+                    allow_stack_state_refresh=True,
+                )
 
     def test_execute_refuses_unsupported_profile_before_manifest_refresh(self) -> None:
         approved = self.root / "approved-no-refresh.json"
@@ -2479,7 +2550,9 @@ class TransitionCliTests(unittest.TestCase):
         self.assertIn("manifest changed during pre-execution reread", output.getvalue())
         executor.assert_not_called()
 
-    def test_recovery_execution_classifies_synced_local_ref_as_completed(self) -> None:
+    def _run_recovery_execution(
+        self, *, drift_lineage_after_executor: bool
+    ) -> tuple[int, dict[str, object]]:
         chain, prs = self._published_chain(recovered=False)
         projected_tree = helpers.run(
             self.repo, "git", "rev-parse", f"{self.head_two}^{{tree}}"
@@ -2534,7 +2607,11 @@ class TransitionCliTests(unittest.TestCase):
                 replace(before_snapshot.layers[1], head=projected_head),
             ),
         )
-        remote_heads = {"feature/report-2": self.head_two}
+        remote_heads = {
+            "feature/report": "a" * 40,
+            "feature/report-corrected": "d" * 40,
+            "feature/report-2": self.head_two,
+        }
         after_pr = SimpleNamespace(
             **{
                 **vars(prs[42]),
@@ -2562,6 +2639,8 @@ class TransitionCliTests(unittest.TestCase):
                 projected_head,
             )
             remote_heads["feature/report-2"] = projected_head
+            if drift_lineage_after_executor:
+                remote_heads["feature/report-corrected"] = "e" * 40
 
         profile = GhStackProfile(
             version="test-complete",
@@ -2645,9 +2724,29 @@ class TransitionCliTests(unittest.TestCase):
                     )
                 )
 
-        self.assertEqual(0, status, output.getvalue())
         result, _offset = json.JSONDecoder().raw_decode(output.getvalue())
+        return status, result
+
+    def test_recovery_execution_classifies_synced_local_ref_as_completed(self) -> None:
+        status, result = self._run_recovery_execution(
+            drift_lineage_after_executor=False
+        )
+
+        self.assertEqual(0, status, result)
         self.assertEqual("completed", result["state"])
+
+    def test_recovery_readback_rejects_lineage_drift_after_executor(self) -> None:
+        status, result = self._run_recovery_execution(drift_lineage_after_executor=True)
+
+        self.assertEqual(1, status)
+        self.assertEqual("diverged", result["state"])
+        lineage = next(
+            target
+            for target in result["targets"]
+            if target["kind"] == "verify_lineage"
+            and target["target"].endswith(":feature/report-corrected")
+        )
+        self.assertEqual("changed_unexpectedly", lineage["disposition"])
 
     def test_recovery_requires_an_explicit_base(self) -> None:
         errors = StringIO()
