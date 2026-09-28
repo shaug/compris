@@ -68,7 +68,7 @@ from propagate import (
     push_chain,
     push_changeset_branch,
 )
-from publication import remote_branch_head
+from publication import remote_branch_head, verify_lineage_for_publication
 from recovery import recover_suffix_from_live
 from rehydrate import RehydrationError, adopt_legacy_chain, discover_changeset_heads
 from squash_check import squash_check
@@ -577,8 +577,13 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         branch_name_for(source, index)
         for index in range(1, len(plan["changesets"]) + 1)
     )
+    repository = github_repo_for_remote(remote)
+    source_lineage = verify_lineage_for_publication(branches, remote=remote)
     refs: list[ExpectedRef] = []
-    evidence: list[str] = []
+    evidence = [
+        f"source lineage={identity.remote}/{identity.branch}@{identity.sha}"
+        for identity in source_lineage
+    ]
     for branch in branches:
         local = git(
             "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}", check=False
@@ -605,7 +610,6 @@ def _push_manifest(plan: Dict, *, remote: str, allow_stack_state_refresh: bool =
         )
     evidence.append(f"{remote}/refs/heads/{base}={snapshot.trunk_head}")
     evidence.append(f"native stack order={','.join(native_order)}")
-    repository = github_repo_for_remote(remote)
     return preview_push(
         repository=repository,
         remote=remote,
@@ -1234,6 +1238,11 @@ def _execute_push_manifest(manifest) -> None:
     manifest.validate_complete()
     if manifest.enabled_phases != (TransitionPhase.PUSH,):
         raise CommandError("push executor requires an exact push-only manifest")
+    branches = tuple(
+        expected_ref.name.removeprefix("refs/heads/")
+        for expected_ref in manifest.expected_refs
+    )
+    verify_lineage_for_publication(branches, remote=manifest.remote)
     for expected_ref in manifest.expected_refs:
         branch = expected_ref.name.removeprefix("refs/heads/")
         local = git(
@@ -1259,6 +1268,7 @@ def _execute_push_manifest(manifest) -> None:
             ),
             local_ref=expected_ref.proposed_sha,
         )
+        verify_lineage_for_publication(branches, remote=manifest.remote)
 
 
 def _approved_pr_text(manifest) -> dict[int, tuple[str, str]]:
@@ -2037,6 +2047,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.mutation_class == REMOTE_MUTATING:
+            ensure_clean_tree()
         args.func(args)
         if args.mutation_class != READ_ONLY:
             ensure_clean_tree()

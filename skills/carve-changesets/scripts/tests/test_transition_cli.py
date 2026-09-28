@@ -42,16 +42,26 @@ class TransitionCliTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.repo, self.bare, _source = helpers.init_repo(self.root)
+        self.repo, self.bare, self.source_sha = helpers.init_repo(self.root)
         helpers.run(self.repo, "git", "checkout", "main")
         helpers.run(self.repo, "git", "checkout", "-b", "feature/report-1")
         (self.repo / "one.txt").write_text("one\n")
         helpers.run(self.repo, "git", "add", "one.txt")
-        self.head_one = helpers.commit(self.repo, "feat: add layer one")
+        self.head_one = helpers.commit(
+            self.repo,
+            "feat: add layer one\n\n"
+            "Changeset-Slug: one\n"
+            f"Changeset-Source: origin feature/report @ {self.source_sha}",
+        )
         helpers.run(self.repo, "git", "checkout", "-b", "feature/report-2")
         (self.repo / "two.txt").write_text("two\n")
         helpers.run(self.repo, "git", "add", "two.txt")
-        self.head_two = helpers.commit(self.repo, "feat: add layer two")
+        self.head_two = helpers.commit(
+            self.repo,
+            "feat: add layer two\n\n"
+            "Changeset-Slug: two\n"
+            f"Changeset-Source: origin feature/report @ {self.source_sha}",
+        )
         self.main_head = helpers.run(self.repo, "git", "rev-parse", "main")
         self.native_snapshot = NativeStackSnapshot(
             trunk_branch="main",
@@ -158,6 +168,10 @@ class TransitionCliTests(unittest.TestCase):
             helpers.run(self.repo, "git", "rev-parse", "main^{tree}"),
             manifest["expected_native_stack"]["trunk_tree"],
         )
+        self.assertIn(
+            f"source lineage=origin/feature/report@{self.source_sha}",
+            manifest["evidence"],
+        )
         self.assertEqual(
             "",
             helpers.run(
@@ -186,6 +200,69 @@ class TransitionCliTests(unittest.TestCase):
             )
         return output.getvalue()
 
+    def test_dirty_tree_blocks_push_preview_before_manifest_rendering(self) -> None:
+        (self.repo / "dirty.txt").write_text("preserve me\n")
+        output = StringIO()
+        self.native_reader_mock.reset_mock()
+
+        with chdir(self.repo), redirect_stdout(output):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertEqual(
+            "[ERROR] Working tree is not clean. Commit, stash, or discard "
+            "changes first.\n",
+            output.getvalue(),
+        )
+        self.native_reader_mock.assert_not_called()
+
+    def test_dirty_tree_blocks_capable_push_before_executor(self) -> None:
+        approved = manifest_from_json(self._preview_manifest())
+        approved_path = self.root / "approved-dirty.json"
+        approved_path.write_text(cli_mod.manifest_to_json(approved))
+        (self.repo / "dirty.txt").write_text("preserve me\n")
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executor = mock.Mock()
+        output = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "_execute_push_manifest", executor),
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved_path),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        executor.assert_not_called()
+        self.assertEqual(
+            "[ERROR] Working tree is not clean. Commit, stash, or discard "
+            "changes first.\n",
+            output.getvalue(),
+        )
+
     def test_push_preview_uses_credential_free_canonical_repository_identity(
         self,
     ) -> None:
@@ -201,6 +278,17 @@ class TransitionCliTests(unittest.TestCase):
                         cli_mod,
                         "github_repo_for_remote",
                         side_effect=repo_for_remote,
+                    ),
+                    mock.patch.object(
+                        cli_mod,
+                        "verify_lineage_for_publication",
+                        return_value=(
+                            SimpleNamespace(
+                                remote="origin",
+                                branch="feature/report",
+                                sha=self.source_sha,
+                            ),
+                        ),
                     ),
                     mock.patch.object(cli_mod, "remote_branch_head", return_value=None),
                     chdir(self.repo),
@@ -621,6 +709,112 @@ class TransitionCliTests(unittest.TestCase):
                 ),
             ]
         )
+
+    def test_push_execution_rejects_missing_source_lineage_before_any_push(
+        self,
+    ) -> None:
+        approved_path = self.root / "approved-missing-source.json"
+        approved_path.write_text(self._preview_manifest())
+        helpers.run(
+            self.repo,
+            "git",
+            "push",
+            "origin",
+            "--delete",
+            "feature/report",
+        )
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        executor = mock.Mock()
+        output = StringIO()
+        errors = StringIO()
+
+        with (
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "_execute_push_manifest", executor),
+            chdir(self.repo),
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved_path),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        executor.assert_not_called()
+        result = json.loads(output.getvalue())
+        self.assertEqual("blocked", result["state"])
+        self.assertIn("source", result["blocker"])
+        self.assertIn("unavailable", result["blocker"])
+        self.assertIn("[ERROR]", errors.getvalue())
+
+    def test_push_execution_rechecks_source_lineage_after_each_push(self) -> None:
+        approved_path = self.root / "approved-source-moves.json"
+        approved_path.write_text(self._preview_manifest())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        pushed: list[str] = []
+
+        def push_then_delete_source(branch: str, **_kwargs) -> None:
+            pushed.append(branch)
+            if len(pushed) == 1:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "push",
+                    "origin",
+                    "--delete",
+                    "feature/report",
+                )
+
+        output = StringIO()
+        errors = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(
+                cli_mod,
+                "push_changeset_branch",
+                side_effect=push_then_delete_source,
+            ),
+            chdir(self.repo),
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--manifest",
+                    str(approved_path),
+                    "--execute",
+                    "--ack-push",
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertEqual(["feature/report-1"], pushed)
+        result = json.loads(output.getvalue())
+        self.assertEqual("partial", result["state"])
+        self.assertIn("source", result["blocker"])
+        self.assertIn("unavailable", result["blocker"])
+        self.assertIn("[ERROR]", errors.getvalue())
 
     def test_submit_execution_does_not_fall_back_to_legacy_pr_creation(self) -> None:
         plan = json.loads(self.plan.read_text())

@@ -78,7 +78,9 @@ def verify_remote_lineage(lineage: Sequence[SourceIdentity], *, remote: str) -> 
             )
 
 
-def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None:
+def verify_lineage_for_publication(
+    heads: Sequence[str], *, remote: str
+) -> tuple[SourceIdentity, ...]:
     """Prove selected heads share remotely reconstructible source lineage."""
 
     expected_lineage: tuple[SourceIdentity, ...] | None = None
@@ -111,3 +113,4 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
     if expected_lineage is None:
         raise CommandError("No changeset branches were selected for publication.")
     verify_remote_lineage(expected_lineage, remote=remote)
+    return expected_lineage

@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-27 — Closed transition authority and readback gaps
 
+- fix: preserve clean-tree and source-lineage publication gates
+
 - docs: align transition acknowledgement reference
 
 - fix: bind exact manifest effects through execution
