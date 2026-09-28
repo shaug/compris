@@ -204,6 +204,68 @@ class TransitionCliTests(unittest.TestCase):
             ),
         )
 
+    def test_push_preview_rejects_extra_merged_prefix_target(self) -> None:
+        self.native_reader_mock.return_value = replace(
+            self.native_snapshot,
+            layers=(
+                replace(
+                    self.native_snapshot.layers[0],
+                    merged=True,
+                    pull_request=NativePullRequest(
+                        number=41, url="https://example.test/41", state="MERGED"
+                    ),
+                ),
+                self.native_snapshot.layers[1],
+            ),
+        )
+        output = StringIO()
+        errors = StringIO()
+
+        with chdir(self.repo), redirect_stdout(output), redirect_stderr(errors):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("complete active stack", output.getvalue())
+
+    def test_push_preview_rejects_all_merged_stack_targets(self) -> None:
+        self.native_reader_mock.return_value = replace(
+            self.native_snapshot,
+            layers=tuple(
+                replace(
+                    layer,
+                    merged=True,
+                    pull_request=NativePullRequest(
+                        number=index,
+                        url=f"https://example.test/{index}",
+                        state="MERGED",
+                    ),
+                )
+                for index, layer in enumerate(self.native_snapshot.layers, start=41)
+            ),
+        )
+        output = StringIO()
+        errors = StringIO()
+
+        with chdir(self.repo), redirect_stdout(output), redirect_stderr(errors):
+            status = main(
+                (
+                    "push-chain",
+                    "--plan",
+                    str(self.plan),
+                    "--allow-stack-state-refresh",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("complete active stack", output.getvalue())
+
     def _preview_manifest(self) -> str:
         output = StringIO()
         with chdir(self.repo), redirect_stdout(output):

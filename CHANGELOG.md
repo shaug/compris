@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-28 — Closed stack-target and lineage readback fences
 
+- fix: exclude merged layers from transition authority
+
 - fix: bind complete native targets and lineage readback
 
 ## 2026-09-27 — Closed transition authority and readback gaps

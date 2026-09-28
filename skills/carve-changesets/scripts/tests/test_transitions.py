@@ -1336,6 +1336,41 @@ class OperationManifestTests(unittest.TestCase):
             ("main", "feature-2"), tuple(item.after[3] for item in updates)
         )
 
+    def test_repair_rejects_extra_merged_prefix_ref(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        authority = self._authority(
+            StackOperation.REPAIR,
+            phases,
+            frozenset(
+                {
+                    EffectKind.REBASE_BRANCH,
+                    EffectKind.PUSH_REF,
+                    EffectKind.UPDATE_PR,
+                    EffectKind.SYNC_STACK,
+                }
+            ),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "same active suffix"):
+            preview_repair(
+                repository="shaug/compris",
+                remote="origin",
+                refs=(
+                    ExpectedRef("refs/heads/feature-1", SHA_A, SHA_A, SHA_A),
+                    *self.refs,
+                ),
+                pull_requests=self.pull_requests,
+                native_stack=self._stack_with_merged_prefix(),
+                authority=authority,
+                evidence=("repair snapshot",),
+            )
+
     def test_recovery_first_open_suffix_pr_rebases_onto_trunk(self) -> None:
         phases = frozenset(
             {
@@ -1472,6 +1507,67 @@ class OperationManifestTests(unittest.TestCase):
                     repository=complete.repository,
                     remote=complete.remote,
                     branches=(expected_ref.name.removeprefix("refs/heads/"),),
+                ),
+                evidence=complete.evidence,
+            )
+
+    def test_push_rejects_extra_merged_stack_targets(self) -> None:
+        complete = publish_manifest()
+        merged_prefix = replace(
+            complete.expected_native_stack,
+            layers=(
+                replace(
+                    complete.expected_native_stack.layers[0],
+                    merged=True,
+                    pull_request_state="MERGED",
+                ),
+                complete.expected_native_stack.layers[1],
+            ),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "complete active stack"):
+            preview_push(
+                repository=complete.repository,
+                remote=complete.remote,
+                refs=complete.expected_refs,
+                native_stack=merged_prefix,
+                lineage=complete.expected_lineage,
+                authority=AuthorityGrant.push(
+                    repository=complete.repository,
+                    remote=complete.remote,
+                    branches=("feature-1", "feature-2"),
+                ),
+                evidence=complete.evidence,
+            )
+
+    def test_push_rejects_targets_when_every_stack_layer_is_merged(self) -> None:
+        complete = publish_manifest()
+        all_merged = replace(
+            complete.expected_native_stack,
+            layers=tuple(
+                replace(
+                    layer,
+                    merged=True,
+                    pull_request=index,
+                    pull_request_state="MERGED",
+                )
+                for index, layer in enumerate(
+                    complete.expected_native_stack.layers, start=41
+                )
+            ),
+        )
+
+        with self.assertRaisesRegex(ManifestError, "complete active stack"):
+            preview_push(
+                repository=complete.repository,
+                remote=complete.remote,
+                refs=complete.expected_refs,
+                native_stack=all_merged,
+                lineage=complete.expected_lineage,
+                authority=AuthorityGrant.push(
+                    repository=complete.repository,
+                    remote=complete.remote,
+                    branches=("feature-1", "feature-2"),
                 ),
                 evidence=complete.evidence,
             )

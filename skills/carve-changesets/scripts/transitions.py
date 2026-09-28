@@ -713,9 +713,7 @@ class MutationManifest:
                 "manifest selected branches are outside expected native stack order"
             )
         active_order = self.expected_native_stack.open_order
-        selected_ref_order = tuple(
-            branch for branch in active_order if branch in ref_by_branch
-        )
+        selected_ref_order = tuple(ref_by_branch)
         if self.operation is StackOperation.PUBLISH:
             if selected_ref_order != active_order:
                 raise ManifestError(
