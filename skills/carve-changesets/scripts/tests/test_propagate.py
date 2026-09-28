@@ -549,6 +549,92 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("Report API (2 of 3)", self.prs[102].title)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
 
+    def test_manifest_execution_reprojects_exact_heads_before_mutation(self) -> None:
+        self._merge(101)
+        real_push = propagate_mod.push_changeset_branch
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ),
+            mock.patch.object(
+                propagate_mod, "push_changeset_branch", wraps=real_push
+            ) as push,
+        ):
+            chain, _pull_requests = propagate_mod._rehydrate_live(
+                source="feature/report", base="main", remote="origin"
+            )
+            projection = propagate_mod.project_propagation(
+                chain, merged_index=1, strategy="rebase", remote="origin"
+            )
+            suffix = chain.changesets[1:]
+            approved_refs = {
+                record.branch: (
+                    record.head,
+                    projection.candidates[record.branch],
+                )
+                for record in suffix
+            }
+            approved_locals = {
+                record.branch: (
+                    helpers.run(
+                        self.repo,
+                        "git",
+                        "rev-parse",
+                        f"refs/heads/{record.branch}",
+                    ),
+                    projection.candidates[record.branch],
+                )
+                for record in suffix
+            }
+            approved_text = {
+                record.pr_number: (
+                    f"Report API ({record.position} of 3)",
+                    self.prs[record.pr_number].body,
+                )
+                for record in suffix
+            }
+
+            propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=101,
+                index=None,
+                strategy="rebase",
+                remote="origin",
+                dry_run=False,
+                authority_acknowledged=True,
+                approved_pr_text=approved_text,
+                approved_ref_transitions=approved_refs,
+                approved_local_ref_transitions=approved_locals,
+            )
+
+        self.assertEqual(
+            ["feature/report-2", "feature/report-3"],
+            [call.args[0] for call in push.call_args_list],
+        )
+        for branch, candidate in projection.candidates.items():
+            self.assertEqual(
+                candidate,
+                helpers.run(self.repo, "git", "rev-parse", branch),
+            )
+            remote = helpers.run(
+                self.repo,
+                "git",
+                "ls-remote",
+                "origin",
+                f"refs/heads/{branch}",
+            )
+            self.assertEqual(candidate, remote.split()[0])
+
     def test_propagate_is_fenced_by_manifest_declared_pr_text(self) -> None:
         self._merge(101)
         approved_pr_text = {
@@ -622,6 +708,64 @@ class StatelessPropagationTests(unittest.TestCase):
                     )
             except TypeError as exc:
                 self.fail(f"repair executor does not consume approved refs: {exc}")
+
+        push.assert_not_called()
+
+    def test_propagation_rejects_recomputed_projection_drift_before_any_push(
+        self,
+    ) -> None:
+        self._merge(101)
+        approved_ref_transitions = {
+            "feature/report-2": (
+                self.prs[102].head_sha,
+                self.prs[102].head_sha,
+            ),
+            "feature/report-3": (
+                self.prs[103].head_sha,
+                self.prs[103].head_sha,
+            ),
+        }
+        drifted = mock.Mock(
+            candidates={
+                "feature/report-2": "f" * 40,
+                "feature/report-3": self.prs[103].head_sha,
+            }
+        )
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "project_propagation", return_value=drifted
+            ),
+            mock.patch.object(propagate_mod, "push_changeset_branch") as push,
+        ):
+            with self.assertRaisesRegex(
+                CommandError, "Computed propagation head.*approved manifest"
+            ):
+                propagate_from_live(
+                    source="feature/report",
+                    base="main",
+                    pr_number=101,
+                    index=None,
+                    strategy="rebase",
+                    remote="origin",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                    approved_ref_transitions=approved_ref_transitions,
+                    approved_local_ref_transitions={
+                        branch: (head, head)
+                        for branch, (head, _proposed) in (
+                            approved_ref_transitions.items()
+                        )
+                    },
+                )
 
         push.assert_not_called()
 

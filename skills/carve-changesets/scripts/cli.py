@@ -64,6 +64,7 @@ from propagate import (
     _target,
     _updated_title,
     merge_propagate_from_live,
+    project_propagation,
     propagate_from_live,
     push_chain,
     push_changeset_branch,
@@ -732,6 +733,7 @@ def _live_manifest_inputs(
     records,
     pull_requests,
     native_snapshot: NativeStackSnapshot,
+    proposed_heads=None,
 ):
     selected_base = base or "main"
     if native_snapshot.trunk_branch != selected_base:
@@ -769,11 +771,14 @@ def _live_manifest_inputs(
                 f"Live chain head for {record.branch} is {record.head}; native head is "
                 f"{native_head}."
             )
+        proposed_head = (
+            native_head if proposed_heads is None else proposed_heads[record.branch]
+        )
         refs.append(
             ExpectedRef(
                 name=f"refs/heads/{record.branch}",
                 old_sha=old or ZERO_SHA,
-                proposed_sha=native_head,
+                proposed_sha=proposed_head,
                 local_sha=local_head,
             )
         )
@@ -855,9 +860,14 @@ def _repair_manifest(args: argparse.Namespace):
     chain, pull_requests = _rehydrate_live(
         source=args.source, base=args.base, remote=args.remote
     )
-    target, _pull_request = _target(
+    target, selected_pull_request = _target(
         chain, pull_requests, pr_number=args.pr, index=args.index
     )
+    if selected_pull_request.state.upper() != "MERGED":
+        raise CommandError(
+            f"PR #{selected_pull_request.number} is "
+            f"{selected_pull_request.state or 'UNKNOWN'}, not MERGED."
+        )
     suffix = chain.changesets[target.position :]
     if not suffix:
         raise CommandError("The selected merged layer has no suffix to repair.")
@@ -867,18 +877,12 @@ def _repair_manifest(args: argparse.Namespace):
         remote=args.remote,
     )
     _require_exact_native_membership(chain.changesets, native_snapshot)
-    native_by_branch = {layer.branch: layer for layer in native_snapshot.layers}
-    needs_rebase = tuple(
-        record.branch
-        for record in suffix
-        if record.branch not in native_by_branch
-        or native_by_branch[record.branch].needs_rebase
+    projection = project_propagation(
+        chain,
+        merged_index=target.position,
+        strategy=args.strategy,
+        remote=args.remote,
     )
-    if needs_rebase:
-        raise CommandError(
-            "Repair preview is blocked because exact rewritten heads cannot be "
-            f"derived without materialization: {needs_rebase!r}."
-        )
     refs, prs, stack, evidence = _live_manifest_inputs(
         source=args.source,
         base=args.base or chain.base_branch,
@@ -886,6 +890,7 @@ def _repair_manifest(args: argparse.Namespace):
         records=suffix,
         pull_requests=pull_requests,
         native_snapshot=native_snapshot,
+        proposed_heads=projection.candidates,
     )
     record_by_branch = {record.branch: record for record in suffix}
     live_by_number = {item.number: item for item in pull_requests.values()}
@@ -931,7 +936,13 @@ def _repair_manifest(args: argparse.Namespace):
             phases=phases,
             effect_kinds=effects,
         ),
-        evidence=evidence,
+        evidence=(
+            *evidence,
+            *(
+                f"projected propagation head {branch}={head}"
+                for branch, head in projection.candidates.items()
+            ),
+        ),
     )
 
 
@@ -1340,6 +1351,20 @@ def _approved_ref_transitions(manifest) -> dict[str, tuple[str, str]]:
     }
 
 
+def _approved_local_ref_transitions(manifest) -> dict[str, tuple[str, str]]:
+    return {
+        item.name.removeprefix("refs/heads/"): (
+            item.local_sha,
+            (
+                item.proposed_sha
+                if item.old_sha != item.proposed_sha
+                else item.local_sha
+            ),
+        )
+        for item in manifest.expected_refs
+    }
+
+
 def _execute_publish_manifest(_manifest) -> None:
     """Fail closed until native submit can consume every declared effect."""
 
@@ -1564,6 +1589,7 @@ def cmd_propagate(args: argparse.Namespace) -> None:
             authority_acknowledged=True,
             approved_pr_text=_approved_pr_text(manifest),
             approved_ref_transitions=_approved_ref_transitions(manifest),
+            approved_local_ref_transitions=(_approved_local_ref_transitions(manifest)),
         ),
         readback=lambda: _live_observation(
             approved,

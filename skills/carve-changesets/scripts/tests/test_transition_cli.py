@@ -1638,14 +1638,101 @@ class TransitionCliTests(unittest.TestCase):
             ),
         )
 
-    def test_repair_preview_blocks_unknown_rewritten_head(self) -> None:
+    def test_repair_preview_projects_rewritten_head_without_mutation(self) -> None:
         chain, prs = self._published_chain()
-        self.native_reader_mock.return_value = self._published_snapshot(
-            needs_rebase=True
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(
+            self.repo,
+            "git",
+            "merge",
+            "--no-ff",
+            "feature/report-1",
+            "-m",
+            "merge: land layer one",
         )
+        landed_main = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        self.native_reader_mock.return_value = replace(
+            self._published_snapshot(needs_rebase=True), trunk_head=landed_main
+        )
+        before_status = helpers.run(self.repo, "git", "status", "--porcelain")
+
+        manifests = []
+        for _attempt in range(2):
+            output = StringIO()
+            with (
+                mock.patch.object(
+                    cli_mod, "_rehydrate_live", return_value=(chain, prs)
+                ),
+                mock.patch.object(
+                    cli_mod,
+                    "remote_branch_head",
+                    side_effect=lambda _remote, branch: {
+                        "main": landed_main,
+                        "feature/report-2": self.head_two,
+                    }.get(branch),
+                ),
+                chdir(self.repo),
+                redirect_stdout(output),
+            ):
+                status = main(
+                    (
+                        "propagate",
+                        "--source",
+                        "feature/report",
+                        "--index",
+                        "1",
+                        "--allow-stack-state-refresh",
+                    )
+                )
+            self.assertEqual(0, status)
+            manifests.append(json.loads(output.getvalue()))
+
+        proposed = manifests[0]["expected_refs"][0]["proposed_sha"]
+        self.assertNotEqual(self.head_two, proposed)
+        self.assertEqual(proposed, manifests[1]["expected_refs"][0]["proposed_sha"])
+        self.assertEqual(
+            helpers.run(self.repo, "git", "rev-parse", f"{self.head_two}^{{tree}}"),
+            helpers.run(self.repo, "git", "rev-parse", f"{proposed}^{{tree}}"),
+        )
+        self.assertEqual(
+            "feature/report-2",
+            helpers.run(self.repo, "git", "branch", "--show-current"),
+        )
+        self.assertEqual(
+            self.head_two,
+            helpers.run(self.repo, "git", "rev-parse", "feature/report-2"),
+        )
+        self.assertEqual(
+            before_status, helpers.run(self.repo, "git", "status", "--porcelain")
+        )
+
+    def test_failed_repair_projection_restores_checkout_refs_and_status(self) -> None:
+        chain, prs = self._published_chain()
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "two.txt").write_text("mainline conflict\n")
+        helpers.run(self.repo, "git", "add", "two.txt")
+        helpers.commit(self.repo, "fix: add conflicting mainline file")
+        landed_main = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "feature/report-2")
+        self.native_reader_mock.return_value = replace(
+            self._published_snapshot(needs_rebase=True), trunk_head=landed_main
+        )
+        before_status = helpers.run(self.repo, "git", "status", "--porcelain")
         output = StringIO()
+
         with (
             mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                side_effect=lambda _remote, branch: {
+                    "main": landed_main,
+                    "feature/report-2": self.head_two,
+                }.get(branch),
+            ),
             chdir(self.repo),
             redirect_stdout(output),
         ):
@@ -1661,7 +1748,28 @@ class TransitionCliTests(unittest.TestCase):
             )
 
         self.assertEqual(1, status)
-        self.assertIn("exact rewritten heads", output.getvalue())
+        self.assertEqual(
+            "feature/report-2",
+            helpers.run(self.repo, "git", "branch", "--show-current"),
+        )
+        self.assertEqual(
+            self.head_two,
+            helpers.run(self.repo, "git", "rev-parse", "feature/report-2"),
+        )
+        self.assertEqual(
+            before_status,
+            helpers.run(self.repo, "git", "status", "--porcelain"),
+        )
+        self.assertEqual(
+            [],
+            [
+                branch
+                for branch in helpers.run(
+                    self.repo, "git", "branch", "--format=%(refname:short)"
+                ).splitlines()
+                if branch.startswith("carve-propagate-")
+            ],
+        )
 
     def test_fresh_clone_no_op_repair_preserves_absent_local_ref(self) -> None:
         chain, prs = self._published_chain()
@@ -1755,6 +1863,83 @@ class TransitionCliTests(unittest.TestCase):
         self.assertEqual(0, status, executed.getvalue())
         self.assertEqual("unchanged", json.loads(executed.getvalue())["state"])
         executor.assert_called_once()
+
+    def test_repair_execution_rejects_projection_drift_before_executor(self) -> None:
+        chain, prs = self._published_chain()
+        prs[42].base_branch = "main"
+        prs[42].title = "Layer two (2 of 2)"
+        self.native_reader_mock.return_value = self._published_snapshot(
+            needs_rebase=False
+        )
+        remote_heads = {
+            "main": self.main_head,
+            "feature/report-2": self.head_two,
+        }
+        preview = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                side_effect=lambda _remote, branch: remote_heads.get(branch),
+            ),
+            chdir(self.repo),
+            redirect_stdout(preview),
+        ):
+            self.assertEqual(
+                0,
+                main(
+                    (
+                        "propagate",
+                        "--source",
+                        "feature/report",
+                        "--index",
+                        "1",
+                        "--allow-stack-state-refresh",
+                    )
+                ),
+            )
+
+        approved = self.root / "approved-projection.json"
+        approved.write_text(preview.getvalue())
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        drifted = SimpleNamespace(candidates={"feature/report-2": self.head_one})
+        output = StringIO()
+        with (
+            mock.patch.object(cli_mod, "_rehydrate_live", return_value=(chain, prs)),
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                side_effect=lambda _remote, branch: remote_heads.get(branch),
+            ),
+            mock.patch.object(cli_mod, "project_propagation", return_value=drifted),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(cli_mod, "propagate_from_live") as executor,
+            chdir(self.repo),
+            redirect_stdout(output),
+        ):
+            status = main(
+                (
+                    "propagate",
+                    "--source",
+                    "feature/report",
+                    "--index",
+                    "1",
+                    "--allow-stack-state-refresh",
+                    "--manifest",
+                    str(approved),
+                    "--execute",
+                    "--ack-repair",
+                )
+            )
+
+        self.assertEqual(1, status)
+        self.assertIn("manifest changed during pre-execution reread", output.getvalue())
+        executor.assert_not_called()
 
     def test_direct_merge_preview_blocks_unknown_automatic_suffix_heads(self) -> None:
         chain, prs = self._published_chain()

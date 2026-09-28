@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
@@ -12,10 +13,13 @@ from common import (
     CommandError,
     branch_exists,
     branch_name_for,
+    checkout_restore,
     current_branch,
+    delete_branch,
     ensure_clean_tree,
     ensure_git_repo,
     git,
+    unique_temp_branch,
 )
 from github import (
     edit_pull_request,
@@ -40,6 +44,14 @@ from validate import validate_live_chain
 AUTHORITY_FLAG = "--ack-merge-and-propagate"
 _TITLE_COUNT_RE = re.compile(r"\s+\([1-9][0-9]* of [1-9][0-9]*\)$")
 REMOTE_REF_ABSENT = object()
+ZERO_SHA = "0" * 40
+
+
+@dataclass(frozen=True)
+class PropagationProjection:
+    """Exact deterministic suffix heads computed without durable mutation."""
+
+    candidates: Mapping[str, str]
 
 
 def _ensure_chain_exists(source: str, total: int) -> List[str]:
@@ -353,6 +365,149 @@ def _rewrite_cherry_pick(
     return rewritten
 
 
+def _cherry_pick_committer_date(commit: str) -> str:
+    return git("show", "-s", "--format=%aI", commit).stdout.strip()
+
+
+def project_propagation(
+    chain: Chain,
+    *,
+    merged_index: int,
+    strategy: str,
+    remote: str,
+) -> PropagationProjection:
+    """Project exact downstream heads while restoring checkout and named refs."""
+
+    if strategy not in ("rebase", "cherry-pick"):
+        raise CommandError("Propagation strategy must be 'rebase' or 'cherry-pick'.")
+    downstream = tuple(chain.changesets[merged_index:])
+    if not downstream:
+        return PropagationProjection(candidates={})
+
+    new_base = _resolve(_remote_ref(remote, chain.base_branch))
+    rewrite_frontier_reached = False
+    candidates: dict[str, str] = {}
+    temp_branches: list[str] = []
+    try:
+        with checkout_restore():
+            try:
+                for record in downstream:
+                    already_propagated = not rewrite_frontier_reached and _is_ancestor(
+                        new_base, record.head
+                    )
+                    if already_propagated:
+                        candidate = record.head
+                    else:
+                        rewrite_frontier_reached = True
+                        previous = chain.changesets[record.position - 2]
+                        old_base = _durable_predecessor(record, previous)
+                        temp = unique_temp_branch(f"carve-propagate-{record.position}")
+                        temp_branches.append(temp)
+                        if strategy == "rebase":
+                            git("branch", temp, record.head)
+                            git("checkout", temp)
+                            git(
+                                "rebase",
+                                "--committer-date-is-author-date",
+                                "--onto",
+                                new_base,
+                                old_base,
+                                temp,
+                            )
+                        else:
+                            commits = tuple(
+                                value
+                                for value in git(
+                                    "rev-list",
+                                    "--reverse",
+                                    f"{old_base}..{record.head}",
+                                ).stdout.splitlines()
+                                if value
+                            )
+                            if not commits:
+                                raise CommandError(
+                                    f"Changeset branch {record.branch} has no commits "
+                                    "beyond its verified predecessor."
+                                )
+                            git("branch", temp, new_base)
+                            git("checkout", temp)
+                            for commit in commits:
+                                git(
+                                    "cherry-pick",
+                                    commit,
+                                    env={
+                                        "GIT_COMMITTER_DATE": (
+                                            _cherry_pick_committer_date(commit)
+                                        )
+                                    },
+                                )
+                        candidate = _resolve("HEAD")
+                    candidates[record.branch] = candidate
+                    new_base = candidate
+            except Exception:
+                git("rebase", "--abort", check=False)
+                git("cherry-pick", "--abort", check=False)
+                raise
+    finally:
+        for temp in temp_branches:
+            delete_branch(temp)
+
+    return PropagationProjection(candidates=candidates)
+
+
+def _local_branch_head(branch: str) -> str:
+    result = git(
+        "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}", check=False
+    )
+    return result.stdout.strip() if result.returncode == 0 else ZERO_SHA
+
+
+def _branch_checked_out_elsewhere(branch: str) -> bool:
+    current_path: str | None = None
+    for line in git("worktree", "list", "--porcelain").stdout.splitlines():
+        if line.startswith("worktree "):
+            current_path = line.removeprefix("worktree ")
+        elif line == f"branch refs/heads/{branch}":
+            if current_path != str(Path.cwd().resolve()):
+                return True
+    return False
+
+
+def _validate_projected_local_refs(
+    transitions: Mapping[str, tuple[str, str]],
+) -> None:
+    for branch, (expected_before, expected_after) in transitions.items():
+        observed = _local_branch_head(branch)
+        if observed != expected_before:
+            raise CommandError(
+                f"Local branch {branch} moved from approved head {expected_before} "
+                f"to {observed}; propagation was withheld."
+            )
+        if expected_after != ZERO_SHA and _resolve(expected_after) != expected_after:
+            raise CommandError(
+                f"Projected propagation head for {branch} is unavailable: "
+                f"{expected_after}."
+            )
+        if expected_before != expected_after and _branch_checked_out_elsewhere(branch):
+            raise CommandError(
+                f"Changeset branch {branch} is checked out in another worktree; "
+                "local propagation was withheld."
+            )
+
+
+def _sync_projected_local_branch(
+    branch: str, *, expected_before: str, candidate: str
+) -> None:
+    if expected_before == candidate:
+        return
+    checked_out_here = current_branch() == branch
+    if checked_out_here:
+        git("checkout", "--detach", candidate)
+    git("update-ref", f"refs/heads/{branch}", candidate, expected_before)
+    if checked_out_here:
+        git("checkout", branch)
+
+
 def _updated_title(pr: PullRequestRecord, *, index: int, total: int) -> str:
     current = pr.title.strip()
     if not current:
@@ -527,6 +682,8 @@ def _propagate_chain(
     dry_run: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
     approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    approved_local_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    projected_heads: Mapping[str, str] | None = None,
 ) -> None:
     if strategy not in ("rebase", "cherry-pick"):
         raise CommandError("Propagation strategy must be 'rebase' or 'cherry-pick'.")
@@ -541,6 +698,14 @@ def _propagate_chain(
                 "Approved manifest ref membership does not match the propagation "
                 f"suffix: approved {tuple(approved_ref_transitions)!r}; "
                 f"observed {selected!r}."
+            )
+    if approved_local_ref_transitions is not None:
+        selected = tuple(record.branch for record in downstream)
+        if tuple(approved_local_ref_transitions) != selected:
+            raise CommandError(
+                "Approved manifest local-ref membership does not match the "
+                f"propagation suffix: approved "
+                f"{tuple(approved_local_ref_transitions)!r}; observed {selected!r}."
             )
 
     planned: list[tuple[ChangesetRecord, PullRequestRecord, str]] = []
@@ -582,12 +747,35 @@ def _propagate_chain(
             allowed_bases=allowed_bases,
             remote=remote,
         )
-        already_propagated = not rewrite_frontier_reached and _is_ancestor(
-            new_base, current_head
+        already_propagated = (
+            projected_heads is not None
+            and projected_heads[record.branch] == current_head
+        ) or (
+            projected_heads is None
+            and not rewrite_frontier_reached
+            and _is_ancestor(new_base, current_head)
         )
         if already_propagated:
             new_head = current_head
             print(f"[INFO] {record.branch} is already propagated; push not needed.")
+        elif projected_heads is not None:
+            rewrite_frontier_reached = True
+            new_head = projected_heads[record.branch]
+            if approved_local_ref_transitions is None:
+                raise CommandError(
+                    "Projected propagation requires approved local-ref transitions."
+                )
+            local_before, local_after = approved_local_ref_transitions[record.branch]
+            if local_after != new_head:
+                raise CommandError(
+                    f"Projected local head for {record.branch} is {new_head}; "
+                    f"approved manifest requires {local_after}."
+                )
+            _sync_projected_local_branch(
+                record.branch,
+                expected_before=local_before,
+                candidate=new_head,
+            )
         else:
             rewrite_frontier_reached = True
             previous = chain.changesets[record.position - 2]
@@ -687,6 +875,7 @@ def propagate_from_live(
     authority_acknowledged: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
     approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    approved_local_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
 ) -> None:
     """Verify one merged PR and propagate its open downstream suffix."""
 
@@ -708,6 +897,44 @@ def propagate_from_live(
         print(
             f"[DRY-RUN] Would verify PR #{pr.number} is merged on {chain.base_branch}."
         )
+    projection = None
+    if not dry_run and approved_ref_transitions is not None:
+        projection = project_propagation(
+            chain,
+            merged_index=target_index,
+            strategy=strategy,
+            remote=remote,
+        )
+        downstream = tuple(chain.changesets[target_index:])
+        selected = tuple(record.branch for record in downstream)
+        if tuple(projection.candidates) != selected:
+            raise CommandError(
+                "Projected propagation membership differs from the live suffix."
+            )
+        if tuple(approved_ref_transitions) != selected:
+            raise CommandError(
+                "Approved manifest ref membership does not match the propagation "
+                f"suffix: approved {tuple(approved_ref_transitions)!r}; "
+                f"observed {selected!r}."
+            )
+        for record in downstream:
+            approved_old, approved_new = approved_ref_transitions[record.branch]
+            if record.head != approved_old:
+                raise CommandError(
+                    f"Changeset {record.branch} is {record.head}; approved manifest "
+                    f"requires old head {approved_old}."
+                )
+            if projection.candidates[record.branch] != approved_new:
+                raise CommandError(
+                    f"Computed propagation head for {record.branch} is "
+                    f"{projection.candidates[record.branch]}; approved manifest "
+                    f"requires {approved_new}."
+                )
+        if approved_local_ref_transitions is None:
+            raise CommandError(
+                "Approved propagation is missing exact local-ref transitions."
+            )
+        _validate_projected_local_refs(approved_local_ref_transitions)
     _propagate_chain(
         chain,
         pull_requests,
@@ -717,6 +944,8 @@ def propagate_from_live(
         dry_run=dry_run,
         approved_pr_text=approved_pr_text,
         approved_ref_transitions=approved_ref_transitions,
+        approved_local_ref_transitions=approved_local_ref_transitions,
+        projected_heads=(None if projection is None else projection.candidates),
     )
     print(
         "[OK] Dry-run propagation complete."

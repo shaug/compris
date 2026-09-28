@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-27 — Closed transition authority and readback gaps
 
+- fix: project repair heads before manifest approval
+
 - fix: bind repair heads and exact manifest identities
 
 - fix: bind recovered local refs to projected heads
