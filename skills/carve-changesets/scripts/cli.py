@@ -1351,13 +1351,15 @@ def _approved_ref_transitions(manifest) -> dict[str, tuple[str, str]]:
     }
 
 
-def _approved_local_ref_transitions(manifest) -> dict[str, tuple[str, str]]:
+def _approved_local_ref_transitions(
+    manifest, *, always_project_local: bool = False
+) -> dict[str, tuple[str, str]]:
     return {
         item.name.removeprefix("refs/heads/"): (
             item.local_sha,
             (
                 item.proposed_sha
-                if item.old_sha != item.proposed_sha
+                if always_project_local or item.old_sha != item.proposed_sha
                 else item.local_sha
             ),
         )
@@ -1693,6 +1695,10 @@ def cmd_recover_suffix(args: argparse.Namespace) -> None:
             authority_acknowledged=True,
             approved_pr_text=_approved_pr_text(manifest),
             approved_ref_transitions=_approved_ref_transitions(manifest),
+            approved_local_ref_transitions=_approved_local_ref_transitions(
+                manifest,
+                always_project_local=True,
+            ),
             approved_lineage=tuple(
                 SourceIdentity(item.remote, item.branch, item.sha)
                 for item in manifest.expected_lineage

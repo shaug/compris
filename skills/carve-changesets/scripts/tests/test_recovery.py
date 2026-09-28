@@ -211,6 +211,7 @@ class SuffixRecoveryTests(unittest.TestCase):
         dry_run: bool = False,
         approved_pr_text=None,
         approved_ref_transitions=None,
+        approved_local_ref_transitions=None,
         approved_lineage=None,
     ) -> str:
         output = io.StringIO()
@@ -245,6 +246,7 @@ class SuffixRecoveryTests(unittest.TestCase):
                 authority_acknowledged=True,
                 approved_pr_text=approved_pr_text,
                 approved_ref_transitions=approved_ref_transitions,
+                approved_local_ref_transitions=approved_local_ref_transitions,
                 approved_lineage=approved_lineage,
             )
         return output.getvalue()
@@ -991,6 +993,59 @@ class SuffixRecoveryTests(unittest.TestCase):
 
         self.assertIn("Dry-run suffix recovery passed", output)
         self.assertEqual(self.fixed_head, self._remote_head("feature/report-2"))
+
+    def _assert_approved_local_ref_drift_rejected(self, drift: str) -> None:
+        branch = "feature/report-2"
+        if drift == "create":
+            helpers.run(self.repo, "git", "checkout", "main")
+            helpers.run(self.repo, "git", "branch", "-D", branch)
+            approved_local = "0" * 40
+        else:
+            approved_local = self.fixed_head
+
+        projection = self._project_recovery(committer_date="2001-02-03T04:05:06+00:00")
+        candidate = projection.candidates[branch]
+        approved_refs = {
+            record.branch: (record.head, projection.candidates[record.branch])
+            for record in projection.suffix
+        }
+        approved_locals = {branch: (approved_local, candidate)}
+
+        if drift == "create":
+            helpers.run(self.repo, "git", "branch", branch, self.first_head)
+        else:
+            helpers.run(self.repo, "git", "checkout", "main")
+            if drift == "delete":
+                helpers.run(self.repo, "git", "branch", "-D", branch)
+            else:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "branch",
+                    "-f",
+                    branch,
+                    self.first_head,
+                )
+
+        with mock.patch.object(recovery_mod, "push_changeset_branch") as push:
+            with self.assertRaisesRegex(CommandError, "moved from approved head"):
+                self._run_recovery(
+                    approved_ref_transitions=approved_refs,
+                    approved_local_ref_transitions=approved_locals,
+                    approved_lineage=projection.target_lineage,
+                )
+
+        push.assert_not_called()
+        self.assertEqual(self.fixed_head, self._remote_head(branch))
+
+    def test_recovery_rejects_local_ref_created_after_approval(self) -> None:
+        self._assert_approved_local_ref_drift_rejected("create")
+
+    def test_recovery_rejects_local_ref_deleted_after_approval(self) -> None:
+        self._assert_approved_local_ref_drift_rejected("delete")
+
+    def test_recovery_rejects_local_ref_moved_after_approval(self) -> None:
+        self._assert_approved_local_ref_drift_rejected("move")
 
     def test_approved_mixed_projection_recomputes_exact_remaining_tail(self) -> None:
         root = SourceIdentity("origin", "feature/report", self.source_sha)

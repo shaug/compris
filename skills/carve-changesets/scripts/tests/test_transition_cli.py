@@ -2544,7 +2544,16 @@ class TransitionCliTests(unittest.TestCase):
             }
         )
 
-        def execute_recovery(**_kwargs) -> None:
+        def execute_recovery(**kwargs) -> None:
+            self.assertEqual(
+                {
+                    "feature/report-2": (
+                        self.head_two,
+                        projected_head,
+                    )
+                },
+                kwargs.get("approved_local_ref_transitions"),
+            )
             helpers.run(
                 self.repo,
                 "git",

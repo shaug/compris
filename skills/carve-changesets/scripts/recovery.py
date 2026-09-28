@@ -50,6 +50,7 @@ from rehydrate import (
 from validate import validate_live_chain
 
 RECOVERY_AUTHORITY_FLAG = "--ack-suffix-recovery"
+ZERO_SHA = "0" * 40
 
 
 @dataclass(frozen=True)
@@ -173,7 +174,11 @@ def _branch_checked_out_elsewhere(branch: str) -> bool:
 
 
 def _sync_local_branch(
-    record: ChangesetRecord, *, candidate: str, metadata: ChangesetMetadata
+    record: ChangesetRecord,
+    *,
+    candidate: str,
+    metadata: ChangesetMetadata,
+    expected_local_head: str | None = None,
 ) -> None:
     checked_out_here = current_branch() == record.branch
     if _branch_checked_out_elsewhere(record.branch):
@@ -183,16 +188,25 @@ def _sync_local_branch(
         )
     ref = f"refs/heads/{record.branch}"
     local = _resolve(ref)
+    if expected_local_head is not None:
+        approved = None if expected_local_head == ZERO_SHA else expected_local_head
+        if local != approved:
+            raise CommandError(
+                f"Local suffix branch {record.branch} moved from approved head "
+                f"{expected_local_head} to {local or ZERO_SHA}; recovery will not "
+                "overwrite it."
+            )
     if local == candidate:
         return
-    allowed = {record.head}
-    if metadata.recovery_from_head:
-        allowed.add(metadata.recovery_from_head)
-    if local is not None and local not in allowed:
-        raise CommandError(
-            f"Local suffix branch {record.branch} unexpectedly advanced to {local}; "
-            "recovery will not overwrite it."
-        )
+    if expected_local_head is None:
+        allowed = {record.head}
+        if metadata.recovery_from_head:
+            allowed.add(metadata.recovery_from_head)
+        if local is not None and local not in allowed:
+            raise CommandError(
+                f"Local suffix branch {record.branch} unexpectedly advanced to "
+                f"{local}; recovery will not overwrite it."
+            )
     if checked_out_here:
         git("checkout", "--detach", local or record.head)
     if local is None:
@@ -201,6 +215,40 @@ def _sync_local_branch(
         git("update-ref", ref, candidate, local)
     if checked_out_here:
         git("checkout", record.branch)
+
+
+def _validate_approved_local_refs(
+    suffix: tuple[ChangesetRecord, ...],
+    candidates: Mapping[str, str],
+    approved: Mapping[str, tuple[str, str]],
+) -> None:
+    selected = tuple(record.branch for record in suffix)
+    if tuple(approved) != selected:
+        raise CommandError(
+            "Approved manifest local-ref membership does not match the recovery "
+            f"suffix: approved {tuple(approved)!r}; observed {selected!r}."
+        )
+    for record in suffix:
+        expected_before, expected_after = approved[record.branch]
+        candidate = candidates[record.branch]
+        if candidate != expected_after:
+            raise CommandError(
+                f"Computed local recovery head for {record.branch} is {candidate}; "
+                f"approved manifest requires {expected_after}."
+            )
+        observed = _resolve(f"refs/heads/{record.branch}") or ZERO_SHA
+        if observed != expected_before:
+            raise CommandError(
+                f"Local suffix branch {record.branch} moved from approved head "
+                f"{expected_before} to {observed}; recovery was withheld."
+            )
+        if expected_before != expected_after and _branch_checked_out_elsewhere(
+            record.branch
+        ):
+            raise CommandError(
+                f"Owned suffix branch {record.branch} is checked out in a worktree; "
+                "local recovery was withheld."
+            )
 
 
 def _verify_open_suffix_pr(
@@ -450,6 +498,7 @@ def recover_suffix_from_live(
     authority_acknowledged: bool,
     approved_pr_text: dict[int, tuple[str, str]] | None = None,
     approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    approved_local_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
     approved_lineage: Sequence[SourceIdentity] | None = None,
 ) -> None:
     """Restamp only the first unmerged suffix against an immutable successor."""
@@ -495,6 +544,12 @@ def recover_suffix_from_live(
                     f"Computed recovery head for {record.branch} is {candidate}; "
                     f"approved manifest requires {approved_new}."
                 )
+    if approved_local_ref_transitions is not None:
+        _validate_approved_local_refs(
+            suffix,
+            projection.candidates,
+            approved_local_ref_transitions,
+        )
 
     for record in suffix:
         candidate = projection.candidates[record.branch]
@@ -559,7 +614,16 @@ def recover_suffix_from_live(
                     f"Recovered PR #{live.number} could not be verified at "
                     f"exact head {candidate} with its expected body."
                 )
-            _sync_local_branch(record, candidate=candidate, metadata=metadata)
+            _sync_local_branch(
+                record,
+                candidate=candidate,
+                metadata=metadata,
+                expected_local_head=(
+                    None
+                    if approved_local_ref_transitions is None
+                    else approved_local_ref_transitions[record.branch][0]
+                ),
+            )
 
     if dry_run:
         print(
