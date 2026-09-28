@@ -2294,6 +2294,167 @@ class TransitionCliTests(unittest.TestCase):
         self.assertIn("manifest changed during pre-execution reread", output.getvalue())
         executor.assert_not_called()
 
+    def test_recovery_execution_classifies_synced_local_ref_as_completed(self) -> None:
+        chain, prs = self._published_chain(recovered=False)
+        projected_tree = helpers.run(
+            self.repo, "git", "rev-parse", f"{self.head_two}^{{tree}}"
+        )
+        projected_head = helpers.run(
+            self.repo,
+            "git",
+            "commit-tree",
+            projected_tree,
+            "-p",
+            self.main_head,
+            input_text="project recovered layer\n",
+        )
+        lineage = (
+            SimpleNamespace(remote="origin", branch="feature/report", sha="a" * 40),
+            SimpleNamespace(
+                remote="origin",
+                branch="feature/report-corrected",
+                sha="d" * 40,
+            ),
+        )
+        projection = SimpleNamespace(
+            chain=chain,
+            pull_requests=tuple(prs.values()),
+            suffix=chain.changesets[1:],
+            candidates={"feature/report-2": projected_head},
+            metadata={"feature/report-2": object()},
+            target_lineage=lineage,
+        )
+        before_snapshot = replace(
+            self.native_snapshot,
+            layers=(
+                replace(
+                    self.native_snapshot.layers[0],
+                    merged=True,
+                    pull_request=NativePullRequest(
+                        number=41, url="https://example.test/41", state="MERGED"
+                    ),
+                ),
+                replace(
+                    self.native_snapshot.layers[1],
+                    pull_request=NativePullRequest(
+                        number=42, url="https://example.test/42", state="OPEN"
+                    ),
+                ),
+            ),
+        )
+        after_snapshot = replace(
+            before_snapshot,
+            layers=(
+                before_snapshot.layers[0],
+                replace(before_snapshot.layers[1], head=projected_head),
+            ),
+        )
+        remote_heads = {"feature/report-2": self.head_two}
+        after_pr = SimpleNamespace(
+            **{
+                **vars(prs[42]),
+                "head_sha": projected_head,
+                "base_branch": "main",
+                "body": "Recovered layer two body",
+            }
+        )
+
+        def execute_recovery(**_kwargs) -> None:
+            helpers.run(
+                self.repo,
+                "git",
+                "update-ref",
+                "refs/heads/feature/report-2",
+                projected_head,
+            )
+            remote_heads["feature/report-2"] = projected_head
+
+        profile = GhStackProfile(
+            version="test-complete",
+            source_revision="test",
+            capabilities=frozenset(StackCapability),
+        )
+        approved_output = StringIO()
+        with (
+            mock.patch.object(
+                cli_mod,
+                "project_suffix_recovery_from_live",
+                return_value=projection,
+                create=True,
+            ),
+            mock.patch.object(
+                cli_mod,
+                "remote_branch_head",
+                side_effect=lambda _remote, branch: remote_heads.get(branch),
+            ),
+            mock.patch.object(
+                cli_mod,
+                "embed_pr_metadata",
+                return_value="Recovered layer two body",
+            ),
+            mock.patch.object(
+                cli_mod,
+                "_native_snapshot_for_transition",
+                side_effect=(before_snapshot, before_snapshot, after_snapshot),
+            ),
+            mock.patch.object(cli_mod, "_reviewed_profile", return_value=profile),
+            mock.patch.object(
+                cli_mod, "recover_suffix_from_live", side_effect=execute_recovery
+            ),
+            mock.patch.object(
+                cli_mod, "pull_requests_for_source", return_value=(after_pr,)
+            ),
+            chdir(self.repo),
+            redirect_stdout(approved_output),
+        ):
+            self.assertEqual(
+                0,
+                main(
+                    (
+                        "recover-suffix",
+                        "--source",
+                        "feature/report",
+                        "--base",
+                        "main",
+                        "--from-index",
+                        "2",
+                        "--successor-source",
+                        "feature/report-corrected",
+                        "--successor-sha",
+                        "d" * 40,
+                        "--allow-stack-state-refresh",
+                    )
+                ),
+            )
+            approved = self.root / "approved-successful-recovery.json"
+            approved.write_text(approved_output.getvalue())
+            output = StringIO()
+            with redirect_stdout(output):
+                status = main(
+                    (
+                        "recover-suffix",
+                        "--source",
+                        "feature/report",
+                        "--base",
+                        "main",
+                        "--from-index",
+                        "2",
+                        "--successor-source",
+                        "feature/report-corrected",
+                        "--successor-sha",
+                        "d" * 40,
+                        "--allow-stack-state-refresh",
+                        "--manifest",
+                        str(approved),
+                        "--execute",
+                        "--ack-suffix-recovery",
+                    )
+                )
+
+        self.assertEqual(0, status, output.getvalue())
+        result, _offset = json.JSONDecoder().raw_decode(output.getvalue())
+        self.assertEqual("completed", result["state"])
+
     def test_recovery_requires_an_explicit_base(self) -> None:
         errors = StringIO()
 

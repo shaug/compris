@@ -894,7 +894,11 @@ class MutationManifest:
             if rebase_signature in required_effects:
                 expected_values[rebase_signature] = (
                     expected_ref.local_sha,
-                    expected_ref.local_sha,
+                    (
+                        expected_ref.proposed_sha
+                        if self.operation is StackOperation.RECOVER
+                        else expected_ref.local_sha
+                    ),
                 )
         if self.operation is StackOperation.PUBLISH:
             changing_pull_requests = self.expected_pull_requests
@@ -1965,6 +1969,8 @@ def _repair_effects(
     refs: tuple[ExpectedRef, ...],
     pull_requests: tuple[ExpectedPullRequest, ...],
     native_stack: ExpectedNativeStack,
+    *,
+    sync_local_to_proposed: bool,
 ) -> tuple[MutationEffect, ...]:
     proposed = {
         item.name.removeprefix("refs/heads/"): item.proposed_sha for item in refs
@@ -1978,7 +1984,11 @@ def _repair_effects(
                 f"local:{branch}",
                 "sha",
                 expected_ref.local_sha,
-                expected_ref.local_sha,
+                (
+                    expected_ref.proposed_sha
+                    if sync_local_to_proposed
+                    else expected_ref.local_sha
+                ),
             )
         )
     for expected_ref in refs:
@@ -2048,7 +2058,12 @@ def preview_repair(
         ),
         merge_mode=None,
         merge_method=None,
-        effects=_repair_effects(expected_refs, expected_pull_requests, native_stack),
+        effects=_repair_effects(
+            expected_refs,
+            expected_pull_requests,
+            native_stack,
+            sync_local_to_proposed=False,
+        ),
         evidence=tuple(evidence),
         authority=authority,
     )
@@ -2246,7 +2261,12 @@ def preview_recovery(
             native_stack.trunk_head,
             native_stack.trunk_head,
         ),
-        *_repair_effects(expected_refs, expected_pull_requests, native_stack),
+        *_repair_effects(
+            expected_refs,
+            expected_pull_requests,
+            native_stack,
+            sync_local_to_proposed=True,
+        ),
     )
     manifest = MutationManifest(
         operation=StackOperation.RECOVER,

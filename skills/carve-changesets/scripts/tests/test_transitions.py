@@ -1816,6 +1816,45 @@ class OperationManifestTests(unittest.TestCase):
             ),
         )
 
+    def test_recovery_binds_local_branch_readback_to_projected_heads(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        manifest = preview_recovery(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self.stack,
+            authority=self._recovery_authority(
+                phases,
+                frozenset(
+                    {
+                        EffectKind.REFRESH_TRUNK,
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            evidence=("recovery snapshot",),
+            lineage=self.lineage,
+            identities=self.recovery_identities,
+        )
+        local_ref_effects = tuple(
+            (effect.before, effect.after)
+            for effect in manifest.effects
+            if effect.kind is EffectKind.REBASE_BRANCH
+        )
+
+        self.assertEqual(((SHA_A, SHA_C), (SHA_B, SHA_D)), local_ref_effects)
+
     def test_recovery_rejects_pull_requests_outside_native_stack_order(self) -> None:
         phases = frozenset(
             {
