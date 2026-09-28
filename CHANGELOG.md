@@ -6,6 +6,8 @@ summary: Chronological history of repository and skill changes.
 
 ## 2026-09-27 — Closed transition authority and readback gaps
 
+- fix: apply recovery local fences before remote effects
+
 - fix: preserve recovery local-ref approval fences
 
 - fix: project repair heads before manifest approval

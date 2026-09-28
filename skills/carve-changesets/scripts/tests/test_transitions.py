@@ -1923,6 +1923,80 @@ class OperationManifestTests(unittest.TestCase):
 
         self.assertEqual(((SHA_A, SHA_C), (SHA_B, SHA_D)), local_ref_effects)
 
+    def test_recovery_push_failure_reports_applied_local_ref_as_partial(self) -> None:
+        phases = frozenset(
+            {
+                TransitionPhase.TRUNK_REFRESH,
+                TransitionPhase.REBASE_NO_TRUNK,
+                TransitionPhase.PUSH,
+                TransitionPhase.SYNC,
+            }
+        )
+        manifest = preview_recovery(
+            repository="shaug/compris",
+            remote="origin",
+            refs=self.refs,
+            pull_requests=self.pull_requests,
+            native_stack=self.stack,
+            authority=self._recovery_authority(
+                phases,
+                frozenset(
+                    {
+                        EffectKind.REFRESH_TRUNK,
+                        EffectKind.REBASE_BRANCH,
+                        EffectKind.PUSH_REF,
+                        EffectKind.UPDATE_PR,
+                        EffectKind.SYNC_STACK,
+                    }
+                ),
+            ),
+            evidence=("recovery snapshot",),
+            lineage=self.lineage,
+            identities=self.recovery_identities,
+        )
+        applied_local = next(
+            effect
+            for effect in manifest.effects
+            if effect.kind is EffectKind.REBASE_BRANCH
+        )
+        observation = TransitionObservation(
+            values=tuple(
+                (
+                    effect.key,
+                    effect.after if effect is applied_local else effect.before,
+                )
+                for effect in manifest.effects
+            )
+        )
+        profile = replace(
+            reviewed_preview_profile("14fc42ed9b6c376a53b2f999f138d3bd26dac546"),
+            capabilities=required_capabilities(
+                manifest.operation,
+                phases=manifest.enabled_phases,
+                merge_mode=manifest.merge_mode,
+            ),
+        )
+
+        def fail_push(_approved: MutationManifest) -> None:
+            raise RuntimeError("push lease rejected")
+
+        result = execute_transition(
+            manifest,
+            profile=profile,
+            reread=lambda: manifest,
+            executor=fail_push,
+            readback=lambda: observation,
+        )
+
+        self.assertEqual(TransitionState.PARTIAL, result.state)
+        self.assertIn("push lease rejected", result.blocker)
+        local_target = next(
+            target
+            for target in result.targets
+            if target.effect.kind is EffectKind.REBASE_BRANCH
+        )
+        self.assertEqual("changed_as_expected", local_target.disposition.value)
+
     def test_recovery_rejects_pull_requests_outside_native_stack_order(self) -> None:
         phases = frozenset(
             {

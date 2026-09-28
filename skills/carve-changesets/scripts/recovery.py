@@ -580,6 +580,17 @@ def recover_suffix_from_live(
                     "approved manifest; recovery was withheld."
                 )
             updated_body = approved_body
+        if not dry_run:
+            _sync_local_branch(
+                record,
+                candidate=candidate,
+                metadata=metadata,
+                expected_local_head=(
+                    None
+                    if approved_local_ref_transitions is None
+                    else approved_local_ref_transitions[record.branch][0]
+                ),
+            )
         if candidate != record.head:
             push_changeset_branch(
                 record.branch,
@@ -614,16 +625,6 @@ def recover_suffix_from_live(
                     f"Recovered PR #{live.number} could not be verified at "
                     f"exact head {candidate} with its expected body."
                 )
-            _sync_local_branch(
-                record,
-                candidate=candidate,
-                metadata=metadata,
-                expected_local_head=(
-                    None
-                    if approved_local_ref_transitions is None
-                    else approved_local_ref_transitions[record.branch][0]
-                ),
-            )
 
     if dry_run:
         print(

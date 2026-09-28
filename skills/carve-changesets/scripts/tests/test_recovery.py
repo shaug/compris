@@ -1047,6 +1047,83 @@ class SuffixRecoveryTests(unittest.TestCase):
     def test_recovery_rejects_local_ref_moved_after_approval(self) -> None:
         self._assert_approved_local_ref_drift_rejected("move")
 
+    def test_recovery_rechecks_local_ref_after_preflight_before_push(self) -> None:
+        projection = self._project_recovery(committer_date="2001-02-03T04:05:06+00:00")
+        branch = "feature/report-2"
+        candidate = projection.candidates[branch]
+        approved_refs = {
+            record.branch: (record.head, projection.candidates[record.branch])
+            for record in projection.suffix
+        }
+        approved_locals = {branch: (self.fixed_head, candidate)}
+        verify = recovery_mod._verify_open_suffix_pr
+        calls = 0
+
+        def verify_then_drift(*args, **kwargs):
+            nonlocal calls
+            live = verify(*args, **kwargs)
+            calls += 1
+            if calls == 2:
+                helpers.run(
+                    self.repo,
+                    "git",
+                    "update-ref",
+                    f"refs/heads/{branch}",
+                    self.first_head,
+                    self.fixed_head,
+                )
+            return live
+
+        with (
+            mock.patch.object(
+                recovery_mod,
+                "_verify_open_suffix_pr",
+                side_effect=verify_then_drift,
+            ),
+            mock.patch.object(
+                recovery_mod,
+                "push_changeset_branch",
+                wraps=recovery_mod.push_changeset_branch,
+            ) as push,
+        ):
+            with self.assertRaisesRegex(CommandError, "moved from approved head"):
+                self._run_recovery(
+                    approved_ref_transitions=approved_refs,
+                    approved_local_ref_transitions=approved_locals,
+                    approved_lineage=projection.target_lineage,
+                )
+
+        push.assert_not_called()
+        self.assertEqual(self.fixed_head, self._remote_head(branch))
+
+    def test_recovery_keeps_local_effect_when_later_push_fails(self) -> None:
+        projection = self._project_recovery(committer_date="2001-02-03T04:05:06+00:00")
+        branch = "feature/report-2"
+        candidate = projection.candidates[branch]
+        approved_refs = {
+            record.branch: (record.head, projection.candidates[record.branch])
+            for record in projection.suffix
+        }
+        approved_locals = {branch: (self.fixed_head, candidate)}
+
+        with mock.patch.object(
+            recovery_mod,
+            "push_changeset_branch",
+            side_effect=CommandError("injected push failure"),
+        ):
+            with self.assertRaisesRegex(CommandError, "injected push failure"):
+                self._run_recovery(
+                    approved_ref_transitions=approved_refs,
+                    approved_local_ref_transitions=approved_locals,
+                    approved_lineage=projection.target_lineage,
+                )
+
+        self.assertEqual(
+            candidate,
+            helpers.run(self.repo, "git", "rev-parse", branch),
+        )
+        self.assertEqual(self.fixed_head, self._remote_head(branch))
+
     def test_approved_mixed_projection_recomputes_exact_remaining_tail(self) -> None:
         root = SourceIdentity("origin", "feature/report", self.source_sha)
         helpers.run(
