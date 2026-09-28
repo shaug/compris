@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from common import CommandError, git
@@ -78,12 +78,35 @@ def verify_remote_lineage(lineage: Sequence[SourceIdentity], *, remote: str) -> 
             )
 
 
-def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None:
+def verify_lineage_for_publication(
+    heads: Sequence[str],
+    *,
+    remote: str,
+    expected_heads: Mapping[str, str] | None = None,
+) -> tuple[SourceIdentity, ...]:
     """Prove selected heads share remotely reconstructible source lineage."""
 
+    if expected_heads is not None and tuple(expected_heads) != tuple(heads):
+        raise CommandError(
+            "Approved publication heads do not match the selected branch order."
+        )
     expected_lineage: tuple[SourceIdentity, ...] | None = None
     for head in heads:
-        message = git("show", "-s", "--format=%B", head).stdout
+        resolved = git(
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{head}^{{commit}}",
+            check=False,
+        )
+        if resolved.returncode != 0:
+            raise CommandError(f"Changeset branch {head} does not resolve exactly.")
+        candidate = resolved.stdout.strip()
+        if expected_heads is not None and expected_heads[head] != candidate:
+            raise CommandError(
+                f"Changeset branch {head} is {candidate}; approved manifest requires "
+                f"{expected_heads[head]}."
+            )
+        message = git("show", "-s", "--format=%B", candidate).stdout
         try:
             metadata = parse_commit_message(message, remote=remote)
         except MetadataError as exc:
@@ -111,3 +134,4 @@ def verify_lineage_for_publication(heads: Sequence[str], *, remote: str) -> None
     if expected_lineage is None:
         raise CommandError("No changeset branches were selected for publication.")
     verify_remote_lineage(expected_lineage, remote=remote)
+    return expected_lineage

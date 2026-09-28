@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import os
 import re
 import subprocess
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 DEFAULT_PLAN_PATH = Path(".carve-changesets/plan.json")
 
@@ -35,7 +36,11 @@ TEST_COMMAND_HINTS: Tuple[str, ...] = (
 
 
 def run(
-    cmd: Sequence[str], *, capture: bool = True, check: bool = True
+    cmd: Sequence[str],
+    *,
+    capture: bool = True,
+    check: bool = True,
+    env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a command and return the completed process."""
     try:
@@ -44,6 +49,7 @@ def run(
             text=True,
             capture_output=capture,
             check=False,
+            env=None if env is None else {**os.environ, **env},
         )
     except FileNotFoundError as exc:
         raise CommandError(f"Command not found: {cmd[0]}") from exc
@@ -57,10 +63,13 @@ def run(
 
 
 def git(
-    *args: str, capture: bool = True, check: bool = True
+    *args: str,
+    capture: bool = True,
+    check: bool = True,
+    env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     """Run a git command."""
-    return run(("git",) + args, capture=capture, check=check)
+    return run(("git",) + args, capture=capture, check=check, env=env)
 
 
 def ensure_git_repo() -> None:
