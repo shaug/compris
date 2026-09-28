@@ -113,6 +113,68 @@ class CliSafetyTests(unittest.TestCase):
             self.assertEqual("remote-mutating", args.mutation_class)
             self.assertTrue(args.dry_run)
 
+    def test_issue_167_remote_transitions_preview_and_require_distinct_grants(
+        self,
+    ) -> None:
+        parser = build_parser()
+        cases = (
+            (("push-chain",), "ack_push"),
+            (("pr-create",), "ack_submit"),
+            (
+                ("propagate", "--source", "feature/test", "--index", "1"),
+                "ack_repair",
+            ),
+            (
+                (
+                    "merge-propagate",
+                    "--source",
+                    "feature/test",
+                    "--index",
+                    "1",
+                ),
+                "ack_direct_merge",
+            ),
+            (
+                (
+                    "recover-suffix",
+                    "--source",
+                    "feature/test",
+                    "--base",
+                    "main",
+                    "--from-index",
+                    "2",
+                    "--successor-source",
+                    "feature/test-corrected",
+                    "--successor-sha",
+                    "a" * 40,
+                ),
+                "ack_suffix_recovery",
+            ),
+        )
+        for argv, grant in cases:
+            with self.subTest(command=argv[0]):
+                args = parser.parse_args(argv)
+                self.assertFalse(args.execute)
+                self.assertIsNone(args.manifest)
+                self.assertFalse(getattr(args, grant))
+
+        queue = parser.parse_args(
+            (
+                "merge-propagate",
+                "--source",
+                "feature/test",
+                "--index",
+                "1",
+                "--merge-mode",
+                "queue",
+                "--execute",
+                "--ack-queue-merge",
+            )
+        )
+        self.assertTrue(queue.execute)
+        self.assertTrue(queue.ack_queue_merge)
+        self.assertFalse(queue.ack_direct_merge)
+
     def test_issue_30_uses_file_messages_and_never_hard_resets(self) -> None:
         scripts = Path(__file__).resolve().parents[1]
         implementation = "\n".join(

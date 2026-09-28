@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from common import (
@@ -39,6 +41,7 @@ from propagate import (
 )
 from publication import remote_identity_head, verify_remote_lineage
 from rehydrate import (
+    Chain,
     ChangesetRecord,
     PullRequestRecord,
     RehydrationError,
@@ -47,6 +50,20 @@ from rehydrate import (
 from validate import validate_live_chain
 
 RECOVERY_AUTHORITY_FLAG = "--ack-suffix-recovery"
+ZERO_SHA = "0" * 40
+
+
+@dataclass(frozen=True)
+class RecoveryProjection:
+    """Exact local successor projection derived from current live suffix state."""
+
+    chain: Chain
+    pull_requests: tuple[PullRequestRecord, ...]
+    suffix: tuple[ChangesetRecord, ...]
+    candidates: Mapping[str, str]
+    metadata: Mapping[str, ChangesetMetadata]
+    expected_bases: Mapping[int, str]
+    target_lineage: tuple[SourceIdentity, ...]
 
 
 def _resolve(ref: str) -> str | None:
@@ -132,9 +149,16 @@ def _metadata_for_recovery(
 
 def _amend_metadata(metadata: ChangesetMetadata) -> str:
     message = git("show", "-s", "--format=%B", "HEAD").stdout
+    author_date = git("show", "-s", "--format=%aI", "HEAD").stdout.strip()
     restamped = stamp_commit_message(message, metadata)
     with message_file(restamped) as path:
-        git("commit", "--amend", "-F", path)
+        git(
+            "commit",
+            "--amend",
+            "-F",
+            path,
+            env={"GIT_COMMITTER_DATE": author_date},
+        )
     return git("rev-parse", "HEAD").stdout.strip()
 
 
@@ -150,7 +174,11 @@ def _branch_checked_out_elsewhere(branch: str) -> bool:
 
 
 def _sync_local_branch(
-    record: ChangesetRecord, *, candidate: str, metadata: ChangesetMetadata
+    record: ChangesetRecord,
+    *,
+    candidate: str,
+    metadata: ChangesetMetadata,
+    expected_local_head: str | None = None,
 ) -> None:
     checked_out_here = current_branch() == record.branch
     if _branch_checked_out_elsewhere(record.branch):
@@ -160,16 +188,25 @@ def _sync_local_branch(
         )
     ref = f"refs/heads/{record.branch}"
     local = _resolve(ref)
+    if expected_local_head is not None:
+        approved = None if expected_local_head == ZERO_SHA else expected_local_head
+        if local != approved:
+            raise CommandError(
+                f"Local suffix branch {record.branch} moved from approved head "
+                f"{expected_local_head} to {local or ZERO_SHA}; recovery will not "
+                "overwrite it."
+            )
     if local == candidate:
         return
-    allowed = {record.head}
-    if metadata.recovery_from_head:
-        allowed.add(metadata.recovery_from_head)
-    if local is not None and local not in allowed:
-        raise CommandError(
-            f"Local suffix branch {record.branch} unexpectedly advanced to {local}; "
-            "recovery will not overwrite it."
-        )
+    if expected_local_head is None:
+        allowed = {record.head}
+        if metadata.recovery_from_head:
+            allowed.add(metadata.recovery_from_head)
+        if local is not None and local not in allowed:
+            raise CommandError(
+                f"Local suffix branch {record.branch} unexpectedly advanced to "
+                f"{local}; recovery will not overwrite it."
+            )
     if checked_out_here:
         git("checkout", "--detach", local or record.head)
     if local is None:
@@ -178,6 +215,40 @@ def _sync_local_branch(
         git("update-ref", ref, candidate, local)
     if checked_out_here:
         git("checkout", record.branch)
+
+
+def _validate_approved_local_refs(
+    suffix: tuple[ChangesetRecord, ...],
+    candidates: Mapping[str, str],
+    approved: Mapping[str, tuple[str, str]],
+) -> None:
+    selected = tuple(record.branch for record in suffix)
+    if tuple(approved) != selected:
+        raise CommandError(
+            "Approved manifest local-ref membership does not match the recovery "
+            f"suffix: approved {tuple(approved)!r}; observed {selected!r}."
+        )
+    for record in suffix:
+        expected_before, expected_after = approved[record.branch]
+        candidate = candidates[record.branch]
+        if candidate != expected_after:
+            raise CommandError(
+                f"Computed local recovery head for {record.branch} is {candidate}; "
+                f"approved manifest requires {expected_after}."
+            )
+        observed = _resolve(f"refs/heads/{record.branch}") or ZERO_SHA
+        if observed != expected_before:
+            raise CommandError(
+                f"Local suffix branch {record.branch} moved from approved head "
+                f"{expected_before} to {observed}; recovery was withheld."
+            )
+        if expected_before != expected_after and _branch_checked_out_elsewhere(
+            record.branch
+        ):
+            raise CommandError(
+                f"Owned suffix branch {record.branch} is checked out in a worktree; "
+                "local recovery was withheld."
+            )
 
 
 def _verify_open_suffix_pr(
@@ -263,7 +334,7 @@ def _verify_open_suffix_pr(
     return live
 
 
-def recover_suffix_from_live(
+def project_suffix_recovery_from_live(
     *,
     source: str,
     base: str,
@@ -271,18 +342,11 @@ def recover_suffix_from_live(
     successor_branch: str,
     successor_sha: str,
     remote: str,
-    dry_run: bool,
-    authority_acknowledged: bool,
-) -> None:
-    """Restamp only the first unmerged suffix against an immutable successor."""
+) -> RecoveryProjection:
+    """Build exact successor heads locally without changing remote state."""
 
     ensure_git_repo()
     ensure_clean_tree()
-    if not dry_run and not authority_acknowledged:
-        raise CommandError(
-            f"Remote execution requires {RECOVERY_AUTHORITY_FLAG} in addition "
-            "to --no-dry-run."
-        )
     git("fetch", "--prune", remote)
     successor = SourceIdentity(remote, successor_branch, successor_sha)
     pull_requests = pull_requests_for_source(source, remote=remote)
@@ -333,7 +397,7 @@ def recover_suffix_from_live(
             by_number[record.pr_number], base=chain.base_branch, remote=remote
         )
 
-    suffix = list(chain.changesets[first_open - 1 :])
+    suffix = tuple(chain.changesets[first_open - 1 :])
     target_lineage = chain.source_lineage
     expected_bases = {
         record.position: (
@@ -352,21 +416,19 @@ def recover_suffix_from_live(
             remote=remote,
         )
 
-    candidates: dict[int, str] = {}
+    candidates_by_index: dict[int, str] = {}
     metadata_by_index: dict[int, ChangesetMetadata] = {}
     temp_branches: list[str] = []
-    temp_by_index: dict[int, str] = {}
     with checkout_restore() as original:
         try:
             for record in suffix:
                 metadata = _metadata_for_recovery(record, target_lineage)
                 metadata_by_index[record.position] = metadata
                 if record.metadata == metadata:
-                    candidates[record.position] = record.head
+                    candidates_by_index[record.position] = record.head
                     continue
                 temp = unique_temp_branch(f"carve-recover-{record.position}")
                 temp_branches.append(temp)
-                temp_by_index[record.position] = temp
                 git("branch", temp, record.head)
                 git("checkout", temp)
                 if record.position == first_open:
@@ -388,71 +450,181 @@ def recover_suffix_from_live(
                     )
                     git(
                         "rebase",
+                        "--committer-date-is-author-date",
                         "--onto",
-                        candidates[record.position - 1],
+                        candidates_by_index[record.position - 1],
                         old_base,
                         temp,
                     )
-                candidates[record.position] = _amend_metadata(metadata)
+                candidates_by_index[record.position] = _amend_metadata(metadata)
 
             successor_tree = _resolve(f"{successor.sha}^{{tree}}")
-            tip = candidates[suffix[-1].position]
+            tip = candidates_by_index[suffix[-1].position]
             tip_tree = _resolve(f"{tip}^{{tree}}")
             if successor_tree is None or tip_tree != successor_tree:
                 raise CommandError(
                     "Recovered suffix does not recompose to the exact successor-source tree."
                 )
-
-            for record in suffix:
-                index = record.position
-                candidate = candidates[index]
-                metadata = metadata_by_index[index]
-                live = _verify_open_suffix_pr(
-                    record,
-                    expected_head=record.head,
-                    expected_base=expected_bases[index],
-                    target_lineage=target_lineage,
-                    remote=remote,
-                )
-                if candidate != record.head:
-                    push_changeset_branch(
-                        record.branch,
-                        remote=remote,
-                        dry_run=dry_run,
-                        expected_remote_head=record.head,
-                        local_ref=temp_by_index[index],
-                    )
-                    if not dry_run:
-                        verify_remote_lineage(target_lineage, remote=remote)
-                updated_body = embed_pr_metadata(live.body, metadata)
-                if updated_body != live.body:
-                    edit_pull_request(
-                        live.number,
-                        remote=remote,
-                        body=updated_body,
-                        dry_run=dry_run,
-                    )
-                if not dry_run:
-                    verified = pull_request_by_number(live.number, remote=remote)
-                    verified_metadata = parse_commit_message(
-                        git("show", "-s", "--format=%B", candidate).stdout,
-                        remote=remote,
-                    )
-                    if (
-                        verified.head_sha != candidate
-                        or verified.body != updated_body
-                        or verified_metadata != metadata
-                    ):
-                        raise CommandError(
-                            f"Recovered PR #{live.number} could not be verified at "
-                            f"exact head {candidate} with its expected body."
-                        )
-                    _sync_local_branch(record, candidate=candidate, metadata=metadata)
         finally:
             if current_branch() != original:
                 git("checkout", original)
             for temp in temp_branches:
                 delete_branch(temp)
+
+    return RecoveryProjection(
+        chain=chain,
+        pull_requests=tuple(pull_requests),
+        suffix=suffix,
+        candidates={
+            record.branch: candidates_by_index[record.position] for record in suffix
+        },
+        metadata={
+            record.branch: metadata_by_index[record.position] for record in suffix
+        },
+        expected_bases=expected_bases,
+        target_lineage=target_lineage,
+    )
+
+
+def recover_suffix_from_live(
+    *,
+    source: str,
+    base: str,
+    from_index: int,
+    successor_branch: str,
+    successor_sha: str,
+    remote: str,
+    dry_run: bool,
+    authority_acknowledged: bool,
+    approved_pr_text: dict[int, tuple[str, str]] | None = None,
+    approved_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    approved_local_ref_transitions: Mapping[str, tuple[str, str]] | None = None,
+    approved_lineage: Sequence[SourceIdentity] | None = None,
+) -> None:
+    """Restamp only the first unmerged suffix against an immutable successor."""
+
+    if not dry_run and not authority_acknowledged:
+        raise CommandError(
+            f"Remote execution requires {RECOVERY_AUTHORITY_FLAG} in addition "
+            "to --no-dry-run."
+        )
+    projection = project_suffix_recovery_from_live(
+        source=source,
+        base=base,
+        from_index=from_index,
+        successor_branch=successor_branch,
+        successor_sha=successor_sha,
+        remote=remote,
+    )
+    if approved_lineage is not None and tuple(approved_lineage) != (
+        projection.target_lineage
+    ):
+        raise CommandError(
+            "Computed recovery lineage differs from the approved manifest lineage."
+        )
+    suffix = projection.suffix
+    if approved_ref_transitions is not None:
+        selected = tuple(record.branch for record in suffix)
+        if tuple(approved_ref_transitions) != selected:
+            raise CommandError(
+                "Approved manifest ref membership does not match the recovery "
+                f"suffix: approved {tuple(approved_ref_transitions)!r}; "
+                f"observed {selected!r}."
+            )
+        for record in suffix:
+            approved_old, approved_new = approved_ref_transitions[record.branch]
+            if record.head != approved_old:
+                raise CommandError(
+                    f"Changeset {record.branch} is {record.head}; approved manifest "
+                    f"requires old head {approved_old}."
+                )
+            candidate = projection.candidates[record.branch]
+            if candidate != approved_new:
+                raise CommandError(
+                    f"Computed recovery head for {record.branch} is {candidate}; "
+                    f"approved manifest requires {approved_new}."
+                )
+    if approved_local_ref_transitions is not None:
+        _validate_approved_local_refs(
+            suffix,
+            projection.candidates,
+            approved_local_ref_transitions,
+        )
+
+    for record in suffix:
+        candidate = projection.candidates[record.branch]
+        metadata = projection.metadata[record.branch]
+        approved_ref = (
+            None
+            if approved_ref_transitions is None
+            else approved_ref_transitions[record.branch]
+        )
+        live = _verify_open_suffix_pr(
+            record,
+            expected_head=record.head,
+            expected_base=projection.expected_bases[record.position],
+            target_lineage=projection.target_lineage,
+            remote=remote,
+        )
+        updated_body = embed_pr_metadata(live.body, metadata)
+        if approved_pr_text is not None:
+            approved = approved_pr_text.get(live.number)
+            if approved is None:
+                raise CommandError(
+                    f"Approved manifest has no PR text for #{live.number}."
+                )
+            approved_title, approved_body = approved
+            if approved_title != live.title or approved_body != updated_body:
+                raise CommandError(
+                    f"PR #{live.number} automatic text differs from the "
+                    "approved manifest; recovery was withheld."
+                )
+            updated_body = approved_body
+        if not dry_run:
+            _sync_local_branch(
+                record,
+                candidate=candidate,
+                metadata=metadata,
+                expected_local_head=(
+                    None
+                    if approved_local_ref_transitions is None
+                    else approved_local_ref_transitions[record.branch][0]
+                ),
+            )
+        if candidate != record.head:
+            push_changeset_branch(
+                record.branch,
+                remote=remote,
+                dry_run=dry_run,
+                expected_remote_head=(
+                    record.head if approved_ref is None else approved_ref[0]
+                ),
+                local_ref=candidate,
+            )
+            if not dry_run:
+                verify_remote_lineage(projection.target_lineage, remote=remote)
+        if updated_body != live.body:
+            edit_pull_request(
+                live.number,
+                remote=remote,
+                body=updated_body,
+                dry_run=dry_run,
+            )
+        if not dry_run:
+            verified = pull_request_by_number(live.number, remote=remote)
+            verified_metadata = parse_commit_message(
+                git("show", "-s", "--format=%B", candidate).stdout,
+                remote=remote,
+            )
+            if (
+                verified.head_sha != candidate
+                or verified.body != updated_body
+                or verified_metadata != metadata
+            ):
+                raise CommandError(
+                    f"Recovered PR #{live.number} could not be verified at "
+                    f"exact head {candidate} with its expected body."
+                )
 
     if dry_run:
         print(

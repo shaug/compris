@@ -22,6 +22,7 @@ from metadata import (
     stamp_commit_message,
 )
 from propagate import (
+    REMOTE_REF_ABSENT,
     merge_propagate_from_live,
     propagate_from_live,
     push_chain,
@@ -31,6 +32,41 @@ from rehydrate import PullRequestRecord
 
 
 class PushChainTests(unittest.TestCase):
+    def test_publication_lineage_reads_the_branch_when_a_tag_has_the_same_name(
+        self,
+    ) -> None:
+        repo_dir, plan = init_repo()
+        remote_dir = None
+        try:
+            remote_dir = init_remote(repo_dir)
+            with chdir(repo_dir):
+                create_chain(plan)
+                run(["git", "push", "origin", plan["source_branch"]], cwd=repo_dir)
+                branch = "feature/test-1"
+                valid_head = run(
+                    ["git", "rev-parse", f"refs/heads/{branch}"], cwd=repo_dir
+                ).stdout.strip()
+                run(["git", "tag", branch, valid_head], cwd=repo_dir)
+                run(["git", "checkout", branch], cwd=repo_dir)
+                helpers.run(
+                    repo_dir,
+                    "git",
+                    "commit",
+                    "--amend",
+                    "-F",
+                    "-",
+                    input_text="feat: branch metadata is intentionally legacy\n",
+                )
+
+                with self.assertRaisesRegex(CommandError, "invalid source identity"):
+                    publication_mod.verify_lineage_for_publication(
+                        (branch,), remote="origin"
+                    )
+        finally:
+            shutil.rmtree(repo_dir)
+            if remote_dir is not None:
+                shutil.rmtree(remote_dir.parent)
+
     def test_remote_branch_lookups_share_one_exact_parser(self) -> None:
         self.assertIs(
             propagate_mod.remote_branch_head,
@@ -212,6 +248,21 @@ class PushChainTests(unittest.TestCase):
                     remote="origin",
                     dry_run=False,
                     expected_remote_head="a" * 40,
+                )
+
+        git_call.assert_not_called()
+
+    def test_push_rejects_branch_created_after_approved_absence(self) -> None:
+        with (
+            mock.patch("propagate.remote_branch_head", return_value="b" * 40),
+            mock.patch("propagate.git") as git_call,
+        ):
+            with self.assertRaisesRegex(CommandError, "expected to be absent"):
+                push_changeset_branch(
+                    "feature/test-2",
+                    remote="origin",
+                    dry_run=False,
+                    expected_remote_head=REMOTE_REF_ABSENT,
                 )
 
         git_call.assert_not_called()
@@ -497,6 +548,226 @@ class StatelessPropagationTests(unittest.TestCase):
         self.assertEqual("main", self.prs[102].base_branch)
         self.assertEqual("Report API (2 of 3)", self.prs[102].title)
         self.assertEqual("Report API (3 of 3)", self.prs[103].title)
+
+    def test_manifest_execution_reprojects_exact_heads_before_mutation(self) -> None:
+        self._merge(101)
+        real_push = propagate_mod.push_changeset_branch
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ),
+            mock.patch.object(
+                propagate_mod, "push_changeset_branch", wraps=real_push
+            ) as push,
+        ):
+            chain, _pull_requests = propagate_mod._rehydrate_live(
+                source="feature/report", base="main", remote="origin"
+            )
+            projection = propagate_mod.project_propagation(
+                chain, merged_index=1, strategy="rebase", remote="origin"
+            )
+            suffix = chain.changesets[1:]
+            approved_refs = {
+                record.branch: (
+                    record.head,
+                    projection.candidates[record.branch],
+                )
+                for record in suffix
+            }
+            approved_locals = {
+                record.branch: (
+                    helpers.run(
+                        self.repo,
+                        "git",
+                        "rev-parse",
+                        f"refs/heads/{record.branch}",
+                    ),
+                    projection.candidates[record.branch],
+                )
+                for record in suffix
+            }
+            approved_text = {
+                record.pr_number: (
+                    f"Report API ({record.position} of 3)",
+                    self.prs[record.pr_number].body,
+                )
+                for record in suffix
+            }
+
+            propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=101,
+                index=None,
+                strategy="rebase",
+                remote="origin",
+                dry_run=False,
+                authority_acknowledged=True,
+                approved_pr_text=approved_text,
+                approved_ref_transitions=approved_refs,
+                approved_local_ref_transitions=approved_locals,
+            )
+
+        self.assertEqual(
+            ["feature/report-2", "feature/report-3"],
+            [call.args[0] for call in push.call_args_list],
+        )
+        for branch, candidate in projection.candidates.items():
+            self.assertEqual(
+                candidate,
+                helpers.run(self.repo, "git", "rev-parse", branch),
+            )
+            remote = helpers.run(
+                self.repo,
+                "git",
+                "ls-remote",
+                "origin",
+                f"refs/heads/{branch}",
+            )
+            self.assertEqual(candidate, remote.split()[0])
+
+    def test_propagate_is_fenced_by_manifest_declared_pr_text(self) -> None:
+        self._merge(101)
+        approved_pr_text = {
+            102: ("Report API (2 of 3)", self.prs[102].body),
+            103: ("Report API (3 of 3)", self.prs[103].body),
+        }
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "edit_pull_request", side_effect=self._edit
+            ),
+        ):
+            propagate_from_live(
+                source="feature/report",
+                base="main",
+                pr_number=101,
+                index=None,
+                strategy="rebase",
+                remote="origin",
+                dry_run=False,
+                authority_acknowledged=True,
+                approved_pr_text=approved_pr_text,
+            )
+
+        self.assertEqual(approved_pr_text[102][0], self.prs[102].title)
+        self.assertEqual(approved_pr_text[103][0], self.prs[103].title)
+
+    def test_propagation_rejects_manifest_old_head_drift_before_any_push(
+        self,
+    ) -> None:
+        self._merge(101)
+        approved_ref_transitions = {
+            "feature/report-2": ("f" * 40, self.prs[102].head_sha),
+            "feature/report-3": (
+                self.prs[103].head_sha,
+                self.prs[103].head_sha,
+            ),
+        }
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(propagate_mod, "push_changeset_branch") as push,
+        ):
+            try:
+                with self.assertRaisesRegex(CommandError, "approved manifest"):
+                    propagate_from_live(
+                        source="feature/report",
+                        base="main",
+                        pr_number=101,
+                        index=None,
+                        strategy="rebase",
+                        remote="origin",
+                        dry_run=False,
+                        authority_acknowledged=True,
+                        approved_ref_transitions=approved_ref_transitions,
+                    )
+            except TypeError as exc:
+                self.fail(f"repair executor does not consume approved refs: {exc}")
+
+        push.assert_not_called()
+
+    def test_propagation_rejects_recomputed_projection_drift_before_any_push(
+        self,
+    ) -> None:
+        self._merge(101)
+        approved_ref_transitions = {
+            "feature/report-2": (
+                self.prs[102].head_sha,
+                self.prs[102].head_sha,
+            ),
+            "feature/report-3": (
+                self.prs[103].head_sha,
+                self.prs[103].head_sha,
+            ),
+        }
+        drifted = mock.Mock(
+            candidates={
+                "feature/report-2": "f" * 40,
+                "feature/report-3": self.prs[103].head_sha,
+            }
+        )
+        with (
+            chdir(self.repo),
+            mock.patch.object(
+                propagate_mod,
+                "pull_requests_for_source",
+                side_effect=lambda *_args, **_kwargs: self._all_live_prs(),
+            ),
+            mock.patch.object(
+                propagate_mod, "pull_request_by_number", side_effect=self._live_pr
+            ),
+            mock.patch.object(
+                propagate_mod, "project_propagation", return_value=drifted
+            ),
+            mock.patch.object(propagate_mod, "push_changeset_branch") as push,
+        ):
+            with self.assertRaisesRegex(
+                CommandError, "Computed propagation head.*approved manifest"
+            ):
+                propagate_from_live(
+                    source="feature/report",
+                    base="main",
+                    pr_number=101,
+                    index=None,
+                    strategy="rebase",
+                    remote="origin",
+                    dry_run=False,
+                    authority_acknowledged=True,
+                    approved_ref_transitions=approved_ref_transitions,
+                    approved_local_ref_transitions={
+                        branch: (head, head)
+                        for branch, (head, _proposed) in (
+                            approved_ref_transitions.items()
+                        )
+                    },
+                )
+
+        push.assert_not_called()
 
     def test_propagation_rechecks_lineage_after_each_push(self) -> None:
         self._merge(101)
