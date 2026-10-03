@@ -73,6 +73,362 @@ class LiveEquivalence:
     topology: NativeStackSnapshot
 
 
+@dataclass(frozen=True)
+class LayerGateEvidence:
+    head: str
+    validation_head: str
+    validation_base: str
+    validation_passed: bool
+    validation_id: str
+    review_head: str
+    review_base: str
+    review_clean: bool
+    review_id: str
+
+
+@dataclass(frozen=True)
+class StackGateResult:
+    terminal_state: str
+    phase: str
+    identities: tuple[str, ...]
+    evidence_ids: tuple[str, ...]
+    blocker: str | None
+    next_action: str
+    trunk_head: str
+    layer_heads: tuple[tuple[str, str], ...]
+    active_source: SourceIdentity
+    topology: NativeStackSnapshot
+    cleanup_remaining: tuple[str, ...] = ()
+    cleanup_authority_limit: str | None = None
+
+
+@dataclass(frozen=True)
+class PublishedLayerEvidence:
+    pr_number: int
+    head: str
+    remote_head: str
+    base_branch: str
+    base_sha: str
+    semantic_trailer_current: bool
+    native_member: bool
+    non_merge_passed: bool
+    gate_id: str
+
+
+@dataclass(frozen=True)
+class CleanupEvidence:
+    status: Literal["complete", "bounded"]
+    evidence_id: str
+    remaining_targets: tuple[str, ...]
+    authority_limit: str | None
+
+
+def assess_chain_ready(
+    *,
+    snapshot: NativeStackSnapshot,
+    active_source: SourceIdentity,
+    topology_readback: NativeStackSnapshot,
+    equivalence: LiveEquivalence,
+    layer_evidence: Mapping[str, LayerGateEvidence],
+) -> StackGateResult:
+    """Require current exact-head evidence before promoting a local stack."""
+
+    identities = tuple(layer.branch for layer in snapshot.layers)
+    layer_heads = tuple((layer.branch, layer.head) for layer in snapshot.layers)
+    evidence_ids: list[str] = []
+
+    def blocked(reason: str, action: str) -> StackGateResult:
+        return StackGateResult(
+            "blocked",
+            "materialized",
+            identities,
+            tuple(evidence_ids),
+            reason,
+            action,
+            snapshot.trunk_head,
+            layer_heads,
+            active_source,
+            snapshot,
+        )
+
+    if not snapshot.layers:
+        return blocked(
+            "The native changeset chain is empty.",
+            "Materialize a nonempty native chain.",
+        )
+    if topology_readback != snapshot:
+        return blocked(
+            "Native topology readback changed.",
+            "Refresh native topology and reassess the stack.",
+        )
+    current_open_heads = tuple(
+        (layer.branch, layer.head) for layer in snapshot.open_suffix
+    )
+    if (
+        not equivalence.valid
+        or equivalence.topology != snapshot
+        or equivalence.trunk_head != snapshot.trunk_head
+        or equivalence.open_heads != current_open_heads
+        or equivalence.active_source != active_source
+    ):
+        return blocked(
+            f"Live equivalence is absent, stale, or failed: {equivalence.code}.",
+            "Reconstruct the open suffix against current remote trunk.",
+        )
+    for layer in snapshot.layers:
+        evidence = layer_evidence.get(layer.branch)
+        if (
+            evidence is None
+            or evidence.head != layer.head
+            or evidence.validation_head != layer.head
+            or evidence.validation_base != layer.base
+            or not evidence.validation_passed
+            or not evidence.validation_id
+        ):
+            return blocked(
+                f"Current exact-head validation is missing for {layer.branch}.",
+                f"Validate {layer.branch} at {layer.head}.",
+            )
+        evidence_ids.append(evidence.validation_id)
+        if (
+            evidence.review_head != layer.head
+            or evidence.review_base != layer.base
+            or not evidence.review_clean
+            or not evidence.review_id
+        ):
+            return blocked(
+                f"Current clean review is missing for {layer.branch}.",
+                f"Review {layer.branch} at {layer.head}.",
+            )
+        evidence_ids.append(evidence.review_id)
+    return StackGateResult(
+        "chain_ready",
+        "materialized",
+        identities,
+        tuple(evidence_ids),
+        None,
+        "Proceed to the authorized publication gate.",
+        snapshot.trunk_head,
+        layer_heads,
+        active_source,
+        snapshot,
+    )
+
+
+def assess_prs_open(
+    *,
+    snapshot: NativeStackSnapshot,
+    active_source: SourceIdentity,
+    chain_ready: StackGateResult,
+    topology_readback: NativeStackSnapshot,
+    published: Mapping[str, PublishedLayerEvidence],
+) -> StackGateResult:
+    """Require publication evidence for every exact open native layer."""
+
+    identities = tuple(layer.branch for layer in snapshot.layers)
+    layer_heads = tuple((layer.branch, layer.head) for layer in snapshot.layers)
+    evidence_ids = list(chain_ready.evidence_ids)
+
+    def blocked(reason: str, action: str) -> StackGateResult:
+        return StackGateResult(
+            "blocked",
+            "published",
+            identities,
+            tuple(evidence_ids),
+            reason,
+            action,
+            snapshot.trunk_head,
+            layer_heads,
+            active_source,
+            snapshot,
+        )
+
+    if (
+        chain_ready.terminal_state != "chain_ready"
+        or chain_ready.topology != snapshot
+        or chain_ready.trunk_head != snapshot.trunk_head
+        or chain_ready.layer_heads != layer_heads
+        or chain_ready.active_source != active_source
+    ):
+        return blocked(
+            "Current chain_ready evidence is missing.",
+            "Revalidate and review the exact current chain.",
+        )
+    if topology_readback != snapshot:
+        return blocked(
+            "Native topology readback changed.",
+            "Refresh native topology and reassess publication.",
+        )
+    predecessor = snapshot.trunk_branch
+    for layer in snapshot.open_suffix:
+        evidence = published.get(layer.branch)
+        if (
+            evidence is None
+            or layer.pull_request is None
+            or layer.pull_request.state != "OPEN"
+            or evidence.pr_number != layer.pull_request.number
+            or evidence.head != layer.head
+            or evidence.remote_head != layer.head
+        ):
+            return blocked(
+                f"Exact remote head or open pull request is missing for {layer.branch}.",
+                f"Read back remote branch and pull request for {layer.branch}.",
+            )
+        if evidence.base_branch != predecessor or not evidence.native_member:
+            return blocked(
+                f"Pull request base or native membership changed for {layer.branch}.",
+                f"Read back native stack topology and pull request #{evidence.pr_number}.",
+            )
+        if (
+            evidence.base_sha != layer.base
+            or not evidence.semantic_trailer_current
+            or not evidence.non_merge_passed
+            or not evidence.gate_id
+        ):
+            return blocked(
+                f"Current semantic metadata or non-merge gates are missing for {layer.branch}.",
+                f"Recheck metadata and non-merge gates for PR #{evidence.pr_number}.",
+            )
+        evidence_ids.append(evidence.gate_id)
+        predecessor = layer.branch
+    if not snapshot.open_suffix:
+        return blocked(
+            "No open suffix remains to publish.",
+            "Assess all_merged against current trunk.",
+        )
+    return StackGateResult(
+        "prs_open",
+        "published",
+        identities,
+        tuple(evidence_ids),
+        None,
+        "Continue the authorized pull-request lifecycle.",
+        snapshot.trunk_head,
+        layer_heads,
+        active_source,
+        snapshot,
+    )
+
+
+def assess_all_merged(
+    *,
+    snapshot: NativeStackSnapshot,
+    equivalence: LiveEquivalence,
+    active_source: SourceIdentity,
+    chain_prs: tuple[int, ...],
+    merged_prs: tuple[int, ...],
+    native_synchronized: bool,
+    trunk_validation_head: str,
+    trunk_validation_passed: bool,
+    trunk_validation_id: str,
+    cleanup: CleanupEvidence,
+) -> StackGateResult:
+    """Require completed native landing and current trunk evidence."""
+
+    identities = tuple(layer.branch for layer in snapshot.layers) or tuple(
+        f"PR #{number}" for number in chain_prs
+    )
+    layer_heads = tuple((layer.branch, layer.head) for layer in snapshot.layers)
+
+    def blocked(reason: str, action: str) -> StackGateResult:
+        return StackGateResult(
+            "blocked",
+            "merged",
+            identities,
+            (),
+            reason,
+            action,
+            snapshot.trunk_head,
+            layer_heads,
+            active_source,
+            snapshot,
+        )
+
+    observed_prs = tuple(
+        layer.pull_request.number
+        for layer in snapshot.layers
+        if layer.pull_request is not None
+    )
+    if (
+        snapshot.open_suffix
+        or not chain_prs
+        or len(set(chain_prs)) != len(chain_prs)
+        or any(number < 1 for number in chain_prs)
+        or merged_prs != chain_prs
+        or (snapshot.layers and observed_prs != chain_prs)
+        or (snapshot.layers and len(observed_prs) != len(snapshot.layers))
+        or any(
+            layer.pull_request is not None and layer.pull_request.state != "MERGED"
+            for layer in snapshot.layers
+        )
+    ):
+        return blocked(
+            "The complete pull-request chain has not merged.",
+            "Verify every chain PR is merged and the open suffix is empty.",
+        )
+    if not native_synchronized:
+        return blocked(
+            "Native synchronization is incomplete.",
+            "Synchronize and read back the native stack.",
+        )
+    if (
+        not equivalence.valid
+        or equivalence.topology != snapshot
+        or equivalence.trunk_head != snapshot.trunk_head
+        or equivalence.open_heads
+        or equivalence.active_source != active_source
+        or equivalence.merged_prefix != chain_prs
+    ):
+        return blocked(
+            "Current-trunk equivalence is missing or stale.",
+            "Reprove current trunk against the active remote source.",
+        )
+    if (
+        trunk_validation_head != snapshot.trunk_head
+        or not trunk_validation_passed
+        or not trunk_validation_id
+    ):
+        return blocked(
+            "Current-trunk validation is missing.",
+            "Validate the exact current trunk head.",
+        )
+    if (
+        not isinstance(cleanup, CleanupEvidence)
+        or not cleanup.evidence_id
+        or (
+            cleanup.status == "complete"
+            and (cleanup.remaining_targets or cleanup.authority_limit is not None)
+        )
+        or (
+            cleanup.status == "bounded"
+            and (
+                not cleanup.remaining_targets
+                or not cleanup.authority_limit
+                or any(not target.strip() for target in cleanup.remaining_targets)
+            )
+        )
+        or cleanup.status not in {"complete", "bounded"}
+    ):
+        return blocked(
+            "Cleanup is not complete or precisely bounded by named authority.",
+            "Complete authorized cleanup or record its exact authority limit.",
+        )
+    return StackGateResult(
+        "all_merged",
+        "merged",
+        identities,
+        (trunk_validation_id, cleanup.evidence_id),
+        None,
+        "Return the verified all_merged handoff.",
+        snapshot.trunk_head,
+        layer_heads,
+        active_source,
+        snapshot,
+        cleanup.remaining_targets,
+        cleanup.authority_limit,
+    )
+
+
 def validate_live_equivalence(
     *,
     snapshot: NativeStackSnapshot,

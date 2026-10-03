@@ -1003,6 +1003,83 @@ class LiveEquivalenceTests(unittest.TestCase):
         self.assertFalse(result.valid)
         self.assertEqual("successor_source_not_remote", result.code)
 
+    def test_trunk_drift_blocks_old_suffix_until_remote_successor_recovery(
+        self,
+    ) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "trunk-only.txt").write_text("new trunk\n")
+        helpers.run(self.repo, "git", "add", "trunk-only.txt")
+        trunk = helpers.commit(self.repo, "advance trunk")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        stale = replace(first, base=trunk)
+        snapshot = NativeStackSnapshot("main", trunk, "layer-one", (stale,))
+        source = SourceIdentity("origin", "feature/report", self.source_sha)
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=source, cwd=self.repo
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("predecessor_ancestry_broken", result.code)
+        gate = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=source,
+            topology_readback=snapshot,
+            equivalence=result,
+            layer_evidence={
+                stale.branch: validate_mod.LayerGateEvidence(
+                    stale.head,
+                    stale.head,
+                    stale.base,
+                    True,
+                    "validation:current",
+                    stale.head,
+                    stale.base,
+                    True,
+                    "review:current",
+                )
+            },
+        )
+        self.assertEqual("blocked", gate.terminal_state)
+
+        helpers.run(self.repo, "git", "checkout", "-b", "successor", "feature/report")
+        helpers.run(self.repo, "git", "rebase", "main")
+        successor = SourceIdentity(
+            "origin", "successor", helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        )
+        helpers.run(self.repo, "git", "checkout", "layer-one")
+        helpers.run(self.repo, "git", "rebase", "main")
+        recovered = replace(
+            stale, head=helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        )
+        snapshot = replace(snapshot, layers=(recovered,))
+        unpublished = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=successor, cwd=self.repo
+        )
+        self.assertFalse(unpublished.valid)
+        self.assertEqual("successor_source_not_remote", unpublished.code)
+
+        helpers.run(self.repo, "git", "push", "origin", "successor")
+        restored = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=successor, cwd=self.repo
+        )
+        self.assertTrue(restored.valid, restored.code)
+        self.assertEqual("equivalent", restored.code)
+        self.assertEqual(
+            "new trunk",
+            helpers.run(
+                self.repo,
+                "git",
+                "show",
+                f"{restored.reconstructed_tree}:trunk-only.txt",
+            ),
+        )
+        self.assertEqual(
+            self.source_sha,
+            helpers.run(self.repo, "git", "rev-parse", "feature/report"),
+        )
+
     def test_predecessor_drift_blocks_unchanged_descendant_head(self) -> None:
         (self.repo / "second.txt").write_text("second source part\n")
         helpers.run(self.repo, "git", "add", "second.txt")
@@ -1085,6 +1162,719 @@ class LiveEquivalenceTests(unittest.TestCase):
 
         self.assertTrue(result.valid)
         self.assertEqual("equivalent", result.code)
+
+    def test_materialization_cannot_claim_chain_ready_without_review(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        result = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            topology_readback=snapshot,
+            equivalence=equivalence,
+            layer_evidence={},
+        )
+
+        self.assertEqual("blocked", result.terminal_state)
+        self.assertEqual("materialized", result.phase)
+        self.assertIn("layer-one", result.blocker)
+        self.assertEqual(("layer-one",), result.identities)
+        self.assertTrue(result.next_action)
+
+    def test_current_layer_validation_and_review_allow_chain_ready(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+        evidence = validate_mod.LayerGateEvidence(
+            head=first.head,
+            validation_head=first.head,
+            validation_base=first.base,
+            validation_passed=True,
+            validation_id="validation:one",
+            review_head=first.head,
+            review_base=first.base,
+            review_clean=True,
+            review_id="review:one",
+        )
+
+        result = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            topology_readback=snapshot,
+            equivalence=equivalence,
+            layer_evidence={"layer-one": evidence},
+        )
+
+        self.assertEqual("chain_ready", result.terminal_state)
+        self.assertIsNone(result.blocker)
+        self.assertEqual(("validation:one", "review:one"), result.evidence_ids)
+
+    def test_stale_review_blocks_chain_ready(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+        evidence = validate_mod.LayerGateEvidence(
+            head=first.head,
+            validation_head=first.head,
+            validation_base=first.base,
+            validation_passed=True,
+            validation_id="validation:one",
+            review_head=self.trunk,
+            review_base=first.base,
+            review_clean=True,
+            review_id="review:old",
+        )
+
+        result = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            topology_readback=snapshot,
+            equivalence=equivalence,
+            layer_evidence={"layer-one": evidence},
+        )
+
+        self.assertEqual("blocked", result.terminal_state)
+        self.assertIn("review", result.blocker)
+        self.assertNotIn("review:old", result.evidence_ids)
+
+    def test_changed_comparison_base_invalidates_validation_and_review(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        source = SourceIdentity("origin", "feature/report", self.source_sha)
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=source, cwd=self.repo
+        )
+        current = validate_mod.LayerGateEvidence(
+            first.head,
+            first.head,
+            first.base,
+            True,
+            "validation:one",
+            first.head,
+            first.base,
+            True,
+            "review:one",
+        )
+        stale_validation = replace(current, validation_base="f" * 40)
+        stale_review = replace(current, review_base="f" * 40)
+
+        for evidence in (stale_validation, stale_review):
+            with self.subTest(evidence=evidence):
+                result = validate_mod.assess_chain_ready(
+                    snapshot=snapshot,
+                    active_source=source,
+                    topology_readback=snapshot,
+                    equivalence=equivalence,
+                    layer_evidence={first.branch: evidence},
+                )
+                self.assertEqual("blocked", result.terminal_state)
+
+    def test_empty_native_stack_cannot_claim_chain_ready(self) -> None:
+        snapshot = NativeStackSnapshot("main", self.trunk, "main", ())
+        source = SourceIdentity("origin", "main", self.trunk)
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=source, cwd=self.repo
+        )
+        self.assertTrue(equivalence.valid)
+
+        result = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=source,
+            topology_readback=snapshot,
+            equivalence=equivalence,
+            layer_evidence={},
+        )
+        self.assertEqual("blocked", result.terminal_state)
+        self.assertIn("empty", result.blocker)
+
+    def test_same_tree_successor_invalidates_equivalence_gate(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        source = SourceIdentity("origin", "feature/report", self.source_sha)
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=source, cwd=self.repo
+        )
+        evidence = validate_mod.LayerGateEvidence(
+            first.head,
+            first.head,
+            first.base,
+            True,
+            "validation:one",
+            first.head,
+            first.base,
+            True,
+            "review:one",
+        )
+        successor = SourceIdentity("origin", "same-tree-successor", self.source_sha)
+
+        result = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=successor,
+            topology_readback=snapshot,
+            equivalence=equivalence,
+            layer_evidence={first.branch: evidence},
+        )
+        self.assertEqual("blocked", result.terminal_state)
+        self.assertIn("equivalence", result.blocker)
+
+    def test_prs_open_requires_exact_remote_head_and_non_merge_gate(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        first = NativeLayer(
+            first.branch,
+            first.head,
+            first.base,
+            False,
+            False,
+            False,
+            NativePullRequest(101, "https://example.test/101", "OPEN"),
+        )
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+        ready = validate_mod.assess_chain_ready(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            topology_readback=snapshot,
+            equivalence=equivalence,
+            layer_evidence={
+                "layer-one": validate_mod.LayerGateEvidence(
+                    first.head,
+                    first.head,
+                    first.base,
+                    True,
+                    "validation:one",
+                    first.head,
+                    first.base,
+                    True,
+                    "review:one",
+                )
+            },
+        )
+
+        blocked = validate_mod.assess_prs_open(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            chain_ready=ready,
+            topology_readback=snapshot,
+            published={},
+        )
+
+        self.assertEqual("blocked", blocked.terminal_state)
+        self.assertIn("remote", blocked.blocker)
+        self.assertEqual("published", blocked.phase)
+
+        opened = validate_mod.assess_prs_open(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            chain_ready=ready,
+            topology_readback=snapshot,
+            published={
+                "layer-one": validate_mod.PublishedLayerEvidence(
+                    pr_number=101,
+                    head=first.head,
+                    remote_head=first.head,
+                    base_branch="main",
+                    base_sha=first.base,
+                    semantic_trailer_current=True,
+                    native_member=True,
+                    non_merge_passed=True,
+                    gate_id="pr-gates:101",
+                )
+            },
+        )
+
+        self.assertEqual("prs_open", opened.terminal_state)
+        self.assertIsNone(opened.blocker)
+        self.assertIn("pr-gates:101", opened.evidence_ids)
+
+        changed = replace(
+            snapshot,
+            layers=(
+                replace(
+                    first,
+                    pull_request=NativePullRequest(
+                        202, "https://example.test/202", "OPEN"
+                    ),
+                ),
+            ),
+        )
+        stale_membership = validate_mod.assess_prs_open(
+            snapshot=changed,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            chain_ready=ready,
+            topology_readback=changed,
+            published={
+                first.branch: validate_mod.PublishedLayerEvidence(
+                    202,
+                    first.head,
+                    first.head,
+                    "main",
+                    first.base,
+                    True,
+                    True,
+                    True,
+                    "pr-gates:202",
+                )
+            },
+        )
+        self.assertEqual("blocked", stale_membership.terminal_state)
+        self.assertIn("chain_ready", stale_membership.blocker)
+
+        stale_source = validate_mod.assess_prs_open(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "other-source", self.source_sha),
+            chain_ready=ready,
+            topology_readback=snapshot,
+            published={
+                "layer-one": validate_mod.PublishedLayerEvidence(
+                    101,
+                    first.head,
+                    first.head,
+                    "main",
+                    first.base,
+                    True,
+                    True,
+                    True,
+                    "pr-gates:101",
+                )
+            },
+        )
+        self.assertEqual("blocked", stale_source.terminal_state)
+
+    def test_changed_predecessor_invalidates_publication_evidence(self) -> None:
+        first_head = self.source_sha
+        (self.repo / "middle.txt").write_text("moved into the predecessor\n")
+        helpers.run(self.repo, "git", "add", "middle.txt")
+        advanced_head = helpers.commit(self.repo, "advance predecessor")
+        (self.repo / "last.txt").write_text("remaining upper layer\n")
+        helpers.run(self.repo, "git", "add", "last.txt")
+        upper_head = helpers.commit(self.repo, "complete source")
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
+        source = SourceIdentity("origin", "feature/report", upper_head)
+        first = NativeLayer(
+            "layer-one",
+            first_head,
+            self.trunk,
+            False,
+            False,
+            False,
+            NativePullRequest(101, "https://example.test/101", "OPEN"),
+        )
+        upper = NativeLayer(
+            "layer-two",
+            upper_head,
+            first_head,
+            False,
+            False,
+            False,
+            NativePullRequest(102, "https://example.test/102", "OPEN"),
+        )
+        original = NativeStackSnapshot("main", self.trunk, upper.branch, (first, upper))
+        changed = replace(
+            original,
+            layers=(
+                replace(first, head=advanced_head),
+                replace(upper, base=advanced_head),
+            ),
+        )
+
+        def ready(snapshot):
+            proof = validate_mod.validate_live_equivalence(
+                snapshot=snapshot, active_source=source, cwd=self.repo
+            )
+            self.assertTrue(proof.valid, proof.code)
+            result = validate_mod.assess_chain_ready(
+                snapshot=snapshot,
+                active_source=source,
+                topology_readback=snapshot,
+                equivalence=proof,
+                layer_evidence={
+                    layer.branch: validate_mod.LayerGateEvidence(
+                        layer.head,
+                        layer.head,
+                        layer.base,
+                        True,
+                        "validation:" + layer.branch,
+                        layer.head,
+                        layer.base,
+                        True,
+                        "review:" + layer.branch,
+                    )
+                    for layer in snapshot.layers
+                },
+            )
+            self.assertEqual("chain_ready", result.terminal_state)
+            return result
+
+        published = {
+            layer.branch: validate_mod.PublishedLayerEvidence(
+                pr_number=layer.pull_request.number,
+                head=layer.head,
+                remote_head=layer.head,
+                base_branch=base_branch,
+                base_sha=layer.base,
+                semantic_trailer_current=True,
+                native_member=True,
+                non_merge_passed=True,
+                gate_id="non-merge:" + layer.branch + ":original",
+            )
+            for layer, base_branch in zip(
+                original.layers, ("main", first.branch), strict=True
+            )
+        }
+        before = validate_mod.assess_prs_open(
+            snapshot=original,
+            active_source=source,
+            chain_ready=ready(original),
+            topology_readback=original,
+            published=published,
+        )
+        self.assertEqual("prs_open", before.terminal_state)
+        published[first.branch] = replace(
+            published[first.branch],
+            head=advanced_head,
+            remote_head=advanced_head,
+            gate_id="non-merge:layer-one:current",
+        )
+
+        result = validate_mod.assess_prs_open(
+            snapshot=changed,
+            active_source=source,
+            chain_ready=ready(changed),
+            topology_readback=changed,
+            published=published,
+        )
+
+        self.assertEqual("blocked", result.terminal_state)
+        self.assertIn("layer-two", result.blocker)
+        self.assertNotIn("non-merge:layer-two:original", result.evidence_ids)
+
+        published[upper.branch] = replace(
+            published[upper.branch],
+            base_sha=advanced_head,
+            gate_id="non-merge:layer-two:current",
+        )
+        refreshed = validate_mod.assess_prs_open(
+            snapshot=changed,
+            active_source=source,
+            chain_ready=ready(changed),
+            topology_readback=changed,
+            published=published,
+        )
+        self.assertEqual("prs_open", refreshed.terminal_state)
+        self.assertIn("non-merge:layer-two:current", refreshed.evidence_ids)
+        self.assertNotIn("non-merge:layer-two:original", refreshed.evidence_ids)
+
+    def test_all_merged_requires_empty_suffix_sync_and_current_trunk_validation(
+        self,
+    ) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "merge", "--no-ff", "--no-edit", "layer-one")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        merged = NativeLayer(
+            first.branch,
+            first.head,
+            self.trunk,
+            True,
+            False,
+            False,
+            NativePullRequest(101, "https://example.test/101", "MERGED"),
+        )
+        snapshot = NativeStackSnapshot("main", trunk, "layer-one", (merged,))
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=trunk,
+                )
+            },
+            cwd=self.repo,
+        )
+
+        blocked = validate_mod.assess_all_merged(
+            snapshot=snapshot,
+            equivalence=equivalence,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            chain_prs=(101,),
+            merged_prs=(101,),
+            native_synchronized=False,
+            trunk_validation_head=trunk,
+            trunk_validation_passed=True,
+            trunk_validation_id="trunk-validation:one",
+            cleanup=validate_mod.CleanupEvidence(
+                "bounded",
+                "cleanup:authority-limit",
+                ("layer-one local branch",),
+                "branch deletion withheld",
+            ),
+        )
+        self.assertEqual("blocked", blocked.terminal_state)
+        self.assertIn("synchronization", blocked.blocker)
+
+        complete = validate_mod.assess_all_merged(
+            snapshot=snapshot,
+            equivalence=equivalence,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            chain_prs=(101,),
+            merged_prs=(101,),
+            native_synchronized=True,
+            trunk_validation_head=trunk,
+            trunk_validation_passed=True,
+            trunk_validation_id="trunk-validation:one",
+            cleanup=validate_mod.CleanupEvidence(
+                "bounded",
+                "cleanup:authority-limit",
+                ("layer-one local branch",),
+                "branch deletion withheld",
+            ),
+        )
+        self.assertEqual("all_merged", complete.terminal_state)
+        self.assertEqual("merged", complete.phase)
+        self.assertEqual(
+            ("trunk-validation:one", "cleanup:authority-limit"),
+            complete.evidence_ids,
+        )
+        self.assertEqual(("layer-one local branch",), complete.cleanup_remaining)
+        self.assertEqual("branch deletion withheld", complete.cleanup_authority_limit)
+
+        # A proof of PR 101 cannot certify a different merged membership, even
+        # when every branch/head remains unchanged or native sync clears it.
+        for changed in (
+            replace(
+                snapshot,
+                layers=(
+                    replace(
+                        merged,
+                        pull_request=NativePullRequest(
+                            202, "https://example.test/202", "MERGED"
+                        ),
+                    ),
+                ),
+            ),
+            replace(snapshot, layers=()),
+        ):
+            with self.subTest(layers=changed.layers):
+                historical_prs = (202,) if changed.layers else (101,)
+                stale_prefix = validate_mod.assess_all_merged(
+                    snapshot=changed,
+                    equivalence=equivalence,
+                    active_source=SourceIdentity(
+                        "origin", "feature/report", self.source_sha
+                    ),
+                    chain_prs=historical_prs,
+                    merged_prs=historical_prs,
+                    native_synchronized=True,
+                    trunk_validation_head=trunk,
+                    trunk_validation_passed=True,
+                    trunk_validation_id="trunk-validation:one",
+                    cleanup=validate_mod.CleanupEvidence(
+                        "complete", "cleanup:done", (), None
+                    ),
+                )
+                self.assertEqual("blocked", stale_prefix.terminal_state)
+                self.assertIn("equivalence", stale_prefix.blocker)
+
+        changed = replace(
+            snapshot,
+            layers=(
+                replace(
+                    merged,
+                    pull_request=NativePullRequest(
+                        202, "https://example.test/202", "MERGED"
+                    ),
+                ),
+            ),
+        )
+        stale_ready = validate_mod.assess_chain_ready(
+            snapshot=changed,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            topology_readback=changed,
+            equivalence=equivalence,
+            layer_evidence={
+                first.branch: validate_mod.LayerGateEvidence(
+                    first.head,
+                    first.head,
+                    first.base,
+                    True,
+                    "validation:one",
+                    first.head,
+                    first.base,
+                    True,
+                    "review:one",
+                )
+            },
+        )
+        self.assertEqual("blocked", stale_ready.terminal_state)
+        self.assertIn("equivalence", stale_ready.blocker)
+
+        stale_source = validate_mod.assess_all_merged(
+            snapshot=snapshot,
+            equivalence=equivalence,
+            active_source=SourceIdentity("origin", "other-source", self.source_sha),
+            chain_prs=(101,),
+            merged_prs=(101,),
+            native_synchronized=True,
+            trunk_validation_head=trunk,
+            trunk_validation_passed=True,
+            trunk_validation_id="trunk-validation:one",
+            cleanup=validate_mod.CleanupEvidence(
+                "bounded",
+                "cleanup:authority-limit",
+                ("layer-one local branch",),
+                "branch deletion withheld",
+            ),
+        )
+        self.assertEqual("blocked", stale_source.terminal_state)
+
+    def test_all_merged_requires_established_chain_even_after_native_sync(self) -> None:
+        snapshot = NativeStackSnapshot("main", self.trunk, "main", ())
+        source = SourceIdentity("origin", "main", self.trunk)
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot, active_source=source, cwd=self.repo
+        )
+        self.assertTrue(equivalence.valid)
+
+        empty = validate_mod.assess_all_merged(
+            snapshot=snapshot,
+            equivalence=equivalence,
+            active_source=source,
+            chain_prs=(),
+            merged_prs=(),
+            native_synchronized=True,
+            trunk_validation_head=self.trunk,
+            trunk_validation_passed=True,
+            trunk_validation_id="trunk-validation:one",
+            cleanup=validate_mod.CleanupEvidence(
+                "complete",
+                "cleanup:done",
+                (),
+                None,
+            ),
+        )
+        self.assertEqual("blocked", empty.terminal_state)
+
+        unbound_history = validate_mod.assess_all_merged(
+            snapshot=snapshot,
+            equivalence=equivalence,
+            active_source=source,
+            chain_prs=(101,),
+            merged_prs=(101,),
+            native_synchronized=True,
+            trunk_validation_head=self.trunk,
+            trunk_validation_passed=True,
+            trunk_validation_id="trunk-validation:one",
+            cleanup=validate_mod.CleanupEvidence(
+                "complete",
+                "cleanup:done",
+                (),
+                None,
+            ),
+        )
+        self.assertEqual("blocked", unbound_history.terminal_state)
+
+        historical_proof = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=source,
+            historical_prs=(101,),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "former-layer",
+                    self.trunk,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=self.trunk,
+                )
+            },
+            cwd=self.repo,
+        )
+        self.assertTrue(historical_proof.valid)
+        for chain, expected in (((101,), "all_merged"), ((202,), "blocked")):
+            with self.subTest(chain=chain):
+                result = validate_mod.assess_all_merged(
+                    snapshot=snapshot,
+                    equivalence=historical_proof,
+                    active_source=source,
+                    chain_prs=chain,
+                    merged_prs=chain,
+                    native_synchronized=True,
+                    trunk_validation_head=self.trunk,
+                    trunk_validation_passed=True,
+                    trunk_validation_id="trunk-validation:one",
+                    cleanup=validate_mod.CleanupEvidence(
+                        "complete", "cleanup:done", (), None
+                    ),
+                )
+                self.assertEqual(expected, result.terminal_state)
+
+    def test_all_merged_rejects_unexplained_cleanup_limit(self) -> None:
+        snapshot = NativeStackSnapshot("main", self.trunk, "main", ())
+        source = SourceIdentity("origin", "main", self.trunk)
+        equivalence = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=source,
+            cwd=self.repo,
+            historical_prs=(101,),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "former-layer",
+                    self.trunk,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=self.trunk,
+                )
+            },
+        )
+        for cleanup in (
+            "bounded",
+            validate_mod.CleanupEvidence("bounded", "cleanup:unknown", (), None),
+            validate_mod.CleanupEvidence(
+                "bounded", "cleanup:unknown", ("branch",), None
+            ),
+        ):
+            with self.subTest(cleanup=cleanup):
+                result = validate_mod.assess_all_merged(
+                    snapshot=snapshot,
+                    equivalence=equivalence,
+                    active_source=source,
+                    chain_prs=(101,),
+                    merged_prs=(101,),
+                    native_synchronized=True,
+                    trunk_validation_head=self.trunk,
+                    trunk_validation_passed=True,
+                    trunk_validation_id="trunk-validation:one",
+                    cleanup=cleanup,
+                )
+                self.assertEqual("blocked", result.terminal_state)
+                self.assertIn("Cleanup", result.blocker)
 
 
 if __name__ == "__main__":
