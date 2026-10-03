@@ -4,59 +4,105 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-09-28 — Closed stack-target and lineage readback fences
+## 2026-10-02 — Bound stack evidence and preserved raw reconstruction
+
+- fix: preserve exact replay under context and whitespace settings
+
+- fix: isolate stack replay patches from display configuration
+
+- fix: bind publication gates to the exact comparison base
+
+- fix: require current predecessor ancestry for open stack layers
+
+- fix: preserve blob bytes during live stack reconstruction
+
+- fix: bind stack equivalence gates to native topology
+
+## 2026-09-28 — Proved live stack equivalence and closed transition fences
+
+- fix: prove squash and rebase landings by merged PR commit
+
+- fix: preserve valid successor proof and precise cleanup limits
+
+- fix: bind stack gates and repair authority to current identities
+
+- feat: validate live native stack equivalence
 
 - fix: preserve independent readback observations across bootstrap failures
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: fence recovery trunk refresh authority
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: classify ambiguous post-executor observations
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: preserve merge observations across readback failures
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: preserve target classifications when readback fails
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: exclude merged layers from transition authority
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: bind complete native targets and lineage readback
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 ## 2026-09-27 — Closed transition authority and readback gaps
 
 - fix: apply recovery local fences before remote effects
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: preserve recovery local-ref approval fences
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: project repair heads before manifest approval
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: bind repair heads and exact manifest identities
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: bind recovered local refs to projected heads
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: separate local and remote ref fences
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: bind recovery lineage and suffix bases
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: project exact recovery heads before manifest approval
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: consume approved ref transitions during repair and recovery
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: preserve clean-tree and source-lineage publication gates
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - docs: align transition acknowledgement reference
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: bind exact manifest effects through execution
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: preserve exact remote transition fences and outcomes
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - fix: keep transition phases and readback inside their authority fence
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - test(evals): record carve triggering evidence attempts
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 ## 2026-09-25 — Fenced native transitions and materialized stacks
 
 - fix: preserve every native transition selector and automatic effect
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - feat: fence native stack transitions by capability
+  (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
 
 - docs: complete native materialization change journal
   (7e47236b7e29d55c0efaa64ada90b9e57d686ccb)

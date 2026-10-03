@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Iterable, Sequence
 
 from common import CommandError
 from metadata import (
@@ -20,10 +21,283 @@ from metadata import (
 )
 from native_stack import NativeStackSnapshot
 from publication import remote_branch_head
+from transitions import AuthorityGrant, EffectKind, StackOperation, TransitionPhase
 
 
 class RehydrationError(RuntimeError):
     """Raised when live evidence cannot identify one unambiguous chain."""
+
+
+@dataclass(frozen=True)
+class StackFixHandback:
+    reviewed_pr: int
+    reviewed_head: str
+    invalidated_branches: tuple[str, ...]
+    invalidated_pull_requests: tuple[int, ...]
+    invalidated_evidence: tuple[str, ...]
+    requested_phase: str
+    authority_required: str
+    resume_command: str
+
+
+@dataclass(frozen=True)
+class CandidateEvidence:
+    branch: str
+    head: str
+    effective_candidate: str
+
+
+@dataclass(frozen=True)
+class NativeRecoveryGuidance:
+    terminal_state: str
+    phase: str
+    identities: tuple[str, ...]
+    evidence_ids: tuple[str, ...]
+    blocker: str
+    next_action: str
+
+
+def native_interruption_guidance(
+    *,
+    kind: str,
+    phase: str,
+    stack_identity: str,
+    branch: str,
+    evidence_ids: tuple[str, ...],
+    lock_owner: str | None = None,
+) -> NativeRecoveryGuidance:
+    """Report dependency-documented recovery without reading private state."""
+
+    if not phase or not stack_identity or not branch:
+        raise RehydrationError("Recovery needs exact phase and stack identities.")
+    if kind == "rebase_conflict":
+        blocker = f"Native rebase conflict at {branch}; dependency recovery state remains intact."
+        action = "Resolve the reported conflict, then run gh stack rebase --continue."
+    elif kind == "stack_lock":
+        owner = lock_owner or "the current stack operation"
+        blocker = f"Native stack lock is held by {owner}; no write was attempted."
+        action = f"After {owner} releases the lock, run gh stack view --json."
+    elif kind == "divergence":
+        blocker = (
+            "Local and remote native stack state diverged; no write was attempted."
+        )
+        action = "Run gh stack view --json and reconcile the divergence before a fresh manifest."
+    elif kind == "interrupted_modify":
+        blocker = f"Native modify is interrupted at {branch}; dependency recovery state remains intact."
+        action = "Resolve the reported conflict, then run gh stack modify --continue."
+    else:
+        raise RehydrationError(f"Unknown native interruption kind {kind!r}.")
+    return NativeRecoveryGuidance(
+        "blocked", phase, (stack_identity, branch), evidence_ids, blocker, action
+    )
+
+
+def invalidated_candidate_evidence(
+    evidence: Mapping[str, CandidateEvidence],
+    *,
+    current_heads: Mapping[str, str],
+    effective_candidate: str,
+) -> tuple[str, ...]:
+    """Name every artifact whose head or effective candidate changed."""
+
+    return tuple(
+        evidence_id
+        for evidence_id, binding in evidence.items()
+        if current_heads.get(binding.branch) != binding.head
+        or binding.effective_candidate != effective_candidate
+    )
+
+
+def parse_stack_fix_handback(raw: str) -> StackFixHandback:
+    """Decode only the exact stack repair handback, never its authority."""
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RehydrationError(f"Invalid stack-fix handback JSON: {exc}") from exc
+    expected = {
+        "kind",
+        "reviewed_pr",
+        "reviewed_head",
+        "invalidated_suffix",
+        "invalidated_evidence",
+        "requested_phase",
+        "authority_required",
+        "resume_command",
+    }
+    if not isinstance(data, dict) or set(data) != expected:
+        raise RehydrationError("Stack-fix handback has missing or unknown fields.")
+    suffix = data["invalidated_suffix"]
+    if not isinstance(suffix, dict) or set(suffix) != {"branches", "pull_requests"}:
+        raise RehydrationError(
+            "Stack-fix handback suffix has missing or unknown fields."
+        )
+    number = data["reviewed_pr"]
+    head = data["reviewed_head"]
+    branches = suffix["branches"]
+    prs = suffix["pull_requests"]
+    evidence = data["invalidated_evidence"]
+    if data["kind"] != "stack_fix_handback":
+        raise RehydrationError("Unknown stack-fix handback kind.")
+    if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        raise RehydrationError("Reviewed PR must be a positive number.")
+    if not isinstance(head, str) or re.fullmatch(r"[0-9a-f]{40}", head) is None:
+        raise RehydrationError("Reviewed head must be an exact full SHA.")
+    if (
+        not isinstance(branches, list)
+        or not branches
+        or any(not isinstance(item, str) or not item.strip() for item in branches)
+        or len(set(branches)) != len(branches)
+        or not isinstance(prs, list)
+        or len(prs) != len(branches)
+        or any(
+            not isinstance(item, int) or isinstance(item, bool) or item < 1
+            for item in prs
+        )
+        or len(set(prs)) != len(prs)
+        or prs[0] != number
+    ):
+        raise RehydrationError("Stack-fix handback must name one ordered open suffix.")
+    if (
+        not isinstance(evidence, list)
+        or not evidence
+        or any(not isinstance(item, str) or not item.strip() for item in evidence)
+        or len(set(evidence)) != len(evidence)
+    ):
+        raise RehydrationError("Stack-fix handback needs exact prior evidence IDs.")
+    if data["requested_phase"] != "repair":
+        raise RehydrationError("Stack-fix handback may request only the repair phase.")
+    authority = data["authority_required"]
+    if not isinstance(authority, str) or not authority.strip():
+        raise RehydrationError("Stack-fix handback must name authority still needed.")
+    command = data["resume_command"]
+    expected_command = (
+        f"python3 skills/carve-changesets/scripts/cli.py repair --pr {number}"
+    )
+    if command != expected_command:
+        raise RehydrationError("Stack-fix handback has no exact resume command.")
+    return StackFixHandback(
+        number,
+        head,
+        tuple(branches),
+        tuple(prs),
+        tuple(evidence),
+        "repair",
+        authority,
+        command,
+    )
+
+
+def render_stack_fix_handback(handback: StackFixHandback) -> str:
+    """Render a parseable handback with no implied merge authority."""
+
+    return (
+        json.dumps(
+            {
+                "kind": "stack_fix_handback",
+                "reviewed_pr": handback.reviewed_pr,
+                "reviewed_head": handback.reviewed_head,
+                "invalidated_suffix": {
+                    "branches": list(handback.invalidated_branches),
+                    "pull_requests": list(handback.invalidated_pull_requests),
+                },
+                "invalidated_evidence": list(handback.invalidated_evidence),
+                "requested_phase": handback.requested_phase,
+                "authority_required": handback.authority_required,
+                "resume_command": handback.resume_command,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
+def validate_stack_fix_handback(
+    handback: StackFixHandback,
+    *,
+    snapshot: NativeStackSnapshot,
+    pull_requests: Sequence[PullRequestRecord],
+    repository: str,
+    remote: str,
+    authority: AuthorityGrant | None,
+) -> StackFixHandback:
+    """Bind a handback to fresh native/GitHub state and separate stack authority."""
+
+    if authority is None or authority.operation is not StackOperation.REPAIR:
+        raise RehydrationError("Explicit stack-wide repair authority is required.")
+    if authority.repository != repository or authority.remote != remote:
+        raise RehydrationError("Repair authority repository or remote does not match.")
+    required_phases = frozenset(
+        {
+            TransitionPhase.REBASE_NO_TRUNK,
+            TransitionPhase.PUSH,
+            TransitionPhase.SYNC,
+        }
+    )
+    required_effects = frozenset(
+        {
+            EffectKind.REBASE_BRANCH,
+            EffectKind.PUSH_REF,
+            EffectKind.UPDATE_PR,
+            EffectKind.SYNC_STACK,
+        }
+    )
+    if (
+        authority.identities != handback.invalidated_branches
+        or authority.branches != handback.invalidated_branches
+        or authority.phases != required_phases
+        or authority.effect_kinds != required_effects
+    ):
+        raise RehydrationError(
+            "Repair authority does not exactly fence the named suffix."
+        )
+    reviewed_index = next(
+        (
+            index
+            for index, layer in enumerate(snapshot.layers)
+            if layer.pull_request is not None
+            and layer.pull_request.number == handback.reviewed_pr
+        ),
+        None,
+    )
+    if reviewed_index is None:
+        raise RehydrationError("Reviewed PR is absent from fresh native topology.")
+    suffix = snapshot.layers[reviewed_index:]
+    if (
+        suffix[0].head != handback.reviewed_head
+        or any(layer.merged or layer.pull_request is None for layer in suffix)
+        or tuple(layer.branch for layer in suffix) != handback.invalidated_branches
+        or tuple(layer.pull_request.number for layer in suffix if layer.pull_request)
+        != handback.invalidated_pull_requests
+    ):
+        raise RehydrationError("Handback suffix disagrees with fresh native topology.")
+    live_prs = {pr.number: pr for pr in pull_requests}
+    if len(live_prs) != len(pull_requests):
+        raise RehydrationError("Fresh GitHub PR readback has duplicate numbers.")
+    for offset, layer in enumerate(suffix, reviewed_index):
+        assert layer.pull_request is not None
+        live = live_prs.get(layer.pull_request.number)
+        if (
+            live is None
+            or live.state != "OPEN"
+            or live.head_branch != layer.branch
+            or live.head_sha != layer.head
+            or live.is_cross_repository
+        ):
+            raise RehydrationError(
+                "Handback suffix disagrees with fresh GitHub PR heads."
+            )
+        predecessor = snapshot.layers[offset - 1] if offset else None
+        expected_base = (
+            snapshot.trunk_branch
+            if predecessor is None or predecessor.merged
+            else predecessor.branch
+        )
+        if live.base_branch != expected_base:
+            raise RehydrationError(
+                f"Handback suffix PR #{live.number} base changed from {expected_base}."
+            )
+    return handback
 
 
 @dataclass(frozen=True)

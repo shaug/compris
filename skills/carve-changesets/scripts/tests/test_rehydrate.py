@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import cli as cli_mod  # noqa: E402
 import helpers  # noqa: E402
+import rehydrate as rehydrate_mod  # noqa: E402
 from gh_stack import (  # noqa: E402
     GhStackProfile,
     GhStackProfileBlocker,
@@ -49,6 +51,12 @@ from rehydrate import (  # noqa: E402
     rehydrate_chain,
 )
 from status import _live_remote_heads, status_from_live  # noqa: E402
+from transitions import (  # noqa: E402
+    AuthorityGrant,
+    EffectKind,
+    StackOperation,
+    TransitionPhase,
+)
 
 
 class RehydrationTests(unittest.TestCase):
@@ -1366,6 +1374,231 @@ class RehydrationTests(unittest.TestCase):
             adopt_legacy_chain(
                 source_branch="feature/report", pull_requests=prs, cwd=clone
             )
+
+
+class StackFixHandbackTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.head_two = "2" * 40
+        self.head_three = "3" * 40
+        self.payload = {
+            "kind": "stack_fix_handback",
+            "reviewed_pr": 102,
+            "reviewed_head": self.head_two,
+            "invalidated_suffix": {
+                "branches": ["feature-2", "feature-3"],
+                "pull_requests": [102, 103],
+            },
+            "invalidated_evidence": ["review:102:old", "validation:feature-3:old"],
+            "requested_phase": "repair",
+            "authority_required": "rewrite and push the named open suffix",
+            "resume_command": "python3 skills/carve-changesets/scripts/cli.py repair --pr 102",
+        }
+        self.snapshot = NativeStackSnapshot(
+            trunk_branch="main",
+            trunk_head="1" * 40,
+            current_branch="feature-3",
+            layers=(
+                NativeLayer(
+                    "feature-2",
+                    self.head_two,
+                    "1" * 40,
+                    False,
+                    False,
+                    False,
+                    NativePullRequest(102, "https://example.test/102", "OPEN"),
+                ),
+                NativeLayer(
+                    "feature-3",
+                    self.head_three,
+                    self.head_two,
+                    False,
+                    False,
+                    False,
+                    NativePullRequest(103, "https://example.test/103", "OPEN"),
+                ),
+            ),
+        )
+        self.prs = (
+            PullRequestRecord(102, "feature-2", self.head_two, "main", "OPEN", ""),
+            PullRequestRecord(
+                103, "feature-3", self.head_three, "feature-2", "OPEN", ""
+            ),
+        )
+
+    def test_handback_round_trip_requires_exact_fields(self) -> None:
+        handback = rehydrate_mod.parse_stack_fix_handback(json.dumps(self.payload))
+        self.assertEqual(
+            self.payload, json.loads(rehydrate_mod.render_stack_fix_handback(handback))
+        )
+
+        with self.assertRaisesRegex(RehydrationError, "unknown"):
+            rehydrate_mod.parse_stack_fix_handback(
+                json.dumps({**self.payload, "merge_prefix": True})
+            )
+
+    def test_handback_needs_fresh_topology_and_separate_repair_authority(self) -> None:
+        handback = rehydrate_mod.parse_stack_fix_handback(json.dumps(self.payload))
+        with self.assertRaisesRegex(RehydrationError, "authority"):
+            rehydrate_mod.validate_stack_fix_handback(
+                handback,
+                snapshot=self.snapshot,
+                pull_requests=self.prs,
+                repository="github.com/acme/widgets",
+                remote="origin",
+                authority=None,
+            )
+
+        authority = AuthorityGrant(
+            operation=StackOperation.REPAIR,
+            repository="github.com/acme/widgets",
+            remote="origin",
+            identities=("feature-2", "feature-3"),
+            branches=("feature-2", "feature-3"),
+            phases=frozenset(
+                {
+                    TransitionPhase.REBASE_NO_TRUNK,
+                    TransitionPhase.PUSH,
+                    TransitionPhase.SYNC,
+                }
+            ),
+            effect_kinds=frozenset(
+                {
+                    EffectKind.REBASE_BRANCH,
+                    EffectKind.PUSH_REF,
+                    EffectKind.UPDATE_PR,
+                    EffectKind.SYNC_STACK,
+                }
+            ),
+        )
+        self.assertEqual(
+            handback,
+            rehydrate_mod.validate_stack_fix_handback(
+                handback,
+                snapshot=self.snapshot,
+                pull_requests=self.prs,
+                repository="github.com/acme/widgets",
+                remote="origin",
+                authority=authority,
+            ),
+        )
+
+        for repository, remote in (
+            ("github.com/other/widgets", "origin"),
+            ("github.com/acme/widgets", "upstream"),
+        ):
+            with self.subTest(repository=repository, remote=remote):
+                with self.assertRaisesRegex(RehydrationError, "repository or remote"):
+                    rehydrate_mod.validate_stack_fix_handback(
+                        handback,
+                        snapshot=self.snapshot,
+                        pull_requests=self.prs,
+                        repository=repository,
+                        remote=remote,
+                        authority=authority,
+                    )
+
+        stale = NativeStackSnapshot(
+            "main",
+            self.snapshot.trunk_head,
+            "feature-3",
+            (
+                self.snapshot.layers[0],
+                NativeLayer(
+                    "feature-3",
+                    "4" * 40,
+                    self.head_two,
+                    False,
+                    False,
+                    False,
+                    self.snapshot.layers[1].pull_request,
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(RehydrationError, "suffix"):
+            rehydrate_mod.validate_stack_fix_handback(
+                handback,
+                snapshot=stale,
+                pull_requests=self.prs,
+                repository="github.com/acme/widgets",
+                remote="origin",
+                authority=authority,
+            )
+
+        wrong_base = (
+            self.prs[0],
+            PullRequestRecord(103, "feature-3", self.head_three, "main", "OPEN", ""),
+        )
+        with self.assertRaisesRegex(RehydrationError, "base"):
+            rehydrate_mod.validate_stack_fix_handback(
+                handback,
+                snapshot=self.snapshot,
+                pull_requests=wrong_base,
+                repository="github.com/acme/widgets",
+                remote="origin",
+                authority=authority,
+            )
+
+    def test_candidate_evidence_invalidates_on_head_or_effective_source_change(
+        self,
+    ) -> None:
+        evidence = {
+            "review:two": rehydrate_mod.CandidateEvidence(
+                "feature-2", self.head_two, "a" * 40
+            ),
+            "validation:three": rehydrate_mod.CandidateEvidence(
+                "feature-3", self.head_three, "a" * 40
+            ),
+            "review:other": rehydrate_mod.CandidateEvidence(
+                "other", "4" * 40, "a" * 40
+            ),
+        }
+
+        invalidated = rehydrate_mod.invalidated_candidate_evidence(
+            evidence,
+            current_heads={
+                "feature-2": "5" * 40,
+                "feature-3": self.head_three,
+                "other": "4" * 40,
+            },
+            effective_candidate="a" * 40,
+        )
+        self.assertEqual(("review:two",), invalidated)
+
+        invalidated = rehydrate_mod.invalidated_candidate_evidence(
+            evidence,
+            current_heads={
+                "feature-2": self.head_two,
+                "feature-3": self.head_three,
+                "other": "4" * 40,
+            },
+            effective_candidate="b" * 40,
+        )
+        self.assertEqual(tuple(evidence), invalidated)
+
+    def test_native_interruption_guidance_preserves_documented_recovery(self) -> None:
+        cases = (
+            ("rebase_conflict", "gh stack rebase --continue"),
+            ("stack_lock", "gh stack view --json"),
+            ("divergence", "gh stack view --json"),
+            ("interrupted_modify", "gh stack modify --continue"),
+        )
+        for kind, command in cases:
+            with self.subTest(kind=kind):
+                result = rehydrate_mod.native_interruption_guidance(
+                    kind=kind,
+                    phase="repair",
+                    stack_identity="stack:feature",
+                    branch="feature-2",
+                    evidence_ids=("native-view:42",),
+                    lock_owner="process 4242" if kind == "stack_lock" else None,
+                )
+                self.assertEqual("blocked", result.terminal_state)
+                self.assertEqual("repair", result.phase)
+                self.assertEqual(("stack:feature", "feature-2"), result.identities)
+                self.assertEqual(("native-view:42",), result.evidence_ids)
+                self.assertIn(command, result.next_action)
+                self.assertNotIn(".git/gh-stack", result.next_action)
+                self.assertTrue(result.blocker)
 
 
 if __name__ == "__main__":
