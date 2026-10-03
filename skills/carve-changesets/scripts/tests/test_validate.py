@@ -3,13 +3,21 @@ from __future__ import annotations
 import shutil
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
 import helpers
+import validate as validate_mod
 from metadata import ChangesetMetadata, SourceIdentity, stamp_commit_message
-from native_stack import NativeLayer, NativeStackSnapshot
-from rehydrate import Chain, ChangesetRecord, adopt_legacy_chain, rehydrate_chain
+from native_stack import NativeLayer, NativePullRequest, NativeStackSnapshot
+from rehydrate import (
+    Chain,
+    ChangesetRecord,
+    PullRequestRecord,
+    adopt_legacy_chain,
+    rehydrate_chain,
+)
 from validate import validate_live_chain
 
 
@@ -409,6 +417,674 @@ class LiveValidationTests(unittest.TestCase):
         self.assertIn("source_lineage_ref_moved", {item.code for item in result.errors})
         self.assertNotIn("source_advanced", {item.code for item in result.warnings})
         self.assertEqual("different", result.source_status)
+
+
+class LiveEquivalenceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = Path(tempfile.mkdtemp())
+        self.repo, self.bare, self.source_sha = helpers.init_repo(self.temp_dir)
+        self.trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.temp_dir)
+
+    def _assert_byte_replay(self, before: bytes | None, after: bytes) -> None:
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "config", "core.autocrlf", "false")
+        path = self.repo / "bytes.txt"
+        if before is not None:
+            path.write_bytes(before)
+            helpers.run(self.repo, "git", "add", "bytes.txt")
+            helpers.commit(self.repo, "feat: byte-preserving baseline")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "-b", "bytes-source")
+        path.write_bytes(after)
+        helpers.run(self.repo, "git", "add", "bytes.txt")
+        head = helpers.commit(self.repo, "feat: byte-preserving source")
+        helpers.run(self.repo, "git", "push", "origin", "bytes-source")
+        snapshot = NativeStackSnapshot(
+            "main",
+            trunk,
+            "bytes-source",
+            (NativeLayer("bytes-source", head, trunk, False, False, False, None),),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "bytes-source", head),
+            cwd=self.repo,
+        )
+
+        self.assertTrue(result.valid, result.code)
+        self.assertEqual(result.source_tree, result.reconstructed_tree)
+        self.assertEqual(after, path.read_bytes())
+
+    def test_equivalence_preserves_crlf_addition(self) -> None:
+        self._assert_byte_replay(None, b"first\r\nsecond\r\n")
+
+    def test_equivalence_preserves_crlf_modification(self) -> None:
+        self._assert_byte_replay(b"first\r\nold\r\n", b"first\r\nnew\r\n")
+
+    def test_equivalence_preserves_non_utf8_text(self) -> None:
+        self._assert_byte_replay(b"old\xff\n", b"new\xfe\n")
+
+    def test_equivalence_preserves_modified_blob_with_zero_diff_context(self) -> None:
+        helpers.run(self.repo, "git", "config", "diff.context", "0")
+        self._assert_byte_replay(b"first\nold\nlast\n", b"first\nnew\nlast\n")
+
+    def test_equivalence_preserves_blob_with_whitespace_fixing_configured(self) -> None:
+        helpers.run(self.repo, "git", "config", "apply.whitespace", "fix")
+        self._assert_byte_replay(b"first\nold\nlast\n", b"first\nnew \nlast\n")
+
+    def test_equivalence_preserves_gitlinks_under_submodule_display_configuration(
+        self,
+    ) -> None:
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(
+            self.repo,
+            "git",
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            f"160000,{self.trunk},child",
+        )
+        trunk = helpers.commit(self.repo, "baseline gitlink")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "-b", "gitlink-source")
+        helpers.run(
+            self.repo,
+            "git",
+            "update-index",
+            "--cacheinfo",
+            f"160000,{self.source_sha},child",
+        )
+        head = helpers.commit(self.repo, "changed gitlink")
+        helpers.run(self.repo, "git", "push", "origin", "gitlink-source")
+        snapshot = NativeStackSnapshot(
+            "main",
+            trunk,
+            "gitlink-source",
+            (NativeLayer("gitlink-source", head, trunk, False, False, False, None),),
+        )
+        for setting, value in (
+            ("diff.submodule", "log"),
+            ("diff.ignoreSubmodules", "all"),
+        ):
+            with self.subTest(setting=setting):
+                helpers.run(self.repo, "git", "config", setting, value)
+                try:
+                    result = validate_mod.validate_live_equivalence(
+                        snapshot=snapshot,
+                        active_source=SourceIdentity("origin", "gitlink-source", head),
+                        cwd=self.repo,
+                    )
+                finally:
+                    helpers.run(self.repo, "git", "config", "--unset", setting)
+                self.assertTrue(result.valid, result.code)
+                self.assertEqual(result.source_tree, result.reconstructed_tree)
+
+    def _layer(self, branch: str, base: str, path: str) -> NativeLayer:
+        helpers.run(self.repo, "git", "checkout", "-b", branch, base)
+        content = helpers.run(self.repo, "git", "show", f"feature/report:{path}")
+        (self.repo / path).write_text(content + "\n")
+        helpers.run(self.repo, "git", "add", path)
+        head = helpers.commit(self.repo, f"feat: {branch}")
+        return NativeLayer(
+            branch=branch,
+            head=head,
+            base=helpers.run(self.repo, "git", "rev-parse", base),
+            merged=False,
+            queued=False,
+            needs_rebase=False,
+            pull_request=None,
+        )
+
+    def test_unmerged_suffix_reconstructs_source_from_exact_remote_trunk(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual("equivalent", result.code)
+        self.assertEqual((1,), result.open_suffix)
+        self.assertEqual(
+            "",
+            helpers.run(
+                self.repo,
+                "git",
+                "for-each-ref",
+                "refs/carve-changesets/equivalence",
+            ),
+        )
+
+    def test_equivalence_ignores_human_facing_diff_configuration(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot("main", self.trunk, "layer-one", (first,))
+        (self.repo / ".git" / "info" / "attributes").write_text(
+            "source.txt diff=display\n"
+        )
+        index_before = (self.repo / ".git" / "index").read_bytes()
+        content_before = (self.repo / "source.txt").read_bytes()
+        for setting, value in (
+            ("diff.external", "true"),
+            ("color.ui", "always"),
+            ("diff.noprefix", "true"),
+            ("diff.display.textconv", "true"),
+        ):
+            with self.subTest(setting=setting):
+                helpers.run(self.repo, "git", "config", setting, value)
+                try:
+                    result = validate_mod.validate_live_equivalence(
+                        snapshot=snapshot,
+                        active_source=SourceIdentity(
+                            "origin", "feature/report", self.source_sha
+                        ),
+                        cwd=self.repo,
+                    )
+                finally:
+                    helpers.run(self.repo, "git", "config", "--unset", setting)
+
+                self.assertEqual(
+                    index_before, (self.repo / ".git" / "index").read_bytes()
+                )
+                self.assertEqual(
+                    content_before, (self.repo / "source.txt").read_bytes()
+                )
+                self.assertEqual(
+                    "",
+                    helpers.run(
+                        self.repo,
+                        "git",
+                        "for-each-ref",
+                        "refs/carve-changesets/equivalence",
+                    ),
+                )
+                self.assertTrue(result.valid, result.code)
+                self.assertEqual(result.source_tree, result.reconstructed_tree)
+
+    def test_equivalence_rejects_whitespace_normalized_false_match(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        path = self.repo / "source.txt"
+        path.write_text(path.read_text().rstrip() + " \n")
+        helpers.run(self.repo, "git", "add", "source.txt")
+        head = helpers.commit(self.repo, "different layer whitespace")
+        snapshot = NativeStackSnapshot(
+            "main", self.trunk, "layer-one", (replace(first, head=head),)
+        )
+        helpers.run(self.repo, "git", "config", "apply.whitespace", "fix")
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("source_equivalence_mismatch", result.code)
+
+    def test_merged_prefix_and_rebased_open_suffix_reconstruct_source(self) -> None:
+        (self.repo / "second.txt").write_text("second source part\n")
+        helpers.run(self.repo, "git", "add", "second.txt")
+        self.source_sha = helpers.commit(self.repo, "complete source")
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
+        first = self._layer("layer-one", "main", "source.txt")
+        self._layer("layer-two", "layer-one", "second.txt")
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "merge", "--no-ff", "--no-edit", "layer-one")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "layer-two")
+        helpers.run(self.repo, "git", "rebase", "--onto", "main", first.head)
+        rebased = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        snapshot = NativeStackSnapshot(
+            "main",
+            trunk,
+            "layer-two",
+            (
+                NativeLayer(
+                    "layer-one",
+                    first.head,
+                    self.trunk,
+                    True,
+                    False,
+                    False,
+                    NativePullRequest(101, "https://example.test/101", "MERGED"),
+                ),
+                NativeLayer(
+                    "layer-two",
+                    rebased,
+                    trunk,
+                    False,
+                    False,
+                    False,
+                    NativePullRequest(102, "https://example.test/102", "OPEN"),
+                ),
+            ),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=trunk,
+                )
+            },
+            cwd=self.repo,
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual((101,), result.merged_prefix)
+        self.assertEqual((102,), result.open_suffix)
+
+    def test_squash_landed_prefix_and_rebased_open_suffix_reconstruct_source(
+        self,
+    ) -> None:
+        (self.repo / "second.txt").write_text("second source part\n")
+        helpers.run(self.repo, "git", "add", "second.txt")
+        self.source_sha = helpers.commit(self.repo, "complete source")
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
+        first = self._layer("layer-one", "main", "source.txt")
+        self._layer("layer-two", "layer-one", "second.txt")
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "merge", "--squash", "layer-one")
+        landing = helpers.commit(self.repo, "squash first layer")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        helpers.run(self.repo, "git", "checkout", "layer-two")
+        helpers.run(self.repo, "git", "rebase", "--onto", "main", first.head)
+        rebased = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        snapshot = NativeStackSnapshot(
+            "main",
+            landing,
+            "layer-two",
+            (
+                NativeLayer(
+                    "layer-one",
+                    first.head,
+                    self.trunk,
+                    True,
+                    False,
+                    False,
+                    NativePullRequest(101, "https://example.test/101", "MERGED"),
+                ),
+                NativeLayer(
+                    "layer-two",
+                    rebased,
+                    landing,
+                    False,
+                    False,
+                    False,
+                    NativePullRequest(102, "https://example.test/102", "OPEN"),
+                ),
+            ),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=landing,
+                )
+            },
+            cwd=self.repo,
+        )
+        self.assertTrue(result.valid)
+        self.assertEqual("equivalent", result.code)
+
+    def test_merged_prefix_absent_from_remote_trunk_is_rejected(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot(
+            "main",
+            self.trunk,
+            "layer-one",
+            (
+                NativeLayer(
+                    "layer-one",
+                    first.head,
+                    self.trunk,
+                    True,
+                    False,
+                    False,
+                    NativePullRequest(101, "https://example.test/101", "MERGED"),
+                ),
+            ),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=first.head,
+                )
+            },
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("merged_prefix_missing_from_trunk", result.code)
+
+    def test_merged_prefix_survives_later_trunk_edit_to_same_file(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "merge", "--no-ff", "--no-edit", "layer-one")
+        landing = helpers.run(self.repo, "git", "rev-parse", "main")
+        (self.repo / "source.txt").write_text("authorized trunk revision\n")
+        helpers.run(self.repo, "git", "add", "source.txt")
+        helpers.commit(self.repo, "revise merged content on trunk")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "-b", "successor", "main")
+        helpers.run(
+            self.repo,
+            "git",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "source lineage successor",
+        )
+        successor = helpers.run(self.repo, "git", "rev-parse", "HEAD")
+        helpers.run(self.repo, "git", "push", "origin", "successor")
+        snapshot = NativeStackSnapshot(
+            "main",
+            trunk,
+            "main",
+            (
+                NativeLayer(
+                    "layer-one",
+                    first.head,
+                    self.trunk,
+                    True,
+                    False,
+                    False,
+                    NativePullRequest(101, "https://example.test/101", "MERGED"),
+                ),
+            ),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "successor", successor),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "MERGED",
+                    "",
+                    merge_sha=landing,
+                )
+            },
+            cwd=self.repo,
+        )
+        self.assertTrue(result.valid)
+        self.assertEqual("equivalent", result.code)
+
+    def test_merged_prefix_requires_current_merged_pr_evidence(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "merge", "--no-ff", "--no-edit", "layer-one")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        snapshot = NativeStackSnapshot(
+            "main",
+            trunk,
+            "main",
+            (
+                NativeLayer(
+                    "layer-one",
+                    first.head,
+                    self.trunk,
+                    True,
+                    False,
+                    False,
+                    NativePullRequest(101, "https://example.test/101", "OPEN"),
+                ),
+            ),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "OPEN",
+                    "",
+                    merge_sha=trunk,
+                )
+            },
+            cwd=self.repo,
+        )
+        self.assertFalse(result.valid)
+        self.assertEqual("merged_prefix_unavailable", result.code)
+
+        merged_snapshot = replace(
+            snapshot,
+            layers=(
+                replace(
+                    snapshot.layers[0],
+                    pull_request=NativePullRequest(
+                        101, "https://example.test/101", "MERGED"
+                    ),
+                ),
+            ),
+        )
+        missing_landing = validate_mod.validate_live_equivalence(
+            snapshot=merged_snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            merged_prs={
+                101: PullRequestRecord(
+                    101,
+                    "layer-one",
+                    first.head,
+                    "main",
+                    "MERGED",
+                    "",
+                )
+            },
+            cwd=self.repo,
+        )
+        self.assertFalse(missing_landing.valid)
+        self.assertEqual("merged_prefix_unavailable", missing_landing.code)
+
+    def test_open_layer_base_must_match_native_predecessor(self) -> None:
+        first = self._layer("layer-one", "main", "source.txt")
+        snapshot = NativeStackSnapshot(
+            "main",
+            self.trunk,
+            "layer-one",
+            (
+                NativeLayer(
+                    "layer-one", first.head, self.source_sha, False, False, False, None
+                ),
+            ),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("native_topology_changed", result.code)
+
+    def test_extra_suffix_change_does_not_match_source(self) -> None:
+        self._layer("layer-one", "main", "source.txt")
+        (self.repo / "extra.txt").write_text("unapproved\n")
+        helpers.run(self.repo, "git", "add", "extra.txt")
+        changed = helpers.commit(self.repo, "unapproved suffix change")
+        snapshot = NativeStackSnapshot(
+            "main",
+            self.trunk,
+            "layer-one",
+            (NativeLayer("layer-one", changed, self.trunk, False, False, False, None),),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("source_equivalence_mismatch", result.code)
+        self.assertEqual(
+            "",
+            helpers.run(
+                self.repo, "git", "for-each-ref", "refs/carve-changesets/equivalence"
+            ),
+        )
+
+    def test_empty_suffix_requires_current_trunk_to_equal_remote_source(self) -> None:
+        helpers.run(self.repo, "git", "checkout", "main")
+        helpers.run(self.repo, "git", "merge", "--ff-only", "feature/report")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        snapshot = NativeStackSnapshot("main", trunk, "main", ())
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual((), result.open_suffix)
+        self.assertEqual(result.source_tree, result.reconstructed_tree)
+
+    def test_local_only_successor_cannot_prove_trunk_drift_recovery(self) -> None:
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "trunk-only.txt").write_text("new trunk\n")
+        helpers.run(self.repo, "git", "add", "trunk-only.txt")
+        helpers.commit(self.repo, "advance trunk")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "-b", "successor", "feature/report")
+        (self.repo / "trunk-only.txt").write_text("new trunk\n")
+        helpers.run(self.repo, "git", "add", "trunk-only.txt")
+        successor = helpers.commit(self.repo, "successor source")
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=NativeStackSnapshot("main", trunk, "main", ()),
+            active_source=SourceIdentity("origin", "successor", successor),
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("successor_source_not_remote", result.code)
+
+    def test_predecessor_drift_blocks_unchanged_descendant_head(self) -> None:
+        (self.repo / "second.txt").write_text("second source part\n")
+        helpers.run(self.repo, "git", "add", "second.txt")
+        self.source_sha = helpers.commit(self.repo, "complete source")
+        helpers.run(self.repo, "git", "push", "origin", "feature/report")
+        first = self._layer("layer-one", "main", "source.txt")
+        second = self._layer("layer-two", "layer-one", "second.txt")
+        helpers.run(self.repo, "git", "checkout", "layer-one")
+        (self.repo / "predecessor-only.txt").write_text("new predecessor work\n")
+        helpers.run(self.repo, "git", "add", "predecessor-only.txt")
+        advanced = helpers.commit(self.repo, "advance predecessor")
+        snapshot = NativeStackSnapshot(
+            "main",
+            self.trunk,
+            "layer-two",
+            (replace(first, head=advanced), replace(second, base=advanced)),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("predecessor_ancestry_broken", result.code)
+
+    def test_unavailable_open_head_ancestry_blocks_equivalence(self) -> None:
+        tree = helpers.run(self.repo, "git", "rev-parse", f"{self.source_sha}^{{tree}}")
+        head = helpers.run(
+            self.repo,
+            "git",
+            "hash-object",
+            "-t",
+            "commit",
+            "-w",
+            "--stdin",
+            input_text=(
+                f"tree {tree}\nparent {'f' * 40}\n"
+                "author Carve Tests <carve@example.test> 1000000000 +0000\n"
+                "committer Carve Tests <carve@example.test> 1000000000 +0000\n"
+                "\nLayer with unavailable parent\n"
+            ),
+        )
+        snapshot = NativeStackSnapshot(
+            "main",
+            self.trunk,
+            "layer-one",
+            (NativeLayer("layer-one", head, self.trunk, False, False, False, None),),
+        )
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=snapshot,
+            active_source=SourceIdentity("origin", "feature/report", self.source_sha),
+            cwd=self.repo,
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual("ancestry_check_failed", result.code)
+
+    def test_remote_successor_restores_equivalence_after_trunk_drift(self) -> None:
+        helpers.run(self.repo, "git", "checkout", "main")
+        (self.repo / "trunk-only.txt").write_text("new trunk\n")
+        helpers.run(self.repo, "git", "add", "trunk-only.txt")
+        helpers.commit(self.repo, "advance trunk")
+        helpers.run(self.repo, "git", "push", "origin", "main")
+        trunk = helpers.run(self.repo, "git", "rev-parse", "main")
+        helpers.run(self.repo, "git", "checkout", "-b", "successor", "feature/report")
+        (self.repo / "trunk-only.txt").write_text("new trunk\n")
+        helpers.run(self.repo, "git", "add", "trunk-only.txt")
+        successor = helpers.commit(self.repo, "successor source")
+        helpers.run(self.repo, "git", "push", "origin", "successor")
+        first = self._layer("layer-one", "main", "source.txt")
+
+        result = validate_mod.validate_live_equivalence(
+            snapshot=NativeStackSnapshot("main", trunk, "layer-one", (first,)),
+            active_source=SourceIdentity("origin", "successor", successor),
+            cwd=self.repo,
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual("equivalent", result.code)
 
 
 if __name__ == "__main__":

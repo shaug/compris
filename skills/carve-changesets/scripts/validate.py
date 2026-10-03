@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
+import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 from common import CommandError
 from metadata import SourceIdentity
+from native_stack import NativeStackSnapshot
 from publication import remote_branch_head, remote_identity_head
-from rehydrate import Chain, RehydrationError, discover_changeset_heads
+from rehydrate import (
+    Chain,
+    PullRequestRecord,
+    RehydrationError,
+    discover_changeset_heads,
+)
 
 Severity = Literal["error", "warning"]
 SourceStatus = Literal["unchanged", "advanced", "different", "unavailable"]
@@ -45,6 +55,248 @@ class ChainValidation:
     @property
     def valid(self) -> bool:
         return not self.errors
+
+
+@dataclass(frozen=True)
+class LiveEquivalence:
+    """Result of replaying the open native suffix onto exact remote trunk."""
+
+    valid: bool
+    code: str
+    merged_prefix: tuple[int, ...]
+    open_suffix: tuple[int, ...]
+    reconstructed_tree: str | None
+    source_tree: str | None
+    trunk_head: str
+    open_heads: tuple[tuple[str, str], ...]
+    active_source: SourceIdentity
+    topology: NativeStackSnapshot
+
+
+def validate_live_equivalence(
+    *,
+    snapshot: NativeStackSnapshot,
+    active_source: SourceIdentity,
+    merged_prs: Mapping[int, PullRequestRecord] | None = None,
+    historical_prs: tuple[int, ...] = (),
+    cwd: Path | str | None = None,
+) -> LiveEquivalence:
+    """Reconstruct a native suffix without touching the caller's checkout.
+
+    After native synchronization removes every layer, historical_prs names the
+    ordered established chain whose live merged_prs readback proves its landings.
+    """
+
+    repo = Path.cwd() if cwd is None else Path(cwd)
+    merged = historical_prs or tuple(
+        layer.pull_request.number if layer.pull_request else index
+        for index, layer in enumerate(snapshot.layers, 1)
+        if layer.merged
+    )
+    opened = tuple(
+        layer.pull_request.number if layer.pull_request else index
+        for index, layer in enumerate(snapshot.layers, 1)
+        if not layer.merged
+    )
+
+    def result(
+        code: str, reconstructed: str | None = None, source: str | None = None
+    ) -> LiveEquivalence:
+        return LiveEquivalence(
+            valid=code == "equivalent",
+            code=code,
+            merged_prefix=merged,
+            open_suffix=opened,
+            reconstructed_tree=reconstructed,
+            source_tree=source,
+            trunk_head=snapshot.trunk_head,
+            open_heads=tuple(
+                (layer.branch, layer.head) for layer in snapshot.open_suffix
+            ),
+            active_source=active_source,
+            topology=snapshot,
+        )
+
+    try:
+        trunk = remote_branch_head(
+            active_source.remote, snapshot.trunk_branch, cwd=repo
+        )
+    except CommandError:
+        return result("remote_trunk_unavailable")
+    if trunk is None:
+        return result("remote_trunk_unavailable")
+    if trunk != snapshot.trunk_head:
+        return result("remote_trunk_moved")
+    try:
+        published_source = remote_identity_head(active_source, cwd=repo)
+    except CommandError:
+        return result("successor_source_not_remote")
+    if published_source != active_source.sha:
+        return result("source_ref_moved")
+    source_tree = _resolve(repo, f"{active_source.sha}^{{tree}}")
+    if source_tree is None:
+        return result("source_commit_unavailable")
+    if _resolve(repo, f"{trunk}^{{commit}}") is None:
+        return result("remote_trunk_commit_unavailable", source=source_tree)
+    merged_readback = merged_prs or {}
+    if (
+        (historical_prs and snapshot.layers)
+        or len(set(merged)) != len(merged)
+        or any(number < 1 for number in merged)
+        or set(merged_readback) != set(merged)
+    ):
+        return result("merged_prefix_unavailable", source=source_tree)
+    open_seen = False
+    predecessor = trunk
+    for layer in snapshot.layers:
+        if layer.merged:
+            if open_seen:
+                return result("native_topology_changed", source=source_tree)
+        else:
+            open_seen = True
+            if layer.base != predecessor:
+                return result("native_topology_changed", source=source_tree)
+            predecessor = layer.head
+
+    ref = f"refs/carve-changesets/equivalence/{uuid4().hex}"
+    created = False
+    current = trunk
+    reconstructed: str | None = None
+    try:
+        with tempfile.TemporaryDirectory(prefix="carve-equivalence-") as temporary:
+            environment = os.environ.copy()
+            environment["GIT_INDEX_FILE"] = str(Path(temporary) / "index")
+            environment["GIT_AUTHOR_NAME"] = "Carve equivalence"
+            environment["GIT_AUTHOR_EMAIL"] = "carve-equivalence@invalid.local"
+            environment["GIT_COMMITTER_NAME"] = "Carve equivalence"
+            environment["GIT_COMMITTER_EMAIL"] = "carve-equivalence@invalid.local"
+
+            def run(
+                *args: str, input_bytes: bytes | None = None
+            ) -> subprocess.CompletedProcess[bytes]:
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=repo,
+                    env=environment,
+                    input=input_bytes,
+                    capture_output=True,
+                    check=False,
+                )
+
+            if run("read-tree", trunk).returncode != 0:
+                return result("reconstruction_failed", source=source_tree)
+            if run("update-ref", ref, trunk, "0" * 40).returncode != 0:
+                return result("reconstruction_failed", source=source_tree)
+            created = True
+            prior_landing: str | None = None
+            for index, number in enumerate(merged):
+                layer = snapshot.layers[index] if snapshot.layers else None
+                live_pr = merged_readback.get(number)
+                if (
+                    live_pr is None
+                    or live_pr.number != number
+                    or live_pr.state != "MERGED"
+                    or live_pr.is_cross_repository
+                    or live_pr.merge_sha is None
+                    or _resolve(repo, f"{live_pr.head_sha}^{{commit}}") is None
+                    or (
+                        layer is not None
+                        and (
+                            layer.pull_request is None
+                            or layer.pull_request.state != "MERGED"
+                            or live_pr.head_branch != layer.branch
+                            or live_pr.head_sha != layer.head
+                        )
+                    )
+                ):
+                    return result("merged_prefix_unavailable", source=source_tree)
+                landing = live_pr.merge_sha
+                if (
+                    _resolve(repo, f"{landing}^{{commit}}") is None
+                    or _is_ancestor(repo, landing, trunk) is not True
+                    or (
+                        prior_landing is not None
+                        and _is_ancestor(repo, prior_landing, landing) is not True
+                    )
+                ):
+                    return result(
+                        "merged_prefix_missing_from_trunk", source=source_tree
+                    )
+                prior_landing = landing
+            for layer in snapshot.open_suffix:
+                if (
+                    _resolve(repo, f"{layer.base}^{{commit}}") is None
+                    or _resolve(repo, f"{layer.head}^{{commit}}") is None
+                ):
+                    return result("open_layer_unavailable", source=source_tree)
+                ancestry = _is_ancestor(repo, layer.base, layer.head)
+                if ancestry is False:
+                    return result("predecessor_ancestry_broken", source=source_tree)
+                if ancestry is None:
+                    return result("ancestry_check_failed", source=source_tree)
+                patch = run(
+                    "diff",
+                    "--binary",
+                    "--full-index",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "--no-color",
+                    "--src-prefix=a/",
+                    "--dst-prefix=b/",
+                    "--unified=3",
+                    "--submodule=short",
+                    "--ignore-submodules=none",
+                    layer.base,
+                    layer.head,
+                    "--",
+                )
+                if patch.returncode != 0:
+                    return result("reconstruction_failed", source=source_tree)
+                if (
+                    patch.stdout
+                    and run(
+                        "apply",
+                        "--cached",
+                        "--binary",
+                        "--whitespace=nowarn",
+                        "-",
+                        input_bytes=patch.stdout,
+                    ).returncode
+                    != 0
+                ):
+                    return result("reconstruction_conflict", source=source_tree)
+                tree = run("write-tree")
+                if tree.returncode != 0:
+                    return result("reconstruction_failed", source=source_tree)
+                synthetic = run(
+                    "commit-tree",
+                    tree.stdout.strip().decode("ascii"),
+                    "-p",
+                    current,
+                    input_bytes=b"replay open native layer\n",
+                )
+                if synthetic.returncode != 0:
+                    return result("reconstruction_failed", source=source_tree)
+                successor = synthetic.stdout.strip().decode("ascii")
+                if run("update-ref", ref, successor, current).returncode != 0:
+                    return result("reconstruction_failed", source=source_tree)
+                current = successor
+            reconstructed = _resolve(repo, f"{current}^{{tree}}")
+    finally:
+        if created:
+            cleanup = _git(repo, "update-ref", "-d", ref, current)
+            if cleanup.returncode != 0:
+                raise RuntimeError(
+                    f"Could not remove disposable equivalence ref {ref}."
+                )
+
+    if reconstructed is None:
+        return result("reconstruction_failed", source=source_tree)
+    return result(
+        "equivalent" if reconstructed == source_tree else "source_equivalence_mismatch",
+        reconstructed,
+        source_tree,
+    )
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
