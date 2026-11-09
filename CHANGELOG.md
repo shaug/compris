@@ -4,29 +4,43 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
+## 2026-11-09 — Restored historical eval citations
+
+- fix: derive historical eval subtrees from recorded equivalents
+
 ## 2026-10-02 — Bound stack evidence and preserved raw reconstruction
 
 - fix: preserve exact replay under context and whitespace settings
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: isolate stack replay patches from display configuration
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: bind publication gates to the exact comparison base
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: require current predecessor ancestry for open stack layers
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: preserve blob bytes during live stack reconstruction
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: bind stack equivalence gates to native topology
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 ## 2026-09-28 — Proved live stack equivalence and closed transition fences
 
 - fix: prove squash and rebase landings by merged PR commit
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: preserve valid successor proof and precise cleanup limits
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: bind stack gates and repair authority to current identities
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - feat: validate live native stack equivalence
+  (3c2c88ef6c27da0ec93b0cbc096320ae3626d25d)
 
 - fix: preserve independent readback observations across bootstrap failures
   (5d534593901a56f4d9d11c505ea36beb5b04bf8b)
@@ -299,6 +313,7 @@ summary: Chronological history of repository and skill changes.
 - docs: make cognitive-prose canonical for pull request and ticket bodies while
   preserving AGENTS.md's commit conventions and the skill-authoring doctrine;
   distinguish registered forward and triggering model executors.
+  (cf07e0dd34db6ccc0e2d5f5179776a4a50cfed08)
 
 - test(evals): renew adoption outcomes after sibling integration, preserving
   clean before/after identities and every original measured subtree.

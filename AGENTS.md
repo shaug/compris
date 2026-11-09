@@ -153,18 +153,25 @@ squash collapses the measured states away with nothing to re-record against.
 two different subjects wearing the same tier name; a diff is drawn only when the
 compared runs' tier, suite, and model all match. A deterministic run records no
 model — there is none to name. Summaries recorded before these fields existed
-carry `trees` only where it could be derived from a commit still reachable from
-`HEAD`, and carry no `model` at all: no model can be recovered for them after
-the fact, and they are not backfilled. Reachability rather than resolvability is
-the criterion, because a commit surviving in one clone as a dangling object
-resolves there and nowhere else — deriving from those would write citations the
-guard reports as rot, which is what they are. The derivation that is backfilled,
-`git rev-parse <recorded sha>:<path>`, is a computation over what the file
-already carries and could not have come out differently had the field existed
-when it was written. A landing commit is not backfilled for the opposite reason:
-which commit carries a summary onto `main` is decided after the run by a merge
-that has not happened yet, so writing it in would add a claim nothing in the
-file supports.
+carry no `model` at all: no model can be recovered for them after the fact, and
+it is not backfilled. Their `trees` has two derivation paths, with the primary
+one always taking precedence: derive from the recorded `sha` when that commit is
+still reachable from `HEAD`; only when it is unreachable may an existing `note`
+naming an equivalent commit on `main` supply the source instead. Reachability
+rather than resolvability is the criterion, because a commit surviving in one
+clone as a dangling object resolves there and nowhere else — deriving from those
+would write citations the guard reports as rot, which is what they are. The
+primary derivation that is backfilled, `git rev-parse <recorded sha>:<path>`, is
+a computation over what the file already carries and could not have come out
+differently had the field existed when it was written. The second, weaker path
+is `git rev-parse <equivalent commit named in note>:<path>`. It establishes only
+that the named commit on `main` carries the recorded subtree; that the run
+measured this content rests on the existing `note`, not on a computation a
+reader can repeat. A summary whose own `sha` is unreachable and whose `note`
+names no equivalent commit remains without `trees`. A landing commit is not
+backfilled for the opposite reason: which commit carries a summary onto `main`
+is decided after the run by a merge that has not happened yet, so writing it in
+would add a claim nothing in the file supports.
 
 Summaries already written under `evals/results/` are the one exemption, and it
 is narrow by construction. Recording several skills in sequence writes a summary
