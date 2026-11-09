@@ -57,6 +57,13 @@ sync-contracts:
     echo "Synced $dest/cognitive-prose.md"; \
   done
 
+  @for skill in implement-ticket plan-implementation; do \
+    dest="{{skills_dir}}/$skill/scripts/evals"; \
+    mkdir -p "$dest"; \
+    cp sampling/core.py "$dest/sampling_core.py"; \
+    echo "Synced $dest/sampling_core.py"; \
+  done
+
 # Compare the separately installed skill copies under ~/.agents/skills against
 # this repository's working tree. `sync-contracts` above only refreshes the
 # copies bundled *inside* this repository; an installed snapshot is a distinct
@@ -84,7 +91,7 @@ test: test-plugins
   if [ "$found" -eq 0 ]; then \
     echo "No skill tests found under {{skills_dir}}/*/scripts/tests"; \
   fi; \
-  for tests in ledger/scripts/tests review-suite/scripts/tests triggering/tests; do \
+  for tests in ledger/scripts/tests sampling/scripts/tests review-suite/scripts/tests triggering/tests; do \
     if [ -d "$tests" ]; then \
       echo "Running tests in $tests"; \
       python3 -m unittest discover -s "$tests" -p 'test_*.py'; \

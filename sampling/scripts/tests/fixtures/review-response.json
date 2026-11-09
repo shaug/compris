@@ -1,0 +1,1 @@
+{"executor": {"model": "model-a,model-b", "name": "review-suite-claude-executor", "runtime": "stub-claude", "version": "1.0"}, "outcome": "review_result", "protocol_version": "1.0", "result": {"candidate": {"head_sha": "abc"}, "findings": [], "verdict": "clean"}, "simulation": false, "usage": {"cost_usd": 0.0123, "input_tokens": 14, "output_tokens": 3}}

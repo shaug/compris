@@ -4,9 +4,12 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-11-09 — Restored eval citations and clarified drift failures
+## 2026-11-09 — Unified sampling, restored citations, and clarified drift failures
+
+- fix: unify real-model sampling and vote policy
 
 - test: name the shaping doctrine sync block in drift failures
+  (8d56d10fad9aedfd8017f55ae8471a62b8c0c017)
 
 - fix: derive historical eval subtrees from recorded equivalents
   (ebe3028bbe5a334b929be4793885838663529bfb)

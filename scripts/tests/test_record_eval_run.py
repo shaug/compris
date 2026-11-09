@@ -422,6 +422,60 @@ class RecorderTests(unittest.TestCase):
         matched = json.loads(files[-1].read_text(encoding="utf-8"))
         self.assertEqual(matched["compared_to"], files[-2].name)
 
+    def test_real_model_summary_names_the_sampling_policy(self) -> None:
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "real-model",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]),
+            "--per-case-output-dir",
+        )
+        summary = self.read_only_summary("demo-skill")
+        self.assertEqual(
+            summary["policy"], record_eval_run.sampling_core.POLICY_VERSION
+        )
+
+    def test_deterministic_summary_names_no_sampling_policy(self) -> None:
+        self.run_recorder(
+            "demo-skill",
+            "--tier",
+            "deterministic",
+            "--command",
+            self.stub(passed=["alpha"], failed=[]),
+            "--per-case-output-dir",
+        )
+        self.assertIsNone(self.read_only_summary("demo-skill")["policy"])
+
+    def test_diff_selection_requires_an_explicit_matching_sampling_policy(self) -> None:
+        directory = self.skills / "demo-skill" / "evals" / "results"
+        directory.mkdir(parents=True)
+        path = directory / "2026-01-01T000000Z-0001-baseline.json"
+        for tier, current in (("real-model", "1"), ("deterministic", None)):
+            for previous in ("absent", "different", current):
+                with self.subTest(tier=tier, previous=previous):
+                    recorded = {
+                        "schema": record_eval_run.SUMMARY_SCHEMA,
+                        "skill": "demo-skill",
+                        "suite": "forward",
+                        "tier": tier,
+                        "model": None,
+                        "cases": {"alpha": "pass"},
+                    }
+                    if previous != "absent":
+                        recorded["policy"] = previous
+                    path.write_text(json.dumps(recorded), encoding="utf-8")
+                    selected = record_eval_run.previous_run(
+                        directory,
+                        "demo-skill",
+                        tier,
+                        {"alpha": "pass"},
+                        "forward",
+                        None,
+                        current,
+                    )
+                    self.assertEqual(selected is not None, previous == current)
+
     # AC: a summary with no recorded model — the shape of every summary
     # committed before this change — is not chosen as the comparison for a
     # model-pinned run.
@@ -836,6 +890,37 @@ class NormIsStatedTests(unittest.TestCase):
         self.assertEqual(
             record_eval_run.subtree_paths("implement-epic", resolved["command"]),
             ["skills/implement-epic", "skills/implement-ticket"],
+        )
+
+    def test_root_sampling_dependency_is_part_of_the_instrument_identity(self) -> None:
+        real = record_eval_run.plan(
+            skill="implement-ticket",
+            tier="real-model",
+            override=None,
+            per_case=True,
+            suite="triggering",
+        )
+        self.assertEqual(
+            record_eval_run.subtree_paths("implement-ticket", real["command"]),
+            ["sampling", "skills/implement-ticket", "triggering"],
+        )
+        deterministic = record_eval_run.plan(
+            skill="implement-ticket",
+            tier="deterministic",
+            override=None,
+            per_case=True,
+            suite="triggering",
+        )
+        self.assertEqual(
+            record_eval_run.subtree_paths("implement-ticket", deterministic["command"]),
+            ["skills/implement-ticket", "triggering"],
+        )
+        self.assertEqual(
+            record_eval_run.subtree_paths(
+                "review-code-change",
+                ["python3", "review-suite/scripts/evals/claude_executor.py"],
+            ),
+            ["review-suite", "sampling", "skills/review-code-change"],
         )
 
     def test_just_exposes_the_recorder_as_eval_record(self) -> None:

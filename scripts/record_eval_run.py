@@ -31,6 +31,7 @@ for the two that are not `completed`:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import shlex
 import subprocess
@@ -41,6 +42,13 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPOSITORY_ROOT / "skills"
+
+_SAMPLING_SPEC = importlib.util.spec_from_file_location(
+    "sampling_core", REPOSITORY_ROOT / "sampling" / "core.py"
+)
+sampling_core = importlib.util.module_from_spec(_SAMPLING_SPEC)
+assert _SAMPLING_SPEC.loader is not None
+_SAMPLING_SPEC.loader.exec_module(sampling_core)
 
 SUMMARY_SCHEMA = "eval-run-summary/1"
 STAGES = ("baseline", "before", "after")
@@ -107,6 +115,12 @@ EVAL_TARGETS = {
 
 _TRIGGERING_RUNNER = "triggering/runner.py"
 _DESCRIPTION_EXECUTOR = "triggering/executors/description_executor.py"
+
+# These repository-only executors import the canonical policy outside their
+# own unit. Skill executors carry the same source in their already-cited bundle.
+_CANONICAL_SAMPLING_EXECUTORS = frozenset(
+    {_DESCRIPTION_EXECUTOR, "review-suite/scripts/evals/claude_executor.py"}
+)
 
 # The triggering corpus is one corpus covering every skill, so each skill's
 # entry is the same runner filtered to that skill's cases. Its real-model tier
@@ -236,6 +250,11 @@ def model_for(command: list[str], tier: str) -> str | None:
     return None
 
 
+def policy_for(command: list[str], tier: str) -> str | None:
+    """Name the real-model grader; deterministic runs do not sample or vote."""
+    return sampling_core.POLICY_VERSION if tier == REAL_MODEL else None
+
+
 def run_command(
     command: list[str], reports_per_case: bool
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, str], dict[str, dict | None]]:
@@ -307,6 +326,7 @@ def previous_run(
     cases: dict[str, str],
     suite: str,
     model: str | None,
+    policy: str | None,
 ) -> dict | None:
     """The most recent run this one can honestly be compared against.
 
@@ -346,6 +366,10 @@ def previous_run(
         # field existed has no model at all and is equally unusable as a
         # model-pinned comparison.
         if recorded.get("model") != model:
+            continue
+        # Missing policy is older evidence, even when this deterministic run
+        # explicitly records null. Never backfill a grader identity by inference.
+        if "policy" not in recorded or recorded["policy"] != policy:
             continue
         recorded["_filename"] = path.name
         return recorded
@@ -427,9 +451,10 @@ def subtree_paths(skill: str, command: list[str]) -> list[str]:
 
     `skills/<skill>` is always named: it holds the prose under measurement,
     whether or not the command happens to mention it. Everything else is
-    derived from the run's own resolved command, so a target self-describes
-    and no hand-maintained mapping can drift away from the registry. Two
-    cases this repository already has depend on it — a triggering run's
+    derived from the run's own resolved command, plus the canonical sampling
+    dependency of the two repository-only executors that import it. Their
+    policy version names a grader, not retrievable content. Two other
+    cases this repository already has depend on the command paths — a triggering run's
     executors live in `triggering/`, outside every skill, and
     `implement-epic`'s runner, executor, and corpus all live under
     `skills/implement-ticket/`, so naming only the skill would leave two runs
@@ -446,6 +471,8 @@ def subtree_paths(skill: str, command: list[str]) -> list[str]:
             unit = owning_unit(word)
             if unit is not None:
                 paths.add(unit)
+            if word in _CANONICAL_SAMPLING_EXECUTORS:
+                paths.add("sampling")
     return sorted(paths)
 
 
@@ -517,6 +544,7 @@ def build_summary(
     note: str | None,
     suite: str,
     model: str | None,
+    policy: str | None,
     command: list[str],
     completed: subprocess.CompletedProcess[str],
     cases: dict[str, str],
@@ -585,6 +613,7 @@ def build_summary(
         "recorded_at": recorded_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tier": tier,
         "model": model,
+        "policy": policy,
         # Deliberately keyed off the forward suite whatever suite is being
         # recorded: the field's recorded meaning is "this skill has a
         # real-model forward executor", and making it suite-relative made
@@ -646,6 +675,7 @@ def plan(
         "suite": suite,
         "tier": resolved_tier,
         "model": model_for(command, resolved_tier),
+        "policy": policy_for(command, resolved_tier),
         "gap": gap,
         "command": command,
     }
@@ -666,6 +696,7 @@ def record(
         skill, tier, override, per_case, suite
     )
     model = model_for(command, resolved_tier)
+    policy = policy_for(command, resolved_tier)
     completed, cases, case_evidence = run_command(command, reports_per_case)
     recorded_at = utc_now()
     directory = results_dir(skill)
@@ -677,13 +708,16 @@ def record(
         note=note,
         suite=suite,
         model=model,
+        policy=policy,
         command=command,
         completed=completed,
         cases=cases,
         case_evidence=case_evidence,
         expects_summary=reports_per_case,
         recorded_at=recorded_at,
-        previous=previous_run(directory, skill, resolved_tier, cases, suite, model),
+        previous=previous_run(
+            directory, skill, resolved_tier, cases, suite, model, policy
+        ),
     )
 
     path = directory / summary_filename(directory, recorded_at, stage, label, suite)

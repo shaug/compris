@@ -8,7 +8,9 @@ executor or a stub, so the suite is free to run in CI.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import re
 import shlex
@@ -17,6 +19,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 TRIGGERING = REPOSITORY_ROOT / "triggering"
@@ -34,6 +37,42 @@ EXPECTATIONS = json.loads(
 COMPOSITION = json.loads(
     (TRIGGERING / "composition-cases.json").read_text(encoding="utf-8")
 )
+
+
+class DescriptionSamplingTests(unittest.TestCase):
+    def test_runtime_refusal_is_counted_outside_the_drawn_vote(self) -> None:
+        spec = importlib.util.spec_from_file_location(
+            "description_sampling_executor",
+            TRIGGERING / "executors/description_executor.py",
+        )
+        executor = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(executor)
+        success = subprocess.CompletedProcess(
+            [], 0, json.dumps({"result": "alpha"}), ""
+        )
+        refused = subprocess.CompletedProcess([], 1, "", "runtime unavailable")
+        packet = {
+            "prompt": "request",
+            "catalog": [{"skill": "alpha", "description": "A"}],
+        }
+        with (
+            mock.patch.object(
+                executor.core.subprocess, "run", side_effect=[success, refused, success]
+            ),
+            mock.patch.object(
+                sys, "argv", ["description_executor", "--repetitions", "3"]
+            ),
+            mock.patch.object(sys, "stdin", io.StringIO(json.dumps(packet))),
+            contextlib.redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(executor.main(), 0)
+        observed = json.loads(output.getvalue())
+        self.assertEqual(observed["selected_skill"], "alpha")
+        self.assertEqual(observed["repetitions"], 2)
+        self.assertEqual(observed["failed_samples"], 1)
+        self.assertEqual(sum(observed["votes"].values()), observed["repetitions"])
+        self.assertEqual(observed["agreement"], 1)
 
 
 class CorpusCoverageTests(unittest.TestCase):

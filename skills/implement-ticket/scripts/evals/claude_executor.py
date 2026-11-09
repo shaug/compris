@@ -26,17 +26,32 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
-import re
-import subprocess
 import sys
-import time
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
-# How long a scenario stands down before redrawing after every one of its
-# concurrent samples failed at once.
-SCENARIO_RETRY_PAUSE_SECONDS = 30
+
+def _load_core():
+    """Load the sampling policy from this executor's own location."""
+    core_path = Path(__file__).resolve().parent / "sampling_core.py"
+    spec = importlib.util.spec_from_file_location("sampling_core", core_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+core = _load_core()
+
+# Shared names remain available to callers of this executor module.
+RESULT_ATTEMPTS = core.RESULT_ATTEMPTS
+SCENARIO_RETRY_PAUSE_SECONDS = core.SCENARIO_RETRY_PAUSE_SECONDS
+NO_ANSWER = core.NO_ANSWER
+run_claude = core.draw_json
+extract_json_object = core.extract_json_object
+claimed = core.claimed
 
 TERMINAL_STATES = (
     "ready_pr",
@@ -226,76 +241,6 @@ def build_prompt(payload: dict) -> str:
     )
 
 
-def extract_json_object(text: str) -> dict:
-    text = text.strip()
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-    candidate = fenced.group(1) if fenced else text
-    start = candidate.find("{")
-    end = candidate.rfind("}")
-    if start < 0 or end <= start:
-        raise ValueError("executor model returned no JSON object")
-    return json.loads(candidate[start : end + 1])
-
-
-RESULT_ATTEMPTS = 3
-
-
-def run_claude(
-    prompt: str, claude_bin: str, model: str | None, attempts: int = RESULT_ATTEMPTS
-) -> dict:
-    command = [claude_bin, "-p", "--output-format", "json"]
-    if model:
-        command.extend(["--model", model])
-
-    # The model occasionally ends its turn (stop_reason "end_turn", not a
-    # token-limit stop) with the JSON object incomplete -- e.g. missing the
-    # final closing brace, or an unescaped quote inside a string value. This
-    # is a malformed *response*, not a boundary-detection bug in
-    # extract_json_object; retrying with a fresh, independent sample clears
-    # it almost every time. A single flaky response must not sink an entire
-    # run of many sequential cases.
-    last_error: ValueError | None = None
-    for _ in range(attempts):
-        completed = subprocess.run(
-            command,
-            input=prompt,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode:
-            raise RuntimeError(
-                f"claude exited {completed.returncode}: {completed.stderr.strip()}"
-            )
-        envelope = json.loads(completed.stdout)
-        result_text = envelope.get("result")
-        if not isinstance(result_text, str):
-            raise RuntimeError("claude --output-format json returned no result text")
-        try:
-            return extract_json_object(result_text)
-        except ValueError as error:
-            last_error = error
-    raise RuntimeError(
-        f"executor model returned malformed JSON after {attempts} attempts: {last_error}"
-    )
-
-
-def claimed(value) -> str | None:
-    """One single-valued answer, as a string or as no answer at all.
-
-    A sample may answer `["blocked"]` or `1` where a name belongs. Downstream
-    these two fields are counted and compared — `Counter` keys, `min()` — so a
-    non-string reaches that arithmetic as a `TypeError`, which is a non-zero
-    executor exit, which ends the whole corpus run and files a stage of sixty
-    scenarios as `attempted`. Rendering the claim keeps it gradable as the one
-    mismatch it is; `None` stays `None`, because no answer and a wrongly shaped
-    answer are different results and only the first is an absence.
-    """
-    if value is None or isinstance(value, str):
-        return value
-    return str(value)
-
-
 def normalize(observed: dict) -> dict:
     actions = observed.get("actions")
     if not isinstance(actions, list):
@@ -326,19 +271,6 @@ def normalize(observed: dict) -> dict:
     }
 
 
-# A vote key for an answer the model did not give. The counts become JSON
-# object keys, and `json.dump(..., sort_keys=True)` cannot order `None` against
-# a string, so one unusable sample would otherwise crash the whole corpus run
-# at output time. No real terminal state or skill name spells `none`.
-NO_ANSWER = "none"
-
-
-def _modal(votes: Counter) -> tuple[str, int]:
-    """The most-voted answer and its count, ties broken by sorted order."""
-    top = max(votes.values())
-    return min(answer for answer, count in votes.items() if count == top), top
-
-
 def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dict]:
     """Majority-vote the acceptance ledger criterion by criterion.
 
@@ -367,8 +299,8 @@ def _combine_ledger(samples: list[dict], majority: int) -> tuple[list[dict], dic
     for criterion in statuses:
         if multiplicities[criterion].total() < majority:
             continue
-        status, _ = _modal(statuses[criterion])
-        multiplicity, _ = _modal(multiplicities[criterion])
+        status, _ = core.modal(statuses[criterion])
+        multiplicity, _ = core.modal(multiplicities[criterion])
         ledger.extend([{"criterion": criterion, "status": status}] * int(multiplicity))
     return ledger, {
         criterion: {
@@ -391,32 +323,33 @@ def combine(samples: list[dict]) -> dict:
     still a `pass`, and the counts are the only place that shows.
     """
     repetitions = len(samples)
-    majority = repetitions // 2 + 1
-    skill_votes = Counter(item["target_skill"] or NO_ANSWER for item in samples)
-    state_votes = Counter(item["terminal_state"] or NO_ANSWER for item in samples)
-    action_votes = Counter(action for item in samples for action in item["actions"])
-    telemetry_votes = Counter(
+    majority = core.majority_of(repetitions)
+    winning_skill, _, skill_votes = core.vote_single(
+        item["target_skill"] for item in samples
+    )
+    winning_state, agreement, state_votes = core.vote_single(
+        item["terminal_state"] for item in samples
+    )
+    actions, action_votes = core.vote_set(
+        (item["actions"] for item in samples), majority
+    )
+    winning_telemetry, _, telemetry_votes = core.vote_single(
         json.dumps(item["shape_telemetry"], sort_keys=True)
         if item["shape_telemetry"] is not None
-        else NO_ANSWER
+        else None
         for item in samples
     )
-    winning_skill, _ = _modal(skill_votes)
-    winning_state, agreement = _modal(state_votes)
-    winning_telemetry, _ = _modal(telemetry_votes)
     ledger, ledger_votes = _combine_ledger(samples, majority)
     return {
-        "target_skill": None if winning_skill == NO_ANSWER else winning_skill,
-        "terminal_state": None if winning_state == NO_ANSWER else winning_state,
-        "actions": sorted(
-            action for action, count in action_votes.items() if count >= majority
-        ),
+        "target_skill": winning_skill,
+        "terminal_state": winning_state,
+        "actions": actions,
         "acceptance_ledger": ledger,
         "shape_telemetry": (
-            None if winning_telemetry == NO_ANSWER else json.loads(winning_telemetry)
+            None if winning_telemetry is None else json.loads(winning_telemetry)
         ),
         "repetitions": repetitions,
-        "agreement": agreement / repetitions,
+        "agreement": agreement,
         "votes": {
             "target_skill": dict(skill_votes),
             "terminal_state": dict(state_votes),
@@ -444,60 +377,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def draw(prompt: str, claude_bin: str, model: str) -> dict | None:
-    """One sample, or `None` when this draw could not be taken at all.
-
-    A sample the runtime refused — a non-zero `claude` exit, or three malformed
-    responses in a row — is a missing sample, not an answer. Letting it end the
-    process would sink every case already sampled in this run and leave the
-    recorder to file the whole stage as `attempted`, the status reserved for an
-    environment without model access. `combine` votes over what was actually
-    drawn, and `failed_samples` reports what was not.
-    """
-    try:
-        return run_claude(prompt, claude_bin, model)
-    except RuntimeError:
-        return None
-
-
-def draw_batch(prompt: str, claude_bin: str, model: str, repetitions: int) -> list:
-    """One round of independent samples, minus the ones the runtime refused.
-
-    The samples are independent by construction, so they are drawn
-    concurrently: this corpus is four times the size of its sibling's, and
-    drawing five sequential samples for each case would put a recorded stage
-    into the hours. Every round goes through here, so the redraw below is as
-    concurrent as the first round and is counted the same way.
-    """
-    with ThreadPoolExecutor(max_workers=repetitions) as pool:
-        observed = pool.map(
-            lambda _: draw(prompt, claude_bin, model), range(repetitions)
-        )
-    return [item for item in observed if item is not None]
-
-
 def main() -> int:
     args = parse_args()
     if args.repetitions < 1:
         raise SystemExit("--repetitions must be at least 1")
     payload = json.load(sys.stdin)
     prompt = build_prompt(payload)
-    drawn = draw_batch(prompt, args.claude_bin, args.model, args.repetitions)
-    failed = args.repetitions - len(drawn)
-    if not drawn:
-        # Every concurrent sample failing at once reads as a burst — throttling,
-        # an overloaded backend — rather than as an unusable environment, and
-        # this scenario is one of sixty in a run that has already spent half an
-        # hour. Stand down briefly and redraw once; a second empty draw is the
-        # environment, and the recorder files the whole stage as `attempted`.
-        time.sleep(SCENARIO_RETRY_PAUSE_SECONDS)
-        drawn = draw_batch(prompt, args.claude_bin, args.model, args.repetitions)
-        failed += args.repetitions - len(drawn)
-    if not drawn:
-        raise RuntimeError(
-            f"every one of the {args.repetitions} samples failed for this "
-            f"scenario, twice, {SCENARIO_RETRY_PAUSE_SECONDS}s apart"
-        )
+    drawn, failed = core.draw_with_tolerance(
+        lambda: run_claude(prompt, args.claude_bin, args.model), args.repetitions
+    )
     result = combine([normalize(item) for item in drawn])
     result["failed_samples"] = failed
     json.dump(result, sys.stdout, sort_keys=True)
