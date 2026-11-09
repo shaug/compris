@@ -3,6 +3,9 @@
     "branch": "scott/ticket-234-09af55",
     "sha": "ad650b2fac1813c387062dc720499dc5697dec49",
     "tree": "81f0022ec99c67785e915d32cbc3abb78a9584f8",
+    "trees": {
+      "skills/implement-ticket": "6aa5decb2de01b2a96220a5b1dfbf42bce4b3ce7"
+    },
     "worktree_clean": true
   },
   "case_evidence": {
