@@ -4,9 +4,12 @@ summary: Chronological history of repository and skill changes.
 
 # Changelog
 
-## 2026-11-09 — Identified the doctrine sync block in failures
+## 2026-11-09 — Restored eval citations and clarified drift failures
 
 - test: name the shaping doctrine sync block in drift failures
+
+- fix: derive historical eval subtrees from recorded equivalents
+  (ebe3028bbe5a334b929be4793885838663529bfb)
 
 ## 2026-10-02 — Bound stack evidence and preserved raw reconstruction
 
