@@ -227,7 +227,11 @@ class CognitiveShapingDoctrineTests(unittest.TestCase):
         this doctrine and states why equality rather than membership is what
         makes the check real.
         """
-        self.assertEqual(sync_block_skills(f"docs/{BUNDLED_NAME}"), BUNDLING_SKILLS)
+        self.assertEqual(
+            sync_block_skills(f"docs/{BUNDLED_NAME}"),
+            BUNDLING_SKILLS,
+            msg=f"sync block copying docs/{BUNDLED_NAME} must name exactly BUNDLING_SKILLS",
+        )
 
     def test_the_packaging_check_requires_the_same_bundle_set(self):
         """The third statement of this list is `validate_plugins.py`'s own, and
