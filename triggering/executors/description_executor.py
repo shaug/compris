@@ -22,13 +22,26 @@ writes one JSON object on stdout.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
-import subprocess
 import sys
-from collections import Counter
+from pathlib import Path
 
-NONE_ANSWER = "none"
+
+def _load_core():
+    """Load the sampling policy from this executor's own location."""
+    core_path = Path(__file__).resolve().parents[2] / "sampling" / "core.py"
+    spec = importlib.util.spec_from_file_location("sampling_core", core_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+core = _load_core()
+
+NONE_ANSWER = core.NO_ANSWER
 
 
 def build_prompt(payload: dict) -> str:
@@ -58,21 +71,7 @@ def build_prompt(payload: dict) -> str:
 
 
 def run_claude(prompt: str, claude_bin: str, model: str | None) -> str:
-    command = [claude_bin, "-p", "--output-format", "json"]
-    if model:
-        command.extend(["--model", model])
-    completed = subprocess.run(
-        command, input=prompt, text=True, capture_output=True, check=False
-    )
-    if completed.returncode:
-        raise RuntimeError(
-            f"claude exited {completed.returncode}: {completed.stderr.strip()}"
-        )
-    envelope = json.loads(completed.stdout)
-    result = envelope.get("result")
-    if not isinstance(result, str):
-        raise RuntimeError("claude --output-format json returned no result text")
-    return result
+    return core.result_text(core.run_claude_envelope(prompt, claude_bin, model))
 
 
 def parse_answer(text: str, known: set[str]) -> str | None:
@@ -99,24 +98,24 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.repetitions < 1:
+        raise SystemExit("--repetitions must be at least 1")
     payload = json.load(sys.stdin)
     known = {entry["skill"] for entry in payload["catalog"]}
     prompt = build_prompt(payload)
 
-    answers: list[str | None] = []
-    for _ in range(args.repetitions):
-        answers.append(
-            parse_answer(run_claude(prompt, args.claude_bin, args.model), known)
-        )
-
-    votes = Counter(answer or NONE_ANSWER for answer in answers)
-    winner, count = votes.most_common(1)[0]
+    answers, failed = core.draw_with_tolerance(
+        lambda: parse_answer(run_claude(prompt, args.claude_bin, args.model), known),
+        args.repetitions,
+    )
+    winner, agreement, votes = core.vote_single(answers)
     json.dump(
         {
-            "selected_skill": None if winner == NONE_ANSWER else winner,
+            "selected_skill": winner,
             "tier": "description",
-            "repetitions": args.repetitions,
-            "agreement": count / args.repetitions,
+            "repetitions": len(answers),
+            "failed_samples": failed,
+            "agreement": agreement,
             "votes": dict(votes),
         },
         sys.stdout,

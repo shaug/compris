@@ -1175,9 +1175,14 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         with mock.patch.object(
             CLAUDE_EXECUTOR,
             "run_claude",
-            side_effect=RuntimeError("claude exited 1: boom"),
+            side_effect=CLAUDE_EXECUTOR.core.SampleUnavailable("claude exited 1: boom"),
         ):
-            self.assertIsNone(CLAUDE_EXECUTOR.draw("prompt", "claude", None))
+            self.assertEqual(
+                CLAUDE_EXECUTOR.core.draw_batch(
+                    lambda: CLAUDE_EXECUTOR.run_claude("prompt", "claude", None), 1
+                ),
+                [],
+            )
 
     def test_a_scenario_whose_samples_all_failed_redraws_once(self):
         """A burst that takes every concurrent sample must not end the run.
@@ -1199,13 +1204,15 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         def flaky(prompt, claude_bin, model):
             attempts.append(1)
             if len(attempts) <= 5:
-                raise RuntimeError("claude exited 1: overloaded")
+                raise CLAUDE_EXECUTOR.core.SampleUnavailable(
+                    "claude exited 1: overloaded"
+                )
             return valid
 
         argv = ["claude_executor.py", "--repetitions", "5"]
         with (
             mock.patch.object(CLAUDE_EXECUTOR, "run_claude", side_effect=flaky),
-            mock.patch.object(CLAUDE_EXECUTOR.time, "sleep") as slept,
+            mock.patch.object(CLAUDE_EXECUTOR.core.time, "sleep") as slept,
             mock.patch.object(CLAUDE_EXECUTOR.sys, "argv", argv),
             mock.patch.object(
                 CLAUDE_EXECUTOR.json, "load", return_value={"target_skill": "x"}
@@ -1228,9 +1235,11 @@ class ClaudeExecutorRepetitionTests(unittest.TestCase):
         argv = ["claude_executor.py", "--repetitions", "3"]
         with (
             mock.patch.object(
-                CLAUDE_EXECUTOR, "run_claude", side_effect=RuntimeError("exited 1")
+                CLAUDE_EXECUTOR,
+                "run_claude",
+                side_effect=CLAUDE_EXECUTOR.core.SampleUnavailable("exited 1"),
             ),
-            mock.patch.object(CLAUDE_EXECUTOR.time, "sleep"),
+            mock.patch.object(CLAUDE_EXECUTOR.core.time, "sleep"),
             mock.patch.object(CLAUDE_EXECUTOR.sys, "argv", argv),
             mock.patch.object(
                 CLAUDE_EXECUTOR.json, "load", return_value={"target_skill": "x"}
@@ -1274,7 +1283,7 @@ class ClaudeExecutorRetryTests(unittest.TestCase):
         malformed = '{"note": "quotes the "term" unescaped"}'
         valid = '{"target_skill": "implement-ticket", "terminal_state": "blocked", "actions": [], "acceptance_ledger": []}'
         with mock.patch.object(
-            CLAUDE_EXECUTOR.subprocess,
+            CLAUDE_EXECUTOR.core.subprocess,
             "run",
             side_effect=[self._completed(malformed), self._completed(valid)],
         ) as run_mock:
@@ -1285,7 +1294,7 @@ class ClaudeExecutorRetryTests(unittest.TestCase):
     def test_raises_after_exhausting_all_attempts(self):
         malformed = '{"note": "quotes the "term" unescaped"}'
         with mock.patch.object(
-            CLAUDE_EXECUTOR.subprocess,
+            CLAUDE_EXECUTOR.core.subprocess,
             "run",
             side_effect=[self._completed(malformed)] * CLAUDE_EXECUTOR.RESULT_ATTEMPTS,
         ) as run_mock:
@@ -1298,7 +1307,7 @@ class ClaudeExecutorRetryTests(unittest.TestCase):
             args=["claude"], returncode=1, stdout="", stderr="boom"
         )
         with mock.patch.object(
-            CLAUDE_EXECUTOR.subprocess, "run", side_effect=[failed]
+            CLAUDE_EXECUTOR.core.subprocess, "run", side_effect=[failed]
         ) as run_mock:
             with self.assertRaises(RuntimeError):
                 CLAUDE_EXECUTOR.run_claude("prompt", "claude", None)

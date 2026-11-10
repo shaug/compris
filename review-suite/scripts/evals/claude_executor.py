@@ -16,9 +16,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
-import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,6 +27,21 @@ if __package__ in (None, ""):
     from evals import protocol
 else:
     from . import protocol
+
+
+def _load_core():
+    """Load the sampling policy from this executor's own location."""
+    core_path = Path(__file__).resolve().parents[3] / "sampling" / "core.py"
+    spec = importlib.util.spec_from_file_location("sampling_core", core_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+core = _load_core()
+
+extract_json_object = core.extract_json_object
 
 EXECUTOR_NAME = "review-suite-claude-executor"
 EXECUTOR_VERSION = "1.0"
@@ -66,42 +80,12 @@ def build_prompt(request: dict[str, Any]) -> str:
     )
 
 
-def extract_json_object(text: str) -> dict[str, Any]:
-    text = text.strip()
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-    candidate = fenced.group(1) if fenced else text
-    start = candidate.find("{")
-    end = candidate.rfind("}")
-    if start < 0 or end <= start:
-        raise ValueError("the runtime returned no JSON object")
-    value = json.loads(candidate[start : end + 1])
-    if not isinstance(value, dict):
-        raise ValueError("the runtime returned a non-object JSON value")
-    return value
-
-
 def run_claude(
     prompt: str, *, claude_bin: str, model: str | None
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Run one fresh headless process and return (review result, envelope)."""
-    command = [claude_bin, "-p", "--output-format", "json"]
-    if model:
-        command.extend(["--model", model])
-    completed = subprocess.run(
-        command, input=prompt, capture_output=True, text=True, check=False
-    )
-    if completed.returncode:
-        raise RuntimeError(
-            f"{claude_bin} exited {completed.returncode}: "
-            f"{completed.stderr.strip()[-500:]}"
-        )
-    envelope = json.loads(completed.stdout)
-    if not isinstance(envelope, dict):
-        raise RuntimeError("headless output was not one JSON object")
-    result_text = envelope.get("result")
-    if not isinstance(result_text, str):
-        raise RuntimeError("headless output carried no result text")
-    return extract_json_object(result_text), envelope
+    envelope = core.run_claude_envelope(prompt, claude_bin, model)
+    return extract_json_object(core.result_text(envelope)), envelope
 
 
 #: Every input-side token field the runtime reports. Under prompt caching the

@@ -1,0 +1,12 @@
+{
+  "contract_documents": {},
+  "instructions": "Read only.",
+  "packet": {},
+  "protocol_version": "1.0",
+  "run": {
+    "candidate": {
+      "head_sha": "abc"
+    }
+  },
+  "skill_prompt": "Review the candidate."
+}

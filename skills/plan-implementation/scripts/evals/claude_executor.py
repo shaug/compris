@@ -26,14 +26,27 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
-import re
-import subprocess
 import sys
-from collections import Counter
+from pathlib import Path
 
-# How a sample with no usable terminal state votes. Never a real answer.
-NO_TERMINAL_STATE = "none"
+
+def _load_core():
+    """Load the sampling policy from this executor's own location."""
+    core_path = Path(__file__).resolve().parent / "sampling_core.py"
+    spec = importlib.util.spec_from_file_location("sampling_core", core_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+core = _load_core()
+
+RESULT_ATTEMPTS = core.RESULT_ATTEMPTS
+run_claude = core.draw_json
+extract_json_object = core.extract_json_object
 
 TERMINAL_STATES = (
     "ticket_ready",
@@ -139,59 +152,6 @@ def build_prompt(payload: dict) -> str:
     )
 
 
-def extract_json_object(text: str) -> dict:
-    text = text.strip()
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-    candidate = fenced.group(1) if fenced else text
-    start = candidate.find("{")
-    end = candidate.rfind("}")
-    if start < 0 or end <= start:
-        raise ValueError("executor model returned no JSON object")
-    return json.loads(candidate[start : end + 1])
-
-
-RESULT_ATTEMPTS = 3
-
-
-def run_claude(
-    prompt: str, claude_bin: str, model: str | None, attempts: int = RESULT_ATTEMPTS
-) -> dict:
-    command = [claude_bin, "-p", "--output-format", "json"]
-    if model:
-        command.extend(["--model", model])
-
-    # The model occasionally ends its turn with the JSON object incomplete --
-    # a missing closing brace, or an unescaped quote inside a string value.
-    # That is a malformed *response*, not a boundary-detection bug in
-    # extract_json_object, and a fresh independent sample clears it almost
-    # every time. Without this loop one flaky sample sinks a whole recorded
-    # run, which is now `--repetitions` times as many samples as it was.
-    last_error: ValueError | None = None
-    for _ in range(attempts):
-        completed = subprocess.run(
-            command,
-            input=prompt,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode:
-            raise RuntimeError(
-                f"claude exited {completed.returncode}: {completed.stderr.strip()}"
-            )
-        envelope = json.loads(completed.stdout)
-        result_text = envelope.get("result")
-        if not isinstance(result_text, str):
-            raise RuntimeError("claude --output-format json returned no result text")
-        try:
-            return extract_json_object(result_text)
-        except ValueError as error:
-            last_error = error
-    raise RuntimeError(
-        f"executor model returned malformed JSON after {attempts} attempts: {last_error}"
-    )
-
-
 def sample(observed: dict) -> tuple[str | None, frozenset[str]]:
     """One sample reduced to the two things the grader is defined on."""
     actions = observed.get("actions")
@@ -199,7 +159,7 @@ def sample(observed: dict) -> tuple[str | None, frozenset[str]]:
         actions = []
     state = observed.get("terminal_state")
     return (
-        str(state) if isinstance(state, str) else None,
+        core.claimed(state),
         frozenset(
             str(action) for action in actions if str(action) in ACTION_VOCABULARY
         ),
@@ -216,30 +176,21 @@ def combine(samples: list[tuple[str | None, frozenset[str]]]) -> dict:
     decided. `votes` keeps every count so the variance stays legible after
     the majority has collapsed it.
 
-    A sample carrying no usable terminal state votes under `NO_TERMINAL_STATE`
-    rather than under `None`, exactly as
-    `triggering/executors/description_executor.py` already votes an absent
-    answer. The counts become dict keys, and `json.dump(..., sort_keys=True)`
-    cannot order `None` against a string: keying it raw turns one unusable
-    sample into a crash that ends the whole corpus run, where the graded
-    `terminal_state` below still reports `None` and grades as the single-case
-    mismatch it is. No real terminal state spells `none`, so the sentinel is
-    unambiguous.
+    A missing terminal-state answer votes under the canonical sentinel and
+    returns as None, keeping its counts serializable without inventing a claim.
     """
     repetitions = len(samples)
-    state_votes = Counter(state or NO_TERMINAL_STATE for state, _ in samples)
-    winning_state, agreement = state_votes.most_common(1)[0]
-    action_votes = Counter(action for _, actions in samples for action in actions)
-    majority = repetitions // 2 + 1
+    winning_state, agreement, state_votes = core.vote_single(
+        state for state, _ in samples
+    )
+    actions, action_votes = core.vote_set(
+        (actions for _, actions in samples), core.majority_of(repetitions)
+    )
     return {
-        "terminal_state": (
-            None if winning_state == NO_TERMINAL_STATE else winning_state
-        ),
-        "actions": sorted(
-            action for action, count in action_votes.items() if count >= majority
-        ),
+        "terminal_state": winning_state,
+        "actions": actions,
         "repetitions": repetitions,
-        "agreement": agreement / repetitions,
+        "agreement": agreement,
         "votes": {
             "terminal_state": dict(state_votes),
             "actions": dict(action_votes),
@@ -270,11 +221,12 @@ def main() -> int:
         raise SystemExit("--repetitions must be at least 1")
     payload = json.load(sys.stdin)
     prompt = build_prompt(payload)
-    samples = [
-        sample(run_claude(prompt, args.claude_bin, args.model))
-        for _ in range(args.repetitions)
-    ]
-    json.dump(combine(samples), sys.stdout, sort_keys=True)
+    drawn, failed = core.draw_with_tolerance(
+        lambda: run_claude(prompt, args.claude_bin, args.model), args.repetitions
+    )
+    result = combine([sample(observed) for observed in drawn])
+    result["failed_samples"] = failed
+    json.dump(result, sys.stdout, sort_keys=True)
     sys.stdout.write("\n")
     return 0
 

@@ -442,7 +442,7 @@ class RepetitionTests(unittest.TestCase):
         valid = '{"terminal_state": "ticket_ready", "actions": []}'
 
         with mock.patch.object(
-            claude_executor.subprocess,
+            claude_executor.core.subprocess,
             "run",
             side_effect=[self.completed(malformed), self.completed(valid)],
         ) as run_mock:
@@ -456,7 +456,7 @@ class RepetitionTests(unittest.TestCase):
         attempts = claude_executor.RESULT_ATTEMPTS
 
         with mock.patch.object(
-            claude_executor.subprocess,
+            claude_executor.core.subprocess,
             "run",
             side_effect=[self.completed(malformed)] * attempts,
         ) as run_mock:
